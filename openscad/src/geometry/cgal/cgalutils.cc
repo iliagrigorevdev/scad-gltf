@@ -408,9 +408,15 @@ std::unique_ptr<PolySet> createPolySetFromNefPolyhedron3(const CGAL_Nef_polyhedr
 
   auto polyset = PolySet::createEmpty();
   polyset->colors.reserve(2);
+  polyset->roughnesses.reserve(2);
+  polyset->metalnesses.reserve(2);
   auto colorScheme = ColorMap::inst()->findColorScheme(RenderSettings::inst()->colorscheme);
   polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_FRONT_COLOR));
   polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_BACK_COLOR));
+  polyset->roughnesses.push_back(0.5f);
+  polyset->roughnesses.push_back(0.5f);
+  polyset->metalnesses.push_back(0.0f);
+  polyset->metalnesses.push_back(0.0f);
 
   polyset->vertices.reserve(verts.size());
   for (const auto& v : verts) {

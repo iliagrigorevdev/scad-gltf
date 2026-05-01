@@ -45,10 +45,14 @@ ManifoldGeometry::ManifoldGeometry() : manifold_(manifold::Manifold())
 
 ManifoldGeometry::ManifoldGeometry(manifold::Manifold mani, const std::set<uint32_t>& originalIDs,
                                    const std::map<uint32_t, Color4f>& originalIDToColor,
+                                   const std::map<uint32_t, float>& originalIDToRoughness,
+                                   const std::map<uint32_t, float>& originalIDToMetalness,
                                    const std::set<uint32_t>& subtractedIDs)
   : manifold_(std::move(mani)),
     originalIDs_(originalIDs),
     originalIDToColor_(originalIDToColor),
+    originalIDToRoughness_(originalIDToRoughness),
+    originalIDToMetalness_(originalIDToMetalness),
     subtractedIDs_(subtractedIDs)
 {
 }
@@ -148,13 +152,28 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
   int32_t faceFrontColorIndex = -1;
   int32_t faceBackColorIndex = -1;
 
-  std::map<Color4f, int32_t> colorToIndex;
+  struct MaterialState {
+    Color4f color;
+    float roughness;
+    float metalness;
+    bool operator<(const MaterialState& other) const {
+      if (color.r() != other.color.r()) return color.r() < other.color.r();
+      if (color.g() != other.color.g()) return color.g() < other.color.g();
+      if (color.b() != other.color.b()) return color.b() < other.color.b();
+      if (color.a() != other.color.a()) return color.a() < other.color.a();
+      if (roughness != other.roughness) return roughness < other.roughness;
+      return metalness < other.metalness;
+    }
+  };
+  std::map<MaterialState, int32_t> materialToIndex;
   std::map<uint32_t, int32_t> originalIDToColorIndex;
 
   auto getFaceFrontColorIndex = [&]() -> int {
     if (faceFrontColorIndex < 0) {
       faceFrontColorIndex = ps->colors.size();
       ps->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_FRONT_COLOR));
+      ps->roughnesses.push_back(0.5f);
+      ps->metalnesses.push_back(0.0f);
     }
     return faceFrontColorIndex;
   };
@@ -162,6 +181,8 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
     if (faceBackColorIndex < 0) {
       faceBackColorIndex = ps->colors.size();
       ps->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_BACK_COLOR));
+      ps->roughnesses.push_back(0.5f);
+      ps->metalnesses.push_back(0.0f);
     }
     return faceBackColorIndex;
   };
@@ -179,14 +200,35 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       return getFaceFrontColorIndex();
     }
     const auto& color = colorIt->second;
+    float roughness = 0.5f;
+    auto roughIt = originalIDToRoughness_.find(originalID);
+    if (roughIt != originalIDToRoughness_.end()) roughness = roughIt->second;
 
-    auto pair = colorToIndex.insert({color, ps->colors.size()});
-    if (pair.second) {
-      ps->colors.push_back(color);
+    float metalness = 0.0f;
+    auto metalIt = originalIDToMetalness_.find(originalID);
+    if (metalIt != originalIDToMetalness_.end()) metalness = metalIt->second;
+
+    auto matIt = materialToIndex.lower_bound({color, roughness, metalness});
+    bool match = false;
+    if (matIt != materialToIndex.end()) {
+      const auto& c1 = matIt->first.color;
+      const auto& c2 = color;
+      match = (c1.r() == c2.r() && c1.g() == c2.g() && c1.b() == c2.b() && c1.a() == c2.a() &&
+               matIt->first.roughness == roughness && matIt->first.metalness == metalness);
     }
-    int32_t color_index = pair.first->second;
-    originalIDToColorIndex[originalID] = color_index;
-    return color_index;
+
+    if (match) {
+      originalIDToColorIndex[originalID] = matIt->second;
+      return matIt->second;
+    } else {
+      int32_t color_index = ps->colors.size();
+      ps->colors.push_back(color);
+      ps->roughnesses.push_back(roughness);
+      ps->metalnesses.push_back(metalness);
+      materialToIndex.insert(matIt, {{color, roughness, metalness}, color_index});
+      originalIDToColorIndex[originalID] = color_index;
+      return color_index;
+    }
   };
 
   auto start = mesh.runIndex[0];
@@ -265,6 +307,8 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
 {
   auto mani = lhs.manifold_.Boolean(rhs.manifold_, opType);
   auto originalIDToColor = lhs.originalIDToColor_;
+  auto originalIDToRoughness = lhs.originalIDToRoughness_;
+  auto originalIDToMetalness = lhs.originalIDToMetalness_;
   auto subtractedIDs = lhs.subtractedIDs_;
 
   auto originalIDs = lhs.originalIDs_;
@@ -276,6 +320,10 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
       auto it = rhs.originalIDToColor_.find(id);
       if (it != rhs.originalIDToColor_.end()) {
         originalIDToColor[id] = it->second;
+        auto rit = rhs.originalIDToRoughness_.find(id);
+        originalIDToRoughness[id] = rit != rhs.originalIDToRoughness_.end() ? rit->second : 0.5f;
+        auto mit = rhs.originalIDToMetalness_.find(id);
+        originalIDToMetalness[id] = mit != rhs.originalIDToMetalness_.end() ? mit->second : 0.0f;
       } else {
         subtractedIDs.insert(id);
       }
@@ -283,9 +331,11 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
   } else {
     // Add the id -> color mapping from the rhs.
     originalIDToColor.insert(rhs.originalIDToColor_.begin(), rhs.originalIDToColor_.end());
+    originalIDToRoughness.insert(rhs.originalIDToRoughness_.begin(), rhs.originalIDToRoughness_.end());
+    originalIDToMetalness.insert(rhs.originalIDToMetalness_.begin(), rhs.originalIDToMetalness_.end());
     subtractedIDs.insert(rhs.subtractedIDs_.begin(), rhs.subtractedIDs_.end());
   }
-  return {mani, originalIDs, originalIDToColor, subtractedIDs};
+  return {mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, subtractedIDs};
 }
 
 std::shared_ptr<ManifoldGeometry> minkowskiOp(const ManifoldGeometry& lhs, const ManifoldGeometry& rhs)
@@ -368,7 +418,7 @@ void ManifoldGeometry::transform(const Transform3d& mat)
   manifold_ = getManifold().Transform(glMat);
 }
 
-void ManifoldGeometry::setColor(const Color4f& c)
+void ManifoldGeometry::setColor(const Color4f& c, float roughness, float metalness)
 {
   if (manifold_.OriginalID() == -1) {
     manifold_ = manifold_.AsOriginal();
@@ -377,6 +427,10 @@ void ManifoldGeometry::setColor(const Color4f& c)
   originalIDs_.insert(manifold_.OriginalID());
   originalIDToColor_.clear();
   originalIDToColor_[manifold_.OriginalID()] = c;
+  originalIDToRoughness_.clear();
+  originalIDToRoughness_[manifold_.OriginalID()] = roughness;
+  originalIDToMetalness_.clear();
+  originalIDToMetalness_[manifold_.OriginalID()] = metalness;
   subtractedIDs_.clear();
 }
 
@@ -388,6 +442,8 @@ void ManifoldGeometry::toOriginal()
   originalIDs_.clear();
   originalIDs_.insert(manifold_.OriginalID());
   originalIDToColor_.clear();
+  originalIDToRoughness_.clear();
+  originalIDToMetalness_.clear();
   subtractedIDs_.clear();
 }
 

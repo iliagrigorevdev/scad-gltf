@@ -111,9 +111,11 @@ void PolySet::transform(const Transform3d& mat)
   bbox_.setNull();
 }
 
-void PolySet::setColor(const Color4f& c)
+void PolySet::setColor(const Color4f& c, float roughness, float metalness)
 {
   colors = {c};
+  roughnesses = {roughness};
+  metalnesses = {metalness};
   color_indices.assign(indices.size(), 0);
 }
 

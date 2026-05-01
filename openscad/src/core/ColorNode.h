@@ -16,4 +16,6 @@ public:
   std::string name() const override;
 
   Color4f color;
+  float roughness = 0.5f;
+  float metalness = 0.0f;
 };
