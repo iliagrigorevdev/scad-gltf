@@ -41,7 +41,7 @@ public:
   size_t numFacets() const override { return indices.size(); }
   void transform(const Transform3d& mat) override;
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
-  void setColor(const Color4f& c, float roughness = 0.5f, float metalness = 0.0f) override;
+  void setColor(const Color4f& c, float roughness = 0.0f, float metalness = 0.0f) override;
 
   bool isConvex() const;
   boost::tribool convexValue() const { return convex_; }

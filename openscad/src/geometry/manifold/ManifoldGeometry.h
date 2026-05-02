@@ -65,7 +65,7 @@ public:
   Polygon2d project() const;
 
   void transform(const Transform3d& mat) override;
-  void setColor(const Color4f& c, float roughness = 0.5f, float metalness = 0.0f) override;
+  void setColor(const Color4f& c, float roughness = 0.0f, float metalness = 0.0f) override;
   void toOriginal();
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
 

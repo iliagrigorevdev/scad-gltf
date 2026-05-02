@@ -77,7 +77,7 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
   for (size_t i = 0, n = ps.indices.size(); i < n; i++) {
     auto color_index = i < ps.color_indices.size() ? ps.color_indices[i] : -1;
     std::optional<Color4f> color;
-    float roughness = 0.5f;
+    float roughness = 0.0f;
     float metalness = 0.0f;
     if (color_index >= 0) {
       if (color_index < ps.colors.size()) color = ps.colors[color_index];

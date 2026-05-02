@@ -109,9 +109,9 @@ void register_builtin_color()
 {
   Builtins::init("color", new BuiltinModule(builtin_color),
                  {
-                   "color(c = [r, g, b, a], roughness = 0.5, metalness = 0.0)",
-                   "color(c = [r, g, b], alpha = 1.0, roughness = 0.5, metalness = 0.0)",
-                   "color(\"#hexvalue\", roughness = 0.5, metalness = 0.0)",
-                   "color(\"colorname\", 1.0, roughness = 0.5, metalness = 0.0)",
+                   "color(c = [r, g, b, a], roughness = 0.0, metalness = 0.0)",
+                   "color(c = [r, g, b], alpha = 1.0, roughness = 0.0, metalness = 0.0)",
+                   "color(\"#hexvalue\", roughness = 0.0, metalness = 0.0)",
+                   "color(\"colorname\", 1.0, roughness = 0.0, metalness = 0.0)",
                  });
 }

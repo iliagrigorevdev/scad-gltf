@@ -205,7 +205,7 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
     std::vector<uint32_t> color_map(nColors);
     for (size_t i = 0; i < nColors; i++) {
       const auto& color = ps.colors[i];
-      float roughness = ps.roughnesses.empty() ? 0.5f : ps.roughnesses[i];
+      float roughness = ps.roughnesses.empty() ? 0.0f : ps.roughnesses[i];
       float metalness = ps.metalnesses.empty() ? 0.0f : ps.metalnesses[i];
       // Find index of material in material vectors, or add it if it doesn't exist
       int match_idx = -1;
