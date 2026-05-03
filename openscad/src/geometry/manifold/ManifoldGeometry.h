@@ -35,6 +35,8 @@ public:
                    const std::map<uint32_t, float>& originalIDToSheen = {},
                    const std::map<uint32_t, Color4f>& originalIDToSheenColor = {},
                    const std::map<uint32_t, float>& originalIDToSheenRoughness = {},
+                   const std::map<uint32_t, float>& originalIDToTransmission = {},
+                   const std::map<uint32_t, float>& originalIDToThickness = {},
                    const std::set<uint32_t>& subtractedIDs = {});
   ManifoldGeometry(const ManifoldGeometry& other) = default;
 
@@ -70,7 +72,7 @@ public:
   Polygon2d project() const;
 
   void transform(const Transform3d& mat) override;
-  void setColor(const Color4f& c, float roughness = 0.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f) override;
+  void setColor(const Color4f& c, float roughness = 0.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f) override;
   void toOriginal();
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
 
@@ -93,5 +95,7 @@ private:
   std::map<uint32_t, float> originalIDToSheen_;
   std::map<uint32_t, Color4f> originalIDToSheenColor_;
   std::map<uint32_t, float> originalIDToSheenRoughness_;
+  std::map<uint32_t, float> originalIDToTransmission_;
+  std::map<uint32_t, float> originalIDToThickness_;
   std::set<uint32_t> subtractedIDs_;
 };

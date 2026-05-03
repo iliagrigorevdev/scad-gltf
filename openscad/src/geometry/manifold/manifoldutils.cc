@@ -58,6 +58,8 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
   std::map<uint32_t, float> originalIDToSheen;
   std::map<uint32_t, Color4f> originalIDToSheenColor;
   std::map<uint32_t, float> originalIDToSheenRoughness;
+  std::map<uint32_t, float> originalIDToTransmission;
+  std::map<uint32_t, float> originalIDToThickness;
 
   struct MaterialState {
     std::optional<Color4f> color;
@@ -68,6 +70,8 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     float sheen;
     Color4f sheenColor;
     float sheenRoughness;
+    float transmission;
+    float thickness;
     bool operator<(const MaterialState& other) const {
       if (color.has_value() != other.color.has_value()) return color.has_value() < other.color.has_value();
       if (color.has_value()) {
@@ -87,7 +91,9 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
       if (sheenColor.g() != other.sheenColor.g()) return sheenColor.g() < other.sheenColor.g();
       if (sheenColor.b() != other.sheenColor.b()) return sheenColor.b() < other.sheenColor.b();
       if (sheenColor.a() != other.sheenColor.a()) return sheenColor.a() < other.sheenColor.a();
-      return sheenRoughness < other.sheenRoughness;
+      if (sheenRoughness != other.sheenRoughness) return sheenRoughness < other.sheenRoughness;
+      if (transmission != other.transmission) return transmission < other.transmission;
+      return thickness < other.thickness;
     }
   };
 
@@ -104,6 +110,8 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     Vector4f defSheenColor; defSheenColor[0]=0; defSheenColor[1]=0; defSheenColor[2]=0; defSheenColor[3]=1;
     sheenColor = defSheenColor;
     float sheenRoughness = 0.0f;
+    float transmission = 0.0f;
+    float thickness = 0.0f;
     if (color_index >= 0) {
       if (color_index < ps.colors.size()) color = ps.colors[color_index];
       if (color_index < ps.roughnesses.size()) roughness = ps.roughnesses[color_index];
@@ -113,8 +121,10 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
       if (color_index < ps.sheens.size()) sheen = ps.sheens[color_index];
       if (color_index < ps.sheenColors.size()) sheenColor = ps.sheenColors[color_index];
       if (color_index < ps.sheenRoughnesses.size()) sheenRoughness = ps.sheenRoughnesses[color_index];
+      if (color_index < ps.transmissions.size()) transmission = ps.transmissions[color_index];
+      if (color_index < ps.thicknesses.size()) thickness = ps.thicknesses[color_index];
     }
-    colorToFaceIndices[{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness}].push_back(i);
+    colorToFaceIndices[{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness}].push_back(i);
   }
   auto next_id = manifold::Manifold::ReserveIDs(colorToFaceIndices.size());
   for (const auto& [mat, faceIndices] : colorToFaceIndices) {
@@ -128,6 +138,8 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
       originalIDToSheen[id] = mat.sheen;
       originalIDToSheenColor[id] = mat.sheenColor;
       originalIDToSheenRoughness[id] = mat.sheenRoughness;
+      originalIDToTransmission[id] = mat.transmission;
+      originalIDToThickness[id] = mat.thickness;
     }
 
     mesh.runIndex.push_back(mesh.triVerts.size());
@@ -161,7 +173,7 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     }
   }
 
-  return std::make_shared<ManifoldGeometry>(mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness);
+  return std::make_shared<ManifoldGeometry>(mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, originalIDToTransmission, originalIDToThickness);
 }
 
 }  // namespace

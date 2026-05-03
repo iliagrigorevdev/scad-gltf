@@ -23,4 +23,6 @@ public:
   float sheen = 0.0f;
   Color4f sheenColor;
   float sheenRoughness = 0.0f;
+  float transmission = 0.0f;
+  float thickness = 0.0f;
 };

@@ -124,6 +124,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
     bool use_clearcoat = false;
     bool use_sheen = false;
+    bool use_transmission = false;
+    bool use_thickness = false;
 
     for (size_t i = 0; i < primitives.size(); ++i) {
         auto& prim = primitives[i];
@@ -168,6 +170,22 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 use_sheen = true;
             }
 
+            float transmission = ps->transmissions.empty() ? 0.0f : ps->transmissions[prim.color_idx];
+            if (transmission > 0.0f) {
+                mat["extensions"]["KHR_materials_transmission"] = {
+                    {"transmissionFactor", transmission}
+                };
+                use_transmission = true;
+            }
+
+            float thickness = ps->thicknesses.empty() ? 0.0f : ps->thicknesses[prim.color_idx];
+            if (thickness > 0.0f) {
+                mat["extensions"]["KHR_materials_volume"] = {
+                    {"thicknessFactor", thickness}
+                };
+                use_thickness = true;
+            }
+
             if (a < 255) mat["alphaMode"] = "BLEND";
         } else {
             float r = exportInfo.defaultColor.r(); float g = exportInfo.defaultColor.g();
@@ -194,6 +212,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     std::vector<std::string> extensionsUsed;
     if (use_clearcoat) extensionsUsed.push_back("KHR_materials_clearcoat");
     if (use_sheen) extensionsUsed.push_back("KHR_materials_sheen");
+    if (use_transmission) extensionsUsed.push_back("KHR_materials_transmission");
+    if (use_thickness) extensionsUsed.push_back("KHR_materials_volume");
 
     if (!extensionsUsed.empty()) {
         j["extensionsUsed"] = extensionsUsed;

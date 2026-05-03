@@ -52,6 +52,8 @@ ManifoldGeometry::ManifoldGeometry(manifold::Manifold mani, const std::set<uint3
                                    const std::map<uint32_t, float>& originalIDToSheen,
                                    const std::map<uint32_t, Color4f>& originalIDToSheenColor,
                                    const std::map<uint32_t, float>& originalIDToSheenRoughness,
+                                   const std::map<uint32_t, float>& originalIDToTransmission,
+                                   const std::map<uint32_t, float>& originalIDToThickness,
                                    const std::set<uint32_t>& subtractedIDs)
   : manifold_(std::move(mani)),
     originalIDs_(originalIDs),
@@ -63,6 +65,8 @@ ManifoldGeometry::ManifoldGeometry(manifold::Manifold mani, const std::set<uint3
     originalIDToSheen_(originalIDToSheen),
     originalIDToSheenColor_(originalIDToSheenColor),
     originalIDToSheenRoughness_(originalIDToSheenRoughness),
+    originalIDToTransmission_(originalIDToTransmission),
+    originalIDToThickness_(originalIDToThickness),
     subtractedIDs_(subtractedIDs)
 {
 }
@@ -171,6 +175,8 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
     float sheen;
     Color4f sheenColor;
     float sheenRoughness;
+    float transmission;
+    float thickness;
     bool operator<(const MaterialState& other) const {
       if (color.r() != other.color.r()) return color.r() < other.color.r();
       if (color.g() != other.color.g()) return color.g() < other.color.g();
@@ -185,7 +191,9 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       if (sheenColor.g() != other.sheenColor.g()) return sheenColor.g() < other.sheenColor.g();
       if (sheenColor.b() != other.sheenColor.b()) return sheenColor.b() < other.sheenColor.b();
       if (sheenColor.a() != other.sheenColor.a()) return sheenColor.a() < other.sheenColor.a();
-      return sheenRoughness < other.sheenRoughness;
+      if (sheenRoughness != other.sheenRoughness) return sheenRoughness < other.sheenRoughness;
+      if (transmission != other.transmission) return transmission < other.transmission;
+      return thickness < other.thickness;
     }
   };
   std::map<MaterialState, int32_t> materialToIndex;
@@ -203,6 +211,8 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       Vector4f defaultSheen; defaultSheen[0]=0; defaultSheen[1]=0; defaultSheen[2]=0; defaultSheen[3]=1;
       ps->sheenColors.push_back(defaultSheen);
       ps->sheenRoughnesses.push_back(0.0f);
+      ps->transmissions.push_back(0.0f);
+      ps->thicknesses.push_back(0.0f);
     }
     return faceFrontColorIndex;
   };
@@ -218,6 +228,8 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       Vector4f defaultSheen; defaultSheen[0]=0; defaultSheen[1]=0; defaultSheen[2]=0; defaultSheen[3]=1;
       ps->sheenColors.push_back(defaultSheen);
       ps->sheenRoughnesses.push_back(0.0f);
+      ps->transmissions.push_back(0.0f);
+      ps->thicknesses.push_back(0.0f);
     }
     return faceBackColorIndex;
   };
@@ -265,7 +277,15 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
     auto sheenRoughIt = originalIDToSheenRoughness_.find(originalID);
     if (sheenRoughIt != originalIDToSheenRoughness_.end()) sheenRoughness = sheenRoughIt->second;
 
-    auto matIt = materialToIndex.lower_bound({color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness});
+    float transmission = 0.0f;
+    auto transIt = originalIDToTransmission_.find(originalID);
+    if (transIt != originalIDToTransmission_.end()) transmission = transIt->second;
+
+    float thickness = 0.0f;
+    auto thickIt = originalIDToThickness_.find(originalID);
+    if (thickIt != originalIDToThickness_.end()) thickness = thickIt->second;
+
+    auto matIt = materialToIndex.lower_bound({color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness});
     bool match = false;
     if (matIt != materialToIndex.end()) {
       const auto& c1 = matIt->first.color;
@@ -276,7 +296,8 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
                matIt->first.sheen == sheen &&
                matIt->first.sheenColor.r() == sheenColor.r() && matIt->first.sheenColor.g() == sheenColor.g() &&
                matIt->first.sheenColor.b() == sheenColor.b() && matIt->first.sheenColor.a() == sheenColor.a() &&
-               matIt->first.sheenRoughness == sheenRoughness);
+               matIt->first.sheenRoughness == sheenRoughness &&
+               matIt->first.transmission == transmission && matIt->first.thickness == thickness);
     }
 
     if (match) {
@@ -292,7 +313,9 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       ps->sheens.push_back(sheen);
       ps->sheenColors.push_back(sheenColor);
       ps->sheenRoughnesses.push_back(sheenRoughness);
-      materialToIndex.insert(matIt, {{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness}, color_index});
+      ps->transmissions.push_back(transmission);
+      ps->thicknesses.push_back(thickness);
+      materialToIndex.insert(matIt, {{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness}, color_index});
       originalIDToColorIndex[originalID] = color_index;
       return color_index;
     }
@@ -381,6 +404,8 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
   auto originalIDToSheen = lhs.originalIDToSheen_;
   auto originalIDToSheenColor = lhs.originalIDToSheenColor_;
   auto originalIDToSheenRoughness = lhs.originalIDToSheenRoughness_;
+  auto originalIDToTransmission = lhs.originalIDToTransmission_;
+  auto originalIDToThickness = lhs.originalIDToThickness_;
   auto subtractedIDs = lhs.subtractedIDs_;
 
   auto originalIDs = lhs.originalIDs_;
@@ -411,6 +436,10 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
         }
         auto srit = rhs.originalIDToSheenRoughness_.find(id);
         originalIDToSheenRoughness[id] = srit != rhs.originalIDToSheenRoughness_.end() ? srit->second : 0.0f;
+        auto transIt = rhs.originalIDToTransmission_.find(id);
+        originalIDToTransmission[id] = transIt != rhs.originalIDToTransmission_.end() ? transIt->second : 0.0f;
+        auto thickIt = rhs.originalIDToThickness_.find(id);
+        originalIDToThickness[id] = thickIt != rhs.originalIDToThickness_.end() ? thickIt->second : 0.0f;
       } else {
         subtractedIDs.insert(id);
       }
@@ -425,9 +454,11 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
     originalIDToSheen.insert(rhs.originalIDToSheen_.begin(), rhs.originalIDToSheen_.end());
     originalIDToSheenColor.insert(rhs.originalIDToSheenColor_.begin(), rhs.originalIDToSheenColor_.end());
     originalIDToSheenRoughness.insert(rhs.originalIDToSheenRoughness_.begin(), rhs.originalIDToSheenRoughness_.end());
+    originalIDToTransmission.insert(rhs.originalIDToTransmission_.begin(), rhs.originalIDToTransmission_.end());
+    originalIDToThickness.insert(rhs.originalIDToThickness_.begin(), rhs.originalIDToThickness_.end());
     subtractedIDs.insert(rhs.subtractedIDs_.begin(), rhs.subtractedIDs_.end());
   }
-  return {mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, subtractedIDs};
+  return {mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, originalIDToTransmission, originalIDToThickness, subtractedIDs};
 }
 
 std::shared_ptr<ManifoldGeometry> minkowskiOp(const ManifoldGeometry& lhs, const ManifoldGeometry& rhs)
@@ -510,7 +541,7 @@ void ManifoldGeometry::transform(const Transform3d& mat)
   manifold_ = getManifold().Transform(glMat);
 }
 
-void ManifoldGeometry::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness)
+void ManifoldGeometry::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness)
 {
   if (manifold_.OriginalID() == -1) {
     manifold_ = manifold_.AsOriginal();
@@ -533,6 +564,10 @@ void ManifoldGeometry::setColor(const Color4f& c, float roughness, float metalne
   originalIDToSheenColor_[manifold_.OriginalID()] = sheenColor;
   originalIDToSheenRoughness_.clear();
   originalIDToSheenRoughness_[manifold_.OriginalID()] = sheenRoughness;
+  originalIDToTransmission_.clear();
+  originalIDToTransmission_[manifold_.OriginalID()] = transmission;
+  originalIDToThickness_.clear();
+  originalIDToThickness_[manifold_.OriginalID()] = thickness;
   subtractedIDs_.clear();
 }
 
@@ -551,6 +586,8 @@ void ManifoldGeometry::toOriginal()
   originalIDToSheen_.clear();
   originalIDToSheenColor_.clear();
   originalIDToSheenRoughness_.clear();
+  originalIDToTransmission_.clear();
+  originalIDToThickness_.clear();
   subtractedIDs_.clear();
 }
 

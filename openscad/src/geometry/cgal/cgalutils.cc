@@ -415,6 +415,8 @@ std::unique_ptr<PolySet> createPolySetFromNefPolyhedron3(const CGAL_Nef_polyhedr
   polyset->sheens.reserve(2);
   polyset->sheenColors.reserve(2);
   polyset->sheenRoughnesses.reserve(2);
+  polyset->transmissions.reserve(2);
+  polyset->thicknesses.reserve(2);
   auto colorScheme = ColorMap::inst()->findColorScheme(RenderSettings::inst()->colorscheme);
   polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_FRONT_COLOR));
   polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_BACK_COLOR));
@@ -433,6 +435,10 @@ std::unique_ptr<PolySet> createPolySetFromNefPolyhedron3(const CGAL_Nef_polyhedr
   polyset->sheenColors.push_back(defaultSheen);
   polyset->sheenRoughnesses.push_back(0.0f);
   polyset->sheenRoughnesses.push_back(0.0f);
+  polyset->transmissions.push_back(0.0f);
+  polyset->transmissions.push_back(0.0f);
+  polyset->thicknesses.push_back(0.0f);
+  polyset->thicknesses.push_back(0.0f);
 
   polyset->vertices.reserve(verts.size());
   for (const auto& v : verts) {

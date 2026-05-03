@@ -58,7 +58,7 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   defaultSheenColor[3] = 1.0f;
   node->sheenColor = defaultSheenColor;
 
-  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness"});
+  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness"});
   if (parameters["c"].type() == Value::Type::VECTOR) {
     const auto& vec = parameters["c"].toVector();
     Vector4f color;
@@ -132,6 +132,12 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   if (parameters["sheenRoughness"].type() == Value::Type::NUMBER) {
     node->sheenRoughness = parameters["sheenRoughness"].toDouble();
   }
+  if (parameters["transmission"].type() == Value::Type::NUMBER) {
+    node->transmission = parameters["transmission"].toDouble();
+  }
+  if (parameters["thickness"].type() == Value::Type::NUMBER) {
+    node->thickness = parameters["thickness"].toDouble();
+  }
 
   return children.instantiate(node);
 }
@@ -140,7 +146,7 @@ std::string ColorNode::toString() const
 {
   return STR("color([", this->color.r(), ", ", this->color.g(), ", ", this->color.b(), ", ",
              this->color.a(), "], roughness=", this->roughness, ", metalness=", this->metalness, ", clearcoat=", this->clearcoat, ", clearcoatRoughness=", this->clearcoatRoughness,
-             ", sheen=", this->sheen, ", sheenColor=[", this->sheenColor.r(), ", ", this->sheenColor.g(), ", ", this->sheenColor.b(), "], sheenRoughness=", this->sheenRoughness, ")");
+             ", sheen=", this->sheen, ", sheenColor=[", this->sheenColor.r(), ", ", this->sheenColor.g(), ", ", this->sheenColor.b(), "], sheenRoughness=", this->sheenRoughness, ", transmission=", this->transmission, ", thickness=", this->thickness, ")");
 }
 
 std::string ColorNode::name() const
@@ -152,9 +158,9 @@ void register_builtin_color()
 {
   Builtins::init("color", new BuiltinModule(builtin_color),
                  {
-                   "color(c = [r, g, b, a], roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0)",
-                   "color(c = [r, g, b], alpha = 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0)",
-                   "color(\"#hexvalue\", roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0)",
-                   "color(\"colorname\", 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0)",
+                   "color(c = [r, g, b, a], roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0)",
+                   "color(c = [r, g, b], alpha = 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0)",
+                   "color(\"#hexvalue\", roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0)",
+                   "color(\"colorname\", 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0)",
                  });
 }
