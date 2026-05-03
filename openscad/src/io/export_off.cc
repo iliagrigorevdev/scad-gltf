@@ -61,24 +61,13 @@ void export_off(const std::shared_ptr<const Geometry>& geom, std::ostream& outpu
       auto color_index = ps->color_indices[i];
       if (color_index >= 0) {
         auto color = ps->colors[color_index];
-        float roughness = ps->roughnesses.empty() ? 0.0f : ps->roughnesses[color_index];
-        float metalness = ps->metalnesses.empty() ? 0.0f : ps->metalnesses[color_index];
-        float clearcoat = ps->clearcoats.empty() ? 0.0f : ps->clearcoats[color_index];
-        float clearcoatRoughness = ps->clearcoatRoughnesses.empty() ? 0.0f : ps->clearcoatRoughnesses[color_index];
-        float sheen = ps->sheens.empty() ? 0.0f : ps->sheens[color_index];
-        Color4f sheenColor;
-        if (ps->sheenColors.empty()) {
-          Vector4f v; v[0]=0; v[1]=0; v[2]=0; v[3]=1;
-          sheenColor = v;
-        } else {
-          sheenColor = ps->sheenColors[color_index];
-        }
-        float sheenRoughness = ps->sheenRoughnesses.empty() ? 0.0f : ps->sheenRoughnesses[color_index];
         int r, g, b, a;
         if (!color.getRgba(r, g, b, a)) {
           LOG(message_group::Warning, "Invalid color in OFF export");
         }
-        output << " " << r << " " << g << " " << b << " " << a << " " << roughness << " " << metalness << " " << clearcoat << " " << clearcoatRoughness << " " << sheen << " " << sheenColor.r() << " " << sheenColor.g() << " " << sheenColor.b() << " " << sheenRoughness;
+        output << " " << r << " " << g << " " << b;
+        // Alpha channel is read by apps like MeshLab.
+        if (a != 255) output << " " << a;
       }
     }
     output << "\n";
