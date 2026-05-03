@@ -18,4 +18,6 @@ public:
   Color4f color;
   float roughness = 0.0f;
   float metalness = 0.0f;
+  float clearcoat = 0.0f;
+  float clearcoatRoughness = 0.0f;
 };

@@ -30,6 +30,8 @@ public:
                    const std::map<uint32_t, Color4f>& originalIDToColor = {},
                    const std::map<uint32_t, float>& originalIDToRoughness = {},
                    const std::map<uint32_t, float>& originalIDToMetalness = {},
+                   const std::map<uint32_t, float>& originalIDToClearcoat = {},
+                   const std::map<uint32_t, float>& originalIDToClearcoatRoughness = {},
                    const std::set<uint32_t>& subtractedIDs = {});
   ManifoldGeometry(const ManifoldGeometry& other) = default;
 
@@ -65,7 +67,7 @@ public:
   Polygon2d project() const;
 
   void transform(const Transform3d& mat) override;
-  void setColor(const Color4f& c, float roughness = 0.0f, float metalness = 0.0f) override;
+  void setColor(const Color4f& c, float roughness = 0.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f) override;
   void toOriginal();
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
 
@@ -83,5 +85,7 @@ private:
   std::map<uint32_t, Color4f> originalIDToColor_;
   std::map<uint32_t, float> originalIDToRoughness_;
   std::map<uint32_t, float> originalIDToMetalness_;
+  std::map<uint32_t, float> originalIDToClearcoat_;
+  std::map<uint32_t, float> originalIDToClearcoatRoughness_;
   std::set<uint32_t> subtractedIDs_;
 };

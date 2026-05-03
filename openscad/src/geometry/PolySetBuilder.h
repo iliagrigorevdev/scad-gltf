@@ -35,9 +35,9 @@ public:
   void addVertex(const Vector3d& v);
   // Calling this is optional; will be called automatically when adding a new polygon or building the
   // PolySet
-  void endPolygon(const Color4f& color = {}, float roughness = 0.0f, float metalness = 0.0f);
+  void endPolygon(const Color4f& color = {}, float roughness = 0.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f);
 
-  void addColor(const Color4f& color, float roughness = 0.0f, float metalness = 0.0f);
+  void addColor(const Color4f& color, float roughness = 0.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f);
   void addColorIndex(int idx);  // should be paired with begin/endPolygon()
 
   std::unique_ptr<PolySet> build();
@@ -49,6 +49,8 @@ private:
   std::vector<Color4f> colors_;
   std::vector<float> roughnesses_;
   std::vector<float> metalnesses_;
+  std::vector<float> clearcoats_;
+  std::vector<float> clearcoatRoughnesses_;
   int convexity_{1};
   int dim_;
   boost::tribool convex_;

@@ -78,6 +78,8 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->colors = polyset.colors;
     result->roughnesses = polyset.roughnesses;
     result->metalnesses = polyset.metalnesses;
+    result->clearcoats = polyset.clearcoats;
+    result->clearcoatRoughnesses = polyset.clearcoatRoughnesses;
     return result;
   }
   result->vertices.reserve(polyset.vertices.size());
@@ -95,6 +97,8 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->colors = polyset.colors;
     result->roughnesses = polyset.roughnesses;
     result->metalnesses = polyset.metalnesses;
+    result->clearcoats = polyset.clearcoats;
+    result->clearcoatRoughnesses = polyset.clearcoatRoughnesses;
   }
   for (size_t i = 0, n = polyset.indices.size(); i < n; i++) {
     const auto& pgon = polyset.indices[i];

@@ -63,11 +63,13 @@ void export_off(const std::shared_ptr<const Geometry>& geom, std::ostream& outpu
         auto color = ps->colors[color_index];
         float roughness = ps->roughnesses.empty() ? 0.0f : ps->roughnesses[color_index];
         float metalness = ps->metalnesses.empty() ? 0.0f : ps->metalnesses[color_index];
+        float clearcoat = ps->clearcoats.empty() ? 0.0f : ps->clearcoats[color_index];
+        float clearcoatRoughness = ps->clearcoatRoughnesses.empty() ? 0.0f : ps->clearcoatRoughnesses[color_index];
         int r, g, b, a;
         if (!color.getRgba(r, g, b, a)) {
           LOG(message_group::Warning, "Invalid color in OFF export");
         }
-        output << " " << r << " " << g << " " << b << " " << a << " " << roughness << " " << metalness;
+        output << " " << r << " " << g << " " << b << " " << a << " " << roughness << " " << metalness << " " << clearcoat << " " << clearcoatRoughness;
       }
     }
     output << "\n";

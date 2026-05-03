@@ -51,7 +51,7 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
 {
   auto node = std::make_shared<ColorNode>(inst);
 
-  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness"});
+  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness"});
   if (parameters["c"].type() == Value::Type::VECTOR) {
     const auto& vec = parameters["c"].toVector();
     Vector4f color;
@@ -90,6 +90,12 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   if (parameters["metalness"].type() == Value::Type::NUMBER) {
     node->metalness = parameters["metalness"].toDouble();
   }
+  if (parameters["clearcoat"].type() == Value::Type::NUMBER) {
+    node->clearcoat = parameters["clearcoat"].toDouble();
+  }
+  if (parameters["clearcoatRoughness"].type() == Value::Type::NUMBER) {
+    node->clearcoatRoughness = parameters["clearcoatRoughness"].toDouble();
+  }
 
   return children.instantiate(node);
 }
@@ -97,7 +103,7 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
 std::string ColorNode::toString() const
 {
   return STR("color([", this->color.r(), ", ", this->color.g(), ", ", this->color.b(), ", ",
-             this->color.a(), "], roughness=", this->roughness, ", metalness=", this->metalness, ")");
+             this->color.a(), "], roughness=", this->roughness, ", metalness=", this->metalness, ", clearcoat=", this->clearcoat, ", clearcoatRoughness=", this->clearcoatRoughness, ")");
 }
 
 std::string ColorNode::name() const
@@ -109,9 +115,9 @@ void register_builtin_color()
 {
   Builtins::init("color", new BuiltinModule(builtin_color),
                  {
-                   "color(c = [r, g, b, a], roughness = 0.0, metalness = 0.0)",
-                   "color(c = [r, g, b], alpha = 1.0, roughness = 0.0, metalness = 0.0)",
-                   "color(\"#hexvalue\", roughness = 0.0, metalness = 0.0)",
-                   "color(\"colorname\", 1.0, roughness = 0.0, metalness = 0.0)",
+                   "color(c = [r, g, b, a], roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0)",
+                   "color(c = [r, g, b], alpha = 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0)",
+                   "color(\"#hexvalue\", roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0)",
+                   "color(\"colorname\", 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0)",
                  });
 }
