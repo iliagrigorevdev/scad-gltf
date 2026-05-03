@@ -85,6 +85,8 @@ Containers& containers()
     add_item(*containers, {FileFormat::WRL, "wrl", "wrl", "VRML"});
     add_item(*containers, {FileFormat::AMF, "amf", "amf", "AMF"});
     add_item(*containers, {FileFormat::_3MF, "3mf", "3mf", "3MF"});
+    add_item(*containers, {FileFormat::GLTF, "gltf", "gltf", "glTF"});
+    add_item(*containers, {FileFormat::GLB, "glb", "glb", "glTF (Binary)"});
     add_item(*containers, {FileFormat::DXF, "dxf", "dxf", "DXF"});
     add_item(*containers, {FileFormat::SVG, "svg", "svg", "SVG"});
     add_item(*containers, {FileFormat::NEFDBG, "nefdbg", "nefdbg", "nefdbg"});
@@ -169,6 +171,7 @@ bool is3D(FileFormat format)
   return format == FileFormat::ASCII_STL || format == FileFormat::BINARY_STL ||
          format == FileFormat::OBJ || format == FileFormat::OFF || format == FileFormat::WRL ||
          format == FileFormat::AMF || format == FileFormat::_3MF || format == FileFormat::NEFDBG ||
+         format == FileFormat::GLTF || format == FileFormat::GLB ||
          format == FileFormat::NEF3 || format == FileFormat::POV;
 }
 
@@ -216,6 +219,8 @@ static void exportFile(const std::shared_ptr<const Geometry>& root_geom, std::os
   case FileFormat::WRL:        export_wrl(root_geom, output); break;
   case FileFormat::AMF:        export_amf(root_geom, output); break;
   case FileFormat::_3MF:       export_3mf(root_geom, output, exportInfo); break;
+  case FileFormat::GLTF:       export_gltf(root_geom, output, false, exportInfo); break;
+  case FileFormat::GLB:        export_gltf(root_geom, output, true, exportInfo); break;
   case FileFormat::DXF:        export_dxf(root_geom, output); break;
   case FileFormat::SVG:        export_svg(root_geom, output, exportInfo); break;
   case FileFormat::PDF:        export_pdf(root_geom, output, exportInfo); break;
@@ -242,6 +247,7 @@ bool exportFileByName(const std::shared_ptr<const Geometry>& root_geom, const st
 {
   std::ios::openmode mode = std::ios::out | std::ios::trunc;
   if (exportInfo.format == FileFormat::_3MF || exportInfo.format == FileFormat::BINARY_STL ||
+      exportInfo.format == FileFormat::GLB ||
       exportInfo.format == FileFormat::PDF) {
     mode |= std::ios::binary;
   }

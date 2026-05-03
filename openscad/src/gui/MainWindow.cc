@@ -3806,6 +3806,8 @@ void MainWindow::setupMenusAndActions()
   exportMap[FileFormat::BINARY_STL] = this->fileActionExportBinarySTL;
   exportMap[FileFormat::ASCII_STL] = this->fileActionExportAsciiSTL;
   exportMap[FileFormat::_3MF] = this->fileActionExport3MF;
+  exportMap[FileFormat::GLTF] = this->fileActionExportGLTF;
+  exportMap[FileFormat::GLB] = this->fileActionExportGLB;
   exportMap[FileFormat::OBJ] = this->fileActionExportOBJ;
   exportMap[FileFormat::OFF] = this->fileActionExportOFF;
   exportMap[FileFormat::WRL] = this->fileActionExportWRL;

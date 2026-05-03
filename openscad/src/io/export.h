@@ -33,6 +33,8 @@ enum class FileFormat {
   WRL,
   AMF,
   _3MF,
+  GLTF,
+  GLB,
   DXF,
   SVG,
   NEFDBG,
@@ -318,6 +320,8 @@ void export_amf(const std::shared_ptr<const Geometry>& geom, std::ostream& outpu
 void export_dxf(const std::shared_ptr<const Geometry>& geom, std::ostream& output);
 void export_svg(const std::shared_ptr<const Geometry>& geom, std::ostream& output,
                 const ExportInfo& exportInfo);
+void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& output, bool is_glb,
+                 const ExportInfo& exportInfo);
 void export_pov(const std::shared_ptr<const Geometry>& geom, std::ostream& output,
                 const ExportInfo& exportInfo);
 void export_pdf(const std::shared_ptr<const Geometry>& geom, std::ostream& output,

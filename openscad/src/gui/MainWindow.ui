@@ -234,6 +234,8 @@
      <addaction name="fileActionExportWRL"/>
      <addaction name="fileActionExportAMF"/>
      <addaction name="fileActionExport3MF"/>
+     <addaction name="fileActionExportGLTF"/>
+     <addaction name="fileActionExportGLB"/>
      <addaction name="fileActionExportDXF"/>
      <addaction name="fileActionExportSVG"/>
      <addaction name="fileActionExportCSG"/>
@@ -1472,6 +1474,16 @@
    </property>
    <property name="text">
     <string>Export as &amp;3MF...</string>
+   </property>
+  </action>
+  <action name="fileActionExportGLTF">
+   <property name="text">
+    <string>Export as gl&amp;TF...</string>
+   </property>
+  </action>
+  <action name="fileActionExportGLB">
+   <property name="text">
+    <string>Export as glTF (&amp;Binary)...</string>
    </property>
   </action>
   <action name="viewActionZoomIn">

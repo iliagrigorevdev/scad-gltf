@@ -1082,6 +1082,7 @@ set(CORE_SOURCES
   src/io/export.cc
   src/io/export_amf.cc
   src/io/export_dxf.cc
+  src/io/export_gltf.cc
   src/io/export_obj.cc
   src/io/export_off.cc
   src/io/export_param.cc
