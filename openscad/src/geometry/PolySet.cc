@@ -111,13 +111,16 @@ void PolySet::transform(const Transform3d& mat)
   bbox_.setNull();
 }
 
-void PolySet::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness)
+void PolySet::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness)
 {
   colors = {c};
   roughnesses = {roughness};
   metalnesses = {metalness};
   clearcoats = {clearcoat};
   clearcoatRoughnesses = {clearcoatRoughness};
+  sheens = {sheen};
+  sheenColors = {sheenColor};
+  sheenRoughnesses = {sheenRoughness};
   color_indices.assign(indices.size(), 0);
 }
 

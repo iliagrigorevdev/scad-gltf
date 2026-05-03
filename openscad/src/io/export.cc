@@ -338,6 +338,9 @@ std::unique_ptr<PolySet> createSortedPolySet(const PolySet& ps)
   out->metalnesses = ps.metalnesses;
   out->clearcoats = ps.clearcoats;
   out->clearcoatRoughnesses = ps.clearcoatRoughnesses;
+  out->sheens = ps.sheens;
+  out->sheenColors = ps.sheenColors;
+  out->sheenRoughnesses = ps.sheenRoughnesses;
 
   std::vector<int> indexTranslationMap(vertexMap.size());
   out->vertices.reserve(vertexMap.size());

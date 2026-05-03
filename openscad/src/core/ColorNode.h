@@ -20,4 +20,7 @@ public:
   float metalness = 0.0f;
   float clearcoat = 0.0f;
   float clearcoatRoughness = 0.0f;
+  float sheen = 0.0f;
+  Color4f sheenColor;
+  float sheenRoughness = 0.0f;
 };

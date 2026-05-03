@@ -51,7 +51,14 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
 {
   auto node = std::make_shared<ColorNode>(inst);
 
-  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness"});
+  Vector4f defaultSheenColor;
+  defaultSheenColor[0] = 0.0f;
+  defaultSheenColor[1] = 0.0f;
+  defaultSheenColor[2] = 0.0f;
+  defaultSheenColor[3] = 1.0f;
+  node->sheenColor = defaultSheenColor;
+
+  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness"});
   if (parameters["c"].type() == Value::Type::VECTOR) {
     const auto& vec = parameters["c"].toVector();
     Vector4f color;
@@ -97,13 +104,43 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
     node->clearcoatRoughness = parameters["clearcoatRoughness"].toDouble();
   }
 
+  if (parameters["sheen"].type() == Value::Type::NUMBER) {
+    node->sheen = parameters["sheen"].toDouble();
+  }
+  if (parameters["sheenColor"].type() == Value::Type::VECTOR) {
+    const auto& vec = parameters["sheenColor"].toVector();
+    Vector4f color;
+    for (size_t i = 0; i < 3; ++i) {
+      color[i] = i < vec.size() ? (float)vec[i].toDouble() : 0.0f;
+      if (color[i] > 1 || color[i] < 0) {
+        LOG(message_group::Warning, inst->location(), parameters.documentRoot(),
+            "color() sheenColor expects numbers between 0.0 and 1.0. Value of %1$.1f is out of range", color[i]);
+      }
+    }
+    color[3] = 1.0f;
+    node->sheenColor = color;
+  } else if (parameters["sheenColor"].type() == Value::Type::STRING) {
+    auto colorname = parameters["sheenColor"].toString();
+    const auto parsed_color = OpenSCAD::parse_color(colorname);
+    if (parsed_color) {
+      node->sheenColor = *parsed_color;
+    } else {
+      LOG(message_group::Warning, inst->location(), parameters.documentRoot(),
+          "Unable to parse color \"%1$s\"", colorname);
+    }
+  }
+  if (parameters["sheenRoughness"].type() == Value::Type::NUMBER) {
+    node->sheenRoughness = parameters["sheenRoughness"].toDouble();
+  }
+
   return children.instantiate(node);
 }
 
 std::string ColorNode::toString() const
 {
   return STR("color([", this->color.r(), ", ", this->color.g(), ", ", this->color.b(), ", ",
-             this->color.a(), "], roughness=", this->roughness, ", metalness=", this->metalness, ", clearcoat=", this->clearcoat, ", clearcoatRoughness=", this->clearcoatRoughness, ")");
+             this->color.a(), "], roughness=", this->roughness, ", metalness=", this->metalness, ", clearcoat=", this->clearcoat, ", clearcoatRoughness=", this->clearcoatRoughness,
+             ", sheen=", this->sheen, ", sheenColor=[", this->sheenColor.r(), ", ", this->sheenColor.g(), ", ", this->sheenColor.b(), "], sheenRoughness=", this->sheenRoughness, ")");
 }
 
 std::string ColorNode::name() const
@@ -115,9 +152,9 @@ void register_builtin_color()
 {
   Builtins::init("color", new BuiltinModule(builtin_color),
                  {
-                   "color(c = [r, g, b, a], roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0)",
-                   "color(c = [r, g, b], alpha = 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0)",
-                   "color(\"#hexvalue\", roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0)",
-                   "color(\"colorname\", 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0)",
+                   "color(c = [r, g, b, a], roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0)",
+                   "color(c = [r, g, b], alpha = 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0)",
+                   "color(\"#hexvalue\", roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0)",
+                   "color(\"colorname\", 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0)",
                  });
 }

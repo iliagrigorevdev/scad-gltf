@@ -29,6 +29,9 @@ public:
   std::vector<float> metalnesses;
   std::vector<float> clearcoats;
   std::vector<float> clearcoatRoughnesses;
+  std::vector<float> sheens;
+  std::vector<Color4f> sheenColors;
+  std::vector<float> sheenRoughnesses;
 
   PolySet(unsigned int dim, boost::tribool convex = unknown);
 
@@ -43,7 +46,7 @@ public:
   size_t numFacets() const override { return indices.size(); }
   void transform(const Transform3d& mat) override;
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
-  void setColor(const Color4f& c, float roughness = 0.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f) override;
+  void setColor(const Color4f& c, float roughness = 0.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f) override;
 
   bool isConvex() const;
   boost::tribool convexValue() const { return convex_; }

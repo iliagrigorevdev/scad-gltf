@@ -55,6 +55,9 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
   std::map<uint32_t, float> originalIDToMetalness;
   std::map<uint32_t, float> originalIDToClearcoat;
   std::map<uint32_t, float> originalIDToClearcoatRoughness;
+  std::map<uint32_t, float> originalIDToSheen;
+  std::map<uint32_t, Color4f> originalIDToSheenColor;
+  std::map<uint32_t, float> originalIDToSheenRoughness;
 
   struct MaterialState {
     std::optional<Color4f> color;
@@ -62,6 +65,9 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     float metalness;
     float clearcoat;
     float clearcoatRoughness;
+    float sheen;
+    Color4f sheenColor;
+    float sheenRoughness;
     bool operator<(const MaterialState& other) const {
       if (color.has_value() != other.color.has_value()) return color.has_value() < other.color.has_value();
       if (color.has_value()) {
@@ -75,7 +81,13 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
       if (roughness != other.roughness) return roughness < other.roughness;
       if (metalness != other.metalness) return metalness < other.metalness;
       if (clearcoat != other.clearcoat) return clearcoat < other.clearcoat;
-      return clearcoatRoughness < other.clearcoatRoughness;
+      if (clearcoatRoughness != other.clearcoatRoughness) return clearcoatRoughness < other.clearcoatRoughness;
+      if (sheen != other.sheen) return sheen < other.sheen;
+      if (sheenColor.r() != other.sheenColor.r()) return sheenColor.r() < other.sheenColor.r();
+      if (sheenColor.g() != other.sheenColor.g()) return sheenColor.g() < other.sheenColor.g();
+      if (sheenColor.b() != other.sheenColor.b()) return sheenColor.b() < other.sheenColor.b();
+      if (sheenColor.a() != other.sheenColor.a()) return sheenColor.a() < other.sheenColor.a();
+      return sheenRoughness < other.sheenRoughness;
     }
   };
 
@@ -87,14 +99,22 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     float metalness = 0.0f;
     float clearcoat = 0.0f;
     float clearcoatRoughness = 0.0f;
+    float sheen = 0.0f;
+    Color4f sheenColor;
+    Vector4f defSheenColor; defSheenColor[0]=0; defSheenColor[1]=0; defSheenColor[2]=0; defSheenColor[3]=1;
+    sheenColor = defSheenColor;
+    float sheenRoughness = 0.0f;
     if (color_index >= 0) {
       if (color_index < ps.colors.size()) color = ps.colors[color_index];
       if (color_index < ps.roughnesses.size()) roughness = ps.roughnesses[color_index];
       if (color_index < ps.metalnesses.size()) metalness = ps.metalnesses[color_index];
       if (color_index < ps.clearcoats.size()) clearcoat = ps.clearcoats[color_index];
       if (color_index < ps.clearcoatRoughnesses.size()) clearcoatRoughness = ps.clearcoatRoughnesses[color_index];
+      if (color_index < ps.sheens.size()) sheen = ps.sheens[color_index];
+      if (color_index < ps.sheenColors.size()) sheenColor = ps.sheenColors[color_index];
+      if (color_index < ps.sheenRoughnesses.size()) sheenRoughness = ps.sheenRoughnesses[color_index];
     }
-    colorToFaceIndices[{color, roughness, metalness, clearcoat, clearcoatRoughness}].push_back(i);
+    colorToFaceIndices[{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness}].push_back(i);
   }
   auto next_id = manifold::Manifold::ReserveIDs(colorToFaceIndices.size());
   for (const auto& [mat, faceIndices] : colorToFaceIndices) {
@@ -105,6 +125,9 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
       originalIDToMetalness[id] = mat.metalness;
       originalIDToClearcoat[id] = mat.clearcoat;
       originalIDToClearcoatRoughness[id] = mat.clearcoatRoughness;
+      originalIDToSheen[id] = mat.sheen;
+      originalIDToSheenColor[id] = mat.sheenColor;
+      originalIDToSheenRoughness[id] = mat.sheenRoughness;
     }
 
     mesh.runIndex.push_back(mesh.triVerts.size());
@@ -138,7 +161,7 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     }
   }
 
-  return std::make_shared<ManifoldGeometry>(mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness);
+  return std::make_shared<ManifoldGeometry>(mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness);
 }
 
 }  // namespace

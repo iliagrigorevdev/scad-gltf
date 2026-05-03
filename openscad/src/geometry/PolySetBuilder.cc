@@ -65,13 +65,16 @@ void PolySetBuilder::setConvexity(int convexity)
   convexity_ = convexity;
 }
 
-void PolySetBuilder::addColor(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness)
+void PolySetBuilder::addColor(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness)
 {
   colors_.push_back(color);
   roughnesses_.push_back(roughness);
   metalnesses_.push_back(metalness);
   clearcoats_.push_back(clearcoat);
   clearcoatRoughnesses_.push_back(clearcoatRoughness);
+  sheens_.push_back(sheen);
+  sheenColors_.push_back(sheenColor);
+  sheenRoughnesses_.push_back(sheenRoughness);
 }
 
 void PolySetBuilder::addColorIndex(const int32_t idx)
@@ -159,7 +162,7 @@ void PolySetBuilder::addVertex(const Vector3d& v)
   addVertex(vertexIndex(v));
 }
 
-void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness)
+void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness)
 {
   // FIXME: Should we check for self-touching polygons (non-consecutive duplicate indices)?
 
@@ -174,7 +177,8 @@ void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float met
       int match_idx = -1;
       for (size_t i = 0; i < colors_.size(); ++i) {
         if (colors_[i] == color && roughnesses_[i] == roughness && metalnesses_[i] == metalness &&
-            clearcoats_[i] == clearcoat && clearcoatRoughnesses_[i] == clearcoatRoughness) {
+            clearcoats_[i] == clearcoat && clearcoatRoughnesses_[i] == clearcoatRoughness &&
+            sheens_[i] == sheen && sheenColors_[i] == sheenColor && sheenRoughnesses_[i] == sheenRoughness) {
           match_idx = i;
           break;
         }
@@ -186,6 +190,9 @@ void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float met
         metalnesses_.push_back(metalness);
         clearcoats_.push_back(clearcoat);
         clearcoatRoughnesses_.push_back(clearcoatRoughness);
+        sheens_.push_back(sheen);
+        sheenColors_.push_back(sheenColor);
+        sheenRoughnesses_.push_back(sheenRoughness);
       } else {
         color_indices_.push_back(match_idx);
       }
@@ -214,11 +221,22 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
       float metalness = ps.metalnesses.empty() ? 0.0f : ps.metalnesses[i];
       float clearcoat = ps.clearcoats.empty() ? 0.0f : ps.clearcoats[i];
       float clearcoatRoughness = ps.clearcoatRoughnesses.empty() ? 0.0f : ps.clearcoatRoughnesses[i];
+      float sheen = ps.sheens.empty() ? 0.0f : ps.sheens[i];
+      Color4f sheenColor;
+      if (ps.sheenColors.empty()) {
+        Vector4f v; v[0]=0; v[1]=0; v[2]=0; v[3]=1;
+        sheenColor = v;
+      } else {
+        sheenColor = ps.sheenColors[i];
+      }
+      float sheenRoughness = ps.sheenRoughnesses.empty() ? 0.0f : ps.sheenRoughnesses[i];
+
       // Find index of material in material vectors, or add it if it doesn't exist
       int match_idx = -1;
       for (size_t j = 0; j < colors_.size(); ++j) {
         if (colors_[j] == color && roughnesses_[j] == roughness && metalnesses_[j] == metalness &&
-            clearcoats_[j] == clearcoat && clearcoatRoughnesses_[j] == clearcoatRoughness) {
+            clearcoats_[j] == clearcoat && clearcoatRoughnesses_[j] == clearcoatRoughness &&
+            sheens_[j] == sheen && sheenColors_[j] == sheenColor && sheenRoughnesses_[j] == sheenRoughness) {
           match_idx = j;
           break;
         }
@@ -230,6 +248,9 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
         metalnesses_.push_back(metalness);
         clearcoats_.push_back(clearcoat);
         clearcoatRoughnesses_.push_back(clearcoatRoughness);
+        sheens_.push_back(sheen);
+        sheenColors_.push_back(sheenColor);
+        sheenRoughnesses_.push_back(sheenRoughness);
       } else {
         color_map[i] = match_idx;
       }
@@ -265,6 +286,9 @@ std::unique_ptr<PolySet> PolySetBuilder::build()
   polyset->metalnesses = std::move(metalnesses_);
   polyset->clearcoats = std::move(clearcoats_);
   polyset->clearcoatRoughnesses = std::move(clearcoatRoughnesses_);
+  polyset->sheens = std::move(sheens_);
+  polyset->sheenColors = std::move(sheenColors_);
+  polyset->sheenRoughnesses = std::move(sheenRoughnesses_);
   polyset->setConvexity(convexity_);
   bool is_triangular = true;
   for (const auto& face : polyset->indices) {
