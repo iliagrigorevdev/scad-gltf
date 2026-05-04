@@ -556,10 +556,6 @@ Response GeometryEvaluator::visit(State& state, const GroupNode& node)
   return visit(state, (const AbstractNode&)node);
 }
 
-/*!
-   Armature nodes preserve their children as a GeometryList tree
-   so the glTF exporter can access the un-flattened hierarchy and animation data.
- */
 Response GeometryEvaluator::visit(State& state, const ArmatureNode& node)
 {
   if (state.isPrefix()) {
@@ -567,9 +563,7 @@ Response GeometryEvaluator::visit(State& state, const ArmatureNode& node)
       state.setBackground(true);
       return Response::PruneTraversal;
     }
-    if (isSmartCached(node)) {
-      return Response::PruneTraversal;
-    }
+    if (isSmartCached(node)) return Response::PruneTraversal;
   }
   if (state.isPostfix()) {
     std::shared_ptr<const Geometry> geom;
@@ -577,45 +571,32 @@ Response GeometryEvaluator::visit(State& state, const ArmatureNode& node)
       unsigned int dim = 0;
       GeometryList::Geometries geometries;
 
-      // Collect children without performing a CSG Union on them
       for (const auto& item : this->visitedchildren[node.index()]) {
         if (!isValidDim(item, dim)) break;
         auto& chnode = item.first;
         const std::shared_ptr<const Geometry>& chgeom = item.second;
-
         if (chnode->modinst->isBackground()) continue;
         smartCacheInsert(*chnode, chgeom);
-
-        if (chgeom && !chgeom->isEmpty()) {
-            geometries.push_back(item);
-        }
+        if (chgeom && !chgeom->isEmpty()) geometries.push_back(item);
       }
 
-      // Wrap in our custom AnimationGeometry structure
-      auto armatureGeom = std::make_shared<ArmatureGeometry>(node.animations.clone());
+      // PASS state.matrix() TO CAPTURE ABSOLUTE WORLD TRANSFORM
+      auto armatureGeom = std::make_shared<ArmatureGeometry>(node.animations.clone(), state.matrix());
       armatureGeom->children = std::move(geometries);
       geom = armatureGeom;
     } else {
       geom = smartCacheGet(node, state.preferNef());
     }
-
     addToParent(state, node, geom);
     node.progress_report();
   }
   return Response::ContinueTraversal;
 }
 
-/*!
-   Bone nodes act like Transform nodes, but they also preserve their children
-   as a GeometryList tree to maintain the skeleton hierarchy for glTF export.
- */
 Response GeometryEvaluator::visit(State& state, const BoneNode& node)
 {
   if (state.isPrefix()) {
     if (isSmartCached(node)) return Response::PruneTraversal;
-
-    // Apply the matrix so child geometries are evaluated in absolute world coordinates.
-    // The glTF exporter will mathematically un-bake this using the inverse matrix later!
     state.setMatrix(state.matrix() * node.matrix);
   }
   if (state.isPostfix()) {
@@ -624,27 +605,22 @@ Response GeometryEvaluator::visit(State& state, const BoneNode& node)
       unsigned int dim = 0;
       GeometryList::Geometries geometries;
 
-      // Collect children without performing a CSG Union on them
       for (const auto& item : this->visitedchildren[node.index()]) {
         if (!isValidDim(item, dim)) break;
         auto& chnode = item.first;
         const std::shared_ptr<const Geometry>& chgeom = item.second;
-
         if (chnode->modinst->isBackground()) continue;
         smartCacheInsert(*chnode, chgeom);
-
-        if (chgeom && !chgeom->isEmpty()) {
-            geometries.push_back(item);
-        }
+        if (chgeom && !chgeom->isEmpty()) geometries.push_back(item);
       }
 
-      auto boneGeom = std::make_shared<BoneGeometry>(node.bone_name, node.matrix);
+      // PASS state.matrix() TO CAPTURE ABSOLUTE WORLD TRANSFORM
+      auto boneGeom = std::make_shared<BoneGeometry>(node.bone_name, node.matrix, state.matrix());
       boneGeom->children = std::move(geometries);
       geom = boneGeom;
     } else {
       geom = smartCacheGet(node, state.preferNef());
     }
-
     addToParent(state, node, geom);
     node.progress_report();
   }

@@ -6,13 +6,14 @@
 class ArmatureGeometry : public GeometryList {
 public:
     Value animations;
+    Transform3d world_matrix;
     
-    ArmatureGeometry(Value anims)
-        : GeometryList(Geometry::Geometries()), animations(std::move(anims)) {}
+    ArmatureGeometry(Value anims, Transform3d w_mat = Transform3d::Identity())
+        : GeometryList(Geometry::Geometries()), animations(std::move(anims)), world_matrix(w_mat) {}
 
     // Explicit copy constructor required because Value is move-only
     ArmatureGeometry(const ArmatureGeometry& other)
-        : GeometryList(other), animations(other.animations.clone()) {}
+        : GeometryList(other), animations(other.animations.clone()), world_matrix(other.world_matrix) {}
 
     void accept(GeometryVisitor& visitor) const override {
         visitor.visit(static_cast<const GeometryList&>(*this)); 
@@ -26,9 +27,13 @@ class BoneGeometry : public GeometryList {
 public:
     std::string name;
     Transform3d local_matrix;
+    Transform3d world_matrix;
 
-    BoneGeometry(std::string name, Transform3d matrix)
-        : GeometryList(Geometry::Geometries()), name(std::move(name)), local_matrix(matrix) {}
+    BoneGeometry(std::string name, Transform3d matrix, Transform3d w_mat = Transform3d::Identity())
+        : GeometryList(Geometry::Geometries()), name(std::move(name)), local_matrix(matrix), world_matrix(w_mat) {}
+
+    BoneGeometry(const BoneGeometry& other)
+        : GeometryList(other), name(other.name), local_matrix(other.local_matrix), world_matrix(other.world_matrix) {}
 
     void accept(GeometryVisitor& visitor) const override {
         visitor.visit(static_cast<const GeometryList&>(*this)); 
