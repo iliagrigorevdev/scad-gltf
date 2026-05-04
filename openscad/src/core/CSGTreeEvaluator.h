@@ -17,6 +17,8 @@
 class CSGNode;
 class GeometryEvaluator;
 class Tree;
+class ArmatureNode;
+class BoneNode;
 
 class CSGTreeEvaluator : public NodeVisitor
 {
@@ -35,6 +37,8 @@ public:
   Response visit(State& state, const ColorNode& node) override;
   Response visit(State& state, const RenderNode& node) override;
   Response visit(State& state, const CgalAdvNode& node) override;
+  Response visit(State& state, const ArmatureNode& node) override;
+  Response visit(State& state, const BoneNode& node) override;
 
   std::shared_ptr<CSGNode> buildCSGTree(const AbstractNode& node);
 

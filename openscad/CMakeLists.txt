@@ -991,6 +991,7 @@ set(CORE_SOURCES
   src/LibraryInfo.cc
   src/RenderStatistic.cc
   src/core/AST.cc
+  src/core/AnimationNode.cc
   src/core/Arguments.cc
   src/core/Assignment.cc
   src/core/BuiltinContext.cc

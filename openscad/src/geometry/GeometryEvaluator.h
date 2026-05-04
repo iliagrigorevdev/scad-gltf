@@ -16,6 +16,8 @@
 class CGALNefGeometry;
 class Polygon2d;
 class Tree;
+class ArmatureNode;
+class BoneNode;
 
 // This evaluates a node tree into concrete geometry usign an underlying geometry engine
 // FIXME: Ideally, each engine should implement its own subtype. Instead we currently have
@@ -47,6 +49,9 @@ public:
   Response visit(State& state, const RenderNode& node) override;
   Response visit(State& state, const TextNode& node) override;
   Response visit(State& state, const OffsetNode& node) override;
+
+  Response visit(State& state, const ArmatureNode& node) override;
+  Response visit(State& state, const BoneNode& node) override;
 
   [[nodiscard]] const Tree& getTree() const { return this->tree; }
 
