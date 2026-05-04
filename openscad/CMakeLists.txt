@@ -737,6 +737,16 @@ else()
   message(STATUS "lib3mf: disabled (not found)")
 endif()
 
+include(FetchContent)
+FetchContent_Declare(
+  tinygltf
+  GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
+  GIT_TAG v2.9.7
+)
+set(TINYGLTF_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(tinygltf)
+target_include_directories(OpenSCADLibInternal SYSTEM PUBLIC ${tinygltf_SOURCE_DIR})
+
 # Automatically add the current source and build directories to the include path.
 set(CMAKE_INCLUDE_CURRENT_DIR ON) # (does not propagate down to subdirectories)
 

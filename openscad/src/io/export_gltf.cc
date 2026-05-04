@@ -4,7 +4,6 @@
 #include "geometry/PolySet.h"
 #include "geometry/PolySetUtils.h"
 #include "utils/printutils.h"
-#include "json/json.hpp"
 #include "Feature.h"
 #include "glview/ColorMap.h"
 #include <ostream>
@@ -14,7 +13,13 @@
 #include <cstring>
 #include <algorithm>
 
-using json = nlohmann::json;
+#define TINYGLTF_IMPLEMENTATION
+#define TINYGLTF_NO_STB_IMAGE
+#define TINYGLTF_NO_STB_IMAGE_WRITE
+#define TINYGLTF_NO_EXTERNAL_IMAGE
+#define TINYGLTF_NO_INCLUDE_JSON
+#include "json/json.hpp"
+#include <tiny_gltf.h>
 
 static std::string base64_encode(const unsigned char* data, size_t len) {
     static const char chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -55,50 +60,51 @@ Transform3d get_z_to_y_up_matrix() {
     return C;
 }
 
-int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_idx, 
-                  json& nodes_json, std::vector<MeshInfo>& meshes_info, 
+    int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_idx, 
+                  tinygltf::Model& model, std::vector<MeshInfo>& meshes_info, 
                   std::map<std::string, int>& bone_to_node, Value& global_anims, Transform3d C) 
 {
     if (auto armature = std::dynamic_pointer_cast<const ArmatureGeometry>(geom)) {
         if (armature->animations.type() == Value::Type::VECTOR) {
              global_anims = armature->animations.clone(); 
         }
-        int node_idx = nodes_json.size();
-        nodes_json.push_back({{"name", "Armature"}});
+        int node_idx = model.nodes.size();
+        tinygltf::Node node;
+        node.name = "Armature";
+        model.nodes.push_back(node);
         
         for (const auto& item : armature->getChildren()) {
-            int child_idx = traverse_gltf(item.second, node_idx, nodes_json, meshes_info, bone_to_node, global_anims, C);
-            if (child_idx >= 0) nodes_json[node_idx]["children"].push_back(child_idx);
+            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C);
+            if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
         }
         return node_idx;
     }
     else if (auto bone = std::dynamic_pointer_cast<const BoneGeometry>(geom)) {
-        int node_idx = nodes_json.size();
+        int node_idx = model.nodes.size();
         
         // Convert OpenSCAD local matrix to glTF Y-up local matrix
         Transform3d M_gltf = C * bone->local_matrix * C.inverse();
         Eigen::Vector3d t = M_gltf.translation();
         Eigen::Quaterniond q(M_gltf.rotation());
         
-        nodes_json.push_back({
-            {"name", bone->name},
-            {"translation", {t.x(), t.y(), t.z()}},
-            {"rotation", {q.x(), q.y(), q.z(), q.w()}}
-        });
+        tinygltf::Node node;
+        node.name = bone->name;
+        node.translation = {t.x(), t.y(), t.z()};
+        node.rotation = {q.x(), q.y(), q.z(), q.w()};
+        model.nodes.push_back(node);
         bone_to_node[bone->name] = node_idx;
         
         for (const auto& item : bone->getChildren()) {
-            int child_idx = traverse_gltf(item.second, node_idx, nodes_json, meshes_info, bone_to_node, global_anims, C);
-            if (child_idx >= 0) nodes_json[node_idx]["children"].push_back(child_idx);
+            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C);
+            if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
         }
         return node_idx;
     }
     else if (auto geomList = std::dynamic_pointer_cast<const GeometryList>(geom)) {
         for (const auto& item : geomList->getChildren()) {
-            int child_idx = traverse_gltf(item.second, parent_node_idx, nodes_json, meshes_info, bone_to_node, global_anims, C);
+            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C);
             if (child_idx >= 0 && parent_node_idx >= 0) {
-                if (!nodes_json[parent_node_idx].contains("children")) nodes_json[parent_node_idx]["children"] = json::array();
-                nodes_json[parent_node_idx]["children"].push_back(child_idx);
+                model.nodes[parent_node_idx].children.push_back(child_idx);
             }
         }
         return -1;
@@ -155,85 +161,97 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         return -1;
     }
 }
-
 template<typename T>
-void append_to_bin(std::vector<unsigned char>& bin_data, const std::vector<T>& src, json& bufferViews, json& accessors, 
-                   int target, int componentType, const std::string& type, json min_val = nullptr, json max_val = nullptr) 
+int append_to_bin(std::vector<unsigned char>& bin_data, const std::vector<T>& src, tinygltf::Model& model, 
+                   int target, int componentType, int type, const std::vector<double>& min_val = {}, const std::vector<double>& max_val = {}) 
 {
     size_t offset = bin_data.size();
     size_t length = src.size() * sizeof(T);
     bin_data.resize(offset + length);
     memcpy(bin_data.data() + offset, src.data(), length);
 
-    int bv_idx = bufferViews.size();
-    json bv = {{"buffer", 0}, {"byteOffset", offset}, {"byteLength", length}};
-    if (target != 0) bv["target"] = target;
-    bufferViews.push_back(bv);
+    tinygltf::BufferView bv;
+    bv.buffer = 0;
+    bv.byteOffset = offset;
+    bv.byteLength = length;
+    if (target != 0) bv.target = target;
+    int bv_idx = model.bufferViews.size();
+    model.bufferViews.push_back(bv);
 
-    json acc = {{"bufferView", bv_idx}, {"byteOffset", 0}, {"componentType", componentType}, {"count", src.size() / (type == "VEC3" ? 3 : (type == "VEC4" ? 4 : 1))}, {"type", type}};
-    if (min_val != nullptr) acc["min"] = min_val;
-    if (max_val != nullptr) acc["max"] = max_val;
-    accessors.push_back(acc);
+    tinygltf::Accessor acc;
+    acc.bufferView = bv_idx;
+    acc.byteOffset = 0;
+    acc.componentType = componentType;
+    acc.count = src.size() / (type == TINYGLTF_TYPE_VEC3 ? 3 : (type == TINYGLTF_TYPE_VEC4 ? 4 : 1));
+    acc.type = type;
+    if (!min_val.empty()) acc.minValues = min_val;
+    if (!max_val.empty()) acc.maxValues = max_val;
+    
+    int acc_idx = model.accessors.size();
+    model.accessors.push_back(acc);
+    return acc_idx;
 }
 
 void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& output, bool is_glb, const ExportInfo& exportInfo)
 {
+    tinygltf::Model model;
+    model.asset.version = "2.0";
+    model.asset.generator = EXPORT_CREATOR;
+    
     std::vector<MeshInfo> meshes_info;
-    json nodes_json = json::array();
     std::map<std::string, int> bone_to_node;
     Value global_anims = Value::undefined.clone();
     Transform3d C = get_z_to_y_up_matrix();
 
     // 1. Traverse and generate Scene Graph
-    int root_idx = traverse_gltf(geom, -1, nodes_json, meshes_info, bone_to_node, global_anims, C);
+    int root_idx = traverse_gltf(geom, -1, model, meshes_info, bone_to_node, global_anims, C);
 
     if (meshes_info.empty()) return;
 
     std::vector<unsigned char> bin_data;
-    json meshes_json = json::array();
-    json materials_json = json::array();
-    json accessors = json::array();
-    json bufferViews = json::array();
-    json animations_json = json::array();
     std::vector<int> scene_nodes;
     if (root_idx >= 0) scene_nodes.push_back(root_idx);
 
     bool use_clearcoat = false, use_sheen = false, use_transmission = false, use_thickness = false;
 
+    // We start with one buffer
+    model.buffers.emplace_back();
+
     // 2. Process Meshes
     for (const auto& minfo : meshes_info) {
-        int pos_accessor_idx = accessors.size();
-        append_to_bin(bin_data, minfo.positions, bufferViews, accessors, 34962, 5126, "VEC3", 
-                      {minfo.min_pos[0], minfo.min_pos[1], minfo.min_pos[2]}, 
-                      {minfo.max_pos[0], minfo.max_pos[1], minfo.max_pos[2]});
+        int pos_accessor_idx = append_to_bin(bin_data, minfo.positions, model, 
+            TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, 
+            {(double)minfo.min_pos[0], (double)minfo.min_pos[1], (double)minfo.min_pos[2]}, 
+            {(double)minfo.max_pos[0], (double)minfo.max_pos[1], (double)minfo.max_pos[2]});
 
-        json primitives_json = json::array();
+        tinygltf::Mesh mesh;
+
         for (const auto& prim : minfo.primitives) {
-            int idx_accessor_idx = accessors.size();
-            append_to_bin(bin_data, prim.indices, bufferViews, accessors, 34963, 5125, "SCALAR");
+            int idx_accessor_idx = append_to_bin(bin_data, prim.indices, model, 
+                TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT, TINYGLTF_TYPE_SCALAR);
 
-            int mat_idx = materials_json.size();
-            json mat = {{"pbrMetallicRoughness", json::object()}};
+            tinygltf::Material mat;
+            mat.doubleSided = true;
             auto ps = prim.ps;
 
             if (prim.color_idx >= 0 && prim.color_idx < (int)ps->colors.size()) {
                 auto color = ps->colors[prim.color_idx];
                 int r = 255, g = 255, b = 0, a = 255;
                 color.getRgba(r, g, b, a);
-                mat["pbrMetallicRoughness"]["baseColorFactor"] = {r/255.0f, g/255.0f, b/255.0f, a/255.0f};
+                mat.pbrMetallicRoughness.baseColorFactor = {(double)r/255.0, (double)g/255.0, (double)b/255.0, (double)a/255.0};
 
                 float roughness = ps->roughnesses.empty() ? 0.0f : ps->roughnesses[prim.color_idx];
                 float metalness = ps->metalnesses.empty() ? 0.0f : ps->metalnesses[prim.color_idx];
-                mat["pbrMetallicRoughness"]["roughnessFactor"] = roughness;
-                mat["pbrMetallicRoughness"]["metallicFactor"] = metalness;
+                mat.pbrMetallicRoughness.roughnessFactor = (double)roughness;
+                mat.pbrMetallicRoughness.metallicFactor = (double)metalness;
 
                 float clearcoat = ps->clearcoats.empty() ? 0.0f : ps->clearcoats[prim.color_idx];
                 float clearcoatRoughness = ps->clearcoatRoughnesses.empty() ? 0.0f : ps->clearcoatRoughnesses[prim.color_idx];
                 if (clearcoat > 0.0f) {
-                    mat["extensions"]["KHR_materials_clearcoat"] = {
-                        {"clearcoatFactor", clearcoat},
-                        {"clearcoatRoughnessFactor", clearcoatRoughness}
-                    };
+                    tinygltf::Value::Object ext;
+                    ext["clearcoatFactor"] = tinygltf::Value((double)clearcoat);
+                    ext["clearcoatRoughnessFactor"] = tinygltf::Value((double)clearcoatRoughness);
+                    mat.extensions["KHR_materials_clearcoat"] = tinygltf::Value(ext);
                     use_clearcoat = true;
                 }
 
@@ -241,64 +259,76 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 if (sheen > 0.0f) {
                     Color4f sheenColor;
                     if (ps->sheenColors.empty()) {
-                        Vector4f v; v[0]=0; v[1]=0; v[2]=0; v[3]=1;
-                        sheenColor = v;
+                        sheenColor = Vector4f(0, 0, 0, 1);
                     } else {
                         sheenColor = ps->sheenColors[prim.color_idx];
                     }
                     float sheenRoughness = ps->sheenRoughnesses.empty() ? 0.0f : ps->sheenRoughnesses[prim.color_idx];
 
-                    mat["extensions"]["KHR_materials_sheen"] = {
-                        {"sheenColorFactor", {sheen * sheenColor.r(), sheen * sheenColor.g(), sheen * sheenColor.b()}},
-                        {"sheenRoughnessFactor", sheenRoughness}
-                    };
+                    tinygltf::Value::Object ext;
+                    ext["sheenColorFactor"] = tinygltf::Value(tinygltf::Value::Array{
+                        tinygltf::Value((double)(sheen * sheenColor.r())), 
+                        tinygltf::Value((double)(sheen * sheenColor.g())), 
+                        tinygltf::Value((double)(sheen * sheenColor.b()))
+                    });
+                    ext["sheenRoughnessFactor"] = tinygltf::Value((double)sheenRoughness);
+                    mat.extensions["KHR_materials_sheen"] = tinygltf::Value(ext);
                     use_sheen = true;
                 }
 
                 float transmission = ps->transmissions.empty() ? 0.0f : ps->transmissions[prim.color_idx];
                 if (transmission > 0.0f) {
-                    mat["extensions"]["KHR_materials_transmission"] = {
-                        {"transmissionFactor", transmission}
-                    };
+                    tinygltf::Value::Object ext;
+                    ext["transmissionFactor"] = tinygltf::Value((double)transmission);
+                    mat.extensions["KHR_materials_transmission"] = tinygltf::Value(ext);
                     use_transmission = true;
                 }
 
                 float thickness = ps->thicknesses.empty() ? 0.0f : ps->thicknesses[prim.color_idx];
                 if (thickness > 0.0f) {
-                    mat["extensions"]["KHR_materials_volume"] = {
-                        {"thicknessFactor", thickness}
-                    };
+                    tinygltf::Value::Object ext;
+                    ext["thicknessFactor"] = tinygltf::Value((double)thickness);
+                    mat.extensions["KHR_materials_volume"] = tinygltf::Value(ext);
                     use_thickness = true;
                 }
 
-                if (a < 255) mat["alphaMode"] = "BLEND";
+                if (a < 255) mat.alphaMode = "BLEND";
             } else {
-                mat["pbrMetallicRoughness"]["baseColorFactor"] = {exportInfo.defaultColor.r(), exportInfo.defaultColor.g(), exportInfo.defaultColor.b(), exportInfo.defaultColor.a()};
-                mat["pbrMetallicRoughness"]["roughnessFactor"] = 0.5f;
-                mat["pbrMetallicRoughness"]["metallicFactor"] = 0.0f;
-                if (exportInfo.defaultColor.a() < 1.0f) mat["alphaMode"] = "BLEND";
+                mat.pbrMetallicRoughness.baseColorFactor = {(double)exportInfo.defaultColor.r(), (double)exportInfo.defaultColor.g(), (double)exportInfo.defaultColor.b(), (double)exportInfo.defaultColor.a()};
+                mat.pbrMetallicRoughness.roughnessFactor = 0.5f;
+                mat.pbrMetallicRoughness.metallicFactor = 0.0f;
+                if (exportInfo.defaultColor.a() < 1.0f) mat.alphaMode = "BLEND";
             }
-            mat["doubleSided"] = true;
-            materials_json.push_back(mat);
+            
+            int mat_idx = model.materials.size();
+            model.materials.push_back(mat);
 
-            primitives_json.push_back({ {"attributes", {{"POSITION", pos_accessor_idx}}}, {"indices", idx_accessor_idx}, {"material", mat_idx} });
+            tinygltf::Primitive gltf_prim;
+            gltf_prim.attributes["POSITION"] = pos_accessor_idx;
+            gltf_prim.indices = idx_accessor_idx;
+            gltf_prim.material = mat_idx;
+            gltf_prim.mode = TINYGLTF_MODE_TRIANGLES;
+            mesh.primitives.push_back(gltf_prim);
         }
 
-        int mesh_idx = meshes_json.size();
-        meshes_json.push_back({ {"primitives", primitives_json} });
+        int mesh_idx = model.meshes.size();
+        model.meshes.push_back(mesh);
 
         if (minfo.target_node >= 0) {
-            nodes_json[minfo.target_node]["mesh"] = mesh_idx;
+            model.nodes[minfo.target_node].mesh = mesh_idx;
         } else {
-            int new_node_idx = nodes_json.size();
-            nodes_json.push_back({ {"mesh", mesh_idx} });
+            int new_node_idx = model.nodes.size();
+            tinygltf::Node node;
+            node.mesh = mesh_idx;
+            model.nodes.push_back(node);
             scene_nodes.push_back(new_node_idx);
         }
     }
 
     // 3. Process Animations
     if (global_anims.type() == Value::Type::VECTOR) {
-        json gltf_anim = {{"name", "ArmatureAction"}, {"channels", json::array()}, {"samplers", json::array()}};
+        tinygltf::Animation gltf_anim;
+        gltf_anim.name = "ArmatureAction";
         
         for (const auto& track_val : global_anims.toVector()) {
             const auto& track = track_val.toVector();
@@ -334,58 +364,43 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 rotations.push_back(q.z()); rotations.push_back(q.w());
             }
             
-            int time_acc_idx = accessors.size();
-            append_to_bin(bin_data, times, bufferViews, accessors, 0, 5126, "SCALAR", {min_time}, {max_time});
+            int time_acc_idx = append_to_bin(bin_data, times, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_SCALAR, {(double)min_time}, {(double)max_time});
+            int rot_acc_idx = append_to_bin(bin_data, rotations, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4);
             
-            int rot_acc_idx = accessors.size();
-            append_to_bin(bin_data, rotations, bufferViews, accessors, 0, 5126, "VEC4");
+            int sampler_idx = gltf_anim.samplers.size();
+            tinygltf::AnimationSampler sampler;
+            sampler.input = time_acc_idx;
+            sampler.output = rot_acc_idx;
+            sampler.interpolation = "LINEAR";
+            gltf_anim.samplers.push_back(sampler);
             
-            int sampler_idx = gltf_anim["samplers"].size();
-            gltf_anim["samplers"].push_back({{"input", time_acc_idx}, {"output", rot_acc_idx}, {"interpolation", "LINEAR"}});
-            gltf_anim["channels"].push_back({{"sampler", sampler_idx}, {"target", {{"node", node_idx}, {"path", "rotation"}}}});
+            tinygltf::AnimationChannel channel;
+            channel.sampler = sampler_idx;
+            channel.target_node = node_idx;
+            channel.target_path = "rotation";
+            gltf_anim.channels.push_back(channel);
         }
-        if (!gltf_anim["channels"].empty()) animations_json.push_back(gltf_anim);
+        if (!gltf_anim.channels.empty()) model.animations.push_back(gltf_anim);
     }
 
-    json j;
-    j["asset"] = {{"version", "2.0"}, {"generator", EXPORT_CREATOR}};
-    j["scene"] = 0;
-    j["scenes"] = {{ {"nodes", scene_nodes} }};
-    j["nodes"] = nodes_json;
-    j["meshes"] = meshes_json;
-    j["materials"] = materials_json;
-    j["accessors"] = accessors;
-    j["bufferViews"] = bufferViews;
-    if (!animations_json.empty()) j["animations"] = animations_json;
+    tinygltf::Scene scene;
+    scene.nodes = scene_nodes;
+    model.scenes.push_back(scene);
+    model.defaultScene = 0;
 
-    std::vector<std::string> extensionsUsed;
-    if (use_clearcoat) extensionsUsed.push_back("KHR_materials_clearcoat");
-    if (use_sheen) extensionsUsed.push_back("KHR_materials_sheen");
-    if (use_transmission) extensionsUsed.push_back("KHR_materials_transmission");
-    if (use_thickness) extensionsUsed.push_back("KHR_materials_volume");
+    if (use_clearcoat) model.extensionsUsed.push_back("KHR_materials_clearcoat");
+    if (use_sheen) model.extensionsUsed.push_back("KHR_materials_sheen");
+    if (use_transmission) model.extensionsUsed.push_back("KHR_materials_transmission");
+    if (use_thickness) model.extensionsUsed.push_back("KHR_materials_volume");
 
-    if (!extensionsUsed.empty()) {
-        j["extensionsUsed"] = extensionsUsed;
-    }
+    model.buffers[0].data = std::move(bin_data);
 
-    // Write output
+    // 4. Write output using tinygltf
+    tinygltf::TinyGLTF gltf;
     if (is_glb) {
-        while (bin_data.size() % 4 != 0) bin_data.push_back(0x00);
-        j["buffers"] = {{ {"byteLength", bin_data.size()} }};
-        std::string json_str = j.dump();
-        while (json_str.size() % 4 != 0) json_str.push_back(' ');
-
-        uint32_t magic = 0x46546C67, version = 2;
-        uint32_t length = 12 + 8 + json_str.size() + 8 + bin_data.size();
-        output.write((const char*)&magic, 4); output.write((const char*)&version, 4); output.write((const char*)&length, 4);
-        
-        uint32_t json_chunk_length = json_str.size(), json_chunk_type = 0x4E4F534A;
-        output.write((const char*)&json_chunk_length, 4); output.write((const char*)&json_chunk_type, 4); output.write(json_str.data(), json_str.size());
-        
-        uint32_t bin_chunk_length = bin_data.size(), bin_chunk_type = 0x004E4942;
-        output.write((const char*)&bin_chunk_length, 4); output.write((const char*)&bin_chunk_type, 4); output.write((const char*)bin_data.data(), bin_data.size());
+        gltf.WriteGltfSceneToStream(&model, output, false, true);
     } else {
-        j["buffers"] = {{ {"byteLength", bin_data.size()}, {"uri", "data:application/octet-stream;base64," + base64_encode(bin_data.data(), bin_data.size())} }};
-        output << j.dump(2);
+        model.buffers[0].uri = "data:application/octet-stream;base64," + base64_encode(model.buffers[0].data.data(), model.buffers[0].data.size());
+        gltf.WriteGltfSceneToStream(&model, output, true, false);
     }
 }
