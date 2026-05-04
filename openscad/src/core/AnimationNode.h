@@ -20,6 +20,12 @@ public:
         this->matrix = mat;
     }
     std::string name() const override { return "bone"; }
+
+    // Override toString to explicitly bake the bone name into OpenSCAD's AST geometry cache key.
+    // This prevents aggressively deduplicating identically-shaped structural bone branches.
+    std::string toString() const override {
+        return this->name() + "(\"" + this->bone_name + "\") " + TransformNode::toString();
+    }
 };
 
 void register_builtin_animation();
