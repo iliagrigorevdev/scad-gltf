@@ -77,7 +77,8 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                   tinygltf::Model& model, std::vector<MeshInfo>& meshes_info, 
                   std::map<std::string, int>& bone_to_node, Value& global_anims, 
                   Transform3d C, Transform3d M_accum, int current_joint_idx,
-                  std::vector<int>& gltf_joints, std::vector<Transform3d>& inverse_bind_matrices) 
+                  std::vector<int>& gltf_joints, std::vector<Transform3d>& inverse_bind_matrices,
+                  std::vector<int>& scene_nodes) 
 {
     if (auto armature = std::dynamic_pointer_cast<const ArmatureGeometry>(geom)) {
         if (armature->animations.type() == Value::Type::VECTOR) {
@@ -88,8 +89,11 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         node.name = "Armature";
         model.nodes.push_back(node);
         
+        // If this node has no parent, insert it directly at the root of the scene
+        if (parent_node_idx < 0) scene_nodes.push_back(node_idx);
+        
         for (const auto& item : armature->getChildren()) {
-            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, current_joint_idx, gltf_joints, inverse_bind_matrices);
+            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, current_joint_idx, gltf_joints, inverse_bind_matrices, scene_nodes);
             if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
         }
         return node_idx;
@@ -118,6 +122,9 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         model.nodes.push_back(node);
         bone_to_node[bone->name] = node_idx;
 
+        // If this node has no parent, insert it directly at the root of the scene
+        if (parent_node_idx < 0) scene_nodes.push_back(node_idx);
+
         // Accumulate absolute world transform for children and inverseBindMatrix calculations
         Transform3d next_M_accum = M_accum * bone->local_matrix;
         Transform3d inv_bind = C * next_M_accum.inverse() * C.inverse();
@@ -127,7 +134,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         inverse_bind_matrices.push_back(inv_bind);
         
         for (const auto& item : bone->getChildren()) {
-            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, next_M_accum, joint_idx, gltf_joints, inverse_bind_matrices);
+            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, next_M_accum, joint_idx, gltf_joints, inverse_bind_matrices, scene_nodes);
             if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
         }
         return node_idx;
@@ -136,7 +143,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
     else if (std::dynamic_pointer_cast<const GeometryList>(geom) && contains_bone(geom)) {
         auto geomList = std::dynamic_pointer_cast<const GeometryList>(geom);
         for (const auto& item : geomList->getChildren()) {
-            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, current_joint_idx, gltf_joints, inverse_bind_matrices);
+            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, current_joint_idx, gltf_joints, inverse_bind_matrices, scene_nodes);
             if (child_idx >= 0 && parent_node_idx >= 0) {
                 model.nodes[parent_node_idx].children.push_back(child_idx);
             }
@@ -244,15 +251,14 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     Transform3d C = get_z_to_y_up_matrix();
     std::vector<int> gltf_joints;
     std::vector<Transform3d> inverse_bind_matrices;
+    std::vector<int> scene_nodes;
 
     // 1. Traverse and generate Scene Graph
-    int root_idx = traverse_gltf(geom, -1, model, meshes_info, bone_to_node, global_anims, C, Transform3d::Identity(), -1, gltf_joints, inverse_bind_matrices);
+    traverse_gltf(geom, -1, model, meshes_info, bone_to_node, global_anims, C, Transform3d::Identity(), -1, gltf_joints, inverse_bind_matrices, scene_nodes);
 
-    if (meshes_info.empty()) return;
+    if (meshes_info.empty() && model.nodes.empty()) return;
 
     std::vector<unsigned char> bin_data;
-    std::vector<int> scene_nodes;
-    if (root_idx >= 0) scene_nodes.push_back(root_idx);
 
     bool use_clearcoat = false, use_sheen = false, use_transmission = false, use_thickness = false;
 
