@@ -433,17 +433,30 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             std::vector<float> rotations;
             std::vector<float> translations;
             bool has_translation = false;
+
+            // Pre-check if any keyframe uses translation
+            for (const auto& kf_val : track[1].toVector()) {
+                if (kf_val.toVector().size() > 2) {
+                    has_translation = true;
+                    break;
+                }
+            }
+
             float min_time = FLT_MAX, max_time = -FLT_MAX;
             
             for (const auto& kf_val : track[1].toVector()) {
                 const auto& kf = kf_val.toVector();
+                if (kf.empty()) continue;
+
                 float t = kf[0].toDouble();
                 times.push_back(t);
                 min_time = std::min(min_time, t);
                 max_time = std::max(max_time, t);
                 
                 double rx=0, ry=0, rz=0;
-                kf[1].getVec3(rx, ry, rz);
+                if (kf.size() > 1) {
+                    kf[1].getVec3(rx, ry, rz);
+                }
                 
                 Transform3d rot = Transform3d::Identity();
                 rot.rotate(Eigen::AngleAxisd(rz * M_PI/180.0, Vector3d::UnitZ()) * 
@@ -456,17 +469,23 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 rotations.push_back(q.x()); rotations.push_back(q.y());
                 rotations.push_back(q.z()); rotations.push_back(q.w());
 
-                if (kf.size() > 2) {
-                    has_translation = true;
-                    double tx=0, ty=0, tz=0;
-                    kf[2].getVec3(tx, ty, tz);
-                    Vector3d trans_gltf = C * Vector3d(tx, ty, tz);
-                    translations.push_back(trans_gltf.x());
-                    translations.push_back(trans_gltf.y());
-                    translations.push_back(trans_gltf.z());
+                if (has_translation) {
+                    if (kf.size() > 2) {
+                        double tx=0, ty=0, tz=0;
+                        kf[2].getVec3(tx, ty, tz);
+                        Vector3d trans_gltf = C * Vector3d(tx, ty, tz);
+                        translations.push_back(trans_gltf.x());
+                        translations.push_back(trans_gltf.y());
+                        translations.push_back(trans_gltf.z());
+                    } else {
+                        // Fallback to the bone's rest position if omitted in this keyframe
+                        translations.push_back(model.nodes[node_idx].translation[0]);
+                        translations.push_back(model.nodes[node_idx].translation[1]);
+                        translations.push_back(model.nodes[node_idx].translation[2]);
+                    }
                 }
             }
-            
+
             int time_acc_idx = append_to_bin(bin_data, times, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_SCALAR, {(double)min_time}, {(double)max_time});
             int rot_acc_idx = append_to_bin(bin_data, rotations, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4);
             
