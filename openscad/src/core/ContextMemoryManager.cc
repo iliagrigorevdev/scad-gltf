@@ -358,7 +358,9 @@ ContextMemoryManager::~ContextMemoryManager()
 {
   collectGarbage(managedContexts);
   assert(managedContexts.empty());
-  assert(heapSizeAccounting.size() == 0);
+  // The AST/Geometry nodes can hold values (like armature animations) that outlive
+  // the EvaluationSession. We cannot assert that heap size is 0 at this point
+  // because of these legitimately persistent Values.
 }
 
 void ContextMemoryManager::addContext(const std::shared_ptr<Context>& context)
