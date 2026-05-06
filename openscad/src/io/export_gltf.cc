@@ -261,6 +261,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     std::vector<unsigned char> bin_data;
 
     bool use_clearcoat = false, use_sheen = false, use_transmission = false, use_thickness = false;
+    bool use_ior = false, use_emissive_strength = false, use_specular = false, use_iridescence = false, use_anisotropy = false;
 
     model.buffers.emplace_back();
 
@@ -369,11 +370,89 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 }
 
                 float thickness = ps->thicknesses.empty() ? 0.0f : ps->thicknesses[prim.color_idx];
-                if (thickness > 0.0f) {
+                float attenuationDistance = ps->attenuationDistances.empty() ? 0.0f : ps->attenuationDistances[prim.color_idx];
+                Color4f attenuationColor;
+                if (ps->attenuationColors.empty()) {
+                    Vector4f v; v[0]=1; v[1]=1; v[2]=1; v[3]=1; attenuationColor = v;
+                } else { attenuationColor = ps->attenuationColors[prim.color_idx]; }
+
+                if (thickness > 0.0f || attenuationDistance > 0.0f || attenuationColor.r() != 1.0f || attenuationColor.g() != 1.0f || attenuationColor.b() != 1.0f) {
                     tinygltf::Value::Object ext;
-                    ext["thicknessFactor"] = tinygltf::Value((double)thickness);
+                    if (thickness > 0.0f) ext["thicknessFactor"] = tinygltf::Value((double)thickness);
+                    if (attenuationDistance > 0.0f) ext["attenuationDistance"] = tinygltf::Value((double)attenuationDistance);
+                    if (attenuationColor.r() != 1.0f || attenuationColor.g() != 1.0f || attenuationColor.b() != 1.0f) {
+                        ext["attenuationColor"] = tinygltf::Value(tinygltf::Value::Array{
+                            tinygltf::Value((double)attenuationColor.r()), 
+                            tinygltf::Value((double)attenuationColor.g()), 
+                            tinygltf::Value((double)attenuationColor.b())
+                        });
+                    }
                     mat.extensions["KHR_materials_volume"] = tinygltf::Value(ext);
                     use_thickness = true;
+                }
+
+                float ior = ps->iors.empty() ? 1.5f : ps->iors[prim.color_idx];
+                if (ior != 1.5f) {
+                    tinygltf::Value::Object ext;
+                    ext["ior"] = tinygltf::Value((double)ior);
+                    mat.extensions["KHR_materials_ior"] = tinygltf::Value(ext);
+                    use_ior = true;
+                }
+
+                float emissiveIntensity = ps->emissiveIntensities.empty() ? 1.0f : ps->emissiveIntensities[prim.color_idx];
+                Color4f emissive;
+                if (ps->emissives.empty()) {
+                    Vector4f v; v[0]=0; v[1]=0; v[2]=0; v[3]=1; emissive = v;
+                } else { emissive = ps->emissives[prim.color_idx]; }
+                
+                if (emissive.r() > 0.0f || emissive.g() > 0.0f || emissive.b() > 0.0f) {
+                    mat.emissiveFactor = {(double)emissive.r(), (double)emissive.g(), (double)emissive.b()};
+                    if (emissiveIntensity != 1.0f) {
+                        tinygltf::Value::Object ext;
+                        ext["emissiveStrength"] = tinygltf::Value((double)emissiveIntensity);
+                        mat.extensions["KHR_materials_emissive_strength"] = tinygltf::Value(ext);
+                        use_emissive_strength = true;
+                    }
+                }
+
+                float specularIntensity = ps->specularIntensities.empty() ? 1.0f : ps->specularIntensities[prim.color_idx];
+                Color4f specularColor;
+                if (ps->specularColors.empty()) {
+                    Vector4f v; v[0]=1; v[1]=1; v[2]=1; v[3]=1; specularColor = v;
+                } else { specularColor = ps->specularColors[prim.color_idx]; }
+                
+                if (specularIntensity != 1.0f || specularColor.r() != 1.0f || specularColor.g() != 1.0f || specularColor.b() != 1.0f) {
+                    tinygltf::Value::Object ext;
+                    ext["specularFactor"] = tinygltf::Value((double)specularIntensity);
+                    if (specularColor.r() != 1.0f || specularColor.g() != 1.0f || specularColor.b() != 1.0f) {
+                        ext["specularColorFactor"] = tinygltf::Value(tinygltf::Value::Array{
+                            tinygltf::Value((double)specularColor.r()), 
+                            tinygltf::Value((double)specularColor.g()), 
+                            tinygltf::Value((double)specularColor.b())
+                        });
+                    }
+                    mat.extensions["KHR_materials_specular"] = tinygltf::Value(ext);
+                    use_specular = true;
+                }
+
+                float iridescence = ps->iridescences.empty() ? 0.0f : ps->iridescences[prim.color_idx];
+                float iridescenceIOR = ps->iridescenceIORs.empty() ? 1.3f : ps->iridescenceIORs[prim.color_idx];
+                if (iridescence > 0.0f) {
+                    tinygltf::Value::Object ext;
+                    ext["iridescenceFactor"] = tinygltf::Value((double)iridescence);
+                    ext["iridescenceIor"] = tinygltf::Value((double)iridescenceIOR);
+                    mat.extensions["KHR_materials_iridescence"] = tinygltf::Value(ext);
+                    use_iridescence = true;
+                }
+
+                float anisotropy = ps->anisotropies.empty() ? 0.0f : ps->anisotropies[prim.color_idx];
+                float anisotropyRotation = ps->anisotropyRotations.empty() ? 0.0f : ps->anisotropyRotations[prim.color_idx];
+                if (anisotropy > 0.0f) {
+                    tinygltf::Value::Object ext;
+                    ext["anisotropyStrength"] = tinygltf::Value((double)anisotropy);
+                    ext["anisotropyRotation"] = tinygltf::Value((double)anisotropyRotation);
+                    mat.extensions["KHR_materials_anisotropy"] = tinygltf::Value(ext);
+                    use_anisotropy = true;
                 }
 
                 if (a < 255) mat.alphaMode = "BLEND";
@@ -537,6 +616,11 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     if (use_sheen) model.extensionsUsed.push_back("KHR_materials_sheen");
     if (use_transmission) model.extensionsUsed.push_back("KHR_materials_transmission");
     if (use_thickness) model.extensionsUsed.push_back("KHR_materials_volume");
+    if (use_ior) model.extensionsUsed.push_back("KHR_materials_ior");
+    if (use_emissive_strength) model.extensionsUsed.push_back("KHR_materials_emissive_strength");
+    if (use_specular) model.extensionsUsed.push_back("KHR_materials_specular");
+    if (use_iridescence) model.extensionsUsed.push_back("KHR_materials_iridescence");
+    if (use_anisotropy) model.extensionsUsed.push_back("KHR_materials_anisotropy");
 
     model.buffers[0].data = std::move(bin_data);
 

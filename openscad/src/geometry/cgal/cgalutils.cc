@@ -417,6 +417,17 @@ std::unique_ptr<PolySet> createPolySetFromNefPolyhedron3(const CGAL_Nef_polyhedr
   polyset->sheenRoughnesses.reserve(2);
   polyset->transmissions.reserve(2);
   polyset->thicknesses.reserve(2);
+  polyset->attenuationColors.reserve(2);
+  polyset->attenuationDistances.reserve(2);
+  polyset->iors.reserve(2);
+  polyset->emissives.reserve(2);
+  polyset->emissiveIntensities.reserve(2);
+  polyset->specularColors.reserve(2);
+  polyset->specularIntensities.reserve(2);
+  polyset->iridescences.reserve(2);
+  polyset->iridescenceIORs.reserve(2);
+  polyset->anisotropies.reserve(2);
+  polyset->anisotropyRotations.reserve(2);
   auto colorScheme = ColorMap::inst()->findColorScheme(RenderSettings::inst()->colorscheme);
   polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_FRONT_COLOR));
   polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_BACK_COLOR));
@@ -439,6 +450,29 @@ std::unique_ptr<PolySet> createPolySetFromNefPolyhedron3(const CGAL_Nef_polyhedr
   polyset->transmissions.push_back(0.0f);
   polyset->thicknesses.push_back(0.0f);
   polyset->thicknesses.push_back(0.0f);
+  Vector4f defaultWhite; defaultWhite[0]=1; defaultWhite[1]=1; defaultWhite[2]=1; defaultWhite[3]=1;
+  polyset->attenuationColors.push_back(defaultWhite);
+  polyset->attenuationColors.push_back(defaultWhite);
+  polyset->attenuationDistances.push_back(0.0f);
+  polyset->attenuationDistances.push_back(0.0f);
+  polyset->iors.push_back(1.5f);
+  polyset->iors.push_back(1.5f);
+  polyset->emissives.push_back(defaultSheen);
+  polyset->emissives.push_back(defaultSheen);
+  polyset->emissiveIntensities.push_back(1.0f);
+  polyset->emissiveIntensities.push_back(1.0f);
+  polyset->specularColors.push_back(defaultWhite);
+  polyset->specularColors.push_back(defaultWhite);
+  polyset->specularIntensities.push_back(1.0f);
+  polyset->specularIntensities.push_back(1.0f);
+  polyset->iridescences.push_back(0.0f);
+  polyset->iridescences.push_back(0.0f);
+  polyset->iridescenceIORs.push_back(1.3f);
+  polyset->iridescenceIORs.push_back(1.3f);
+  polyset->anisotropies.push_back(0.0f);
+  polyset->anisotropies.push_back(0.0f);
+  polyset->anisotropyRotations.push_back(0.0f);
+  polyset->anisotropyRotations.push_back(0.0f);
 
   polyset->vertices.reserve(verts.size());
   for (const auto& v : verts) {

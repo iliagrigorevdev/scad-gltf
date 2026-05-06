@@ -54,6 +54,17 @@ ManifoldGeometry::ManifoldGeometry(manifold::Manifold mani, const std::set<uint3
                                    const std::map<uint32_t, float>& originalIDToSheenRoughness,
                                    const std::map<uint32_t, float>& originalIDToTransmission,
                                    const std::map<uint32_t, float>& originalIDToThickness,
+                                   const std::map<uint32_t, Color4f>& originalIDToAttenuationColor,
+                                   const std::map<uint32_t, float>& originalIDToAttenuationDistance,
+                                   const std::map<uint32_t, float>& originalIDToIOR,
+                                   const std::map<uint32_t, Color4f>& originalIDToEmissive,
+                                   const std::map<uint32_t, float>& originalIDToEmissiveIntensity,
+                                   const std::map<uint32_t, Color4f>& originalIDToSpecularColor,
+                                   const std::map<uint32_t, float>& originalIDToSpecularIntensity,
+                                   const std::map<uint32_t, float>& originalIDToIridescence,
+                                   const std::map<uint32_t, float>& originalIDToIridescenceIOR,
+                                   const std::map<uint32_t, float>& originalIDToAnisotropy,
+                                   const std::map<uint32_t, float>& originalIDToAnisotropyRotation,
                                    const std::set<uint32_t>& subtractedIDs)
   : manifold_(std::move(mani)),
     originalIDs_(originalIDs),
@@ -67,6 +78,17 @@ ManifoldGeometry::ManifoldGeometry(manifold::Manifold mani, const std::set<uint3
     originalIDToSheenRoughness_(originalIDToSheenRoughness),
     originalIDToTransmission_(originalIDToTransmission),
     originalIDToThickness_(originalIDToThickness),
+    originalIDToAttenuationColor_(originalIDToAttenuationColor),
+    originalIDToAttenuationDistance_(originalIDToAttenuationDistance),
+    originalIDToIOR_(originalIDToIOR),
+    originalIDToEmissive_(originalIDToEmissive),
+    originalIDToEmissiveIntensity_(originalIDToEmissiveIntensity),
+    originalIDToSpecularColor_(originalIDToSpecularColor),
+    originalIDToSpecularIntensity_(originalIDToSpecularIntensity),
+    originalIDToIridescence_(originalIDToIridescence),
+    originalIDToIridescenceIOR_(originalIDToIridescenceIOR),
+    originalIDToAnisotropy_(originalIDToAnisotropy),
+    originalIDToAnisotropyRotation_(originalIDToAnisotropyRotation),
     subtractedIDs_(subtractedIDs)
 {
 }
@@ -177,6 +199,17 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
     float sheenRoughness;
     float transmission;
     float thickness;
+    Color4f attenuationColor;
+    float attenuationDistance;
+    float ior;
+    Color4f emissive;
+    float emissiveIntensity;
+    Color4f specularColor;
+    float specularIntensity;
+    float iridescence;
+    float iridescenceIOR;
+    float anisotropy;
+    float anisotropyRotation;
     bool operator<(const MaterialState& other) const {
       if (color.r() != other.color.r()) return color.r() < other.color.r();
       if (color.g() != other.color.g()) return color.g() < other.color.g();
@@ -193,7 +226,27 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       if (sheenColor.a() != other.sheenColor.a()) return sheenColor.a() < other.sheenColor.a();
       if (sheenRoughness != other.sheenRoughness) return sheenRoughness < other.sheenRoughness;
       if (transmission != other.transmission) return transmission < other.transmission;
-      return thickness < other.thickness;
+      if (thickness != other.thickness) return thickness < other.thickness;
+      if (attenuationColor.r() != other.attenuationColor.r()) return attenuationColor.r() < other.attenuationColor.r();
+      if (attenuationColor.g() != other.attenuationColor.g()) return attenuationColor.g() < other.attenuationColor.g();
+      if (attenuationColor.b() != other.attenuationColor.b()) return attenuationColor.b() < other.attenuationColor.b();
+      if (attenuationColor.a() != other.attenuationColor.a()) return attenuationColor.a() < other.attenuationColor.a();
+      if (attenuationDistance != other.attenuationDistance) return attenuationDistance < other.attenuationDistance;
+      if (ior != other.ior) return ior < other.ior;
+      if (emissive.r() != other.emissive.r()) return emissive.r() < other.emissive.r();
+      if (emissive.g() != other.emissive.g()) return emissive.g() < other.emissive.g();
+      if (emissive.b() != other.emissive.b()) return emissive.b() < other.emissive.b();
+      if (emissive.a() != other.emissive.a()) return emissive.a() < other.emissive.a();
+      if (emissiveIntensity != other.emissiveIntensity) return emissiveIntensity < other.emissiveIntensity;
+      if (specularColor.r() != other.specularColor.r()) return specularColor.r() < other.specularColor.r();
+      if (specularColor.g() != other.specularColor.g()) return specularColor.g() < other.specularColor.g();
+      if (specularColor.b() != other.specularColor.b()) return specularColor.b() < other.specularColor.b();
+      if (specularColor.a() != other.specularColor.a()) return specularColor.a() < other.specularColor.a();
+      if (specularIntensity != other.specularIntensity) return specularIntensity < other.specularIntensity;
+      if (iridescence != other.iridescence) return iridescence < other.iridescence;
+      if (iridescenceIOR != other.iridescenceIOR) return iridescenceIOR < other.iridescenceIOR;
+      if (anisotropy != other.anisotropy) return anisotropy < other.anisotropy;
+      return anisotropyRotation < other.anisotropyRotation;
     }
   };
   std::map<MaterialState, int32_t> materialToIndex;
@@ -213,6 +266,18 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       ps->sheenRoughnesses.push_back(0.0f);
       ps->transmissions.push_back(0.0f);
       ps->thicknesses.push_back(0.0f);
+      Vector4f defaultWhite; defaultWhite[0]=1; defaultWhite[1]=1; defaultWhite[2]=1; defaultWhite[3]=1;
+      ps->attenuationColors.push_back(defaultWhite);
+      ps->attenuationDistances.push_back(0.0f);
+      ps->iors.push_back(1.5f);
+      ps->emissives.push_back(defaultSheen);
+      ps->emissiveIntensities.push_back(1.0f);
+      ps->specularColors.push_back(defaultWhite);
+      ps->specularIntensities.push_back(1.0f);
+      ps->iridescences.push_back(0.0f);
+      ps->iridescenceIORs.push_back(1.3f);
+      ps->anisotropies.push_back(0.0f);
+      ps->anisotropyRotations.push_back(0.0f);
     }
     return faceFrontColorIndex;
   };
@@ -230,6 +295,18 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       ps->sheenRoughnesses.push_back(0.0f);
       ps->transmissions.push_back(0.0f);
       ps->thicknesses.push_back(0.0f);
+      Vector4f defaultWhite; defaultWhite[0]=1; defaultWhite[1]=1; defaultWhite[2]=1; defaultWhite[3]=1;
+      ps->attenuationColors.push_back(defaultWhite);
+      ps->attenuationDistances.push_back(0.0f);
+      ps->iors.push_back(1.5f);
+      ps->emissives.push_back(defaultSheen);
+      ps->emissiveIntensities.push_back(1.0f);
+      ps->specularColors.push_back(defaultWhite);
+      ps->specularIntensities.push_back(1.0f);
+      ps->iridescences.push_back(0.0f);
+      ps->iridescenceIORs.push_back(1.3f);
+      ps->anisotropies.push_back(0.0f);
+      ps->anisotropyRotations.push_back(0.0f);
     }
     return faceBackColorIndex;
   };
@@ -285,7 +362,53 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
     auto thickIt = originalIDToThickness_.find(originalID);
     if (thickIt != originalIDToThickness_.end()) thickness = thickIt->second;
 
-    auto matIt = materialToIndex.lower_bound({color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness});
+    Color4f attenuationColor;
+    Vector4f defWhite; defWhite[0]=1; defWhite[1]=1; defWhite[2]=1; defWhite[3]=1;
+    attenuationColor = defWhite;
+    auto attColorIt = originalIDToAttenuationColor_.find(originalID);
+    if (attColorIt != originalIDToAttenuationColor_.end()) attenuationColor = attColorIt->second;
+
+    float attenuationDistance = 0.0f;
+    auto attDistIt = originalIDToAttenuationDistance_.find(originalID);
+    if (attDistIt != originalIDToAttenuationDistance_.end()) attenuationDistance = attDistIt->second;
+
+    float ior = 1.5f;
+    auto iorIt = originalIDToIOR_.find(originalID);
+    if (iorIt != originalIDToIOR_.end()) ior = iorIt->second;
+
+    Color4f emissive = defSheenColor; // black
+    auto emissiveIt = originalIDToEmissive_.find(originalID);
+    if (emissiveIt != originalIDToEmissive_.end()) emissive = emissiveIt->second;
+
+    float emissiveIntensity = 1.0f;
+    auto emIntIt = originalIDToEmissiveIntensity_.find(originalID);
+    if (emIntIt != originalIDToEmissiveIntensity_.end()) emissiveIntensity = emIntIt->second;
+
+    Color4f specularColor = defWhite;
+    auto specColorIt = originalIDToSpecularColor_.find(originalID);
+    if (specColorIt != originalIDToSpecularColor_.end()) specularColor = specColorIt->second;
+
+    float specularIntensity = 1.0f;
+    auto specIntIt = originalIDToSpecularIntensity_.find(originalID);
+    if (specIntIt != originalIDToSpecularIntensity_.end()) specularIntensity = specIntIt->second;
+
+    float iridescence = 0.0f;
+    auto iridIt = originalIDToIridescence_.find(originalID);
+    if (iridIt != originalIDToIridescence_.end()) iridescence = iridIt->second;
+
+    float iridescenceIOR = 1.3f;
+    auto iridIORIt = originalIDToIridescenceIOR_.find(originalID);
+    if (iridIORIt != originalIDToIridescenceIOR_.end()) iridescenceIOR = iridIORIt->second;
+
+    float anisotropy = 0.0f;
+    auto anisoIt = originalIDToAnisotropy_.find(originalID);
+    if (anisoIt != originalIDToAnisotropy_.end()) anisotropy = anisoIt->second;
+
+    float anisotropyRotation = 0.0f;
+    auto anisoRotIt = originalIDToAnisotropyRotation_.find(originalID);
+    if (anisoRotIt != originalIDToAnisotropyRotation_.end()) anisotropyRotation = anisoRotIt->second;
+
+    auto matIt = materialToIndex.lower_bound({color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR, anisotropy, anisotropyRotation});
     bool match = false;
     if (matIt != materialToIndex.end()) {
       const auto& c1 = matIt->first.color;
@@ -297,7 +420,18 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
                matIt->first.sheenColor.r() == sheenColor.r() && matIt->first.sheenColor.g() == sheenColor.g() &&
                matIt->first.sheenColor.b() == sheenColor.b() && matIt->first.sheenColor.a() == sheenColor.a() &&
                matIt->first.sheenRoughness == sheenRoughness &&
-               matIt->first.transmission == transmission && matIt->first.thickness == thickness);
+               matIt->first.transmission == transmission && matIt->first.thickness == thickness &&
+               matIt->first.attenuationColor.r() == attenuationColor.r() && matIt->first.attenuationColor.g() == attenuationColor.g() &&
+               matIt->first.attenuationColor.b() == attenuationColor.b() && matIt->first.attenuationColor.a() == attenuationColor.a() &&
+               matIt->first.attenuationDistance == attenuationDistance && matIt->first.ior == ior &&
+               matIt->first.emissive.r() == emissive.r() && matIt->first.emissive.g() == emissive.g() &&
+               matIt->first.emissive.b() == emissive.b() && matIt->first.emissive.a() == emissive.a() &&
+               matIt->first.emissiveIntensity == emissiveIntensity &&
+               matIt->first.specularColor.r() == specularColor.r() && matIt->first.specularColor.g() == specularColor.g() &&
+               matIt->first.specularColor.b() == specularColor.b() && matIt->first.specularColor.a() == specularColor.a() &&
+               matIt->first.specularIntensity == specularIntensity &&
+               matIt->first.iridescence == iridescence && matIt->first.iridescenceIOR == iridescenceIOR &&
+               matIt->first.anisotropy == anisotropy && matIt->first.anisotropyRotation == anisotropyRotation);
     }
 
     if (match) {
@@ -315,7 +449,18 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       ps->sheenRoughnesses.push_back(sheenRoughness);
       ps->transmissions.push_back(transmission);
       ps->thicknesses.push_back(thickness);
-      materialToIndex.insert(matIt, {{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness}, color_index});
+      ps->attenuationColors.push_back(attenuationColor);
+      ps->attenuationDistances.push_back(attenuationDistance);
+      ps->iors.push_back(ior);
+      ps->emissives.push_back(emissive);
+      ps->emissiveIntensities.push_back(emissiveIntensity);
+      ps->specularColors.push_back(specularColor);
+      ps->specularIntensities.push_back(specularIntensity);
+      ps->iridescences.push_back(iridescence);
+      ps->iridescenceIORs.push_back(iridescenceIOR);
+      ps->anisotropies.push_back(anisotropy);
+      ps->anisotropyRotations.push_back(anisotropyRotation);
+      materialToIndex.insert(matIt, {{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR, anisotropy, anisotropyRotation}, color_index});
       originalIDToColorIndex[originalID] = color_index;
       return color_index;
     }
@@ -406,6 +551,17 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
   auto originalIDToSheenRoughness = lhs.originalIDToSheenRoughness_;
   auto originalIDToTransmission = lhs.originalIDToTransmission_;
   auto originalIDToThickness = lhs.originalIDToThickness_;
+  auto originalIDToAttenuationColor = lhs.originalIDToAttenuationColor_;
+  auto originalIDToAttenuationDistance = lhs.originalIDToAttenuationDistance_;
+  auto originalIDToIOR = lhs.originalIDToIOR_;
+  auto originalIDToEmissive = lhs.originalIDToEmissive_;
+  auto originalIDToEmissiveIntensity = lhs.originalIDToEmissiveIntensity_;
+  auto originalIDToSpecularColor = lhs.originalIDToSpecularColor_;
+  auto originalIDToSpecularIntensity = lhs.originalIDToSpecularIntensity_;
+  auto originalIDToIridescence = lhs.originalIDToIridescence_;
+  auto originalIDToIridescenceIOR = lhs.originalIDToIridescenceIOR_;
+  auto originalIDToAnisotropy = lhs.originalIDToAnisotropy_;
+  auto originalIDToAnisotropyRotation = lhs.originalIDToAnisotropyRotation_;
   auto subtractedIDs = lhs.subtractedIDs_;
 
   auto originalIDs = lhs.originalIDs_;
@@ -440,6 +596,31 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
         originalIDToTransmission[id] = transIt != rhs.originalIDToTransmission_.end() ? transIt->second : 0.0f;
         auto thickIt = rhs.originalIDToThickness_.find(id);
         originalIDToThickness[id] = thickIt != rhs.originalIDToThickness_.end() ? thickIt->second : 0.0f;
+        auto attColIt = rhs.originalIDToAttenuationColor_.find(id);
+        if (attColIt != rhs.originalIDToAttenuationColor_.end()) originalIDToAttenuationColor[id] = attColIt->second;
+        else { Vector4f defW; defW[0]=1; defW[1]=1; defW[2]=1; defW[3]=1; originalIDToAttenuationColor[id] = defW; }
+        auto attDistIt = rhs.originalIDToAttenuationDistance_.find(id);
+        originalIDToAttenuationDistance[id] = attDistIt != rhs.originalIDToAttenuationDistance_.end() ? attDistIt->second : 0.0f;
+        auto iorIt = rhs.originalIDToIOR_.find(id);
+        originalIDToIOR[id] = iorIt != rhs.originalIDToIOR_.end() ? iorIt->second : 1.5f;
+        auto emIt = rhs.originalIDToEmissive_.find(id);
+        if (emIt != rhs.originalIDToEmissive_.end()) originalIDToEmissive[id] = emIt->second;
+        else { Vector4f defB; defB[0]=0; defB[1]=0; defB[2]=0; defB[3]=1; originalIDToEmissive[id] = defB; }
+        auto emIntIt = rhs.originalIDToEmissiveIntensity_.find(id);
+        originalIDToEmissiveIntensity[id] = emIntIt != rhs.originalIDToEmissiveIntensity_.end() ? emIntIt->second : 1.0f;
+        auto spColIt = rhs.originalIDToSpecularColor_.find(id);
+        if (spColIt != rhs.originalIDToSpecularColor_.end()) originalIDToSpecularColor[id] = spColIt->second;
+        else { Vector4f defW; defW[0]=1; defW[1]=1; defW[2]=1; defW[3]=1; originalIDToSpecularColor[id] = defW; }
+        auto spIntIt = rhs.originalIDToSpecularIntensity_.find(id);
+        originalIDToSpecularIntensity[id] = spIntIt != rhs.originalIDToSpecularIntensity_.end() ? spIntIt->second : 1.0f;
+        auto iriIt = rhs.originalIDToIridescence_.find(id);
+        originalIDToIridescence[id] = iriIt != rhs.originalIDToIridescence_.end() ? iriIt->second : 0.0f;
+        auto iriIorIt = rhs.originalIDToIridescenceIOR_.find(id);
+        originalIDToIridescenceIOR[id] = iriIorIt != rhs.originalIDToIridescenceIOR_.end() ? iriIorIt->second : 1.3f;
+        auto anisoIt = rhs.originalIDToAnisotropy_.find(id);
+        originalIDToAnisotropy[id] = anisoIt != rhs.originalIDToAnisotropy_.end() ? anisoIt->second : 0.0f;
+        auto anisoRotIt = rhs.originalIDToAnisotropyRotation_.find(id);
+        originalIDToAnisotropyRotation[id] = anisoRotIt != rhs.originalIDToAnisotropyRotation_.end() ? anisoRotIt->second : 0.0f;
       } else {
         subtractedIDs.insert(id);
       }
@@ -456,9 +637,20 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
     originalIDToSheenRoughness.insert(rhs.originalIDToSheenRoughness_.begin(), rhs.originalIDToSheenRoughness_.end());
     originalIDToTransmission.insert(rhs.originalIDToTransmission_.begin(), rhs.originalIDToTransmission_.end());
     originalIDToThickness.insert(rhs.originalIDToThickness_.begin(), rhs.originalIDToThickness_.end());
+    originalIDToAttenuationColor.insert(rhs.originalIDToAttenuationColor_.begin(), rhs.originalIDToAttenuationColor_.end());
+    originalIDToAttenuationDistance.insert(rhs.originalIDToAttenuationDistance_.begin(), rhs.originalIDToAttenuationDistance_.end());
+    originalIDToIOR.insert(rhs.originalIDToIOR_.begin(), rhs.originalIDToIOR_.end());
+    originalIDToEmissive.insert(rhs.originalIDToEmissive_.begin(), rhs.originalIDToEmissive_.end());
+    originalIDToEmissiveIntensity.insert(rhs.originalIDToEmissiveIntensity_.begin(), rhs.originalIDToEmissiveIntensity_.end());
+    originalIDToSpecularColor.insert(rhs.originalIDToSpecularColor_.begin(), rhs.originalIDToSpecularColor_.end());
+    originalIDToSpecularIntensity.insert(rhs.originalIDToSpecularIntensity_.begin(), rhs.originalIDToSpecularIntensity_.end());
+    originalIDToIridescence.insert(rhs.originalIDToIridescence_.begin(), rhs.originalIDToIridescence_.end());
+    originalIDToIridescenceIOR.insert(rhs.originalIDToIridescenceIOR_.begin(), rhs.originalIDToIridescenceIOR_.end());
+    originalIDToAnisotropy.insert(rhs.originalIDToAnisotropy_.begin(), rhs.originalIDToAnisotropy_.end());
+    originalIDToAnisotropyRotation.insert(rhs.originalIDToAnisotropyRotation_.begin(), rhs.originalIDToAnisotropyRotation_.end());
     subtractedIDs.insert(rhs.subtractedIDs_.begin(), rhs.subtractedIDs_.end());
   }
-  return {mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, originalIDToTransmission, originalIDToThickness, subtractedIDs};
+  return {mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, originalIDToTransmission, originalIDToThickness, originalIDToAttenuationColor, originalIDToAttenuationDistance, originalIDToIOR, originalIDToEmissive, originalIDToEmissiveIntensity, originalIDToSpecularColor, originalIDToSpecularIntensity, originalIDToIridescence, originalIDToIridescenceIOR, originalIDToAnisotropy, originalIDToAnisotropyRotation, subtractedIDs};
 }
 
 std::shared_ptr<ManifoldGeometry> minkowskiOp(const ManifoldGeometry& lhs, const ManifoldGeometry& rhs)
@@ -541,7 +733,7 @@ void ManifoldGeometry::transform(const Transform3d& mat)
   manifold_ = getManifold().Transform(glMat);
 }
 
-void ManifoldGeometry::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness)
+void ManifoldGeometry::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR, float anisotropy, float anisotropyRotation)
 {
   if (manifold_.OriginalID() == -1) {
     manifold_ = manifold_.AsOriginal();
@@ -568,6 +760,28 @@ void ManifoldGeometry::setColor(const Color4f& c, float roughness, float metalne
   originalIDToTransmission_[manifold_.OriginalID()] = transmission;
   originalIDToThickness_.clear();
   originalIDToThickness_[manifold_.OriginalID()] = thickness;
+  originalIDToAttenuationColor_.clear();
+  originalIDToAttenuationColor_[manifold_.OriginalID()] = attenuationColor;
+  originalIDToAttenuationDistance_.clear();
+  originalIDToAttenuationDistance_[manifold_.OriginalID()] = attenuationDistance;
+  originalIDToIOR_.clear();
+  originalIDToIOR_[manifold_.OriginalID()] = ior;
+  originalIDToEmissive_.clear();
+  originalIDToEmissive_[manifold_.OriginalID()] = emissive;
+  originalIDToEmissiveIntensity_.clear();
+  originalIDToEmissiveIntensity_[manifold_.OriginalID()] = emissiveIntensity;
+  originalIDToSpecularColor_.clear();
+  originalIDToSpecularColor_[manifold_.OriginalID()] = specularColor;
+  originalIDToSpecularIntensity_.clear();
+  originalIDToSpecularIntensity_[manifold_.OriginalID()] = specularIntensity;
+  originalIDToIridescence_.clear();
+  originalIDToIridescence_[manifold_.OriginalID()] = iridescence;
+  originalIDToIridescenceIOR_.clear();
+  originalIDToIridescenceIOR_[manifold_.OriginalID()] = iridescenceIOR;
+  originalIDToAnisotropy_.clear();
+  originalIDToAnisotropy_[manifold_.OriginalID()] = anisotropy;
+  originalIDToAnisotropyRotation_.clear();
+  originalIDToAnisotropyRotation_[manifold_.OriginalID()] = anisotropyRotation;
   subtractedIDs_.clear();
 }
 
@@ -588,6 +802,17 @@ void ManifoldGeometry::toOriginal()
   originalIDToSheenRoughness_.clear();
   originalIDToTransmission_.clear();
   originalIDToThickness_.clear();
+  originalIDToAttenuationColor_.clear();
+  originalIDToAttenuationDistance_.clear();
+  originalIDToIOR_.clear();
+  originalIDToEmissive_.clear();
+  originalIDToEmissiveIntensity_.clear();
+  originalIDToSpecularColor_.clear();
+  originalIDToSpecularIntensity_.clear();
+  originalIDToIridescence_.clear();
+  originalIDToIridescenceIOR_.clear();
+  originalIDToAnisotropy_.clear();
+  originalIDToAnisotropyRotation_.clear();
   subtractedIDs_.clear();
 }
 

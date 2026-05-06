@@ -60,6 +60,17 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
   std::map<uint32_t, float> originalIDToSheenRoughness;
   std::map<uint32_t, float> originalIDToTransmission;
   std::map<uint32_t, float> originalIDToThickness;
+  std::map<uint32_t, Color4f> originalIDToAttenuationColor;
+  std::map<uint32_t, float> originalIDToAttenuationDistance;
+  std::map<uint32_t, float> originalIDToIOR;
+  std::map<uint32_t, Color4f> originalIDToEmissive;
+  std::map<uint32_t, float> originalIDToEmissiveIntensity;
+  std::map<uint32_t, Color4f> originalIDToSpecularColor;
+  std::map<uint32_t, float> originalIDToSpecularIntensity;
+  std::map<uint32_t, float> originalIDToIridescence;
+  std::map<uint32_t, float> originalIDToIridescenceIOR;
+  std::map<uint32_t, float> originalIDToAnisotropy;
+  std::map<uint32_t, float> originalIDToAnisotropyRotation;
 
   struct MaterialState {
     std::optional<Color4f> color;
@@ -72,6 +83,17 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     float sheenRoughness;
     float transmission;
     float thickness;
+    Color4f attenuationColor;
+    float attenuationDistance;
+    float ior;
+    Color4f emissive;
+    float emissiveIntensity;
+    Color4f specularColor;
+    float specularIntensity;
+    float iridescence;
+    float iridescenceIOR;
+    float anisotropy;
+    float anisotropyRotation;
     bool operator<(const MaterialState& other) const {
       if (color.has_value() != other.color.has_value()) return color.has_value() < other.color.has_value();
       if (color.has_value()) {
@@ -93,7 +115,27 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
       if (sheenColor.a() != other.sheenColor.a()) return sheenColor.a() < other.sheenColor.a();
       if (sheenRoughness != other.sheenRoughness) return sheenRoughness < other.sheenRoughness;
       if (transmission != other.transmission) return transmission < other.transmission;
-      return thickness < other.thickness;
+      if (thickness != other.thickness) return thickness < other.thickness;
+      if (attenuationColor.r() != other.attenuationColor.r()) return attenuationColor.r() < other.attenuationColor.r();
+      if (attenuationColor.g() != other.attenuationColor.g()) return attenuationColor.g() < other.attenuationColor.g();
+      if (attenuationColor.b() != other.attenuationColor.b()) return attenuationColor.b() < other.attenuationColor.b();
+      if (attenuationColor.a() != other.attenuationColor.a()) return attenuationColor.a() < other.attenuationColor.a();
+      if (attenuationDistance != other.attenuationDistance) return attenuationDistance < other.attenuationDistance;
+      if (ior != other.ior) return ior < other.ior;
+      if (emissive.r() != other.emissive.r()) return emissive.r() < other.emissive.r();
+      if (emissive.g() != other.emissive.g()) return emissive.g() < other.emissive.g();
+      if (emissive.b() != other.emissive.b()) return emissive.b() < other.emissive.b();
+      if (emissive.a() != other.emissive.a()) return emissive.a() < other.emissive.a();
+      if (emissiveIntensity != other.emissiveIntensity) return emissiveIntensity < other.emissiveIntensity;
+      if (specularColor.r() != other.specularColor.r()) return specularColor.r() < other.specularColor.r();
+      if (specularColor.g() != other.specularColor.g()) return specularColor.g() < other.specularColor.g();
+      if (specularColor.b() != other.specularColor.b()) return specularColor.b() < other.specularColor.b();
+      if (specularColor.a() != other.specularColor.a()) return specularColor.a() < other.specularColor.a();
+      if (specularIntensity != other.specularIntensity) return specularIntensity < other.specularIntensity;
+      if (iridescence != other.iridescence) return iridescence < other.iridescence;
+      if (iridescenceIOR != other.iridescenceIOR) return iridescenceIOR < other.iridescenceIOR;
+      if (anisotropy != other.anisotropy) return anisotropy < other.anisotropy;
+      return anisotropyRotation < other.anisotropyRotation;
     }
   };
 
@@ -112,6 +154,17 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     float sheenRoughness = 0.0f;
     float transmission = 0.0f;
     float thickness = 0.0f;
+    Color4f attenuationColor; Vector4f defWhite; defWhite[0]=1; defWhite[1]=1; defWhite[2]=1; defWhite[3]=1; attenuationColor = defWhite;
+    float attenuationDistance = 0.0f;
+    float ior = 1.5f;
+    Color4f emissive; emissive = defSheenColor; // black
+    float emissiveIntensity = 1.0f;
+    Color4f specularColor; specularColor = defWhite;
+    float specularIntensity = 1.0f;
+    float iridescence = 0.0f;
+    float iridescenceIOR = 1.3f;
+    float anisotropy = 0.0f;
+    float anisotropyRotation = 0.0f;
     if (color_index >= 0) {
       if (color_index < ps.colors.size()) color = ps.colors[color_index];
       if (color_index < ps.roughnesses.size()) roughness = ps.roughnesses[color_index];
@@ -123,11 +176,22 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
       if (color_index < ps.sheenRoughnesses.size()) sheenRoughness = ps.sheenRoughnesses[color_index];
       if (color_index < ps.transmissions.size()) transmission = ps.transmissions[color_index];
       if (color_index < ps.thicknesses.size()) thickness = ps.thicknesses[color_index];
+      if (color_index < ps.attenuationColors.size()) attenuationColor = ps.attenuationColors[color_index];
+      if (color_index < ps.attenuationDistances.size()) attenuationDistance = ps.attenuationDistances[color_index];
+      if (color_index < ps.iors.size()) ior = ps.iors[color_index];
+      if (color_index < ps.emissives.size()) emissive = ps.emissives[color_index];
+      if (color_index < ps.emissiveIntensities.size()) emissiveIntensity = ps.emissiveIntensities[color_index];
+      if (color_index < ps.specularColors.size()) specularColor = ps.specularColors[color_index];
+      if (color_index < ps.specularIntensities.size()) specularIntensity = ps.specularIntensities[color_index];
+      if (color_index < ps.iridescences.size()) iridescence = ps.iridescences[color_index];
+      if (color_index < ps.iridescenceIORs.size()) iridescenceIOR = ps.iridescenceIORs[color_index];
+      if (color_index < ps.anisotropies.size()) anisotropy = ps.anisotropies[color_index];
+      if (color_index < ps.anisotropyRotations.size()) anisotropyRotation = ps.anisotropyRotations[color_index];
     }
-    colorToFaceIndices[{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness}].push_back(i);
+    colorToFaceIndices[{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR, anisotropy, anisotropyRotation}].push_back(i);
   }
   auto next_id = manifold::Manifold::ReserveIDs(colorToFaceIndices.size());
-  for (const auto& [mat, faceIndices] : colorToFaceIndices) {
+  for (const auto&[mat, faceIndices] : colorToFaceIndices) {
     auto id = next_id++;
     if (mat.color.has_value()) {
       originalIDToColor[id] = mat.color.value();
@@ -140,6 +204,17 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
       originalIDToSheenRoughness[id] = mat.sheenRoughness;
       originalIDToTransmission[id] = mat.transmission;
       originalIDToThickness[id] = mat.thickness;
+      originalIDToAttenuationColor[id] = mat.attenuationColor;
+      originalIDToAttenuationDistance[id] = mat.attenuationDistance;
+      originalIDToIOR[id] = mat.ior;
+      originalIDToEmissive[id] = mat.emissive;
+      originalIDToEmissiveIntensity[id] = mat.emissiveIntensity;
+      originalIDToSpecularColor[id] = mat.specularColor;
+      originalIDToSpecularIntensity[id] = mat.specularIntensity;
+      originalIDToIridescence[id] = mat.iridescence;
+      originalIDToIridescenceIOR[id] = mat.iridescenceIOR;
+      originalIDToAnisotropy[id] = mat.anisotropy;
+      originalIDToAnisotropyRotation[id] = mat.anisotropyRotation;
     }
 
     mesh.runIndex.push_back(mesh.triVerts.size());
@@ -173,7 +248,7 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     }
   }
 
-  return std::make_shared<ManifoldGeometry>(mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, originalIDToTransmission, originalIDToThickness);
+  return std::make_shared<ManifoldGeometry>(mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, originalIDToTransmission, originalIDToThickness, originalIDToAttenuationColor, originalIDToAttenuationDistance, originalIDToIOR, originalIDToEmissive, originalIDToEmissiveIntensity, originalIDToSpecularColor, originalIDToSpecularIntensity, originalIDToIridescence, originalIDToIridescenceIOR, originalIDToAnisotropy, originalIDToAnisotropyRotation);
 }
 
 }  // namespace

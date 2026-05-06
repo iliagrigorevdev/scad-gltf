@@ -51,14 +51,18 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
 {
   auto node = std::make_shared<ColorNode>(inst);
 
-  Vector4f defaultSheenColor;
-  defaultSheenColor[0] = 0.0f;
-  defaultSheenColor[1] = 0.0f;
-  defaultSheenColor[2] = 0.0f;
-  defaultSheenColor[3] = 1.0f;
-  node->sheenColor = defaultSheenColor;
+  Vector4f defaultBlack;
+  defaultBlack[0] = 0.0f; defaultBlack[1] = 0.0f; defaultBlack[2] = 0.0f; defaultBlack[3] = 1.0f;
+  
+  Vector4f defaultWhite;
+  defaultWhite[0] = 1.0f; defaultWhite[1] = 1.0f; defaultWhite[2] = 1.0f; defaultWhite[3] = 1.0f;
 
-  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness"});
+  node->sheenColor = defaultBlack;
+  node->attenuationColor = defaultWhite;
+  node->emissive = defaultBlack;
+  node->specularColor = defaultWhite;
+
+  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness", "attenuationColor", "attenuationDistance", "ior", "emissive", "emissiveIntensity", "specularColor", "specularIntensity", "iridescence", "iridescenceIOR", "anisotropy", "anisotropyRotation"});
   if (parameters["c"].type() == Value::Type::VECTOR) {
     const auto& vec = parameters["c"].toVector();
     Vector4f color;
@@ -107,28 +111,33 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   if (parameters["sheen"].type() == Value::Type::NUMBER) {
     node->sheen = parameters["sheen"].toDouble();
   }
-  if (parameters["sheenColor"].type() == Value::Type::VECTOR) {
-    const auto& vec = parameters["sheenColor"].toVector();
-    Vector4f color;
-    for (size_t i = 0; i < 3; ++i) {
-      color[i] = i < vec.size() ? (float)vec[i].toDouble() : 0.0f;
-      if (color[i] > 1 || color[i] < 0) {
-        LOG(message_group::Warning, inst->location(), parameters.documentRoot(),
-            "color() sheenColor expects numbers between 0.0 and 1.0. Value of %1$.1f is out of range", color[i]);
+
+  auto parseColor = [&](const std::string& key, Color4f& outColor, const Color4f& defaultColor) {
+    if (parameters[key].type() == Value::Type::VECTOR) {
+      const auto& vec = parameters[key].toVector();
+      Vector4f color;
+      for (size_t i = 0; i < 3; ++i) {
+        color[i] = i < vec.size() ? (float)vec[i].toDouble() : 0.0f;
+        if (color[i] > 1 || color[i] < 0) {
+          LOG(message_group::Warning, inst->location(), parameters.documentRoot(),
+              "color() %1$s expects numbers between 0.0 and 1.0. Value of %2$.1f is out of range", key, color[i]);
+        }
       }
+      color[3] = 1.0f;
+      outColor = color;
+    } else if (parameters[key].type() == Value::Type::STRING) {
+      auto colorname = parameters[key].toString();
+      const auto parsed_color = OpenSCAD::parse_color(colorname);
+      if (parsed_color) outColor = *parsed_color;
+      else LOG(message_group::Warning, inst->location(), parameters.documentRoot(), "Unable to parse color \"%1$s\"", colorname);
     }
-    color[3] = 1.0f;
-    node->sheenColor = color;
-  } else if (parameters["sheenColor"].type() == Value::Type::STRING) {
-    auto colorname = parameters["sheenColor"].toString();
-    const auto parsed_color = OpenSCAD::parse_color(colorname);
-    if (parsed_color) {
-      node->sheenColor = *parsed_color;
-    } else {
-      LOG(message_group::Warning, inst->location(), parameters.documentRoot(),
-          "Unable to parse color \"%1$s\"", colorname);
-    }
-  }
+  };
+
+  parseColor("sheenColor", node->sheenColor, defaultBlack);
+  parseColor("attenuationColor", node->attenuationColor, defaultWhite);
+  parseColor("emissive", node->emissive, defaultBlack);
+  parseColor("specularColor", node->specularColor, defaultWhite);
+
   if (parameters["sheenRoughness"].type() == Value::Type::NUMBER) {
     node->sheenRoughness = parameters["sheenRoughness"].toDouble();
   }
@@ -138,6 +147,30 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   if (parameters["thickness"].type() == Value::Type::NUMBER) {
     node->thickness = parameters["thickness"].toDouble();
   }
+  if (parameters["attenuationDistance"].type() == Value::Type::NUMBER) {
+    node->attenuationDistance = parameters["attenuationDistance"].toDouble();
+  }
+  if (parameters["ior"].type() == Value::Type::NUMBER) {
+    node->ior = parameters["ior"].toDouble();
+  }
+  if (parameters["emissiveIntensity"].type() == Value::Type::NUMBER) {
+    node->emissiveIntensity = parameters["emissiveIntensity"].toDouble();
+  }
+  if (parameters["specularIntensity"].type() == Value::Type::NUMBER) {
+    node->specularIntensity = parameters["specularIntensity"].toDouble();
+  }
+  if (parameters["iridescence"].type() == Value::Type::NUMBER) {
+    node->iridescence = parameters["iridescence"].toDouble();
+  }
+  if (parameters["iridescenceIOR"].type() == Value::Type::NUMBER) {
+    node->iridescenceIOR = parameters["iridescenceIOR"].toDouble();
+  }
+  if (parameters["anisotropy"].type() == Value::Type::NUMBER) {
+    node->anisotropy = parameters["anisotropy"].toDouble();
+  }
+  if (parameters["anisotropyRotation"].type() == Value::Type::NUMBER) {
+    node->anisotropyRotation = parameters["anisotropyRotation"].toDouble();
+  }
 
   return children.instantiate(node);
 }
@@ -145,8 +178,14 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
 std::string ColorNode::toString() const
 {
   return STR("color([", this->color.r(), ", ", this->color.g(), ", ", this->color.b(), ", ",
-             this->color.a(), "], roughness=", this->roughness, ", metalness=", this->metalness, ", clearcoat=", this->clearcoat, ", clearcoatRoughness=", this->clearcoatRoughness,
-             ", sheen=", this->sheen, ", sheenColor=[", this->sheenColor.r(), ", ", this->sheenColor.g(), ", ", this->sheenColor.b(), "], sheenRoughness=", this->sheenRoughness, ", transmission=", this->transmission, ", thickness=", this->thickness, ")");
+             this->color.a(), "], roughness=", this->roughness, ", metalness=", this->metalness, 
+             ", clearcoat=", this->clearcoat, ", clearcoatRoughness=", this->clearcoatRoughness,
+             ", sheen=", this->sheen, ", sheenColor=[", this->sheenColor.r(), ", ", this->sheenColor.g(), ", ", this->sheenColor.b(), "], sheenRoughness=", this->sheenRoughness, 
+             ", transmission=", this->transmission, ", thickness=", this->thickness,
+             ", attenuationColor=[", this->attenuationColor.r(), ", ", this->attenuationColor.g(), ", ", this->attenuationColor.b(), "], attenuationDistance=", this->attenuationDistance, ", ior=", this->ior,
+             ", emissive=[", this->emissive.r(), ", ", this->emissive.g(), ", ", this->emissive.b(), "], emissiveIntensity=", this->emissiveIntensity,
+             ", specularColor=[", this->specularColor.r(), ", ", this->specularColor.g(), ", ", this->specularColor.b(), "], specularIntensity=", this->specularIntensity,
+             ", iridescence=", this->iridescence, ", iridescenceIOR=", this->iridescenceIOR, ", anisotropy=", this->anisotropy, ", anisotropyRotation=", this->anisotropyRotation, ")");
 }
 
 std::string ColorNode::name() const
@@ -156,11 +195,12 @@ std::string ColorNode::name() const
 
 void register_builtin_color()
 {
+  const char* full_params = ", roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor =[0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0, attenuationColor =[1.0, 1.0, 1.0], attenuationDistance = 0.0, ior = 1.5, emissive =[0.0, 0.0, 0.0], emissiveIntensity = 1.0, specularColor =[1.0, 1.0, 1.0], specularIntensity = 1.0, iridescence = 0.0, iridescenceIOR = 1.3, anisotropy = 0.0, anisotropyRotation = 0.0)";
   Builtins::init("color", new BuiltinModule(builtin_color),
                  {
-                   "color(c = [r, g, b, a], roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0)",
-                   "color(c = [r, g, b], alpha = 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0)",
-                   "color(\"#hexvalue\", roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0)",
-                   "color(\"colorname\", 1.0, roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor = [0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0)",
+                   STR("color(c =[r, g, b, a]", full_params),
+                   STR("color(c =[r, g, b], alpha = 1.0", full_params),
+                   STR("color(\"#hexvalue\"", full_params),
+                   STR("color(\"colorname\", 1.0", full_params),
                  });
 }

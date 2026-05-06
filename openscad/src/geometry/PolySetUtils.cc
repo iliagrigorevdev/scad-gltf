@@ -85,6 +85,17 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->sheenRoughnesses = polyset.sheenRoughnesses;
     result->transmissions = polyset.transmissions;
     result->thicknesses = polyset.thicknesses;
+    result->attenuationColors = polyset.attenuationColors;
+    result->attenuationDistances = polyset.attenuationDistances;
+    result->iors = polyset.iors;
+    result->emissives = polyset.emissives;
+    result->emissiveIntensities = polyset.emissiveIntensities;
+    result->specularColors = polyset.specularColors;
+    result->specularIntensities = polyset.specularIntensities;
+    result->iridescences = polyset.iridescences;
+    result->iridescenceIORs = polyset.iridescenceIORs;
+    result->anisotropies = polyset.anisotropies;
+    result->anisotropyRotations = polyset.anisotropyRotations;
     return result;
   }
   result->vertices.reserve(polyset.vertices.size());
@@ -109,6 +120,17 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->sheenRoughnesses = polyset.sheenRoughnesses;
     result->transmissions = polyset.transmissions;
     result->thicknesses = polyset.thicknesses;
+    result->attenuationColors = polyset.attenuationColors;
+    result->attenuationDistances = polyset.attenuationDistances;
+    result->iors = polyset.iors;
+    result->emissives = polyset.emissives;
+    result->emissiveIntensities = polyset.emissiveIntensities;
+    result->specularColors = polyset.specularColors;
+    result->specularIntensities = polyset.specularIntensities;
+    result->iridescences = polyset.iridescences;
+    result->iridescenceIORs = polyset.iridescenceIORs;
+    result->anisotropies = polyset.anisotropies;
+    result->anisotropyRotations = polyset.anisotropyRotations;
   }
   for (size_t i = 0, n = polyset.indices.size(); i < n; i++) {
     const auto& pgon = polyset.indices[i];

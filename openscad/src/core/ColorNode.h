@@ -25,4 +25,15 @@ public:
   float sheenRoughness = 0.0f;
   float transmission = 0.0f;
   float thickness = 0.0f;
+  Color4f attenuationColor;
+  float attenuationDistance = 0.0f;
+  float ior = 1.5f;
+  Color4f emissive;
+  float emissiveIntensity = 1.0f;
+  Color4f specularColor;
+  float specularIntensity = 1.0f;
+  float iridescence = 0.0f;
+  float iridescenceIOR = 1.3f;
+  float anisotropy = 0.0f;
+  float anisotropyRotation = 0.0f;
 };
