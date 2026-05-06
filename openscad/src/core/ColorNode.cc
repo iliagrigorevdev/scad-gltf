@@ -195,7 +195,7 @@ std::string ColorNode::name() const
 
 void register_builtin_color()
 {
-  const char* full_params = ", roughness = 0.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor =[0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0, attenuationColor =[1.0, 1.0, 1.0], attenuationDistance = 0.0, ior = 1.5, emissive =[0.0, 0.0, 0.0], emissiveIntensity = 1.0, specularColor =[1.0, 1.0, 1.0], specularIntensity = 1.0, iridescence = 0.0, iridescenceIOR = 1.3, anisotropy = 0.0, anisotropyRotation = 0.0)";
+  const char* full_params = ", roughness = 1.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor =[0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0, attenuationColor =[1.0, 1.0, 1.0], attenuationDistance = 0.0, ior = 1.5, emissive =[0.0, 0.0, 0.0], emissiveIntensity = 1.0, specularColor =[1.0, 1.0, 1.0], specularIntensity = 1.0, iridescence = 0.0, iridescenceIOR = 1.3, anisotropy = 0.0, anisotropyRotation = 0.0)";
   Builtins::init("color", new BuiltinModule(builtin_color),
                  {
                    STR("color(c =[r, g, b, a]", full_params),

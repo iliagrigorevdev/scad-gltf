@@ -249,7 +249,7 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
     std::vector<uint32_t> color_map(nColors);
     for (size_t i = 0; i < nColors; i++) {
       const auto& color = ps.colors[i];
-      float roughness = ps.roughnesses.empty() ? 0.0f : ps.roughnesses[i];
+      float roughness = ps.roughnesses.empty() ? 1.0f : ps.roughnesses[i];
       float metalness = ps.metalnesses.empty() ? 0.0f : ps.metalnesses[i];
       float clearcoat = ps.clearcoats.empty() ? 0.0f : ps.clearcoats[i];
       float clearcoatRoughness = ps.clearcoatRoughnesses.empty() ? 0.0f : ps.clearcoatRoughnesses[i];

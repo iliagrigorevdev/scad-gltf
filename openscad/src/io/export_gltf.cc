@@ -325,7 +325,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 color.getRgba(r, g, b, a);
                 mat.pbrMetallicRoughness.baseColorFactor = {(double)r/255.0, (double)g/255.0, (double)b/255.0, (double)a/255.0};
 
-                float roughness = ps->roughnesses.empty() ? 0.0f : ps->roughnesses[prim.color_idx];
+                float roughness = ps->roughnesses.empty() ? 1.0f : ps->roughnesses[prim.color_idx];
                 float metalness = ps->metalnesses.empty() ? 0.0f : ps->metalnesses[prim.color_idx];
                 mat.pbrMetallicRoughness.roughnessFactor = (double)roughness;
                 mat.pbrMetallicRoughness.metallicFactor = (double)metalness;
@@ -458,7 +458,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 if (a < 255) mat.alphaMode = "BLEND";
             } else {
                 mat.pbrMetallicRoughness.baseColorFactor = {(double)exportInfo.defaultColor.r(), (double)exportInfo.defaultColor.g(), (double)exportInfo.defaultColor.b(), (double)exportInfo.defaultColor.a()};
-                mat.pbrMetallicRoughness.roughnessFactor = 0.5f;
+                mat.pbrMetallicRoughness.roughnessFactor = 1.0f;
                 mat.pbrMetallicRoughness.metallicFactor = 0.0f;
                 if (exportInfo.defaultColor.a() < 1.0f) mat.alphaMode = "BLEND";
             }

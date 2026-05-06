@@ -256,7 +256,7 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
     if (faceFrontColorIndex < 0) {
       faceFrontColorIndex = ps->colors.size();
       ps->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_FRONT_COLOR));
-      ps->roughnesses.push_back(0.0f);
+      ps->roughnesses.push_back(1.0f);
       ps->metalnesses.push_back(0.0f);
       ps->clearcoats.push_back(0.0f);
       ps->clearcoatRoughnesses.push_back(0.0f);
@@ -285,7 +285,7 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
     if (faceBackColorIndex < 0) {
       faceBackColorIndex = ps->colors.size();
       ps->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_BACK_COLOR));
-      ps->roughnesses.push_back(0.0f);
+      ps->roughnesses.push_back(1.0f);
       ps->metalnesses.push_back(0.0f);
       ps->clearcoats.push_back(0.0f);
       ps->clearcoatRoughnesses.push_back(0.0f);
@@ -324,7 +324,7 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       return getFaceFrontColorIndex();
     }
     const auto& color = colorIt->second;
-    float roughness = 0.0f;
+    float roughness = 1.0f;
     auto roughIt = originalIDToRoughness_.find(originalID);
     if (roughIt != originalIDToRoughness_.end()) roughness = roughIt->second;
 
@@ -574,7 +574,7 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
       if (it != rhs.originalIDToColor_.end()) {
         originalIDToColor[id] = it->second;
         auto rit = rhs.originalIDToRoughness_.find(id);
-        originalIDToRoughness[id] = rit != rhs.originalIDToRoughness_.end() ? rit->second : 0.0f;
+        originalIDToRoughness[id] = rit != rhs.originalIDToRoughness_.end() ? rit->second : 1.0f;
         auto mit = rhs.originalIDToMetalness_.find(id);
         originalIDToMetalness[id] = mit != rhs.originalIDToMetalness_.end() ? mit->second : 0.0f;
         auto ccit = rhs.originalIDToClearcoat_.find(id);
