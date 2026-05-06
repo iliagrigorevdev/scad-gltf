@@ -64,6 +64,16 @@ class Geometry;
 class Polygon2d;
 class Tree;
 
+static bool contains_bone(const std::shared_ptr<const Geometry>& geom) {
+  if (std::dynamic_pointer_cast<const BoneGeometry>(geom)) return true;
+  if (auto gl = std::dynamic_pointer_cast<const GeometryList>(geom)) {
+    for (const auto& item : gl->getChildren()) {
+      if (contains_bone(item.second)) return true;
+    }
+  }
+  return false;
+}
+
 GeometryEvaluator::GeometryEvaluator(const Tree& tree) : tree(tree)
 {
 }
@@ -564,12 +574,14 @@ Response GeometryEvaluator::visit(State& state, const ArmatureNode& node)
       return Response::PruneTraversal;
     }
     if (isSmartCached(node)) return Response::PruneTraversal;
+    state.setPreferNef(true);
   }
   if (state.isPostfix()) {
     std::shared_ptr<const Geometry> geom;
     if (!isSmartCached(node)) {
       unsigned int dim = 0;
-      GeometryList::Geometries geometries;
+      GeometryList::Geometries child_bones;
+      GeometryList::Geometries child_meshes;
 
       for (const auto& item : this->visitedchildren[node.index()]) {
         if (!isValidDim(item, dim)) break;
@@ -577,12 +589,34 @@ Response GeometryEvaluator::visit(State& state, const ArmatureNode& node)
         const std::shared_ptr<const Geometry>& chgeom = item.second;
         if (chnode->modinst->isBackground()) continue;
         smartCacheInsert(*chnode, chgeom);
-        if (chgeom && !chgeom->isEmpty()) geometries.push_back(item);
+        if (chgeom && !chgeom->isEmpty()) {
+          if (contains_bone(chgeom)) child_bones.push_back(item);
+          else child_meshes.push_back(item);
+        }
+      }
+
+      std::shared_ptr<const Geometry> unioned_meshes;
+      if (child_meshes.size() == 1) {
+        unioned_meshes = child_meshes.front().second;
+      } else if (child_meshes.size() > 1) {
+        auto original_children = std::move(this->visitedchildren[node.index()]);
+        this->visitedchildren[node.index()] = child_meshes;
+        unioned_meshes = applyToChildren(node, OpenSCADOperator::UNION).constptr();
+        this->visitedchildren[node.index()] = std::move(original_children);
+
+        if (!unioned_meshes) {
+          unioned_meshes = std::make_shared<GeometryList>(child_meshes);
+        }
+      }
+
+      GeometryList::Geometries final_geometries = std::move(child_bones);
+      if (unioned_meshes) {
+        final_geometries.push_back({node.shared_from_this(), unioned_meshes});
       }
 
       // PASS state.matrix() TO CAPTURE ABSOLUTE WORLD TRANSFORM
       auto armatureGeom = std::make_shared<ArmatureGeometry>(node.animations.clone(), state.matrix());
-      armatureGeom->children = std::move(geometries);
+      armatureGeom->children = std::move(final_geometries);
       geom = armatureGeom;
     } else {
       geom = smartCacheGet(node, state.preferNef());
@@ -597,13 +631,15 @@ Response GeometryEvaluator::visit(State& state, const BoneNode& node)
 {
   if (state.isPrefix()) {
     if (isSmartCached(node)) return Response::PruneTraversal;
+    state.setPreferNef(true);
     state.setMatrix(state.matrix() * node.matrix);
   }
   if (state.isPostfix()) {
     std::shared_ptr<const Geometry> geom;
     if (!isSmartCached(node)) {
       unsigned int dim = 0;
-      GeometryList::Geometries geometries;
+      GeometryList::Geometries child_bones;
+      GeometryList::Geometries child_meshes;
 
       for (const auto& item : this->visitedchildren[node.index()]) {
         if (!isValidDim(item, dim)) break;
@@ -611,12 +647,34 @@ Response GeometryEvaluator::visit(State& state, const BoneNode& node)
         const std::shared_ptr<const Geometry>& chgeom = item.second;
         if (chnode->modinst->isBackground()) continue;
         smartCacheInsert(*chnode, chgeom);
-        if (chgeom && !chgeom->isEmpty()) geometries.push_back(item);
+        if (chgeom && !chgeom->isEmpty()) {
+          if (contains_bone(chgeom)) child_bones.push_back(item);
+          else child_meshes.push_back(item);
+        }
+      }
+
+      std::shared_ptr<const Geometry> unioned_meshes;
+      if (child_meshes.size() == 1) {
+        unioned_meshes = child_meshes.front().second;
+      } else if (child_meshes.size() > 1) {
+        auto original_children = std::move(this->visitedchildren[node.index()]);
+        this->visitedchildren[node.index()] = child_meshes;
+        unioned_meshes = applyToChildren(node, OpenSCADOperator::UNION).constptr();
+        this->visitedchildren[node.index()] = std::move(original_children);
+
+        if (!unioned_meshes) {
+          unioned_meshes = std::make_shared<GeometryList>(child_meshes);
+        }
+      }
+
+      GeometryList::Geometries final_geometries = std::move(child_bones);
+      if (unioned_meshes) {
+        final_geometries.push_back({node.shared_from_this(), unioned_meshes});
       }
 
       // PASS state.matrix() TO CAPTURE ABSOLUTE WORLD TRANSFORM
       auto boneGeom = std::make_shared<BoneGeometry>(node.bone_name, node.matrix, state.matrix());
-      boneGeom->children = std::move(geometries);
+      boneGeom->children = std::move(final_geometries);
       geom = boneGeom;
     } else {
       geom = smartCacheGet(node, state.preferNef());
