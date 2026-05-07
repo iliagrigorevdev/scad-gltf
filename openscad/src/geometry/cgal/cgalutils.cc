@@ -426,8 +426,6 @@ std::unique_ptr<PolySet> createPolySetFromNefPolyhedron3(const CGAL_Nef_polyhedr
   polyset->specularIntensities.reserve(2);
   polyset->iridescences.reserve(2);
   polyset->iridescenceIORs.reserve(2);
-  polyset->anisotropies.reserve(2);
-  polyset->anisotropyRotations.reserve(2);
   auto colorScheme = ColorMap::inst()->findColorScheme(RenderSettings::inst()->colorscheme);
   polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_FRONT_COLOR));
   polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_BACK_COLOR));
@@ -469,10 +467,6 @@ std::unique_ptr<PolySet> createPolySetFromNefPolyhedron3(const CGAL_Nef_polyhedr
   polyset->iridescences.push_back(0.0f);
   polyset->iridescenceIORs.push_back(1.3f);
   polyset->iridescenceIORs.push_back(1.3f);
-  polyset->anisotropies.push_back(0.0f);
-  polyset->anisotropies.push_back(0.0f);
-  polyset->anisotropyRotations.push_back(0.0f);
-  polyset->anisotropyRotations.push_back(0.0f);
 
   polyset->vertices.reserve(verts.size());
   for (const auto& v : verts) {

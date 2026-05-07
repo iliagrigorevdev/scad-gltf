@@ -46,8 +46,6 @@ public:
                    const std::map<uint32_t, float>& originalIDToSpecularIntensity = {},
                    const std::map<uint32_t, float>& originalIDToIridescence = {},
                    const std::map<uint32_t, float>& originalIDToIridescenceIOR = {},
-                   const std::map<uint32_t, float>& originalIDToAnisotropy = {},
-                   const std::map<uint32_t, float>& originalIDToAnisotropyRotation = {},
                    const std::set<uint32_t>& subtractedIDs = {});
   ManifoldGeometry(const ManifoldGeometry& other) = default;
 
@@ -83,7 +81,7 @@ public:
   Polygon2d project() const;
 
   void transform(const Transform3d& mat) override;
-  void setColor(const Color4f& c, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float anisotropy = 0.0f, float anisotropyRotation = 0.0f) override;
+  void setColor(const Color4f& c, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f) override;
   void toOriginal();
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
 
@@ -117,7 +115,5 @@ private:
   std::map<uint32_t, float> originalIDToSpecularIntensity_;
   std::map<uint32_t, float> originalIDToIridescence_;
   std::map<uint32_t, float> originalIDToIridescenceIOR_;
-  std::map<uint32_t, float> originalIDToAnisotropy_;
-  std::map<uint32_t, float> originalIDToAnisotropyRotation_;
   std::set<uint32_t> subtractedIDs_;
 };

@@ -62,7 +62,7 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   node->emissive = defaultBlack;
   node->specularColor = defaultWhite;
 
-  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness", "attenuationColor", "attenuationDistance", "ior", "emissive", "emissiveIntensity", "specularColor", "specularIntensity", "iridescence", "iridescenceIOR", "anisotropy", "anisotropyRotation"});
+  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness", "attenuationColor", "attenuationDistance", "ior", "emissive", "emissiveIntensity", "specularColor", "specularIntensity", "iridescence", "iridescenceIOR"});
   if (parameters["c"].type() == Value::Type::VECTOR) {
     const auto& vec = parameters["c"].toVector();
     Vector4f color;
@@ -165,12 +165,6 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   if (parameters["iridescenceIOR"].type() == Value::Type::NUMBER) {
     node->iridescenceIOR = parameters["iridescenceIOR"].toDouble();
   }
-  if (parameters["anisotropy"].type() == Value::Type::NUMBER) {
-    node->anisotropy = parameters["anisotropy"].toDouble();
-  }
-  if (parameters["anisotropyRotation"].type() == Value::Type::NUMBER) {
-    node->anisotropyRotation = parameters["anisotropyRotation"].toDouble();
-  }
 
   return children.instantiate(node);
 }
@@ -185,7 +179,7 @@ std::string ColorNode::toString() const
              ", attenuationColor=[", this->attenuationColor.r(), ", ", this->attenuationColor.g(), ", ", this->attenuationColor.b(), "], attenuationDistance=", this->attenuationDistance, ", ior=", this->ior,
              ", emissive=[", this->emissive.r(), ", ", this->emissive.g(), ", ", this->emissive.b(), "], emissiveIntensity=", this->emissiveIntensity,
              ", specularColor=[", this->specularColor.r(), ", ", this->specularColor.g(), ", ", this->specularColor.b(), "], specularIntensity=", this->specularIntensity,
-             ", iridescence=", this->iridescence, ", iridescenceIOR=", this->iridescenceIOR, ", anisotropy=", this->anisotropy, ", anisotropyRotation=", this->anisotropyRotation, ")");
+             ", iridescence=", this->iridescence, ", iridescenceIOR=", this->iridescenceIOR, ")");
 }
 
 std::string ColorNode::name() const
@@ -195,7 +189,7 @@ std::string ColorNode::name() const
 
 void register_builtin_color()
 {
-  const char* full_params = ", roughness = 1.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor =[0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0, attenuationColor =[1.0, 1.0, 1.0], attenuationDistance = 0.0, ior = 1.5, emissive =[0.0, 0.0, 0.0], emissiveIntensity = 1.0, specularColor =[1.0, 1.0, 1.0], specularIntensity = 1.0, iridescence = 0.0, iridescenceIOR = 1.3, anisotropy = 0.0, anisotropyRotation = 0.0)";
+  const char* full_params = ", roughness = 1.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor =[0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0, attenuationColor =[1.0, 1.0, 1.0], attenuationDistance = 0.0, ior = 1.5, emissive =[0.0, 0.0, 0.0], emissiveIntensity = 1.0, specularColor =[1.0, 1.0, 1.0], specularIntensity = 1.0, iridescence = 0.0, iridescenceIOR = 1.3)";
   Builtins::init("color", new BuiltinModule(builtin_color),
                  {
                    STR("color(c =[r, g, b, a]", full_params),

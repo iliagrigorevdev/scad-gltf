@@ -65,7 +65,7 @@ void PolySetBuilder::setConvexity(int convexity)
   convexity_ = convexity;
 }
 
-void PolySetBuilder::addColor(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR, float anisotropy, float anisotropyRotation)
+void PolySetBuilder::addColor(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR)
 {
   colors_.push_back(color);
   roughnesses_.push_back(roughness);
@@ -86,8 +86,6 @@ void PolySetBuilder::addColor(const Color4f& color, float roughness, float metal
   specularIntensities_.push_back(specularIntensity);
   iridescences_.push_back(iridescence);
   iridescenceIORs_.push_back(iridescenceIOR);
-  anisotropies_.push_back(anisotropy);
-  anisotropyRotations_.push_back(anisotropyRotation);
 }
 
 void PolySetBuilder::addColorIndex(const int32_t idx)
@@ -175,7 +173,7 @@ void PolySetBuilder::addVertex(const Vector3d& v)
   addVertex(vertexIndex(v));
 }
 
-void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR, float anisotropy, float anisotropyRotation)
+void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR)
 {
   // FIXME: Should we check for self-touching polygons (non-consecutive duplicate indices)?
 
@@ -196,8 +194,7 @@ void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float met
             attenuationColors_[i] == attenuationColor && attenuationDistances_[i] == attenuationDistance &&
             iors_[i] == ior && emissives_[i] == emissive && emissiveIntensities_[i] == emissiveIntensity &&
             specularColors_[i] == specularColor && specularIntensities_[i] == specularIntensity &&
-            iridescences_[i] == iridescence && iridescenceIORs_[i] == iridescenceIOR &&
-            anisotropies_[i] == anisotropy && anisotropyRotations_[i] == anisotropyRotation) {
+            iridescences_[i] == iridescence && iridescenceIORs_[i] == iridescenceIOR) {
           match_idx = i;
           break;
         }
@@ -223,8 +220,6 @@ void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float met
         specularIntensities_.push_back(specularIntensity);
         iridescences_.push_back(iridescence);
         iridescenceIORs_.push_back(iridescenceIOR);
-        anisotropies_.push_back(anisotropy);
-        anisotropyRotations_.push_back(anisotropyRotation);
       } else {
         color_indices_.push_back(match_idx);
       }
@@ -273,8 +268,6 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
       float specularIntensity = ps.specularIntensities.empty() ? 1.0f : ps.specularIntensities[i];
       float iridescence = ps.iridescences.empty() ? 0.0f : ps.iridescences[i];
       float iridescenceIOR = ps.iridescenceIORs.empty() ? 1.3f : ps.iridescenceIORs[i];
-      float anisotropy = ps.anisotropies.empty() ? 0.0f : ps.anisotropies[i];
-      float anisotropyRotation = ps.anisotropyRotations.empty() ? 0.0f : ps.anisotropyRotations[i];
 
       // Find index of material in material vectors, or add it if it doesn't exist
       int match_idx = -1;
@@ -286,8 +279,7 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
             attenuationColors_[j] == attenuationColor && attenuationDistances_[j] == attenuationDistance &&
             iors_[j] == ior && emissives_[j] == emissive && emissiveIntensities_[j] == emissiveIntensity &&
             specularColors_[j] == specularColor && specularIntensities_[j] == specularIntensity &&
-            iridescences_[j] == iridescence && iridescenceIORs_[j] == iridescenceIOR &&
-            anisotropies_[j] == anisotropy && anisotropyRotations_[j] == anisotropyRotation) {
+            iridescences_[j] == iridescence && iridescenceIORs_[j] == iridescenceIOR) {
           match_idx = j;
           break;
         }
@@ -313,8 +305,6 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
         specularIntensities_.push_back(specularIntensity);
         iridescences_.push_back(iridescence);
         iridescenceIORs_.push_back(iridescenceIOR);
-        anisotropies_.push_back(anisotropy);
-        anisotropyRotations_.push_back(anisotropyRotation);
       } else {
         color_map[i] = match_idx;
       }
@@ -364,8 +354,6 @@ std::unique_ptr<PolySet> PolySetBuilder::build()
   polyset->specularIntensities = std::move(specularIntensities_);
   polyset->iridescences = std::move(iridescences_);
   polyset->iridescenceIORs = std::move(iridescenceIORs_);
-  polyset->anisotropies = std::move(anisotropies_);
-  polyset->anisotropyRotations = std::move(anisotropyRotations_);
   polyset->setConvexity(convexity_);
   bool is_triangular = true;
   for (const auto& face : polyset->indices) {

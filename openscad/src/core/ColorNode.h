@@ -34,6 +34,4 @@ public:
   float specularIntensity = 1.0f;
   float iridescence = 0.0f;
   float iridescenceIOR = 1.3f;
-  float anisotropy = 0.0f;
-  float anisotropyRotation = 0.0f;
 };

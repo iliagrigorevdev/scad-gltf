@@ -261,7 +261,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     std::vector<unsigned char> bin_data;
 
     bool use_clearcoat = false, use_sheen = false, use_transmission = false, use_thickness = false;
-    bool use_ior = false, use_emissive_strength = false, use_specular = false, use_iridescence = false, use_anisotropy = false;
+    bool use_ior = false, use_emissive_strength = false, use_specular = false, use_iridescence = false;
 
     model.buffers.emplace_back();
 
@@ -445,16 +445,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     use_iridescence = true;
                 }
 
-                float anisotropy = ps->anisotropies.empty() ? 0.0f : ps->anisotropies[prim.color_idx];
-                float anisotropyRotation = ps->anisotropyRotations.empty() ? 0.0f : ps->anisotropyRotations[prim.color_idx];
-                if (anisotropy > 0.0f) {
-                    tinygltf::Value::Object ext;
-                    ext["anisotropyStrength"] = tinygltf::Value((double)anisotropy);
-                    ext["anisotropyRotation"] = tinygltf::Value((double)anisotropyRotation);
-                    mat.extensions["KHR_materials_anisotropy"] = tinygltf::Value(ext);
-                    use_anisotropy = true;
-                }
-
                 if (a < 255) mat.alphaMode = "BLEND";
             } else {
                 mat.pbrMetallicRoughness.baseColorFactor = {(double)exportInfo.defaultColor.r(), (double)exportInfo.defaultColor.g(), (double)exportInfo.defaultColor.b(), (double)exportInfo.defaultColor.a()};
@@ -620,7 +610,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     if (use_emissive_strength) model.extensionsUsed.push_back("KHR_materials_emissive_strength");
     if (use_specular) model.extensionsUsed.push_back("KHR_materials_specular");
     if (use_iridescence) model.extensionsUsed.push_back("KHR_materials_iridescence");
-    if (use_anisotropy) model.extensionsUsed.push_back("KHR_materials_anisotropy");
 
     model.buffers[0].data = std::move(bin_data);
 
