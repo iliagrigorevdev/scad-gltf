@@ -493,108 +493,122 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
     // 4. Process Animations
     if (global_anims.type() == Value::Type::VECTOR) {
-        tinygltf::Animation gltf_anim;
-        gltf_anim.name = "ArmatureAction";
-        
-        for (const auto& track_val : global_anims.toVector()) {
-            const auto& track = track_val.toVector();
-            if (track.size() < 2) continue;
+        for (const auto& anim_val : global_anims.toVector()) {
+            if (anim_val.type() != Value::Type::VECTOR) continue;
+            const auto& anim = anim_val.toVector();
+            if (anim.size() < 2 || anim[0].type() != Value::Type::STRING || anim[1].type() != Value::Type::VECTOR) continue;
             
-            std::string bone_name = track[0].toStrUtf8Wrapper().toString();
-            if (bone_to_node.find(bone_name) == bone_to_node.end()) continue;
-            int node_idx = bone_to_node[bone_name];
+            std::string anim_name = anim[0].toStrUtf8Wrapper().toString();
+            const auto& tracks = anim[1].toVector();
             
-            std::vector<float> times;
-            std::vector<float> rotations;
-            std::vector<float> translations;
-            bool has_translation = false;
-
-            // Pre-check if any keyframe uses translation
-            for (const auto& kf_val : track[1].toVector()) {
-                if (kf_val.toVector().size() > 2) {
-                    has_translation = true;
-                    break;
-                }
-            }
-
-            float min_time = FLT_MAX, max_time = -FLT_MAX;
+            tinygltf::Animation gltf_anim;
+            gltf_anim.name = anim_name;
             
-            for (const auto& kf_val : track[1].toVector()) {
-                const auto& kf = kf_val.toVector();
-                if (kf.empty()) continue;
+            for (const auto& track_val : tracks) {
+                if (track_val.type() != Value::Type::VECTOR) continue;
+                const auto& track = track_val.toVector();
+                if (track.size() < 2 || track[0].type() != Value::Type::STRING || track[1].type() != Value::Type::VECTOR) continue;
+                
+                std::string bone_name = track[0].toStrUtf8Wrapper().toString();
+                if (bone_to_node.find(bone_name) == bone_to_node.end()) continue;
+                int node_idx = bone_to_node[bone_name];
+                
+                std::vector<float> times;
+                std::vector<float> rotations;
+                std::vector<float> translations;
+                bool has_translation = false;
 
-                float t = kf[0].toDouble();
-                times.push_back(t);
-                min_time = std::min(min_time, t);
-                max_time = std::max(max_time, t);
-                
-                double rx=0, ry=0, rz=0;
-                if (kf.size() > 1) {
-                    kf[1].getVec3(rx, ry, rz);
-                }
-                
-                Transform3d rot = Transform3d::Identity();
-                rot.rotate(Eigen::AngleAxisd(rz * M_PI/180.0, Vector3d::UnitZ()) * 
-                           Eigen::AngleAxisd(ry * M_PI/180.0, Vector3d::UnitY()) * 
-                           Eigen::AngleAxisd(rx * M_PI/180.0, Vector3d::UnitX()));
-                           
-                Transform3d rot_gltf = C * rot * C.inverse();
-                Eigen::Quaterniond q(rot_gltf.rotation());
-                
-                rotations.push_back(q.x()); rotations.push_back(q.y());
-                rotations.push_back(q.z()); rotations.push_back(q.w());
-
-                if (has_translation) {
-                    if (kf.size() > 2) {
-                        double tx=0, ty=0, tz=0;
-                        kf[2].getVec3(tx, ty, tz);
-                        Vector3d trans_gltf = C * Vector3d(tx, ty, tz);
-                        translations.push_back(trans_gltf.x());
-                        translations.push_back(trans_gltf.y());
-                        translations.push_back(trans_gltf.z());
-                    } else {
-                        // Fallback to the bone's rest position if omitted in this keyframe
-                        translations.push_back(model.nodes[node_idx].translation[0]);
-                        translations.push_back(model.nodes[node_idx].translation[1]);
-                        translations.push_back(model.nodes[node_idx].translation[2]);
+                // Pre-check if any keyframe uses translation
+                for (const auto& kf_val : track[1].toVector()) {
+                    if (kf_val.type() != Value::Type::VECTOR) continue;
+                    if (kf_val.toVector().size() > 2) {
+                        has_translation = true;
+                        break;
                     }
                 }
-            }
 
-            int time_acc_idx = append_to_bin(bin_data, times, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_SCALAR, {(double)min_time}, {(double)max_time});
-            int rot_acc_idx = append_to_bin(bin_data, rotations, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4);
-            
-            int sampler_idx = gltf_anim.samplers.size();
-            tinygltf::AnimationSampler sampler;
-            sampler.input = time_acc_idx;
-            sampler.output = rot_acc_idx;
-            sampler.interpolation = "LINEAR";
-            gltf_anim.samplers.push_back(sampler);
-            
-            tinygltf::AnimationChannel channel;
-            channel.sampler = sampler_idx;
-            channel.target_node = node_idx;
-            channel.target_path = "rotation";
-            gltf_anim.channels.push_back(channel);
+                float min_time = FLT_MAX, max_time = -FLT_MAX;
 
-            if (has_translation) {
-                int trans_acc_idx = append_to_bin(bin_data, translations, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3);
+                for (const auto& kf_val : track[1].toVector()) {
+                    if (kf_val.type() != Value::Type::VECTOR) continue;
+                    const auto& kf = kf_val.toVector();
+                    if (kf.empty() || kf[0].type() != Value::Type::NUMBER) continue;
+
+                    float t = kf[0].toDouble();
+                    times.push_back(t);
+                    min_time = std::min(min_time, t);
+                    max_time = std::max(max_time, t);
+
+                    double rx=0, ry=0, rz=0;
+                    if (kf.size() > 1) {
+                        kf[1].getVec3(rx, ry, rz);
+                    }
+
+                    Transform3d rot = Transform3d::Identity();
+                    rot.rotate(Eigen::AngleAxisd(rz * M_PI/180.0, Vector3d::UnitZ()) *
+                               Eigen::AngleAxisd(ry * M_PI/180.0, Vector3d::UnitY()) *
+                               Eigen::AngleAxisd(rx * M_PI/180.0, Vector3d::UnitX()));
+
+                    Transform3d rot_gltf = C * rot * C.inverse();
+                    Eigen::Quaterniond q(rot_gltf.rotation());
+
+                    rotations.push_back(q.x()); rotations.push_back(q.y());
+                    rotations.push_back(q.z()); rotations.push_back(q.w());
+
+                    if (has_translation) {
+                        if (kf.size() > 2) {
+                            double tx=0, ty=0, tz=0;
+                            kf[2].getVec3(tx, ty, tz);
+                            Vector3d trans_gltf = C * Vector3d(tx, ty, tz);
+                            translations.push_back(trans_gltf.x());
+                            translations.push_back(trans_gltf.y());
+                            translations.push_back(trans_gltf.z());
+                        } else {
+                            // Fallback to the bone's rest position if omitted in this keyframe
+                            translations.push_back(model.nodes[node_idx].translation[0]);
+                            translations.push_back(model.nodes[node_idx].translation[1]);
+                            translations.push_back(model.nodes[node_idx].translation[2]);
+                        }
+                    }
+                }
+
+                if (times.empty()) continue;
+
+                int time_acc_idx = append_to_bin(bin_data, times, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_SCALAR, {(double)min_time}, {(double)max_time});
+                int rot_acc_idx = append_to_bin(bin_data, rotations, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4);
                 
-                int t_sampler_idx = gltf_anim.samplers.size();
-                tinygltf::AnimationSampler t_sampler;
-                t_sampler.input = time_acc_idx;
-                t_sampler.output = trans_acc_idx;
-                t_sampler.interpolation = "LINEAR";
-                gltf_anim.samplers.push_back(t_sampler);
+                int sampler_idx = gltf_anim.samplers.size();
+                tinygltf::AnimationSampler sampler;
+                sampler.input = time_acc_idx;
+                sampler.output = rot_acc_idx;
+                sampler.interpolation = "LINEAR";
+                gltf_anim.samplers.push_back(sampler);
                 
-                tinygltf::AnimationChannel t_channel;
-                t_channel.sampler = t_sampler_idx;
-                t_channel.target_node = node_idx;
-                t_channel.target_path = "translation";
-                gltf_anim.channels.push_back(t_channel);
+                tinygltf::AnimationChannel channel;
+                channel.sampler = sampler_idx;
+                channel.target_node = node_idx;
+                channel.target_path = "rotation";
+                gltf_anim.channels.push_back(channel);
+
+                if (has_translation) {
+                    int trans_acc_idx = append_to_bin(bin_data, translations, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3);
+
+                    int t_sampler_idx = gltf_anim.samplers.size();
+                    tinygltf::AnimationSampler t_sampler;
+                    t_sampler.input = time_acc_idx;
+                    t_sampler.output = trans_acc_idx;
+                    t_sampler.interpolation = "LINEAR";
+                    gltf_anim.samplers.push_back(t_sampler);
+
+                    tinygltf::AnimationChannel t_channel;
+                    t_channel.sampler = t_sampler_idx;
+                    t_channel.target_node = node_idx;
+                    t_channel.target_path = "translation";
+                    gltf_anim.channels.push_back(t_channel);
+                }
             }
+            if (!gltf_anim.channels.empty()) model.animations.push_back(gltf_anim);
         }
-        if (!gltf_anim.channels.empty()) model.animations.push_back(gltf_anim);
     }
 
     tinygltf::Scene scene;
