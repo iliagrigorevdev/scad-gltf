@@ -9,6 +9,6 @@
 std::unique_ptr<PolySet> Polygon2d::tessellate() const
 {
   PRINTDB("Polygon2d::tessellate(): %d outlines", this->outlines().size());
-  return std::make_unique<PolySet>(*this);
+  return std::make_unique<PolySet>(2);
 }
 #endif

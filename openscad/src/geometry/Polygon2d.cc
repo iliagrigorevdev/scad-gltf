@@ -171,6 +171,7 @@ double Polygon2d::area() const
    * guarantee that vertices and their order are untouched (apart from adding a zero 3rd dimension)
    *
  */
+#ifdef ENABLE_CGAL
 std::unique_ptr<PolySet> Polygon2d::tessellate() const
 {
   PRINTDB("Polygon2d::tessellate(): %d outlines", this->outlines().size());
@@ -181,3 +182,5 @@ std::unique_ptr<PolySet> Polygon2d::tessellate() const
 #endif
     return CGALUtils::createTriangulatedPolySetFromPolygon2d(*this);
 }
+
+#endif
