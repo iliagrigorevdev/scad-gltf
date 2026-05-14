@@ -69,6 +69,7 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
   std::map<uint32_t, float> originalIDToSpecularIntensity;
   std::map<uint32_t, float> originalIDToIridescence;
   std::map<uint32_t, float> originalIDToIridescenceIOR;
+  std::map<uint32_t, float> originalIDToAutoSmoothAngle;
 
   struct MaterialState {
     std::optional<Color4f> color;
@@ -90,6 +91,7 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     float specularIntensity;
     float iridescence;
     float iridescenceIOR;
+    float autoSmoothAngle;
     bool operator<(const MaterialState& other) const {
       if (color.has_value() != other.color.has_value()) return color.has_value() < other.color.has_value();
       if (color.has_value()) {
@@ -129,7 +131,8 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
       if (specularColor.a() != other.specularColor.a()) return specularColor.a() < other.specularColor.a();
       if (specularIntensity != other.specularIntensity) return specularIntensity < other.specularIntensity;
       if (iridescence != other.iridescence) return iridescence < other.iridescence;
-      return iridescenceIOR < other.iridescenceIOR;
+      if (iridescenceIOR != other.iridescenceIOR) return iridescenceIOR < other.iridescenceIOR;
+      return autoSmoothAngle < other.autoSmoothAngle;
     }
   };
 
@@ -157,6 +160,7 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     float specularIntensity = 1.0f;
     float iridescence = 0.0f;
     float iridescenceIOR = 1.3f;
+    float autoSmoothAngle = 0.0f;
     if (color_index >= 0) {
       if (color_index < ps.colors.size()) color = ps.colors[color_index];
       if (color_index < ps.roughnesses.size()) roughness = ps.roughnesses[color_index];
@@ -177,8 +181,9 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
       if (color_index < ps.specularIntensities.size()) specularIntensity = ps.specularIntensities[color_index];
       if (color_index < ps.iridescences.size()) iridescence = ps.iridescences[color_index];
       if (color_index < ps.iridescenceIORs.size()) iridescenceIOR = ps.iridescenceIORs[color_index];
+      if (color_index < ps.autoSmoothAngles.size()) autoSmoothAngle = ps.autoSmoothAngles[color_index];
     }
-    colorToFaceIndices[{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR}].push_back(i);
+    colorToFaceIndices[{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR, autoSmoothAngle}].push_back(i);
   }
   auto next_id = manifold::Manifold::ReserveIDs(colorToFaceIndices.size());
   for (const auto&[mat, faceIndices] : colorToFaceIndices) {
@@ -203,6 +208,7 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
       originalIDToSpecularIntensity[id] = mat.specularIntensity;
       originalIDToIridescence[id] = mat.iridescence;
       originalIDToIridescenceIOR[id] = mat.iridescenceIOR;
+      originalIDToAutoSmoothAngle[id] = mat.autoSmoothAngle;
     }
 
     mesh.runIndex.push_back(mesh.triVerts.size());
@@ -236,7 +242,7 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     }
   }
 
-  return std::make_shared<ManifoldGeometry>(mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, originalIDToTransmission, originalIDToThickness, originalIDToAttenuationColor, originalIDToAttenuationDistance, originalIDToIOR, originalIDToEmissive, originalIDToEmissiveIntensity, originalIDToSpecularColor, originalIDToSpecularIntensity, originalIDToIridescence, originalIDToIridescenceIOR);
+  return std::make_shared<ManifoldGeometry>(mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, originalIDToTransmission, originalIDToThickness, originalIDToAttenuationColor, originalIDToAttenuationDistance, originalIDToIOR, originalIDToEmissive, originalIDToEmissiveIntensity, originalIDToSpecularColor, originalIDToSpecularIntensity, originalIDToIridescence, originalIDToIridescenceIOR, originalIDToAutoSmoothAngle);
 }
 
 }  // namespace

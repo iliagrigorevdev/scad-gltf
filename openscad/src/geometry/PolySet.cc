@@ -111,7 +111,7 @@ void PolySet::transform(const Transform3d& mat)
   bbox_.setNull();
 }
 
-void PolySet::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR)
+void PolySet::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR, float autoSmoothAngle)
 {
   colors = {c};
   roughnesses = {roughness};
@@ -132,6 +132,7 @@ void PolySet::setColor(const Color4f& c, float roughness, float metalness, float
   specularIntensities = {specularIntensity};
   iridescences = {iridescence};
   iridescenceIORs = {iridescenceIOR};
+  autoSmoothAngles = {autoSmoothAngle};
   color_indices.assign(indices.size(), 0);
 }
 

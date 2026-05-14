@@ -9,6 +9,7 @@
 #include <ostream>
 #include <map>
 #include <vector>
+#include <cmath>
 #include <cfloat>
 #include <cstring>
 #include <algorithm>
@@ -38,13 +39,14 @@ static std::string base64_encode(const unsigned char* data, size_t len) {
 struct PrimitiveInfo {
     int color_idx;
     std::vector<uint32_t> indices;
+    std::vector<float> positions;
+    std::vector<float> normals;
+    float min_pos[3];
+    float max_pos[3];
     std::shared_ptr<const PolySet> ps;
 };
 
 struct MeshInfo {
-    std::vector<float> positions;
-    float min_pos[3];
-    float max_pos[3];
     std::vector<PrimitiveInfo> primitives;
     std::shared_ptr<const PolySet> ps;
     int target_node = -1;
@@ -160,46 +162,125 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             minfo.ps = ps;
             minfo.target_node = parent_node_idx;
             minfo.joint_idx = current_joint_idx;
-            for(int i = 0; i < 3; ++i) { minfo.min_pos[i] = FLT_MAX; minfo.max_pos[i] = -FLT_MAX; }
 
-            for (const auto& v : ps->vertices) {
-                // v is inside the bone's local mathematical space.
-                // Shift it to explicit Absolute OpenSCAD world space using the true matrix accumulator
-                Vector3d absolute_v = M_accum * v;
-                
-                // Map the absolute vectors into glTF Y-Up world space
-                Vector3d gltf_v = C * absolute_v;
-                
-                minfo.positions.push_back(gltf_v.x());
-                minfo.positions.push_back(gltf_v.y());
-                minfo.positions.push_back(gltf_v.z());
-                
-                minfo.min_pos[0] = std::min(minfo.min_pos[0], (float)gltf_v.x());
-                minfo.min_pos[1] = std::min(minfo.min_pos[1], (float)gltf_v.y());
-                minfo.min_pos[2] = std::min(minfo.min_pos[2], (float)gltf_v.z());
-                minfo.max_pos[0] = std::max(minfo.max_pos[0], (float)gltf_v.x());
-                minfo.max_pos[1] = std::max(minfo.max_pos[1], (float)gltf_v.y());
-                minfo.max_pos[2] = std::max(minfo.max_pos[2], (float)gltf_v.z());
-            }
-
-            std::map<int, PrimitiveInfo> prim_map;
+            std::map<int, std::vector<int>> prim_faces;
             for (size_t i = 0; i < ps->indices.size(); ++i) {
                 int color_idx = ps->color_indices.empty() ? -1 : ps->color_indices[i];
-                auto& prim = prim_map[color_idx];
-                prim.color_idx = color_idx;
-                const auto& face = ps->indices[i];
-                if (face.size() < 3) continue;
-                for (size_t j = 1; j + 1 < face.size(); ++j) {
-                    prim.indices.push_back(face[0]);
-                    prim.indices.push_back(face[j]);
-                    prim.indices.push_back(face[j + 1]);
-                }
+                prim_faces[color_idx].push_back(i);
             }
 
-            for (auto& kv : prim_map) {
-                if (!kv.second.indices.empty()) {
-                    kv.second.ps = ps;
-                    minfo.primitives.push_back(std::move(kv.second));
+            for (auto& kv : prim_faces) {
+                int color_idx = kv.first;
+                const auto& face_indices = kv.second;
+                if (face_indices.empty()) continue;
+
+                float autoSmoothAngle = 0.0f;
+                if (color_idx >= 0 && color_idx < ps->autoSmoothAngles.size()) {
+                    autoSmoothAngle = ps->autoSmoothAngles[color_idx];
+                }
+
+                PrimitiveInfo prim;
+                prim.color_idx = color_idx;
+                prim.ps = ps;
+                for(int i=0; i<3; ++i) { prim.min_pos[i] = FLT_MAX; prim.max_pos[i] = -FLT_MAX; }
+
+                std::vector<Vector3d> gltf_vertices(ps->vertices.size());
+                for (size_t i = 0; i < ps->vertices.size(); ++i) {
+                    gltf_vertices[i] = C * M_accum * ps->vertices[i];
+                }
+
+                std::vector<Vector3d> face_normals(face_indices.size());
+                for (size_t i = 0; i < face_indices.size(); ++i) {
+                    const auto& f = ps->indices[face_indices[i]];
+                    if (f.size() < 3) continue;
+                    Vector3d p0 = gltf_vertices[f[0]];
+                    Vector3d p1 = gltf_vertices[f[1]];
+                    Vector3d p2 = gltf_vertices[f[2]];
+                    Vector3d n = (p1 - p0).cross(p2 - p0);
+                    if (n.norm() > 1e-8) n.normalize();
+                    else n = Vector3d(0, 1, 0);
+                    face_normals[i] = n;
+                }
+
+                std::vector<std::vector<int>> vertex_to_faces(ps->vertices.size());
+                for (size_t i = 0; i < face_indices.size(); ++i) {
+                    const auto& f = ps->indices[face_indices[i]];
+                    for (int v_idx : f) {
+                        vertex_to_faces[v_idx].push_back(i);
+                    }
+                }
+
+                float cos_threshold = std::cos(autoSmoothAngle * M_PI / 180.0f);
+
+                struct VertKey {
+                    int v_idx;
+                    Vector3d normal;
+                    bool operator<(const VertKey& o) const {
+                        if (v_idx != o.v_idx) return v_idx < o.v_idx;
+                        if (normal.x() != o.normal.x()) return normal.x() < o.normal.x();
+                        if (normal.y() != o.normal.y()) return normal.y() < o.normal.y();
+                        return normal.z() < o.normal.z();
+                    }
+                };
+
+                std::map<VertKey, uint32_t> vert_to_idx;
+
+                auto add_vertex = [&](int v_idx, const Vector3d& n) -> uint32_t {
+                    VertKey key{v_idx, n};
+                    auto it = vert_to_idx.find(key);
+                    if (it != vert_to_idx.end()) return it->second;
+
+                    uint32_t new_idx = prim.positions.size() / 3;
+                    Vector3d p = gltf_vertices[v_idx];
+                    prim.positions.push_back((float)p.x());
+                    prim.positions.push_back((float)p.y());
+                    prim.positions.push_back((float)p.z());
+                    prim.normals.push_back((float)n.x());
+                    prim.normals.push_back((float)n.y());
+                    prim.normals.push_back((float)n.z());
+
+                    prim.min_pos[0] = std::min(prim.min_pos[0], (float)p.x());
+                    prim.min_pos[1] = std::min(prim.min_pos[1], (float)p.y());
+                    prim.min_pos[2] = std::min(prim.min_pos[2], (float)p.z());
+                    prim.max_pos[0] = std::max(prim.max_pos[0], (float)p.x());
+                    prim.max_pos[1] = std::max(prim.max_pos[1], (float)p.y());
+                    prim.max_pos[2] = std::max(prim.max_pos[2], (float)p.z());
+
+                    vert_to_idx[key] = new_idx;
+                    return new_idx;
+                };
+
+                for (size_t i = 0; i < face_indices.size(); ++i) {
+                    const auto& f = ps->indices[face_indices[i]];
+                    if (f.size() < 3) continue;
+
+                    Vector3d fn = face_normals[i];
+
+                    for (size_t j = 1; j + 1 < f.size(); ++j) {
+                        int tri[3] = {f[0], f[j], f[j+1]};
+
+                        for (int k = 0; k < 3; ++k) {
+                            int v = tri[k];
+                            Vector3d n = fn;
+
+                            if (autoSmoothAngle > 0.0f) {
+                                Vector3d sum_n = Vector3d::Zero();
+                                for (int adj_f_idx : vertex_to_faces[v]) {
+                                    Vector3d adj_fn = face_normals[adj_f_idx];
+                                    if (fn.dot(adj_fn) >= cos_threshold - 1e-5) {
+                                        sum_n += adj_fn;
+                                    }
+                                }
+                                if (sum_n.norm() > 1e-8) n = sum_n.normalized();
+                            }
+
+                            prim.indices.push_back(add_vertex(v, n));
+                        }
+                    }
+                }
+
+                if (!prim.indices.empty()) {
+                    minfo.primitives.push_back(std::move(prim));
                 }
             }
             if (!minfo.primitives.empty()) meshes_info.push_back(std::move(minfo));
@@ -288,30 +369,33 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
     // 3. Process Meshes
     for (const auto& minfo : meshes_info) {
-        int pos_accessor_idx = append_to_bin(bin_data, minfo.positions, model, 
-            TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, 
-            {(double)minfo.min_pos[0], (double)minfo.min_pos[1], (double)minfo.min_pos[2]}, 
-            {(double)minfo.max_pos[0], (double)minfo.max_pos[1], (double)minfo.max_pos[2]});
-
-        int joints_acc = -1;
-        int weights_acc = -1;
-        
-        // Rigidly bind to joint directly modifying vertices inside the shader
-        if (minfo.joint_idx != -1) {
-            size_t vertex_count = minfo.positions.size() / 3;
-            std::vector<uint16_t> joints_data(vertex_count * 4, 0);
-            std::vector<float> weights_data(vertex_count * 4, 0.0f);
-            for (size_t i = 0; i < vertex_count; ++i) {
-                joints_data[i * 4 + 0] = minfo.joint_idx;
-                weights_data[i * 4 + 0] = 1.0f;
-            }
-            joints_acc = append_to_bin(bin_data, joints_data, model, TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4);
-            weights_acc = append_to_bin(bin_data, weights_data, model, TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4);
-        }
-
         tinygltf::Mesh mesh;
 
         for (const auto& prim : minfo.primitives) {
+            int pos_accessor_idx = append_to_bin(bin_data, prim.positions, model,
+                TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3,
+                {(double)prim.min_pos[0], (double)prim.min_pos[1], (double)prim.min_pos[2]},
+                {(double)prim.max_pos[0], (double)prim.max_pos[1], (double)prim.max_pos[2]});
+
+            int norm_accessor_idx = append_to_bin(bin_data, prim.normals, model,
+                TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3);
+
+            int joints_acc = -1;
+            int weights_acc = -1;
+
+            // Rigidly bind to joint directly modifying vertices inside the shader
+            if (minfo.joint_idx != -1) {
+                size_t vertex_count = prim.positions.size() / 3;
+                std::vector<uint16_t> joints_data(vertex_count * 4, 0);
+                std::vector<float> weights_data(vertex_count * 4, 0.0f);
+                for (size_t i = 0; i < vertex_count; ++i) {
+                    joints_data[i * 4 + 0] = minfo.joint_idx;
+                    weights_data[i * 4 + 0] = 1.0f;
+                }
+                joints_acc = append_to_bin(bin_data, joints_data, model, TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4);
+                weights_acc = append_to_bin(bin_data, weights_data, model, TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4);
+            }
+
             int idx_accessor_idx = append_to_bin(bin_data, prim.indices, model, 
                 TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT, TINYGLTF_TYPE_SCALAR);
 
@@ -458,6 +542,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
             tinygltf::Primitive gltf_prim;
             gltf_prim.attributes["POSITION"] = pos_accessor_idx;
+            gltf_prim.attributes["NORMAL"] = norm_accessor_idx;
             if (joints_acc != -1) gltf_prim.attributes["JOINTS_0"] = joints_acc;
             if (weights_acc != -1) gltf_prim.attributes["WEIGHTS_0"] = weights_acc;
             gltf_prim.indices = idx_accessor_idx;

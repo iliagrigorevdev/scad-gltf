@@ -63,6 +63,7 @@ ManifoldGeometry::ManifoldGeometry(manifold::Manifold mani, const std::set<uint3
                                    const std::map<uint32_t, float>& originalIDToSpecularIntensity,
                                    const std::map<uint32_t, float>& originalIDToIridescence,
                                    const std::map<uint32_t, float>& originalIDToIridescenceIOR,
+                                   const std::map<uint32_t, float>& originalIDToAutoSmoothAngle,
                                    const std::set<uint32_t>& subtractedIDs)
   : manifold_(std::move(mani)),
     originalIDs_(originalIDs),
@@ -85,6 +86,7 @@ ManifoldGeometry::ManifoldGeometry(manifold::Manifold mani, const std::set<uint3
     originalIDToSpecularIntensity_(originalIDToSpecularIntensity),
     originalIDToIridescence_(originalIDToIridescence),
     originalIDToIridescenceIOR_(originalIDToIridescenceIOR),
+    originalIDToAutoSmoothAngle_(originalIDToAutoSmoothAngle),
     subtractedIDs_(subtractedIDs)
 {
 }
@@ -204,6 +206,7 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
     float specularIntensity;
     float iridescence;
     float iridescenceIOR;
+    float autoSmoothAngle;
     bool operator<(const MaterialState& other) const {
       if (color.r() != other.color.r()) return color.r() < other.color.r();
       if (color.g() != other.color.g()) return color.g() < other.color.g();
@@ -238,7 +241,8 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       if (specularColor.a() != other.specularColor.a()) return specularColor.a() < other.specularColor.a();
       if (specularIntensity != other.specularIntensity) return specularIntensity < other.specularIntensity;
       if (iridescence != other.iridescence) return iridescence < other.iridescence;
-      return iridescenceIOR < other.iridescenceIOR;
+      if (iridescenceIOR != other.iridescenceIOR) return iridescenceIOR < other.iridescenceIOR;
+      return autoSmoothAngle < other.autoSmoothAngle;
     }
   };
   std::map<MaterialState, int32_t> materialToIndex;
@@ -268,6 +272,7 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       ps->specularIntensities.push_back(1.0f);
       ps->iridescences.push_back(0.0f);
       ps->iridescenceIORs.push_back(1.3f);
+      ps->autoSmoothAngles.push_back(0.0f);
     }
     return faceFrontColorIndex;
   };
@@ -295,6 +300,7 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       ps->specularIntensities.push_back(1.0f);
       ps->iridescences.push_back(0.0f);
       ps->iridescenceIORs.push_back(1.3f);
+      ps->autoSmoothAngles.push_back(0.0f);
     }
     return faceBackColorIndex;
   };
@@ -388,7 +394,11 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
     auto iridIORIt = originalIDToIridescenceIOR_.find(originalID);
     if (iridIORIt != originalIDToIridescenceIOR_.end()) iridescenceIOR = iridIORIt->second;
 
-    auto matIt = materialToIndex.lower_bound({color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR});
+    float autoSmoothAngle = 0.0f;
+    auto asaIt = originalIDToAutoSmoothAngle_.find(originalID);
+    if (asaIt != originalIDToAutoSmoothAngle_.end()) autoSmoothAngle = asaIt->second;
+
+    auto matIt = materialToIndex.lower_bound({color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR, autoSmoothAngle});
     bool match = false;
     if (matIt != materialToIndex.end()) {
       const auto& c1 = matIt->first.color;
@@ -410,7 +420,8 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
                matIt->first.specularColor.r() == specularColor.r() && matIt->first.specularColor.g() == specularColor.g() &&
                matIt->first.specularColor.b() == specularColor.b() && matIt->first.specularColor.a() == specularColor.a() &&
                matIt->first.specularIntensity == specularIntensity &&
-               matIt->first.iridescence == iridescence && matIt->first.iridescenceIOR == iridescenceIOR);
+               matIt->first.iridescence == iridescence && matIt->first.iridescenceIOR == iridescenceIOR &&
+               matIt->first.autoSmoothAngle == autoSmoothAngle);
     }
 
     if (match) {
@@ -437,7 +448,8 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
       ps->specularIntensities.push_back(specularIntensity);
       ps->iridescences.push_back(iridescence);
       ps->iridescenceIORs.push_back(iridescenceIOR);
-      materialToIndex.insert(matIt, {{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR}, color_index});
+      ps->autoSmoothAngles.push_back(autoSmoothAngle);
+      materialToIndex.insert(matIt, {{color, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR, autoSmoothAngle}, color_index});
       originalIDToColorIndex[originalID] = color_index;
       return color_index;
     }
@@ -537,6 +549,7 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
   auto originalIDToSpecularIntensity = lhs.originalIDToSpecularIntensity_;
   auto originalIDToIridescence = lhs.originalIDToIridescence_;
   auto originalIDToIridescenceIOR = lhs.originalIDToIridescenceIOR_;
+  auto originalIDToAutoSmoothAngle = lhs.originalIDToAutoSmoothAngle_;
   auto subtractedIDs = lhs.subtractedIDs_;
 
   auto originalIDs = lhs.originalIDs_;
@@ -592,6 +605,8 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
         originalIDToIridescence[id] = iriIt != rhs.originalIDToIridescence_.end() ? iriIt->second : 0.0f;
         auto iriIorIt = rhs.originalIDToIridescenceIOR_.find(id);
         originalIDToIridescenceIOR[id] = iriIorIt != rhs.originalIDToIridescenceIOR_.end() ? iriIorIt->second : 1.3f;
+        auto asaIt = rhs.originalIDToAutoSmoothAngle_.find(id);
+        originalIDToAutoSmoothAngle[id] = asaIt != rhs.originalIDToAutoSmoothAngle_.end() ? asaIt->second : 0.0f;
       } else {
         subtractedIDs.insert(id);
       }
@@ -617,9 +632,10 @@ ManifoldGeometry ManifoldGeometry::binOp(const ManifoldGeometry& lhs, const Mani
     originalIDToSpecularIntensity.insert(rhs.originalIDToSpecularIntensity_.begin(), rhs.originalIDToSpecularIntensity_.end());
     originalIDToIridescence.insert(rhs.originalIDToIridescence_.begin(), rhs.originalIDToIridescence_.end());
     originalIDToIridescenceIOR.insert(rhs.originalIDToIridescenceIOR_.begin(), rhs.originalIDToIridescenceIOR_.end());
+    originalIDToAutoSmoothAngle.insert(rhs.originalIDToAutoSmoothAngle_.begin(), rhs.originalIDToAutoSmoothAngle_.end());
     subtractedIDs.insert(rhs.subtractedIDs_.begin(), rhs.subtractedIDs_.end());
   }
-  return {mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, originalIDToTransmission, originalIDToThickness, originalIDToAttenuationColor, originalIDToAttenuationDistance, originalIDToIOR, originalIDToEmissive, originalIDToEmissiveIntensity, originalIDToSpecularColor, originalIDToSpecularIntensity, originalIDToIridescence, originalIDToIridescenceIOR, subtractedIDs};
+  return {mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, originalIDToTransmission, originalIDToThickness, originalIDToAttenuationColor, originalIDToAttenuationDistance, originalIDToIOR, originalIDToEmissive, originalIDToEmissiveIntensity, originalIDToSpecularColor, originalIDToSpecularIntensity, originalIDToIridescence, originalIDToIridescenceIOR, originalIDToAutoSmoothAngle, subtractedIDs};
 }
 
 std::shared_ptr<ManifoldGeometry> minkowskiOp(const ManifoldGeometry& lhs, const ManifoldGeometry& rhs)
@@ -702,7 +718,7 @@ void ManifoldGeometry::transform(const Transform3d& mat)
   manifold_ = getManifold().Transform(glMat);
 }
 
-void ManifoldGeometry::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR)
+void ManifoldGeometry::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR, float autoSmoothAngle)
 {
   if (manifold_.OriginalID() == -1) {
     manifold_ = manifold_.AsOriginal();
@@ -747,6 +763,8 @@ void ManifoldGeometry::setColor(const Color4f& c, float roughness, float metalne
   originalIDToIridescence_[manifold_.OriginalID()] = iridescence;
   originalIDToIridescenceIOR_.clear();
   originalIDToIridescenceIOR_[manifold_.OriginalID()] = iridescenceIOR;
+  originalIDToAutoSmoothAngle_.clear();
+  originalIDToAutoSmoothAngle_[manifold_.OriginalID()] = autoSmoothAngle;
   subtractedIDs_.clear();
 }
 
@@ -776,6 +794,7 @@ void ManifoldGeometry::toOriginal()
   originalIDToSpecularIntensity_.clear();
   originalIDToIridescence_.clear();
   originalIDToIridescenceIOR_.clear();
+  originalIDToAutoSmoothAngle_.clear();
   subtractedIDs_.clear();
 }
 
