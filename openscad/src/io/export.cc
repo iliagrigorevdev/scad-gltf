@@ -349,6 +349,16 @@ std::unique_ptr<PolySet> createSortedPolySet(const PolySet& ps)
   out->sheenRoughnesses = ps.sheenRoughnesses;
   out->transmissions = ps.transmissions;
   out->thicknesses = ps.thicknesses;
+  out->attenuationColors = ps.attenuationColors;
+  out->attenuationDistances = ps.attenuationDistances;
+  out->iors = ps.iors;
+  out->emissives = ps.emissives;
+  out->emissiveIntensities = ps.emissiveIntensities;
+  out->specularColors = ps.specularColors;
+  out->specularIntensities = ps.specularIntensities;
+  out->iridescences = ps.iridescences;
+  out->iridescenceIORs = ps.iridescenceIORs;
+  out->autoSmoothAngles = ps.autoSmoothAngles;
 
   std::vector<int> indexTranslationMap(vertexMap.size());
   out->vertices.reserve(vertexMap.size());
