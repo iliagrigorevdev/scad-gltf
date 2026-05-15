@@ -228,6 +228,7 @@ void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float met
       }
     } else if (!color_indices_.empty()) {
       // Keep alignment when colors are skipped
+      color_indices_.push_back(-1);
     }
   }
   current_polygon_.clear();
@@ -235,6 +236,8 @@ void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float met
 
 void PolySetBuilder::appendPolySet(const PolySet& ps)
 {
+  std::vector<uint32_t> color_map;
+
   // Copy color indices lazily.
   if (!ps.color_indices.empty()) {
     // If we hadn't built color_indices_ yet, catch up / fill w/ -1.
@@ -244,7 +247,7 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
     color_indices_.reserve(color_indices_.size() + ps.color_indices.size());
 
     auto nColors = ps.colors.size();
-    std::vector<uint32_t> color_map(nColors);
+    color_map.resize(nColors);
     for (size_t i = 0; i < nColors; i++) {
       const auto& color = ps.colors[i];
       float roughness = ps.roughnesses.empty() ? 1.0f : ps.roughnesses[i];
@@ -315,21 +318,38 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
         color_map[i] = match_idx;
       }
     }
-    for (auto color_index : ps.color_indices) {
-      color_indices_.push_back(color_index < 0 ? -1 : color_map[color_index]);
-    }
-  } else if (!color_indices_.empty()) {
-    // If we already built color_indices_ but don't have colors with this ps, fill with -1.
-    color_indices_.resize(color_indices_.size() + ps.indices.size(), -1);
   }
 
   reserve(numVertices() + ps.vertices.size(), numPolygons() + ps.indices.size());
-  for (const auto& poly : ps.indices) {
+  for (size_t p_idx = 0; p_idx < ps.indices.size(); ++p_idx) {
+    const auto& poly = ps.indices[p_idx];
     beginPolygon(poly.size());
     for (const auto& ind : poly) {
       addVertex(ps.vertices[ind]);
     }
-    endPolygon();
+    
+    // Process indices per-polygon to prevent rejected/degenerate polygons from desyncing materials
+    if (current_polygon_.size() >= 3) {
+      indices_.push_back(current_polygon_);
+      
+      int mapped_c_idx = -1;
+      if (!ps.color_indices.empty()) {
+        int original_c_idx = ps.color_indices[p_idx];
+        if (original_c_idx >= 0 && original_c_idx < color_map.size()) {
+          mapped_c_idx = color_map[original_c_idx];
+        }
+      }
+      
+      if (mapped_c_idx != -1) {
+        if (color_indices_.empty() && indices_.size() > 1) {
+          color_indices_.resize(indices_.size() - 1, -1);
+        }
+        color_indices_.push_back(mapped_c_idx);
+      } else if (!color_indices_.empty()) {
+        color_indices_.push_back(-1);
+      }
+    }
+    current_polygon_.clear();
   }
 }
 
