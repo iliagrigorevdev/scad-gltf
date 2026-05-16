@@ -242,6 +242,18 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     }
   }
 
+  float maxSmoothAngle = 0.0f;
+  for (const auto& [mat, faceIndices] : colorToFaceIndices) {
+    if (mat.autoSmoothAngle > maxSmoothAngle) {
+      maxSmoothAngle = mat.autoSmoothAngle;
+    }
+  }
+  if (maxSmoothAngle > 0.0f) {
+    mani = mani.CalculateNormals(3, maxSmoothAngle);
+  } else {
+    mani = mani.CalculateNormals(3, 0.0);
+  }
+
   return std::make_shared<ManifoldGeometry>(mani, originalIDs, originalIDToColor, originalIDToRoughness, originalIDToMetalness, originalIDToClearcoat, originalIDToClearcoatRoughness, originalIDToSheen, originalIDToSheenColor, originalIDToSheenRoughness, originalIDToTransmission, originalIDToThickness, originalIDToAttenuationColor, originalIDToAttenuationDistance, originalIDToIOR, originalIDToEmissive, originalIDToEmissiveIntensity, originalIDToSpecularColor, originalIDToSpecularIntensity, originalIDToIridescence, originalIDToIridescenceIOR, originalIDToAutoSmoothAngle);
 }
 
