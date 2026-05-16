@@ -89,9 +89,6 @@ ManifoldGeometry::ManifoldGeometry(manifold::Manifold mani, const std::set<uint3
     originalIDToAutoSmoothAngle_(originalIDToAutoSmoothAngle),
     subtractedIDs_(subtractedIDs)
 {
-  if (!manifold_.IsEmpty() && manifold_.NumProp() < 6) {
-      manifold_ = manifold_.CalculateNormals(3, 0.0);
-  }
 }
 
 std::unique_ptr<Geometry> ManifoldGeometry::copy() const
@@ -169,7 +166,7 @@ std::string ManifoldGeometry::dump() const
 
 std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
 {
-  manifold::MeshGL64 mesh = getManifold().GetMeshGL64(3);
+  manifold::MeshGL64 mesh = getManifold().GetMeshGL64();
   auto ps = std::make_shared<PolySet>(3);
   ps->setTriangular(true);
   ps->vertices.reserve(mesh.NumVert());
@@ -177,22 +174,10 @@ std::shared_ptr<PolySet> ManifoldGeometry::toPolySet() const
   ps->setConvexity(convexity);
   ps->setManifold(true);
 
-  bool has_normals = mesh.numProp >= 6;
-  if (has_normals) ps->normals.reserve(mesh.NumVert());
-
-  // first 3 channels are xyz coordinate, next 3 are normals
-  for (size_t i = 0; i < mesh.vertProperties.size(); i += mesh.numProp) {
+  // first 3 channels are xyz coordinate
+  for (size_t i = 0; i < mesh.vertProperties.size(); i += mesh.numProp)
     ps->vertices.emplace_back(mesh.vertProperties[i], mesh.vertProperties[i + 1],
                               mesh.vertProperties[i + 2]);
-    if (has_normals) {
-      Vector3d n(mesh.vertProperties[i + 3], mesh.vertProperties[i + 4], mesh.vertProperties[i + 5]);
-      if (n.allFinite() && n.norm() > 1e-6) {
-        ps->normals.push_back(n.normalized());
-      } else {
-        ps->normals.push_back(Vector3d::Zero());
-      }
-    }
-  }
 
   ps->colors.reserve(originalIDToColor_.size());
   ps->color_indices.reserve(ps->indices.size());
@@ -736,13 +721,6 @@ void ManifoldGeometry::transform(const Transform3d& mat)
 void ManifoldGeometry::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR, float autoSmoothAngle)
 {
   manifold_ = manifold_.AsOriginal();
-
-  if (autoSmoothAngle > 0.0f) {
-      manifold_ = manifold_.CalculateNormals(3, autoSmoothAngle);
-  } else {
-      manifold_ = manifold_.CalculateNormals(3, 0.0);
-  }
-
   originalIDs_.clear();
   originalIDs_.insert(manifold_.OriginalID());
   originalIDToColor_.clear();

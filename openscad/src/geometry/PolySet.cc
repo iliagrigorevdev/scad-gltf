@@ -94,7 +94,6 @@ size_t PolySet::memsize() const
   size_t mem = 0;
   for (const auto& p : this->indices) mem += p.size() * sizeof(int);
   for (const auto& p : this->vertices) mem += p.size() * sizeof(Vector3d);
-  for (const auto& p : this->normals) mem += p.size() * sizeof(Vector3d);
   mem += sizeof(PolySet);
   return mem;
 }
@@ -104,19 +103,6 @@ void PolySet::transform(const Transform3d& mat)
   bool mirrored = mat.matrix().determinant() < 0;
 
   for (auto& v : this->vertices) v = mat * v;
-
-  if (!this->normals.empty()) {
-    Eigen::Matrix3d norm_mat = mat.matrix().block<3,3>(0,0).inverse().transpose();
-    for (auto& n : this->normals) {
-      if (n.allFinite()) {
-        Vector3d transformed = norm_mat * n;
-        if (transformed.allFinite() && transformed.norm() > 1e-6) n = transformed.normalized();
-        else n = Vector3d::Zero();
-      } else {
-        n = Vector3d::Zero();
-      }
-    }
-  }
 
   if (mirrored)
     for (auto& p : this->indices) {

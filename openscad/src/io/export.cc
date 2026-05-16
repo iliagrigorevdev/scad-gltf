@@ -328,28 +328,12 @@ std::unique_ptr<PolySet> createSortedPolySet(const PolySet& ps)
   out->setTriangular(ps.isTriangular());
   out->setConvexity(ps.getConvexity());
 
-  bool has_normals = !ps.normals.empty();
-
-  struct VertKey {
-    Vector3d p;
-    Vector3d n;
-    bool operator<(const VertKey& o) const {
-      if (p.x() != o.p.x()) return p.x() < o.p.x();
-      if (p.y() != o.p.y()) return p.y() < o.p.y();
-      if (p.z() != o.p.z()) return p.z() < o.p.z();
-      if (n.x() != o.n.x()) return n.x() < o.n.x();
-      if (n.y() != o.n.y()) return n.y() < o.n.y();
-      return n.z() < o.n.z();
-    }
-  };
-  std::map<VertKey, int> vertexMap;
+  std::map<Vector3d, int, LexographicLess> vertexMap;
 
   for (const auto& poly : ps.indices) {
     IndexedFace face;
     for (const auto idx : poly) {
-      Vector3d p = remove_negative_zero(ps.vertices[idx]);
-      Vector3d n = has_normals ? remove_negative_zero(ps.normals[idx]) : Vector3d::Zero();
-      auto pos = vertexMap.emplace(VertKey{p, n}, vertexMap.size());
+      auto pos = vertexMap.emplace(remove_negative_zero(ps.vertices[idx]), vertexMap.size());
       face.push_back(pos.first->second);
     }
     out->indices.push_back(face);
@@ -378,12 +362,10 @@ std::unique_ptr<PolySet> createSortedPolySet(const PolySet& ps)
 
   std::vector<int> indexTranslationMap(vertexMap.size());
   out->vertices.reserve(vertexMap.size());
-  if (has_normals) out->normals.reserve(vertexMap.size());
 
-  for (const auto& [key, i] : vertexMap) {
+  for (const auto& [v, i] : vertexMap) {
     indexTranslationMap[i] = out->vertices.size();
-    out->vertices.push_back(key.p);
-    if (has_normals) out->normals.push_back(key.n);
+    out->vertices.push_back(v);
   }
 
   for (auto& poly : out->indices) {

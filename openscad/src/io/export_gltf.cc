@@ -3,9 +3,6 @@
 #include "geometry/AnimationGeometry.h"
 #include "geometry/PolySet.h"
 #include "geometry/PolySetUtils.h"
-#ifdef ENABLE_MANIFOLD
-#include "geometry/manifold/manifoldutils.h"
-#endif
 #include "utils/printutils.h"
 #include "Feature.h"
 #include "glview/ColorMap.h"
@@ -64,6 +61,18 @@ Transform3d get_z_to_y_up_matrix() {
                   0,-1, 0, 0,
                   0, 0, 0, 1;
     return C;
+}
+
+// Helper: Checks if a GeometryList implicitly contains a bone inside it.
+// If it does not, we can safely bake the entire sub-tree into an absolute PolySet mesh.
+bool contains_bone(const std::shared_ptr<const Geometry>& geom) {
+    if (std::dynamic_pointer_cast<const BoneGeometry>(geom)) return true;
+    if (auto gl = std::dynamic_pointer_cast<const GeometryList>(geom)) {
+        for (const auto& item : gl->getChildren()) {
+            if (contains_bone(item.second)) return true;
+        }
+    }
+    return false;
 }
 
 int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_idx, 
@@ -132,7 +141,9 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         }
         return node_idx;
     }
-    else if (auto geomList = std::dynamic_pointer_cast<const GeometryList>(geom)) {
+    // Only traverse GeometryList if it hides a bone structure inside it. Otherwise, bake it into a mesh!
+    else if (std::dynamic_pointer_cast<const GeometryList>(geom) && contains_bone(geom)) {
+        auto geomList = std::dynamic_pointer_cast<const GeometryList>(geom);
         for (const auto& item : geomList->getChildren()) {
             int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, current_joint_idx, gltf_joints, inverse_bind_matrices, scene_nodes);
             if (child_idx >= 0 && parent_node_idx >= 0) {
@@ -145,15 +156,6 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         // Flatten standard geometry + translation groups into raw PolySet vectors
         auto ps = PolySetUtils::getGeometryAsPolySet(geom);
         if (ps && !ps->vertices.empty()) {
-#ifdef ENABLE_MANIFOLD
-            if (ps->normals.empty()) {
-                auto mani_geom = ManifoldUtils::createManifoldFromPolySet(*ps);
-                if (mani_geom && !mani_geom->isEmpty()) {
-                    ps = mani_geom->toPolySet();
-                }
-            }
-#endif
-
             if (Feature::ExperimentalPredictibleOutput.is_enabled()) ps = createSortedPolySet(*ps);
             
             MeshInfo minfo;
@@ -172,34 +174,43 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                 const auto& face_indices = kv.second;
                 if (face_indices.empty()) continue;
 
+                float autoSmoothAngle = 0.0f;
+                if (color_idx >= 0 && color_idx < ps->autoSmoothAngles.size()) {
+                    autoSmoothAngle = ps->autoSmoothAngles[color_idx];
+                }
+
                 PrimitiveInfo prim;
                 prim.color_idx = color_idx;
                 prim.ps = ps;
                 for(int i=0; i<3; ++i) { prim.min_pos[i] = FLT_MAX; prim.max_pos[i] = -FLT_MAX; }
 
                 std::vector<Vector3d> gltf_vertices(ps->vertices.size());
-                std::vector<Vector3d> gltf_normals;
-                if (!ps->normals.empty()) {
-                    gltf_normals.resize(ps->normals.size());
-                }
-                Eigen::Matrix3d normal_mat = (C * M_accum).matrix().block<3,3>(0,0).inverse().transpose();
-
                 for (size_t i = 0; i < ps->vertices.size(); ++i) {
                     gltf_vertices[i] = C * M_accum * ps->vertices[i];
-                    if (!ps->normals.empty()) {
-                        Vector3d n = ps->normals[i];
-                        if (n.allFinite() && n.norm() > 1e-6) {
-                            Vector3d transformed_n = normal_mat * n;
-                            if (transformed_n.allFinite() && transformed_n.norm() > 1e-6) {
-                                gltf_normals[i] = transformed_n.normalized();
-                            } else {
-                                gltf_normals[i] = Vector3d::Zero();
-                            }
-                        } else {
-                            gltf_normals[i] = Vector3d::Zero();
-                        }
+                }
+
+                std::vector<Vector3d> face_normals(face_indices.size());
+                for (size_t i = 0; i < face_indices.size(); ++i) {
+                    const auto& f = ps->indices[face_indices[i]];
+                    if (f.size() < 3) continue;
+                    Vector3d p0 = gltf_vertices[f[0]];
+                    Vector3d p1 = gltf_vertices[f[1]];
+                    Vector3d p2 = gltf_vertices[f[2]];
+                    Vector3d n = (p1 - p0).cross(p2 - p0);
+                    if (n.norm() > 1e-8) n.normalize();
+                    else n = Vector3d(0, 1, 0);
+                    face_normals[i] = n;
+                }
+
+                std::vector<std::vector<int>> vertex_to_faces(ps->vertices.size());
+                for (size_t i = 0; i < face_indices.size(); ++i) {
+                    const auto& f = ps->indices[face_indices[i]];
+                    for (int v_idx : f) {
+                        vertex_to_faces[v_idx].push_back(i);
                     }
                 }
+
+                float cos_threshold = std::cos(autoSmoothAngle * M_PI / 180.0f);
 
                 struct VertKey {
                     int v_idx;
@@ -243,22 +254,26 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                     const auto& f = ps->indices[face_indices[i]];
                     if (f.size() < 3) continue;
 
-                    for (size_t j = 1; j + 1 < f.size(); ++j) {
-                        int tri[3] = {f[0], (int)f[j], (int)f[j+1]};
+                    Vector3d fn = face_normals[i];
 
-                        Vector3d p0 = gltf_vertices[tri[0]];
-                        Vector3d p1 = gltf_vertices[tri[1]];
-                        Vector3d p2 = gltf_vertices[tri[2]];
-                        Vector3d fallback_n = (p1 - p0).cross(p2 - p0);
-                        if (fallback_n.allFinite() && fallback_n.norm() > 1e-8) fallback_n.normalize();
-                        else fallback_n = Vector3d(0, 1, 0);
+                    for (size_t j = 1; j + 1 < f.size(); ++j) {
+                        int tri[3] = {f[0], f[j], f[j+1]};
 
                         for (int k = 0; k < 3; ++k) {
                             int v = tri[k];
-                            Vector3d n = fallback_n;
-                            if (!ps->normals.empty() && gltf_normals[v].allFinite() && gltf_normals[v].norm() > 1e-6) {
-                                n = gltf_normals[v];
+                            Vector3d n = fn;
+
+                            if (autoSmoothAngle > 0.0f) {
+                                Vector3d sum_n = Vector3d::Zero();
+                                for (int adj_f_idx : vertex_to_faces[v]) {
+                                    Vector3d adj_fn = face_normals[adj_f_idx];
+                                    if (fn.dot(adj_fn) >= cos_threshold - 1e-5) {
+                                        sum_n += adj_fn;
+                                    }
+                                }
+                                if (sum_n.norm() > 1e-8) n = sum_n.normalized();
                             }
+
                             prim.indices.push_back(add_vertex(v, n));
                         }
                     }
