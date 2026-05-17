@@ -103,4 +103,24 @@ public:
   [[nodiscard]] const Geometries& getChildren() const { return this->children; }
 
   [[nodiscard]] Geometries flatten() const;
+
+  void transform(const Transform3d& mat) override {
+    for (auto& item : children) {
+      if (item.second) {
+        auto new_geom = item.second->copy();
+        new_geom->transform(mat);
+        item.second = std::move(new_geom);
+      }
+    }
+  }
+
+  void setColor(const Color4f& c, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f) override {
+    for (auto& item : children) {
+      if (item.second) {
+        auto new_geom = item.second->copy();
+        new_geom->setColor(c, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR, autoSmoothAngle);
+        item.second = std::move(new_geom);
+      }
+    }
+  }
 };

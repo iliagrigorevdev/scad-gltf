@@ -21,6 +21,11 @@ public:
     size_t memsize() const override { return GeometryList::memsize() + sizeof(ArmatureGeometry); }
     std::unique_ptr<Geometry> copy() const override { return std::make_unique<ArmatureGeometry>(*this); }
     std::string dump() const override { return "ArmatureGeometry\n" + GeometryList::dump(); }
+
+    void transform(const Transform3d& mat) override {
+        GeometryList::transform(mat);
+        world_matrix = mat * world_matrix;
+    }
 };
 
 class BoneGeometry : public GeometryList {
@@ -41,4 +46,9 @@ public:
     size_t memsize() const override { return GeometryList::memsize() + sizeof(BoneGeometry); }
     std::unique_ptr<Geometry> copy() const override { return std::make_unique<BoneGeometry>(*this); }
     std::string dump() const override { return "BoneGeometry(" + name + ")\n" + GeometryList::dump(); }
+
+    void transform(const Transform3d& mat) override {
+        local_matrix = mat * local_matrix;
+        world_matrix = mat * world_matrix;
+    }
 };

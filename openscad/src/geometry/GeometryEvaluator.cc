@@ -59,6 +59,7 @@
 #endif
 
 #include <vector>
+#include <typeinfo>
 
 class Geometry;
 class Polygon2d;
@@ -190,6 +191,51 @@ GeometryEvaluator::ResultObject GeometryEvaluator::applyToChildren3D(const Abstr
       if (item.second && !item.second->isEmpty()) actualchildren.push_back(item);
     }
     if (actualchildren.empty()) return {};
+
+    bool has_bones = false;
+    for (const auto& item : actualchildren) {
+      if (contains_bone(item.second)) {
+        has_bones = true;
+        break;
+      }
+    }
+
+    if (has_bones) {
+      GeometryList::Geometries child_bones;
+      GeometryList::Geometries child_meshes;
+      for (const auto& item : actualchildren) {
+        if (contains_bone(item.second)) child_bones.push_back(item);
+        else child_meshes.push_back(item);
+      }
+
+      std::shared_ptr<const Geometry> unioned_meshes;
+      if (child_meshes.size() == 1) {
+        unioned_meshes = child_meshes.front().second;
+      } else if (child_meshes.size() > 1) {
+#ifdef ENABLE_MANIFOLD
+        if (RenderSettings::inst()->backend3D == RenderBackend3D::ManifoldBackend) {
+          unioned_meshes = ManifoldUtils::applyOperator3DManifold(child_meshes, op);
+        } else
+#endif
+#ifdef ENABLE_CGAL
+        {
+          unioned_meshes = std::shared_ptr<const Geometry>(
+            CGALUtils::applyUnion3D(child_meshes.begin(), child_meshes.end()));
+        }
+#else
+        {
+            assert(false && "No boolean backend available");
+        }
+#endif
+      }
+
+      auto geomList = std::make_shared<GeometryList>(std::move(child_bones));
+      if (unioned_meshes) {
+        geomList->children.push_front({child_meshes.front().first, unioned_meshes});
+      }
+      return ResultObject::mutableResult(geomList);
+    }
+
     if (actualchildren.size() == 1) return ResultObject::constResult(actualchildren.front().second);
 #ifdef ENABLE_MANIFOLD
     if (RenderSettings::inst()->backend3D == RenderBackend3D::ManifoldBackend) {
@@ -579,44 +625,17 @@ Response GeometryEvaluator::visit(State& state, const ArmatureNode& node)
   if (state.isPostfix()) {
     std::shared_ptr<const Geometry> geom;
     if (!isSmartCached(node)) {
-      unsigned int dim = 0;
-      GeometryList::Geometries child_bones;
-      GeometryList::Geometries child_meshes;
+      auto unioned_children = applyToChildren(node, OpenSCADOperator::UNION).constptr();
 
-      for (const auto& item : this->visitedchildren[node.index()]) {
-        if (!isValidDim(item, dim)) break;
-        auto& chnode = item.first;
-        const std::shared_ptr<const Geometry>& chgeom = item.second;
-        if (chnode->modinst->isBackground()) continue;
-        smartCacheInsert(*chnode, chgeom);
-        if (chgeom && !chgeom->isEmpty()) {
-          if (contains_bone(chgeom)) child_bones.push_back(item);
-          else child_meshes.push_back(item);
-        }
-      }
-
-      std::shared_ptr<const Geometry> unioned_meshes;
-      if (child_meshes.size() == 1) {
-        unioned_meshes = child_meshes.front().second;
-      } else if (child_meshes.size() > 1) {
-        auto original_children = std::move(this->visitedchildren[node.index()]);
-        this->visitedchildren[node.index()] = child_meshes;
-        unioned_meshes = applyToChildren(node, OpenSCADOperator::UNION).constptr();
-        this->visitedchildren[node.index()] = std::move(original_children);
-
-        if (!unioned_meshes) {
-          unioned_meshes = std::make_shared<GeometryList>(child_meshes);
-        }
-      }
-
-      GeometryList::Geometries final_geometries = std::move(child_bones);
-      if (unioned_meshes) {
-        final_geometries.push_back({node.shared_from_this(), unioned_meshes});
-      }
-
-      // PASS state.matrix() TO CAPTURE ABSOLUTE WORLD TRANSFORM
       auto armatureGeom = std::make_shared<ArmatureGeometry>(node.animations.clone(), state.matrix());
-      armatureGeom->children = std::move(final_geometries);
+      if (unioned_children) {
+          if (typeid(*unioned_children) == typeid(GeometryList)) {
+              auto gl = std::static_pointer_cast<const GeometryList>(unioned_children);
+              armatureGeom->children = gl->children;
+          } else {
+              armatureGeom->children.push_back({node.shared_from_this(), unioned_children});
+          }
+      }
       geom = armatureGeom;
     } else {
       geom = smartCacheGet(node, state.preferNef());
@@ -637,44 +656,17 @@ Response GeometryEvaluator::visit(State& state, const BoneNode& node)
   if (state.isPostfix()) {
     std::shared_ptr<const Geometry> geom;
     if (!isSmartCached(node)) {
-      unsigned int dim = 0;
-      GeometryList::Geometries child_bones;
-      GeometryList::Geometries child_meshes;
+      auto unioned_children = applyToChildren(node, OpenSCADOperator::UNION).constptr();
 
-      for (const auto& item : this->visitedchildren[node.index()]) {
-        if (!isValidDim(item, dim)) break;
-        auto& chnode = item.first;
-        const std::shared_ptr<const Geometry>& chgeom = item.second;
-        if (chnode->modinst->isBackground()) continue;
-        smartCacheInsert(*chnode, chgeom);
-        if (chgeom && !chgeom->isEmpty()) {
-          if (contains_bone(chgeom)) child_bones.push_back(item);
-          else child_meshes.push_back(item);
-        }
-      }
-
-      std::shared_ptr<const Geometry> unioned_meshes;
-      if (child_meshes.size() == 1) {
-        unioned_meshes = child_meshes.front().second;
-      } else if (child_meshes.size() > 1) {
-        auto original_children = std::move(this->visitedchildren[node.index()]);
-        this->visitedchildren[node.index()] = child_meshes;
-        unioned_meshes = applyToChildren(node, OpenSCADOperator::UNION).constptr();
-        this->visitedchildren[node.index()] = std::move(original_children);
-
-        if (!unioned_meshes) {
-          unioned_meshes = std::make_shared<GeometryList>(child_meshes);
-        }
-      }
-
-      GeometryList::Geometries final_geometries = std::move(child_bones);
-      if (unioned_meshes) {
-        final_geometries.push_back({node.shared_from_this(), unioned_meshes});
-      }
-
-      // PASS state.matrix() TO CAPTURE ABSOLUTE WORLD TRANSFORM
       auto boneGeom = std::make_shared<BoneGeometry>(node.bone_name, node.matrix, state.matrix());
-      boneGeom->children = std::move(final_geometries);
+      if (unioned_children) {
+          if (typeid(*unioned_children) == typeid(GeometryList)) {
+              auto gl = std::static_pointer_cast<const GeometryList>(unioned_children);
+              boneGeom->children = gl->children;
+          } else {
+              boneGeom->children.push_back({node.shared_from_this(), unioned_children});
+          }
+      }
       geom = boneGeom;
     } else {
       geom = smartCacheGet(node, state.preferNef());
