@@ -267,16 +267,8 @@ We support building OpenSCAD headless for WebAssembly w/ Emscripten, using a pre
 The following command creates `build-web/openscad.wasm` & `build-web/openscad.js`:
 
 ```bash
-./scripts/wasm-base-docker-run.sh emcmake cmake -B build-web-min \
-  -DCMAKE_BUILD_TYPE=MinSizeRel \
-  -DWASM_BUILD_TYPE=web \
-  -DEXPERIMENTAL=1 \
-  -DENABLE_CGAL=OFF \
-  -DENABLE_TESTS=OFF \
-  -DENABLE_CAIRO=OFF \
-  -DCMAKE_REQUIRE_FIND_PACKAGE_Lib3MF=OFF
-
-./scripts/wasm-base-docker-run.sh cmake --build build-web-min -j8
+./scripts/wasm-base-docker-run.sh emcmake cmake -B build-web -DCMAKE_BUILD_TYPE=Debug -DEXPERIMENTAL=1
+./scripts/wasm-base-docker-run.sh cmake --build build-web -j2
 ```
 
 [openscad/openscad-playground](https://github.com/openscad/openscad-playground) uses this WASM build to provide a [Web UI](https://ochafik.com/openscad2/) with a subset of features of OpenSCAD.
