@@ -324,7 +324,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 {
     tinygltf::Model model;
     model.asset.version = "2.0";
-    model.asset.generator = EXPORT_CREATOR;
+    model.asset.generator = "OpenSCAD GLTF (https://github.com/iliagrigorevdev/openscad-gltf-wasm)";
     
     std::vector<MeshInfo> meshes_info;
     std::map<std::string, int> bone_to_node;
