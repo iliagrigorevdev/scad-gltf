@@ -175,7 +175,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                 if (face_indices.empty()) continue;
 
                 float autoSmoothAngle = 0.0f;
-                if (color_idx >= 0 && color_idx < ps->autoSmoothAngles.size()) {
+                if (color_idx >= 0 && color_idx < (int)ps->autoSmoothAngles.size()) {
                     autoSmoothAngle = ps->autoSmoothAngles[color_idx];
                 }
 
@@ -367,6 +367,61 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         model.skins.push_back(skin);
     }
 
+    struct MaterialKey {
+        Color4f color;
+        float roughness, metalness, clearcoat, clearcoatRoughness, sheen;
+        Color4f sheenColor;
+        float sheenRoughness, transmission, thickness;
+        Color4f attenuationColor;
+        float attenuationDistance, ior;
+        Color4f emissive;
+        float emissiveIntensity;
+        Color4f specularColor;
+        float specularIntensity, iridescence, iridescenceIOR;
+        
+        bool operator<(const MaterialKey& o) const {
+            if (color.r() != o.color.r()) return color.r() < o.color.r();
+            if (color.g() != o.color.g()) return color.g() < o.color.g();
+            if (color.b() != o.color.b()) return color.b() < o.color.b();
+            if (color.a() != o.color.a()) return color.a() < o.color.a();
+            if (roughness != o.roughness) return roughness < o.roughness;
+            if (metalness != o.metalness) return metalness < o.metalness;
+            if (clearcoat != o.clearcoat) return clearcoat < o.clearcoat;
+            if (clearcoatRoughness != o.clearcoatRoughness) return clearcoatRoughness < o.clearcoatRoughness;
+            if (sheen != o.sheen) return sheen < o.sheen;
+            if (sheenColor.r() != o.sheenColor.r()) return sheenColor.r() < o.sheenColor.r();
+            if (sheenColor.g() != o.sheenColor.g()) return sheenColor.g() < o.sheenColor.g();
+            if (sheenColor.b() != o.sheenColor.b()) return sheenColor.b() < o.sheenColor.b();
+            if (sheenColor.a() != o.sheenColor.a()) return sheenColor.a() < o.sheenColor.a();
+            if (sheenRoughness != o.sheenRoughness) return sheenRoughness < o.sheenRoughness;
+            if (transmission != o.transmission) return transmission < o.transmission;
+            if (thickness != o.thickness) return thickness < o.thickness;
+            if (attenuationColor.r() != o.attenuationColor.r()) return attenuationColor.r() < o.attenuationColor.r();
+            if (attenuationColor.g() != o.attenuationColor.g()) return attenuationColor.g() < o.attenuationColor.g();
+            if (attenuationColor.b() != o.attenuationColor.b()) return attenuationColor.b() < o.attenuationColor.b();
+            if (attenuationColor.a() != o.attenuationColor.a()) return attenuationColor.a() < o.attenuationColor.a();
+            if (attenuationDistance != o.attenuationDistance) return attenuationDistance < o.attenuationDistance;
+            if (ior != o.ior) return ior < o.ior;
+            if (emissive.r() != o.emissive.r()) return emissive.r() < o.emissive.r();
+            if (emissive.g() != o.emissive.g()) return emissive.g() < o.emissive.g();
+            if (emissive.b() != o.emissive.b()) return emissive.b() < o.emissive.b();
+            if (emissive.a() != o.emissive.a()) return emissive.a() < o.emissive.a();
+            if (emissiveIntensity != o.emissiveIntensity) return emissiveIntensity < o.emissiveIntensity;
+            if (specularColor.r() != o.specularColor.r()) return specularColor.r() < o.specularColor.r();
+            if (specularColor.g() != o.specularColor.g()) return specularColor.g() < o.specularColor.g();
+            if (specularColor.b() != o.specularColor.b()) return specularColor.b() < o.specularColor.b();
+            if (specularColor.a() != o.specularColor.a()) return specularColor.a() < o.specularColor.a();
+            if (specularIntensity != o.specularIntensity) return specularIntensity < o.specularIntensity;
+            if (iridescence != o.iridescence) return iridescence < o.iridescence;
+            return iridescenceIOR < o.iridescenceIOR;
+        }
+    };
+    
+    std::map<MaterialKey, int> material_cache;
+
+    Vector4f defBlack; defBlack[0]=0; defBlack[1]=0; defBlack[2]=0; defBlack[3]=1;
+    Vector4f defWhite; defWhite[0]=1; defWhite[1]=1; defWhite[2]=1; defWhite[3]=1;
+
     // 3. Process Meshes
     for (const auto& minfo : meshes_info) {
         tinygltf::Mesh mesh;
@@ -399,146 +454,151 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             int idx_accessor_idx = append_to_bin(bin_data, prim.indices, model, 
                 TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT, TINYGLTF_TYPE_SCALAR);
 
-            tinygltf::Material mat;
-            mat.doubleSided = true;
             auto ps = prim.ps;
+            MaterialKey mkey;
 
             if (prim.color_idx >= 0 && prim.color_idx < (int)ps->colors.size()) {
-                auto color = ps->colors[prim.color_idx];
-                int r = 255, g = 255, b = 0, a = 255;
-                color.getRgba(r, g, b, a);
-                mat.pbrMetallicRoughness.baseColorFactor = {(double)r/255.0, (double)g/255.0, (double)b/255.0, (double)a/255.0};
+                mkey.color = ps->colors[prim.color_idx];
+                mkey.roughness = ps->roughnesses.empty() ? 1.0f : ps->roughnesses[prim.color_idx];
+                mkey.metalness = ps->metalnesses.empty() ? 0.0f : ps->metalnesses[prim.color_idx];
+                mkey.clearcoat = ps->clearcoats.empty() ? 0.0f : ps->clearcoats[prim.color_idx];
+                mkey.clearcoatRoughness = ps->clearcoatRoughnesses.empty() ? 0.0f : ps->clearcoatRoughnesses[prim.color_idx];
+                mkey.sheen = ps->sheens.empty() ? 0.0f : ps->sheens[prim.color_idx];
+                mkey.sheenColor = ps->sheenColors.empty() ? defBlack : ps->sheenColors[prim.color_idx];
+                mkey.sheenRoughness = ps->sheenRoughnesses.empty() ? 0.0f : ps->sheenRoughnesses[prim.color_idx];
+                mkey.transmission = ps->transmissions.empty() ? 0.0f : ps->transmissions[prim.color_idx];
+                mkey.thickness = ps->thicknesses.empty() ? 0.0f : ps->thicknesses[prim.color_idx];
+                mkey.attenuationColor = ps->attenuationColors.empty() ? defWhite : ps->attenuationColors[prim.color_idx];
+                mkey.attenuationDistance = ps->attenuationDistances.empty() ? 0.0f : ps->attenuationDistances[prim.color_idx];
+                mkey.ior = ps->iors.empty() ? 1.5f : ps->iors[prim.color_idx];
+                mkey.emissive = ps->emissives.empty() ? defBlack : ps->emissives[prim.color_idx];
+                mkey.emissiveIntensity = ps->emissiveIntensities.empty() ? 1.0f : ps->emissiveIntensities[prim.color_idx];
+                mkey.specularColor = ps->specularColors.empty() ? defWhite : ps->specularColors[prim.color_idx];
+                mkey.specularIntensity = ps->specularIntensities.empty() ? 1.0f : ps->specularIntensities[prim.color_idx];
+                mkey.iridescence = ps->iridescences.empty() ? 0.0f : ps->iridescences[prim.color_idx];
+                mkey.iridescenceIOR = ps->iridescenceIORs.empty() ? 1.3f : ps->iridescenceIORs[prim.color_idx];
+            } else {
+                mkey.color = exportInfo.defaultColor;
+                mkey.roughness = 1.0f;
+                mkey.metalness = 0.0f;
+                mkey.clearcoat = 0.0f;
+                mkey.clearcoatRoughness = 0.0f;
+                mkey.sheen = 0.0f;
+                mkey.sheenColor = defBlack;
+                mkey.sheenRoughness = 0.0f;
+                mkey.transmission = 0.0f;
+                mkey.thickness = 0.0f;
+                mkey.attenuationColor = defWhite;
+                mkey.attenuationDistance = 0.0f;
+                mkey.ior = 1.5f;
+                mkey.emissive = defBlack;
+                mkey.emissiveIntensity = 1.0f;
+                mkey.specularColor = defWhite;
+                mkey.specularIntensity = 1.0f;
+                mkey.iridescence = 0.0f;
+                mkey.iridescenceIOR = 1.3f;
+            }
 
-                float roughness = ps->roughnesses.empty() ? 1.0f : ps->roughnesses[prim.color_idx];
-                float metalness = ps->metalnesses.empty() ? 0.0f : ps->metalnesses[prim.color_idx];
-                mat.pbrMetallicRoughness.roughnessFactor = (double)roughness;
-                mat.pbrMetallicRoughness.metallicFactor = (double)metalness;
+            int mat_idx = -1;
+            auto it = material_cache.find(mkey);
+            if (it != material_cache.end()) {
+                mat_idx = it->second;
+            } else {
+                tinygltf::Material mat;
+                mat.doubleSided = true;
+                
+                mat.pbrMetallicRoughness.baseColorFactor = {(double)mkey.color.r(), (double)mkey.color.g(), (double)mkey.color.b(), (double)mkey.color.a()};
+                mat.pbrMetallicRoughness.roughnessFactor = (double)mkey.roughness;
+                mat.pbrMetallicRoughness.metallicFactor = (double)mkey.metalness;
 
-                float clearcoat = ps->clearcoats.empty() ? 0.0f : ps->clearcoats[prim.color_idx];
-                float clearcoatRoughness = ps->clearcoatRoughnesses.empty() ? 0.0f : ps->clearcoatRoughnesses[prim.color_idx];
-                if (clearcoat > 0.0f) {
+                if (mkey.clearcoat > 0.0f) {
                     tinygltf::Value::Object ext;
-                    ext["clearcoatFactor"] = tinygltf::Value((double)clearcoat);
-                    ext["clearcoatRoughnessFactor"] = tinygltf::Value((double)clearcoatRoughness);
+                    ext["clearcoatFactor"] = tinygltf::Value((double)mkey.clearcoat);
+                    ext["clearcoatRoughnessFactor"] = tinygltf::Value((double)mkey.clearcoatRoughness);
                     mat.extensions["KHR_materials_clearcoat"] = tinygltf::Value(ext);
                     use_clearcoat = true;
                 }
 
-                float sheen = ps->sheens.empty() ? 0.0f : ps->sheens[prim.color_idx];
-                if (sheen > 0.0f) {
-                    Color4f sheenColor;
-                    if (ps->sheenColors.empty()) {
-                        sheenColor = Vector4f(0, 0, 0, 1);
-                    } else {
-                        sheenColor = ps->sheenColors[prim.color_idx];
-                    }
-                    float sheenRoughness = ps->sheenRoughnesses.empty() ? 0.0f : ps->sheenRoughnesses[prim.color_idx];
-
+                if (mkey.sheen > 0.0f) {
                     tinygltf::Value::Object ext;
                     ext["sheenColorFactor"] = tinygltf::Value(tinygltf::Value::Array{
-                        tinygltf::Value((double)(sheen * sheenColor.r())), 
-                        tinygltf::Value((double)(sheen * sheenColor.g())), 
-                        tinygltf::Value((double)(sheen * sheenColor.b()))
+                        tinygltf::Value((double)(mkey.sheen * mkey.sheenColor.r())), 
+                        tinygltf::Value((double)(mkey.sheen * mkey.sheenColor.g())), 
+                        tinygltf::Value((double)(mkey.sheen * mkey.sheenColor.b()))
                     });
-                    ext["sheenRoughnessFactor"] = tinygltf::Value((double)sheenRoughness);
+                    ext["sheenRoughnessFactor"] = tinygltf::Value((double)mkey.sheenRoughness);
                     mat.extensions["KHR_materials_sheen"] = tinygltf::Value(ext);
                     use_sheen = true;
                 }
 
-                float transmission = ps->transmissions.empty() ? 0.0f : ps->transmissions[prim.color_idx];
-                if (transmission > 0.0f) {
+                if (mkey.transmission > 0.0f) {
                     tinygltf::Value::Object ext;
-                    ext["transmissionFactor"] = tinygltf::Value((double)transmission);
+                    ext["transmissionFactor"] = tinygltf::Value((double)mkey.transmission);
                     mat.extensions["KHR_materials_transmission"] = tinygltf::Value(ext);
                     use_transmission = true;
                 }
 
-                float thickness = ps->thicknesses.empty() ? 0.0f : ps->thicknesses[prim.color_idx];
-                float attenuationDistance = ps->attenuationDistances.empty() ? 0.0f : ps->attenuationDistances[prim.color_idx];
-                Color4f attenuationColor;
-                if (ps->attenuationColors.empty()) {
-                    Vector4f v; v[0]=1; v[1]=1; v[2]=1; v[3]=1; attenuationColor = v;
-                } else { attenuationColor = ps->attenuationColors[prim.color_idx]; }
-
-                if (thickness > 0.0f || attenuationDistance > 0.0f || attenuationColor.r() != 1.0f || attenuationColor.g() != 1.0f || attenuationColor.b() != 1.0f) {
+                if (mkey.thickness > 0.0f || mkey.attenuationDistance > 0.0f || 
+                    mkey.attenuationColor.r() != 1.0f || mkey.attenuationColor.g() != 1.0f || mkey.attenuationColor.b() != 1.0f) {
                     tinygltf::Value::Object ext;
-                    if (thickness > 0.0f) ext["thicknessFactor"] = tinygltf::Value((double)thickness);
-                    if (attenuationDistance > 0.0f) ext["attenuationDistance"] = tinygltf::Value((double)attenuationDistance);
-                    if (attenuationColor.r() != 1.0f || attenuationColor.g() != 1.0f || attenuationColor.b() != 1.0f) {
+                    if (mkey.thickness > 0.0f) ext["thicknessFactor"] = tinygltf::Value((double)mkey.thickness);
+                    if (mkey.attenuationDistance > 0.0f) ext["attenuationDistance"] = tinygltf::Value((double)mkey.attenuationDistance);
+                    if (mkey.attenuationColor.r() != 1.0f || mkey.attenuationColor.g() != 1.0f || mkey.attenuationColor.b() != 1.0f) {
                         ext["attenuationColor"] = tinygltf::Value(tinygltf::Value::Array{
-                            tinygltf::Value((double)attenuationColor.r()), 
-                            tinygltf::Value((double)attenuationColor.g()), 
-                            tinygltf::Value((double)attenuationColor.b())
+                            tinygltf::Value((double)mkey.attenuationColor.r()), 
+                            tinygltf::Value((double)mkey.attenuationColor.g()), 
+                            tinygltf::Value((double)mkey.attenuationColor.b())
                         });
                     }
                     mat.extensions["KHR_materials_volume"] = tinygltf::Value(ext);
                     use_thickness = true;
                 }
 
-                float ior = ps->iors.empty() ? 1.5f : ps->iors[prim.color_idx];
-                if (ior != 1.5f) {
+                if (mkey.ior != 1.5f) {
                     tinygltf::Value::Object ext;
-                    ext["ior"] = tinygltf::Value((double)ior);
+                    ext["ior"] = tinygltf::Value((double)mkey.ior);
                     mat.extensions["KHR_materials_ior"] = tinygltf::Value(ext);
                     use_ior = true;
                 }
 
-                float emissiveIntensity = ps->emissiveIntensities.empty() ? 1.0f : ps->emissiveIntensities[prim.color_idx];
-                Color4f emissive;
-                if (ps->emissives.empty()) {
-                    Vector4f v; v[0]=0; v[1]=0; v[2]=0; v[3]=1; emissive = v;
-                } else { emissive = ps->emissives[prim.color_idx]; }
-                
-                if (emissive.r() > 0.0f || emissive.g() > 0.0f || emissive.b() > 0.0f) {
-                    mat.emissiveFactor = {(double)emissive.r(), (double)emissive.g(), (double)emissive.b()};
-                    if (emissiveIntensity != 1.0f) {
+                if (mkey.emissive.r() > 0.0f || mkey.emissive.g() > 0.0f || mkey.emissive.b() > 0.0f) {
+                    mat.emissiveFactor = {(double)mkey.emissive.r(), (double)mkey.emissive.g(), (double)mkey.emissive.b()};
+                    if (mkey.emissiveIntensity != 1.0f) {
                         tinygltf::Value::Object ext;
-                        ext["emissiveStrength"] = tinygltf::Value((double)emissiveIntensity);
+                        ext["emissiveStrength"] = tinygltf::Value((double)mkey.emissiveIntensity);
                         mat.extensions["KHR_materials_emissive_strength"] = tinygltf::Value(ext);
                         use_emissive_strength = true;
                     }
                 }
 
-                float specularIntensity = ps->specularIntensities.empty() ? 1.0f : ps->specularIntensities[prim.color_idx];
-                Color4f specularColor;
-                if (ps->specularColors.empty()) {
-                    Vector4f v; v[0]=1; v[1]=1; v[2]=1; v[3]=1; specularColor = v;
-                } else { specularColor = ps->specularColors[prim.color_idx]; }
-                
-                if (specularIntensity != 1.0f || specularColor.r() != 1.0f || specularColor.g() != 1.0f || specularColor.b() != 1.0f) {
+                if (mkey.specularIntensity != 1.0f || mkey.specularColor.r() != 1.0f || mkey.specularColor.g() != 1.0f || mkey.specularColor.b() != 1.0f) {
                     tinygltf::Value::Object ext;
-                    ext["specularFactor"] = tinygltf::Value((double)specularIntensity);
-                    if (specularColor.r() != 1.0f || specularColor.g() != 1.0f || specularColor.b() != 1.0f) {
+                    ext["specularFactor"] = tinygltf::Value((double)mkey.specularIntensity);
+                    if (mkey.specularColor.r() != 1.0f || mkey.specularColor.g() != 1.0f || mkey.specularColor.b() != 1.0f) {
                         ext["specularColorFactor"] = tinygltf::Value(tinygltf::Value::Array{
-                            tinygltf::Value((double)specularColor.r()), 
-                            tinygltf::Value((double)specularColor.g()), 
-                            tinygltf::Value((double)specularColor.b())
+                            tinygltf::Value((double)mkey.specularColor.r()), 
+                            tinygltf::Value((double)mkey.specularColor.g()), 
+                            tinygltf::Value((double)mkey.specularColor.b())
                         });
                     }
                     mat.extensions["KHR_materials_specular"] = tinygltf::Value(ext);
                     use_specular = true;
                 }
 
-                float iridescence = ps->iridescences.empty() ? 0.0f : ps->iridescences[prim.color_idx];
-                float iridescenceIOR = ps->iridescenceIORs.empty() ? 1.3f : ps->iridescenceIORs[prim.color_idx];
-                if (iridescence > 0.0f) {
+                if (mkey.iridescence > 0.0f) {
                     tinygltf::Value::Object ext;
-                    ext["iridescenceFactor"] = tinygltf::Value((double)iridescence);
-                    ext["iridescenceIor"] = tinygltf::Value((double)iridescenceIOR);
+                    ext["iridescenceFactor"] = tinygltf::Value((double)mkey.iridescence);
+                    ext["iridescenceIor"] = tinygltf::Value((double)mkey.iridescenceIOR);
                     mat.extensions["KHR_materials_iridescence"] = tinygltf::Value(ext);
                     use_iridescence = true;
                 }
 
-                if (a < 255) mat.alphaMode = "BLEND";
-            } else {
-                mat.pbrMetallicRoughness.baseColorFactor = {(double)exportInfo.defaultColor.r(), (double)exportInfo.defaultColor.g(), (double)exportInfo.defaultColor.b(), (double)exportInfo.defaultColor.a()};
-                mat.pbrMetallicRoughness.roughnessFactor = 1.0f;
-                mat.pbrMetallicRoughness.metallicFactor = 0.0f;
-                if (exportInfo.defaultColor.a() < 1.0f) mat.alphaMode = "BLEND";
+                if (mkey.color.a() < 1.0f) mat.alphaMode = "BLEND";
+                
+                mat_idx = model.materials.size();
+                model.materials.push_back(mat);
+                material_cache[mkey] = mat_idx;
             }
-            
-            int mat_idx = model.materials.size();
-            model.materials.push_back(mat);
 
             tinygltf::Primitive gltf_prim;
             gltf_prim.attributes["POSITION"] = pos_accessor_idx;
