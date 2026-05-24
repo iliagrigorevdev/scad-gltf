@@ -7,7 +7,7 @@ class ArmatureGeometry : public GeometryList {
 public:
     Value animations;
     Transform3d world_matrix;
-    
+
     ArmatureGeometry(Value anims, Transform3d w_mat = Transform3d::Identity())
         : GeometryList(Geometry::Geometries()), animations(std::move(anims)), world_matrix(w_mat) {}
 
@@ -16,7 +16,7 @@ public:
         : GeometryList(other), animations(other.animations.clone()), world_matrix(other.world_matrix) {}
 
     void accept(GeometryVisitor& visitor) const override {
-        visitor.visit(static_cast<const GeometryList&>(*this)); 
+        visitor.visit(static_cast<const GeometryList&>(*this));
     }
     size_t memsize() const override { return GeometryList::memsize() + sizeof(ArmatureGeometry); }
     std::unique_ptr<Geometry> copy() const override { return std::make_unique<ArmatureGeometry>(*this); }
@@ -41,7 +41,7 @@ public:
         : GeometryList(other), name(other.name), local_matrix(other.local_matrix), world_matrix(other.world_matrix) {}
 
     void accept(GeometryVisitor& visitor) const override {
-        visitor.visit(static_cast<const GeometryList&>(*this)); 
+        visitor.visit(static_cast<const GeometryList&>(*this));
     }
     size_t memsize() const override { return GeometryList::memsize() + sizeof(BoneGeometry); }
     std::unique_ptr<Geometry> copy() const override { return std::make_unique<BoneGeometry>(*this); }

@@ -15,7 +15,7 @@ class BoneNode : public TransformNode {
 public:
     VISITABLE();
     std::string bone_name;
-    BoneNode(const ModuleInstantiation *mi, std::string name, const Transform3d& mat) 
+    BoneNode(const ModuleInstantiation *mi, std::string name, const Transform3d& mat)
       : TransformNode(mi, "bone"), bone_name(std::move(name)) {
         this->matrix = mat;
     }

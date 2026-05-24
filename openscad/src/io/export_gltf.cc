@@ -75,25 +75,25 @@ bool contains_bone(const std::shared_ptr<const Geometry>& geom) {
     return false;
 }
 
-int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_idx, 
-                  tinygltf::Model& model, std::vector<MeshInfo>& meshes_info, 
-                  std::map<std::string, int>& bone_to_node, Value& global_anims, 
+int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_idx,
+                  tinygltf::Model& model, std::vector<MeshInfo>& meshes_info,
+                  std::map<std::string, int>& bone_to_node, Value& global_anims,
                   Transform3d C, Transform3d M_accum, int current_joint_idx,
                   std::vector<int>& gltf_joints, std::vector<Transform3d>& inverse_bind_matrices,
-                  std::vector<int>& scene_nodes) 
+                  std::vector<int>& scene_nodes)
 {
     if (auto armature = std::dynamic_pointer_cast<const ArmatureGeometry>(geom)) {
         if (armature->animations.type() == Value::Type::VECTOR) {
-             global_anims = armature->animations.clone(); 
+             global_anims = armature->animations.clone();
         }
         int node_idx = model.nodes.size();
         tinygltf::Node node;
         node.name = "Armature";
         model.nodes.push_back(node);
-        
+
         // If this node has no parent, insert it directly at the root of the scene
         if (parent_node_idx < 0) scene_nodes.push_back(node_idx);
-        
+
         for (const auto& item : armature->getChildren()) {
             int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, current_joint_idx, gltf_joints, inverse_bind_matrices, scene_nodes);
             if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
@@ -102,20 +102,20 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
     }
     else if (auto bone = std::dynamic_pointer_cast<const BoneGeometry>(geom)) {
         int node_idx = model.nodes.size();
-        
+
         // Convert OpenSCAD local matrix to glTF Y-up local matrix
         Transform3d M_gltf = C * bone->local_matrix * C.inverse();
-        
+
         // Extract translation and rotation for glTF node placement
         Eigen::Matrix3d R_and_S = M_gltf.linear();
         Eigen::Vector3d s(R_and_S.col(0).norm(), R_and_S.col(1).norm(), R_and_S.col(2).norm());
         Eigen::Matrix3d R;
         for(int i=0; i<3; ++i) R.col(i) = R_and_S.col(i) / (s[i] > 1e-8 ? s[i] : 1.0);
         if (R.determinant() < 0) { s.x() *= -1; R.col(0) *= -1; }
-        
+
         Eigen::Vector3d t = M_gltf.translation();
         Eigen::Quaterniond q(R);
-        
+
         tinygltf::Node node;
         node.name = bone->name;
         node.translation = {t.x(), t.y(), t.z()};
@@ -130,11 +130,11 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         // Accumulate absolute world transform for children and inverseBindMatrix calculations
         Transform3d next_M_accum = M_accum * bone->local_matrix;
         Transform3d inv_bind = C * next_M_accum.inverse() * C.inverse();
-        
+
         int joint_idx = gltf_joints.size();
         gltf_joints.push_back(node_idx);
         inverse_bind_matrices.push_back(inv_bind);
-        
+
         for (const auto& item : bone->getChildren()) {
             int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, next_M_accum, joint_idx, gltf_joints, inverse_bind_matrices, scene_nodes);
             if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
@@ -157,7 +157,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         auto ps = PolySetUtils::getGeometryAsPolySet(geom);
         if (ps && !ps->vertices.empty()) {
             if (Feature::ExperimentalPredictibleOutput.is_enabled()) ps = createSortedPolySet(*ps);
-            
+
             MeshInfo minfo;
             minfo.ps = ps;
             minfo.target_node = parent_node_idx;
@@ -290,8 +290,8 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
 }
 
 template<typename T>
-int append_to_bin(std::vector<unsigned char>& bin_data, const std::vector<T>& src, tinygltf::Model& model, 
-                   int target, int componentType, int type, const std::vector<double>& min_val = {}, const std::vector<double>& max_val = {}) 
+int append_to_bin(std::vector<unsigned char>& bin_data, const std::vector<T>& src, tinygltf::Model& model,
+                   int target, int componentType, int type, const std::vector<double>& min_val = {}, const std::vector<double>& max_val = {})
 {
     size_t offset = bin_data.size();
     size_t length = src.size() * sizeof(T);
@@ -314,7 +314,7 @@ int append_to_bin(std::vector<unsigned char>& bin_data, const std::vector<T>& sr
     acc.type = type;
     if (!min_val.empty()) acc.minValues = min_val;
     if (!max_val.empty()) acc.maxValues = max_val;
-    
+
     int acc_idx = model.accessors.size();
     model.accessors.push_back(acc);
     return acc_idx;
@@ -325,7 +325,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     tinygltf::Model model;
     model.asset.version = "2.0";
     model.asset.generator = "OpenSCAD GLTF (https://github.com/iliagrigorevdev/openscad-gltf-wasm)";
-    
+
     std::vector<MeshInfo> meshes_info;
     std::map<std::string, int> bone_to_node;
     Value global_anims = Value::undefined.clone();
@@ -363,7 +363,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         skin.name = "ArmatureSkin";
         skin.joints = gltf_joints;
         skin.inverseBindMatrices = inv_bind_acc;
-        if (!gltf_joints.empty()) skin.skeleton = gltf_joints[0]; 
+        if (!gltf_joints.empty()) skin.skeleton = gltf_joints[0];
         model.skins.push_back(skin);
     }
 
@@ -378,7 +378,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         float emissiveIntensity;
         Color4f specularColor;
         float specularIntensity, iridescence, iridescenceIOR;
-        
+
         bool operator<(const MaterialKey& o) const {
             if (color.r() != o.color.r()) return color.r() < o.color.r();
             if (color.g() != o.color.g()) return color.g() < o.color.g();
@@ -416,7 +416,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             return iridescenceIOR < o.iridescenceIOR;
         }
     };
-    
+
     std::map<MaterialKey, int> material_cache;
 
     Vector4f defBlack; defBlack[0]=0; defBlack[1]=0; defBlack[2]=0; defBlack[3]=1;
@@ -451,7 +451,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 weights_acc = append_to_bin(bin_data, weights_data, model, TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4);
             }
 
-            int idx_accessor_idx = append_to_bin(bin_data, prim.indices, model, 
+            int idx_accessor_idx = append_to_bin(bin_data, prim.indices, model,
                 TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT, TINYGLTF_TYPE_SCALAR);
 
             auto ps = prim.ps;
@@ -506,7 +506,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             } else {
                 tinygltf::Material mat;
                 mat.doubleSided = true;
-                
+
                 mat.pbrMetallicRoughness.baseColorFactor = {(double)mkey.color.r(), (double)mkey.color.g(), (double)mkey.color.b(), (double)mkey.color.a()};
                 mat.pbrMetallicRoughness.roughnessFactor = (double)mkey.roughness;
                 mat.pbrMetallicRoughness.metallicFactor = (double)mkey.metalness;
@@ -522,8 +522,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 if (mkey.sheen > 0.0f) {
                     tinygltf::Value::Object ext;
                     ext["sheenColorFactor"] = tinygltf::Value(tinygltf::Value::Array{
-                        tinygltf::Value((double)(mkey.sheen * mkey.sheenColor.r())), 
-                        tinygltf::Value((double)(mkey.sheen * mkey.sheenColor.g())), 
+                        tinygltf::Value((double)(mkey.sheen * mkey.sheenColor.r())),
+                        tinygltf::Value((double)(mkey.sheen * mkey.sheenColor.g())),
                         tinygltf::Value((double)(mkey.sheen * mkey.sheenColor.b()))
                     });
                     ext["sheenRoughnessFactor"] = tinygltf::Value((double)mkey.sheenRoughness);
@@ -538,15 +538,15 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     use_transmission = true;
                 }
 
-                if (mkey.thickness > 0.0f || mkey.attenuationDistance > 0.0f || 
+                if (mkey.thickness > 0.0f || mkey.attenuationDistance > 0.0f ||
                     mkey.attenuationColor.r() != 1.0f || mkey.attenuationColor.g() != 1.0f || mkey.attenuationColor.b() != 1.0f) {
                     tinygltf::Value::Object ext;
                     if (mkey.thickness > 0.0f) ext["thicknessFactor"] = tinygltf::Value((double)mkey.thickness);
                     if (mkey.attenuationDistance > 0.0f) ext["attenuationDistance"] = tinygltf::Value((double)mkey.attenuationDistance);
                     if (mkey.attenuationColor.r() != 1.0f || mkey.attenuationColor.g() != 1.0f || mkey.attenuationColor.b() != 1.0f) {
                         ext["attenuationColor"] = tinygltf::Value(tinygltf::Value::Array{
-                            tinygltf::Value((double)mkey.attenuationColor.r()), 
-                            tinygltf::Value((double)mkey.attenuationColor.g()), 
+                            tinygltf::Value((double)mkey.attenuationColor.r()),
+                            tinygltf::Value((double)mkey.attenuationColor.g()),
                             tinygltf::Value((double)mkey.attenuationColor.b())
                         });
                     }
@@ -576,8 +576,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     ext["specularFactor"] = tinygltf::Value((double)mkey.specularIntensity);
                     if (mkey.specularColor.r() != 1.0f || mkey.specularColor.g() != 1.0f || mkey.specularColor.b() != 1.0f) {
                         ext["specularColorFactor"] = tinygltf::Value(tinygltf::Value::Array{
-                            tinygltf::Value((double)mkey.specularColor.r()), 
-                            tinygltf::Value((double)mkey.specularColor.g()), 
+                            tinygltf::Value((double)mkey.specularColor.r()),
+                            tinygltf::Value((double)mkey.specularColor.g()),
                             tinygltf::Value((double)mkey.specularColor.b())
                         });
                     }
@@ -594,7 +594,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 }
 
                 if (mkey.color.a() < 1.0f) mat.alphaMode = "BLEND";
-                
+
                 mat_idx = model.materials.size();
                 model.materials.push_back(mat);
                 material_cache[mkey] = mat_idx;
@@ -629,7 +629,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             tinygltf::Node node;
             node.mesh = mesh_idx;
             if (minfo.joint_idx != -1) {
-                node.skin = 0; 
+                node.skin = 0;
             }
             model.nodes.push_back(node);
             scene_nodes.push_back(new_node_idx);
@@ -642,22 +642,22 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             if (anim_val.type() != Value::Type::VECTOR) continue;
             const auto& anim = anim_val.toVector();
             if (anim.size() < 2 || anim[0].type() != Value::Type::STRING || anim[1].type() != Value::Type::VECTOR) continue;
-            
+
             std::string anim_name = anim[0].toStrUtf8Wrapper().toString();
             const auto& tracks = anim[1].toVector();
-            
+
             tinygltf::Animation gltf_anim;
             gltf_anim.name = anim_name;
-            
+
             for (const auto& track_val : tracks) {
                 if (track_val.type() != Value::Type::VECTOR) continue;
                 const auto& track = track_val.toVector();
                 if (track.size() < 2 || track[0].type() != Value::Type::STRING || track[1].type() != Value::Type::VECTOR) continue;
-                
+
                 std::string bone_name = track[0].toStrUtf8Wrapper().toString();
                 if (bone_to_node.find(bone_name) == bone_to_node.end()) continue;
                 int node_idx = bone_to_node[bone_name];
-                
+
                 std::vector<float> times;
                 std::vector<float> rotations;
                 std::vector<float> translations;
@@ -721,14 +721,14 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                 int time_acc_idx = append_to_bin(bin_data, times, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_SCALAR, {(double)min_time}, {(double)max_time});
                 int rot_acc_idx = append_to_bin(bin_data, rotations, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4);
-                
+
                 int sampler_idx = gltf_anim.samplers.size();
                 tinygltf::AnimationSampler sampler;
                 sampler.input = time_acc_idx;
                 sampler.output = rot_acc_idx;
                 sampler.interpolation = "LINEAR";
                 gltf_anim.samplers.push_back(sampler);
-                
+
                 tinygltf::AnimationChannel channel;
                 channel.sampler = sampler_idx;
                 channel.target_node = node_idx;

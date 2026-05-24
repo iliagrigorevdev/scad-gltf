@@ -53,7 +53,7 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
 
   Vector4f defaultBlack;
   defaultBlack[0] = 0.0f; defaultBlack[1] = 0.0f; defaultBlack[2] = 0.0f; defaultBlack[3] = 1.0f;
-  
+
   Vector4f defaultWhite;
   defaultWhite[0] = 1.0f; defaultWhite[1] = 1.0f; defaultWhite[2] = 1.0f; defaultWhite[3] = 1.0f;
 
@@ -175,9 +175,9 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
 std::string ColorNode::toString() const
 {
   return STR("color([", this->color.r(), ", ", this->color.g(), ", ", this->color.b(), ", ",
-             this->color.a(), "], roughness=", this->roughness, ", metalness=", this->metalness, 
+             this->color.a(), "], roughness=", this->roughness, ", metalness=", this->metalness,
              ", clearcoat=", this->clearcoat, ", clearcoatRoughness=", this->clearcoatRoughness,
-             ", sheen=", this->sheen, ", sheenColor=[", this->sheenColor.r(), ", ", this->sheenColor.g(), ", ", this->sheenColor.b(), "], sheenRoughness=", this->sheenRoughness, 
+             ", sheen=", this->sheen, ", sheenColor=[", this->sheenColor.r(), ", ", this->sheenColor.g(), ", ", this->sheenColor.b(), "], sheenRoughness=", this->sheenRoughness,
              ", transmission=", this->transmission, ", thickness=", this->thickness,
              ", attenuationColor=[", this->attenuationColor.r(), ", ", this->attenuationColor.g(), ", ", this->attenuationColor.b(), "], attenuationDistance=", this->attenuationDistance, ", ior=", this->ior,
              ", emissive=[", this->emissive.r(), ", ", this->emissive.g(), ", ", this->emissive.b(), "], emissiveIntensity=", this->emissiveIntensity,

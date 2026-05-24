@@ -327,11 +327,11 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
     for (const auto& ind : poly) {
       addVertex(ps.vertices[ind]);
     }
-    
+
     // Process indices per-polygon to prevent rejected/degenerate polygons from desyncing materials
     if (current_polygon_.size() >= 3) {
       indices_.push_back(current_polygon_);
-      
+
       int mapped_c_idx = -1;
       if (!ps.color_indices.empty()) {
         int original_c_idx = ps.color_indices[p_idx];
@@ -339,7 +339,7 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
           mapped_c_idx = color_map[original_c_idx];
         }
       }
-      
+
       if (mapped_c_idx != -1) {
         if (color_indices_.empty() && indices_.size() > 1) {
           color_indices_.resize(indices_.size() - 1, -1);
