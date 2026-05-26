@@ -167,6 +167,8 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   }
   if (parameters["autoSmoothAngle"].type() == Value::Type::NUMBER) {
     node->autoSmoothAngle = parameters["autoSmoothAngle"].toDouble();
+  } else if (parameters["$autoSmoothAngle"].type() == Value::Type::NUMBER) {
+    node->autoSmoothAngle = parameters["$autoSmoothAngle"].toDouble();
   }
 
   return children.instantiate(node);
