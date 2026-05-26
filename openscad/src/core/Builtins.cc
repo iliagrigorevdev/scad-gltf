@@ -132,7 +132,7 @@ Builtins::Builtins()
   this->assignments.emplace_back(new Assignment("$vpr", zeroVector));
   this->assignments.emplace_back(new Assignment("$vpd", std::make_shared<Literal>(500.0)));
   this->assignments.emplace_back(new Assignment("$vpf", std::make_shared<Literal>(22.5)));
-  this->assignments.emplace_back(new Assignment("$autoSmoothAngle", std::make_shared<Literal>(0.0)));
+  this->assignments.emplace_back(new Assignment("$asa", std::make_shared<Literal>(0.0)));
 }
 
 void Builtins::initKeywordList()
