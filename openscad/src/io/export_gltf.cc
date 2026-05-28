@@ -47,6 +47,7 @@ struct PrimitiveInfo {
 };
 
 struct MeshInfo {
+    std::string name;
     std::vector<PrimitiveInfo> primitives;
     std::shared_ptr<const PolySet> ps;
     int target_node = -1;
@@ -159,6 +160,12 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             if (Feature::ExperimentalPredictibleOutput.is_enabled()) ps = createSortedPolySet(*ps);
 
             MeshInfo minfo;
+            if (parent_node_idx >= 0 && parent_node_idx < (int)model.nodes.size()) {
+                const std::string& p_name = model.nodes[parent_node_idx].name;
+                if (!p_name.empty()) {
+                    minfo.name = p_name + "_mesh";
+                }
+            }
             minfo.ps = ps;
             minfo.target_node = parent_node_idx;
             minfo.joint_idx = current_joint_idx;
@@ -425,6 +432,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     // 3. Process Meshes
     for (const auto& minfo : meshes_info) {
         tinygltf::Mesh mesh;
+        if (!minfo.name.empty()) mesh.name = minfo.name;
 
         for (const auto& prim : minfo.primitives) {
             int pos_accessor_idx = append_to_bin(bin_data, prim.positions, model,
@@ -620,6 +628,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             } else {
                 int child_node_idx = model.nodes.size();
                 tinygltf::Node child_node;
+                if (!minfo.name.empty()) child_node.name = minfo.name + "_node";
                 child_node.mesh = mesh_idx;
                 model.nodes.push_back(child_node);
                 model.nodes[minfo.target_node].children.push_back(child_node_idx);
@@ -627,6 +636,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         } else {
             int new_node_idx = model.nodes.size();
             tinygltf::Node node;
+            if (!minfo.name.empty()) node.name = minfo.name + "_node";
             node.mesh = mesh_idx;
             if (minfo.joint_idx != -1) {
                 node.skin = 0;
