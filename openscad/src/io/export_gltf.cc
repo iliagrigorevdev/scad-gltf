@@ -163,7 +163,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             if (parent_node_idx >= 0 && parent_node_idx < (int)model.nodes.size()) {
                 const std::string& p_name = model.nodes[parent_node_idx].name;
                 if (!p_name.empty()) {
-                    minfo.name = p_name + "_mesh";
+                    minfo.name = p_name;
                 }
             }
             minfo.ps = ps;
@@ -628,7 +628,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             } else {
                 int child_node_idx = model.nodes.size();
                 tinygltf::Node child_node;
-                if (!minfo.name.empty()) child_node.name = minfo.name + "_node";
+                if (!minfo.name.empty()) child_node.name = minfo.name;
                 child_node.mesh = mesh_idx;
                 model.nodes.push_back(child_node);
                 model.nodes[minfo.target_node].children.push_back(child_node_idx);
@@ -636,7 +636,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         } else {
             int new_node_idx = model.nodes.size();
             tinygltf::Node node;
-            if (!minfo.name.empty()) node.name = minfo.name + "_node";
+            if (!minfo.name.empty()) node.name = minfo.name;
             node.mesh = mesh_idx;
             if (minfo.joint_idx != -1) {
                 node.skin = 0;
