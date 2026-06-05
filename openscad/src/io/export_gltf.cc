@@ -477,17 +477,22 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     Vector4f defWhite; defWhite[0]=1; defWhite[1]=1; defWhite[2]=1; defWhite[3]=1;
 
     for (auto& minfo : meshes_info) {
-        bool has_colormap = false;
-        for (const auto& prim : minfo.primitives) {
-            if (prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) { has_colormap = true; break; }
+        std::vector<int> prim_to_atlas(minfo.primitives.size(), -1);
+        int num_atlas_meshes = 0;
+        for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
+            const auto& prim = minfo.primitives[p_idx];
+            if (prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) {
+                prim_to_atlas[p_idx] = num_atlas_meshes++;
+            }
         }
 
         xatlas::Atlas* atlas = nullptr;
         std::string mesh_base_color_uri;
 
-        if (has_colormap) {
+        if (num_atlas_meshes > 0) {
             atlas = xatlas::Create();
             for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
+                if (prim_to_atlas[p_idx] == -1) continue;
                 const auto& prim = minfo.primitives[p_idx];
                 xatlas::MeshDecl meshDecl;
                 meshDecl.vertexCount = prim.positions.size() / 3;
@@ -496,124 +501,128 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 meshDecl.indexCount = prim.indices.size();
                 meshDecl.indexData = prim.indices.data();
                 meshDecl.indexFormat = xatlas::IndexFormat::UInt32;
-                xatlas::AddMesh(atlas, meshDecl, (uint32_t)minfo.primitives.size());
+                xatlas::AddMesh(atlas, meshDecl, num_atlas_meshes);
             }
 
             xatlas::PackOptions packOptions;
-            packOptions.resolution = 1024;
+            packOptions.resolution = 0; // 0 to auto-fit all into 1 atlas
             packOptions.padding = 2;
             xatlas::Generate(atlas, xatlas::ChartOptions(), packOptions);
 
             uint32_t width = atlas->width;
             uint32_t height = atlas->height;
-            std::vector<uint8_t> pixels(width * height * 4, 0);
+            if (width > 0 && height > 0 && atlas->atlasCount > 0) {
+                std::vector<uint8_t> pixels(width * height * 4, 0);
 
-            for (uint32_t i = 0; i < atlas->meshCount; ++i) {
-                const xatlas::Mesh& xmesh = atlas->meshes[i];
-                const auto& prim = minfo.primitives[i];
-                auto cmap = prim.colormap;
-                if (!cmap || cmap->type() != Value::Type::FUNCTION) continue;
+                for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
+                    int a_idx = prim_to_atlas[p_idx];
+                    if (a_idx == -1) continue;
 
-                ColormapEvaluator evaluator(cmap->toFunction());
+                    const xatlas::Mesh& xmesh = atlas->meshes[a_idx];
+                    const auto& prim = minfo.primitives[p_idx];
+                    auto cmap = prim.colormap;
 
-                auto get_pos = [&](uint32_t orig_idx) -> Vector3d {
-                    int v_idx = prim.orig_v_idx[orig_idx];
-                    return prim.ps->vertices[v_idx];
-                };
+                    ColormapEvaluator evaluator(cmap->toFunction());
 
-                for (uint32_t f = 0; f < xmesh.indexCount / 3; ++f) {
-                    uint32_t i0 = xmesh.indexArray[f*3 + 0];
-                    uint32_t i1 = xmesh.indexArray[f*3 + 1];
-                    uint32_t i2 = xmesh.indexArray[f*3 + 2];
+                    auto get_pos = [&](uint32_t orig_idx) -> Vector3d {
+                        int v_idx = prim.orig_v_idx[orig_idx];
+                        return prim.ps->vertices[v_idx];
+                    };
 
-                    const xatlas::Vertex& v0 = xmesh.vertexArray[i0];
-                    const xatlas::Vertex& v1 = xmesh.vertexArray[i1];
-                    const xatlas::Vertex& v2 = xmesh.vertexArray[i2];
+                    for (uint32_t f = 0; f < xmesh.indexCount / 3; ++f) {
+                        uint32_t i0 = xmesh.indexArray[f*3 + 0];
+                        uint32_t i1 = xmesh.indexArray[f*3 + 1];
+                        uint32_t i2 = xmesh.indexArray[f*3 + 2];
 
-                    Vector3d p0 = get_pos(v0.xref);
-                    Vector3d p1 = get_pos(v1.xref);
-                    Vector3d p2 = get_pos(v2.xref);
+                        const xatlas::Vertex& v0 = xmesh.vertexArray[i0];
+                        const xatlas::Vertex& v1 = xmesh.vertexArray[i1];
+                        const xatlas::Vertex& v2 = xmesh.vertexArray[i2];
 
-                    float uv0x = v0.uv[0], uv0y = v0.uv[1];
-                    float uv1x = v1.uv[0], uv1y = v1.uv[1];
-                    float uv2x = v2.uv[0], uv2y = v2.uv[1];
+                        Vector3d p0 = get_pos(v0.xref);
+                        Vector3d p1 = get_pos(v1.xref);
+                        Vector3d p2 = get_pos(v2.xref);
 
-                    int min_x = std::max(0, (int)std::floor(std::min({uv0x, uv1x, uv2x})));
-                    int max_x = std::min((int)width - 1, (int)std::ceil(std::max({uv0x, uv1x, uv2x})));
-                    int min_y = std::max(0, (int)std::floor(std::min({uv0y, uv1y, uv2y})));
-                    int max_y = std::min((int)height - 1, (int)std::ceil(std::max({uv0y, uv1y, uv2y})));
+                        float uv0x = v0.uv[0], uv0y = v0.uv[1];
+                        float uv1x = v1.uv[0], uv1y = v1.uv[1];
+                        float uv2x = v2.uv[0], uv2y = v2.uv[1];
 
-                    for (int y = min_y; y <= max_y; ++y) {
-                        for (int x = min_x; x <= max_x; ++x) {
-                            float px = x + 0.5f;
-                            float py = y + 0.5f;
+                        int min_x = std::max(0, (int)std::floor(std::min({uv0x, uv1x, uv2x})));
+                        int max_x = std::min((int)width - 1, (int)std::ceil(std::max({uv0x, uv1x, uv2x})));
+                        int min_y = std::max(0, (int)std::floor(std::min({uv0y, uv1y, uv2y})));
+                        int max_y = std::min((int)height - 1, (int)std::ceil(std::max({uv0y, uv1y, uv2y})));
 
-                            float det = (uv1y - uv2y)*(uv0x - uv2x) + (uv2x - uv1x)*(uv0y - uv2y);
-                            if (std::abs(det) < 1e-8f) continue;
-                            float u = ((uv1y - uv2y)*(px - uv2x) + (uv2x - uv1x)*(py - uv2y)) / det;
-                            float v = ((uv2y - uv0y)*(px - uv2x) + (uv0x - uv2x)*(py - uv2y)) / det;
-                            float w = 1.0f - u - v;
+                        for (int y = min_y; y <= max_y; ++y) {
+                            for (int x = min_x; x <= max_x; ++x) {
+                                float px = x + 0.5f;
+                                float py = y + 0.5f;
 
-                            if (u >= -1e-4f && v >= -1e-4f && w >= -1e-4f) {
-                                Vector3d p3d = u * p0 + v * p1 + w * p2;
-                                Color4f c = evaluator.eval(p3d);
+                                float det = (uv1y - uv2y)*(uv0x - uv2x) + (uv2x - uv1x)*(uv0y - uv2y);
+                                if (std::abs(det) < 1e-8f) continue;
+                                float u = ((uv1y - uv2y)*(px - uv2x) + (uv2x - uv1x)*(py - uv2y)) / det;
+                                float v = ((uv2y - uv0y)*(px - uv2x) + (uv0x - uv2x)*(py - uv2y)) / det;
+                                float w = 1.0f - u - v;
 
-                                int pixel_idx = (y * width + x) * 4;
-                                pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(c.r() * 255.0f)));
-                                pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(c.g() * 255.0f)));
-                                pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(c.b() * 255.0f)));
-                                pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(c.a() * 255.0f)));
+                                if (u >= -1e-4f && v >= -1e-4f && w >= -1e-4f) {
+                                    Vector3d p3d = u * p0 + v * p1 + w * p2;
+                                    Color4f c = evaluator.eval(p3d);
+
+                                    int pixel_idx = (y * width + x) * 4;
+                                    pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(c.r() * 255.0f)));
+                                    pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(c.g() * 255.0f)));
+                                    pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(c.b() * 255.0f)));
+                                    pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(c.a() * 255.0f)));
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            for (int iter = 0; iter < 2; ++iter) {
-                std::vector<uint8_t> dilated_pixels = pixels;
-                for (uint32_t y = 0; y < height; ++y) {
-                    for (uint32_t x = 0; x < width; ++x) {
-                        int p_idx = (y * width + x) * 4;
-                        if (pixels[p_idx + 3] == 0) {
-                            int r=0, g=0, b=0, a=0, count=0;
-                            for (int dy = -1; dy <= 1; ++dy) {
-                                for (int dx = -1; dx <= 1; ++dx) {
-                                    if (dx == 0 && dy == 0) continue;
-                                    int nx = x + dx;
-                                    int ny = y + dy;
-                                    if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
-                                        int n_idx = (ny * width + nx) * 4;
-                                        if (pixels[n_idx + 3] > 0) {
-                                            r += pixels[n_idx + 0];
-                                            g += pixels[n_idx + 1];
-                                            b += pixels[n_idx + 2];
-                                            a += pixels[n_idx + 3];
-                                            count++;
+                for (int iter = 0; iter < 2; ++iter) {
+                    std::vector<uint8_t> dilated_pixels = pixels;
+                    for (uint32_t y = 0; y < height; ++y) {
+                        for (uint32_t x = 0; x < width; ++x) {
+                            int p_idx = (y * width + x) * 4;
+                            if (pixels[p_idx + 3] == 0) {
+                                int r=0, g=0, b=0, a=0, count=0;
+                                for (int dy = -1; dy <= 1; ++dy) {
+                                    for (int dx = -1; dx <= 1; ++dx) {
+                                        if (dx == 0 && dy == 0) continue;
+                                        int nx = x + dx;
+                                        int ny = y + dy;
+                                        if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
+                                            int n_idx = (ny * width + nx) * 4;
+                                            if (pixels[n_idx + 3] > 0) {
+                                                r += pixels[n_idx + 0];
+                                                g += pixels[n_idx + 1];
+                                                b += pixels[n_idx + 2];
+                                                a += pixels[n_idx + 3];
+                                                count++;
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            if (count > 0) {
-                                dilated_pixels[p_idx + 0] = r / count;
-                                dilated_pixels[p_idx + 1] = g / count;
-                                dilated_pixels[p_idx + 2] = b / count;
-                                dilated_pixels[p_idx + 3] = 255;
+                                if (count > 0) {
+                                    dilated_pixels[p_idx + 0] = r / count;
+                                    dilated_pixels[p_idx + 1] = g / count;
+                                    dilated_pixels[p_idx + 2] = b / count;
+                                    dilated_pixels[p_idx + 3] = 255;
+                                }
                             }
                         }
                     }
+                    pixels = std::move(dilated_pixels);
                 }
-                pixels = std::move(dilated_pixels);
-            }
 
-            std::vector<unsigned char> png_data;
-            auto write_func = [](void *context, void *data, int size) {
-                auto *vec = static_cast<std::vector<unsigned char>*>(context);
-                vec->insert(vec->end(), static_cast<unsigned char*>(data), static_cast<unsigned char*>(data) + size);
-            };
-            stbi_write_png_to_func(write_func, &png_data, width, height, 4, pixels.data(), width * 4);
+                std::vector<unsigned char> png_data;
+                auto write_func = [](void *context, void *data, int size) {
+                    auto *vec = static_cast<std::vector<unsigned char>*>(context);
+                    vec->insert(vec->end(), static_cast<unsigned char*>(data), static_cast<unsigned char*>(data) + size);
+                };
+                stbi_write_png_to_func(write_func, &png_data, width, height, 4, pixels.data(), width * 4);
 
-            if (!png_data.empty()) {
-                mesh_base_color_uri = "data:image/png;base64," + base64_encode(png_data.data(), png_data.size());
+                if (!png_data.empty()) {
+                    mesh_base_color_uri = "data:image/png;base64," + base64_encode(png_data.data(), png_data.size());
+                }
             }
         }
 
@@ -622,11 +631,18 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
         for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
             auto& prim = minfo.primitives[p_idx];
-            prim.base_color_uri = mesh_base_color_uri;
+            int a_idx = atlas ? prim_to_atlas[p_idx] : -1;
+
+            if (a_idx != -1) {
+                prim.base_color_uri = mesh_base_color_uri;
+            } else {
+                prim.base_color_uri = "";
+            }
+
             std::vector<float> uvs;
 
-            if (atlas) {
-                const xatlas::Mesh& xmesh = atlas->meshes[p_idx];
+            if (atlas && a_idx != -1) {
+                const xatlas::Mesh& xmesh = atlas->meshes[a_idx];
                 std::vector<float> new_pos, new_norm;
                 std::vector<uint32_t> new_ind;
                 new_pos.reserve(xmesh.vertexCount * 3);
@@ -642,8 +658,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     new_norm.push_back(prim.normals[v.xref * 3 + 0]);
                     new_norm.push_back(prim.normals[v.xref * 3 + 1]);
                     new_norm.push_back(prim.normals[v.xref * 3 + 2]);
-                    uvs.push_back(v.uv[0] / atlas->width);
-                    uvs.push_back(v.uv[1] / atlas->height);
+                    uvs.push_back(v.uv[0] / (float)atlas->width);
+                    uvs.push_back(v.uv[1] / (float)atlas->height);
                 }
 
                 for (uint32_t i = 0; i < xmesh.indexCount; ++i) {
