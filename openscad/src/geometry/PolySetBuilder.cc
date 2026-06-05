@@ -65,7 +65,7 @@ void PolySetBuilder::setConvexity(int convexity)
   convexity_ = convexity;
 }
 
-void PolySetBuilder::addColor(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR, float autoSmoothAngle)
+void PolySetBuilder::addColor(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR, float autoSmoothAngle, std::shared_ptr<const class Value> colormap)
 {
   colors_.push_back(color);
   roughnesses_.push_back(roughness);
@@ -87,6 +87,7 @@ void PolySetBuilder::addColor(const Color4f& color, float roughness, float metal
   iridescences_.push_back(iridescence);
   iridescenceIORs_.push_back(iridescenceIOR);
   autoSmoothAngles_.push_back(autoSmoothAngle);
+  colormaps_.push_back(colormap);
 }
 
 void PolySetBuilder::addColorIndex(const int32_t idx)
@@ -174,7 +175,7 @@ void PolySetBuilder::addVertex(const Vector3d& v)
   addVertex(vertexIndex(v));
 }
 
-void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR, float autoSmoothAngle)
+void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR, float autoSmoothAngle, std::shared_ptr<const class Value> colormap)
 {
   // FIXME: Should we check for self-touching polygons (non-consecutive duplicate indices)?
 
@@ -196,7 +197,8 @@ void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float met
             iors_[i] == ior && emissives_[i] == emissive && emissiveIntensities_[i] == emissiveIntensity &&
             specularColors_[i] == specularColor && specularIntensities_[i] == specularIntensity &&
             iridescences_[i] == iridescence && iridescenceIORs_[i] == iridescenceIOR &&
-            autoSmoothAngles_[i] == autoSmoothAngle) {
+            autoSmoothAngles_[i] == autoSmoothAngle &&
+            colormaps_[i] == colormap) {
           match_idx = i;
           break;
         }
@@ -223,6 +225,7 @@ void PolySetBuilder::endPolygon(const Color4f& color, float roughness, float met
         iridescences_.push_back(iridescence);
         iridescenceIORs_.push_back(iridescenceIOR);
         autoSmoothAngles_.push_back(autoSmoothAngle);
+        colormaps_.push_back(colormap);
       } else {
         color_indices_.push_back(match_idx);
       }
@@ -275,6 +278,7 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
       float iridescence = ps.iridescences.empty() ? 0.0f : ps.iridescences[i];
       float iridescenceIOR = ps.iridescenceIORs.empty() ? 1.3f : ps.iridescenceIORs[i];
       float autoSmoothAngle = ps.autoSmoothAngles.empty() ? 0.0f : ps.autoSmoothAngles[i];
+      std::shared_ptr<const Value> colormap = ps.colormaps.empty() ? nullptr : ps.colormaps[i];
 
       // Find index of material in material vectors, or add it if it doesn't exist
       int match_idx = -1;
@@ -287,7 +291,8 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
             iors_[j] == ior && emissives_[j] == emissive && emissiveIntensities_[j] == emissiveIntensity &&
             specularColors_[j] == specularColor && specularIntensities_[j] == specularIntensity &&
             iridescences_[j] == iridescence && iridescenceIORs_[j] == iridescenceIOR &&
-            autoSmoothAngles_[j] == autoSmoothAngle) {
+            autoSmoothAngles_[j] == autoSmoothAngle &&
+            colormaps_[j] == colormap) {
           match_idx = j;
           break;
         }
@@ -314,6 +319,7 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
         iridescences_.push_back(iridescence);
         iridescenceIORs_.push_back(iridescenceIOR);
         autoSmoothAngles_.push_back(autoSmoothAngle);
+        colormaps_.push_back(colormap);
       } else {
         color_map[i] = match_idx;
       }
@@ -381,6 +387,7 @@ std::unique_ptr<PolySet> PolySetBuilder::build()
   polyset->iridescences = std::move(iridescences_);
   polyset->iridescenceIORs = std::move(iridescenceIORs_);
   polyset->autoSmoothAngles = std::move(autoSmoothAngles_);
+  polyset->colormaps = std::move(colormaps_);
   polyset->setConvexity(convexity_);
   bool is_triangular = true;
   for (const auto& face : polyset->indices) {

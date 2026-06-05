@@ -1,4 +1,10 @@
 #include "io/export.h"
+
+#include "core/Context.h"
+#include "core/Value.h"
+#include "core/Assignment.h"
+#include "core/Expression.h"
+
 #include "geometry/Geometry.h"
 #include "geometry/AnimationGeometry.h"
 #include "geometry/PolySet.h"
@@ -13,6 +19,10 @@
 #include <cfloat>
 #include <cstring>
 #include <algorithm>
+
+#include <xatlas.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 #define TINYGLTF_IMPLEMENTATION
 #define TINYGLTF_NO_STB_IMAGE
@@ -36,11 +46,53 @@ static std::string base64_encode(const unsigned char* data, size_t len) {
     return ret;
 }
 
+// Highly optimized evaluator that re-uses a single ContextFrame closure
+struct ColormapEvaluator {
+    ContextHandle<Context> body_context;
+    const Expression* expr;
+    std::shared_ptr<AssignmentList> params;
+
+    ColormapEvaluator(const FunctionType& func)
+        : body_context(Context::create<Context>(func.getContext())),
+          expr(func.getExpr().get()),
+          params(func.getParameters()) {}
+
+    Color4f eval(const Vector3d& p3d) {
+        Color4f c(1.0f, 1.0f, 1.0f, 1.0f);
+        try {
+            if (params) {
+                if (params->size() > 0 && (*params)[0]) body_context->set_variable((*params)[0]->getName(), Value(p3d.x()));
+                if (params->size() > 1 && (*params)[1]) body_context->set_variable((*params)[1]->getName(), Value(p3d.y()));
+                if (params->size() > 2 && (*params)[2]) body_context->set_variable((*params)[2]->getName(), Value(p3d.z()));
+            }
+
+            // *body_context returns the std::shared_ptr<const Context>
+            Value res = expr->evaluate(*body_context);
+            if (res.type() == Value::Type::VECTOR) {
+                const auto& vec = res.toVector();
+                c = Color4f(
+                    (float)(vec.size() > 0 ? vec[0].toDouble() : 0.0),
+                    (float)(vec.size() > 1 ? vec[1].toDouble() : 0.0),
+                    (float)(vec.size() > 2 ? vec[2].toDouble() : 0.0),
+                    (float)(vec.size() > 3 ? vec[3].toDouble() : 1.0)
+                );
+            } else if (res.type() == Value::Type::NUMBER) {
+                float v = (float)res.toDouble();
+                c = Color4f(v, v, v, 1.0f);
+            }
+        } catch(...) {}
+        return c;
+    }
+};
+
 struct PrimitiveInfo {
     int color_idx;
     std::vector<uint32_t> indices;
     std::vector<float> positions;
     std::vector<float> normals;
+    std::vector<int> orig_v_idx;
+    std::shared_ptr<const class Value> colormap;
+    std::string base_color_uri;
     float min_pos[3];
     float max_pos[3];
     std::shared_ptr<const PolySet> ps;
@@ -64,8 +116,6 @@ Transform3d get_z_to_y_up_matrix() {
     return C;
 }
 
-// Helper: Checks if a GeometryList implicitly contains a bone inside it.
-// If it does not, we can safely bake the entire sub-tree into an absolute PolySet mesh.
 bool contains_bone(const std::shared_ptr<const Geometry>& geom) {
     if (std::dynamic_pointer_cast<const BoneGeometry>(geom)) return true;
     if (auto gl = std::dynamic_pointer_cast<const GeometryList>(geom)) {
@@ -92,7 +142,6 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         node.name = "Armature";
         model.nodes.push_back(node);
 
-        // If this node has no parent, insert it directly at the root of the scene
         if (parent_node_idx < 0) scene_nodes.push_back(node_idx);
 
         for (const auto& item : armature->getChildren()) {
@@ -104,10 +153,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
     else if (auto bone = std::dynamic_pointer_cast<const BoneGeometry>(geom)) {
         int node_idx = model.nodes.size();
 
-        // Convert OpenSCAD local matrix to glTF Y-up local matrix
         Transform3d M_gltf = C * bone->local_matrix * C.inverse();
-
-        // Extract translation and rotation for glTF node placement
         Eigen::Matrix3d R_and_S = M_gltf.linear();
         Eigen::Vector3d s(R_and_S.col(0).norm(), R_and_S.col(1).norm(), R_and_S.col(2).norm());
         Eigen::Matrix3d R;
@@ -125,10 +171,8 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         model.nodes.push_back(node);
         bone_to_node[bone->name] = node_idx;
 
-        // If this node has no parent, insert it directly at the root of the scene
         if (parent_node_idx < 0) scene_nodes.push_back(node_idx);
 
-        // Accumulate absolute world transform for children and inverseBindMatrix calculations
         Transform3d next_M_accum = M_accum * bone->local_matrix;
         Transform3d inv_bind = C * next_M_accum.inverse() * C.inverse();
 
@@ -142,7 +186,6 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         }
         return node_idx;
     }
-    // Only traverse GeometryList if it hides a bone structure inside it. Otherwise, bake it into a mesh!
     else if (std::dynamic_pointer_cast<const GeometryList>(geom) && contains_bone(geom)) {
         auto geomList = std::dynamic_pointer_cast<const GeometryList>(geom);
         for (const auto& item : geomList->getChildren()) {
@@ -154,7 +197,6 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         return -1;
     }
     else {
-        // Flatten standard geometry + translation groups into raw PolySet vectors
         auto ps = PolySetUtils::getGeometryAsPolySet(geom);
         if (ps && !ps->vertices.empty()) {
             if (Feature::ExperimentalPredictibleOutput.is_enabled()) ps = createSortedPolySet(*ps);
@@ -162,9 +204,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             MeshInfo minfo;
             if (parent_node_idx >= 0 && parent_node_idx < (int)model.nodes.size()) {
                 const std::string& p_name = model.nodes[parent_node_idx].name;
-                if (!p_name.empty()) {
-                    minfo.name = p_name;
-                }
+                if (!p_name.empty()) minfo.name = p_name;
             }
             minfo.ps = ps;
             minfo.target_node = parent_node_idx;
@@ -186,8 +226,14 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                     autoSmoothAngle = ps->autoSmoothAngles[color_idx];
                 }
 
+                std::shared_ptr<const Value> colormap = nullptr;
+                if (color_idx >= 0 && color_idx < ps->colormaps.size()) {
+                    colormap = ps->colormaps[color_idx];
+                }
+
                 PrimitiveInfo prim;
                 prim.color_idx = color_idx;
+                prim.colormap = colormap;
                 prim.ps = ps;
                 for(int i=0; i<3; ++i) { prim.min_pos[i] = FLT_MAX; prim.max_pos[i] = -FLT_MAX; }
 
@@ -245,6 +291,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                     prim.normals.push_back((float)n.x());
                     prim.normals.push_back((float)n.y());
                     prim.normals.push_back((float)n.z());
+                    prim.orig_v_idx.push_back(v_idx);
 
                     prim.min_pos[0] = std::min(prim.min_pos[0], (float)p.x());
                     prim.min_pos[1] = std::min(prim.min_pos[1], (float)p.y());
@@ -317,7 +364,7 @@ int append_to_bin(std::vector<unsigned char>& bin_data, const std::vector<T>& sr
     acc.bufferView = bv_idx;
     acc.byteOffset = 0;
     acc.componentType = componentType;
-    acc.count = src.size() / (type == TINYGLTF_TYPE_VEC3 ? 3 : (type == TINYGLTF_TYPE_VEC4 ? 4 : (type == TINYGLTF_TYPE_MAT4 ? 16 : 1)));
+    acc.count = src.size() / (type == TINYGLTF_TYPE_VEC3 ? 3 : (type == TINYGLTF_TYPE_VEC4 ? 4 : (type == TINYGLTF_TYPE_MAT4 ? 16 : (type == TINYGLTF_TYPE_VEC2 ? 2 : 1))));
     acc.type = type;
     if (!min_val.empty()) acc.minValues = min_val;
     if (!max_val.empty()) acc.maxValues = max_val;
@@ -341,7 +388,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     std::vector<Transform3d> inverse_bind_matrices;
     std::vector<int> scene_nodes;
 
-    // 1. Traverse and generate Scene Graph
     traverse_gltf(geom, -1, model, meshes_info, bone_to_node, global_anims, C, Transform3d::Identity(), -1, gltf_joints, inverse_bind_matrices, scene_nodes);
 
     if (meshes_info.empty() && model.nodes.empty()) return;
@@ -353,7 +399,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
     model.buffers.emplace_back();
 
-    // 2. Process Skin and Inverse Bind Matrices
     if (!gltf_joints.empty()) {
         std::vector<float> inv_bind_floats;
         inv_bind_floats.reserve(inverse_bind_matrices.size() * 16);
@@ -385,8 +430,10 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         float emissiveIntensity;
         Color4f specularColor;
         float specularIntensity, iridescence, iridescenceIOR;
+        std::string base_color_uri;
 
         bool operator<(const MaterialKey& o) const {
+            if (base_color_uri != o.base_color_uri) return base_color_uri < o.base_color_uri;
             if (color.r() != o.color.r()) return color.r() < o.color.r();
             if (color.g() != o.color.g()) return color.g() < o.color.g();
             if (color.b() != o.color.b()) return color.b() < o.color.b();
@@ -429,12 +476,185 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     Vector4f defBlack; defBlack[0]=0; defBlack[1]=0; defBlack[2]=0; defBlack[3]=1;
     Vector4f defWhite; defWhite[0]=1; defWhite[1]=1; defWhite[2]=1; defWhite[3]=1;
 
-    // 3. Process Meshes
-    for (const auto& minfo : meshes_info) {
+    for (auto& minfo : meshes_info) {
+        bool has_colormap = false;
+        for (const auto& prim : minfo.primitives) {
+            if (prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) { has_colormap = true; break; }
+        }
+
+        xatlas::Atlas* atlas = nullptr;
+        std::string mesh_base_color_uri;
+
+        if (has_colormap) {
+            atlas = xatlas::Create();
+            for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
+                const auto& prim = minfo.primitives[p_idx];
+                xatlas::MeshDecl meshDecl;
+                meshDecl.vertexCount = prim.positions.size() / 3;
+                meshDecl.vertexPositionData = prim.positions.data();
+                meshDecl.vertexPositionStride = 3 * sizeof(float);
+                meshDecl.indexCount = prim.indices.size();
+                meshDecl.indexData = prim.indices.data();
+                meshDecl.indexFormat = xatlas::IndexFormat::UInt32;
+                xatlas::AddMesh(atlas, meshDecl, (uint32_t)minfo.primitives.size());
+            }
+
+            xatlas::PackOptions packOptions;
+            packOptions.resolution = 1024;
+            packOptions.padding = 2;
+            xatlas::Generate(atlas, xatlas::ChartOptions(), packOptions);
+
+            uint32_t width = atlas->width;
+            uint32_t height = atlas->height;
+            std::vector<uint8_t> pixels(width * height * 4, 0);
+
+            for (uint32_t i = 0; i < atlas->meshCount; ++i) {
+                const xatlas::Mesh& xmesh = atlas->meshes[i];
+                const auto& prim = minfo.primitives[i];
+                auto cmap = prim.colormap;
+                if (!cmap || cmap->type() != Value::Type::FUNCTION) continue;
+
+                ColormapEvaluator evaluator(cmap->toFunction());
+
+                auto get_pos = [&](uint32_t orig_idx) -> Vector3d {
+                    int v_idx = prim.orig_v_idx[orig_idx];
+                    return prim.ps->vertices[v_idx];
+                };
+
+                for (uint32_t f = 0; f < xmesh.indexCount / 3; ++f) {
+                    uint32_t i0 = xmesh.indexArray[f*3 + 0];
+                    uint32_t i1 = xmesh.indexArray[f*3 + 1];
+                    uint32_t i2 = xmesh.indexArray[f*3 + 2];
+
+                    const xatlas::Vertex& v0 = xmesh.vertexArray[i0];
+                    const xatlas::Vertex& v1 = xmesh.vertexArray[i1];
+                    const xatlas::Vertex& v2 = xmesh.vertexArray[i2];
+
+                    Vector3d p0 = get_pos(v0.xref);
+                    Vector3d p1 = get_pos(v1.xref);
+                    Vector3d p2 = get_pos(v2.xref);
+
+                    float uv0x = v0.uv[0], uv0y = v0.uv[1];
+                    float uv1x = v1.uv[0], uv1y = v1.uv[1];
+                    float uv2x = v2.uv[0], uv2y = v2.uv[1];
+
+                    int min_x = std::max(0, (int)std::floor(std::min({uv0x, uv1x, uv2x})));
+                    int max_x = std::min((int)width - 1, (int)std::ceil(std::max({uv0x, uv1x, uv2x})));
+                    int min_y = std::max(0, (int)std::floor(std::min({uv0y, uv1y, uv2y})));
+                    int max_y = std::min((int)height - 1, (int)std::ceil(std::max({uv0y, uv1y, uv2y})));
+
+                    for (int y = min_y; y <= max_y; ++y) {
+                        for (int x = min_x; x <= max_x; ++x) {
+                            float px = x + 0.5f;
+                            float py = y + 0.5f;
+
+                            float det = (uv1y - uv2y)*(uv0x - uv2x) + (uv2x - uv1x)*(uv0y - uv2y);
+                            if (std::abs(det) < 1e-8f) continue;
+                            float u = ((uv1y - uv2y)*(px - uv2x) + (uv2x - uv1x)*(py - uv2y)) / det;
+                            float v = ((uv2y - uv0y)*(px - uv2x) + (uv0x - uv2x)*(py - uv2y)) / det;
+                            float w = 1.0f - u - v;
+
+                            if (u >= -1e-4f && v >= -1e-4f && w >= -1e-4f) {
+                                Vector3d p3d = u * p0 + v * p1 + w * p2;
+                                Color4f c = evaluator.eval(p3d);
+
+                                int pixel_idx = (y * width + x) * 4;
+                                pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(c.r() * 255.0f)));
+                                pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(c.g() * 255.0f)));
+                                pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(c.b() * 255.0f)));
+                                pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(c.a() * 255.0f)));
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (int iter = 0; iter < 2; ++iter) {
+                std::vector<uint8_t> dilated_pixels = pixels;
+                for (uint32_t y = 0; y < height; ++y) {
+                    for (uint32_t x = 0; x < width; ++x) {
+                        int p_idx = (y * width + x) * 4;
+                        if (pixels[p_idx + 3] == 0) {
+                            int r=0, g=0, b=0, a=0, count=0;
+                            for (int dy = -1; dy <= 1; ++dy) {
+                                for (int dx = -1; dx <= 1; ++dx) {
+                                    if (dx == 0 && dy == 0) continue;
+                                    int nx = x + dx;
+                                    int ny = y + dy;
+                                    if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
+                                        int n_idx = (ny * width + nx) * 4;
+                                        if (pixels[n_idx + 3] > 0) {
+                                            r += pixels[n_idx + 0];
+                                            g += pixels[n_idx + 1];
+                                            b += pixels[n_idx + 2];
+                                            a += pixels[n_idx + 3];
+                                            count++;
+                                        }
+                                    }
+                                }
+                            }
+                            if (count > 0) {
+                                dilated_pixels[p_idx + 0] = r / count;
+                                dilated_pixels[p_idx + 1] = g / count;
+                                dilated_pixels[p_idx + 2] = b / count;
+                                dilated_pixels[p_idx + 3] = 255;
+                            }
+                        }
+                    }
+                }
+                pixels = std::move(dilated_pixels);
+            }
+
+            std::vector<unsigned char> png_data;
+            auto write_func = [](void *context, void *data, int size) {
+                auto *vec = static_cast<std::vector<unsigned char>*>(context);
+                vec->insert(vec->end(), static_cast<unsigned char*>(data), static_cast<unsigned char*>(data) + size);
+            };
+            stbi_write_png_to_func(write_func, &png_data, width, height, 4, pixels.data(), width * 4);
+
+            if (!png_data.empty()) {
+                mesh_base_color_uri = "data:image/png;base64," + base64_encode(png_data.data(), png_data.size());
+            }
+        }
+
         tinygltf::Mesh mesh;
         if (!minfo.name.empty()) mesh.name = minfo.name;
 
-        for (const auto& prim : minfo.primitives) {
+        for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
+            auto& prim = minfo.primitives[p_idx];
+            prim.base_color_uri = mesh_base_color_uri;
+            std::vector<float> uvs;
+
+            if (atlas) {
+                const xatlas::Mesh& xmesh = atlas->meshes[p_idx];
+                std::vector<float> new_pos, new_norm;
+                std::vector<uint32_t> new_ind;
+                new_pos.reserve(xmesh.vertexCount * 3);
+                new_norm.reserve(xmesh.vertexCount * 3);
+                uvs.reserve(xmesh.vertexCount * 2);
+                new_ind.reserve(xmesh.indexCount);
+
+                for (uint32_t i = 0; i < xmesh.vertexCount; ++i) {
+                    const xatlas::Vertex& v = xmesh.vertexArray[i];
+                    new_pos.push_back(prim.positions[v.xref * 3 + 0]);
+                    new_pos.push_back(prim.positions[v.xref * 3 + 1]);
+                    new_pos.push_back(prim.positions[v.xref * 3 + 2]);
+                    new_norm.push_back(prim.normals[v.xref * 3 + 0]);
+                    new_norm.push_back(prim.normals[v.xref * 3 + 1]);
+                    new_norm.push_back(prim.normals[v.xref * 3 + 2]);
+                    uvs.push_back(v.uv[0] / atlas->width);
+                    uvs.push_back(v.uv[1] / atlas->height);
+                }
+
+                for (uint32_t i = 0; i < xmesh.indexCount; ++i) {
+                    new_ind.push_back(xmesh.indexArray[i]);
+                }
+
+                prim.positions = std::move(new_pos);
+                prim.normals = std::move(new_norm);
+                prim.indices = std::move(new_ind);
+            }
+
             int pos_accessor_idx = append_to_bin(bin_data, prim.positions, model,
                 TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3,
                 {(double)prim.min_pos[0], (double)prim.min_pos[1], (double)prim.min_pos[2]},
@@ -446,7 +666,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             int joints_acc = -1;
             int weights_acc = -1;
 
-            // Rigidly bind to joint directly modifying vertices inside the shader
             if (minfo.joint_idx != -1) {
                 size_t vertex_count = prim.positions.size() / 3;
                 std::vector<uint16_t> joints_data(vertex_count * 4, 0);
@@ -459,11 +678,18 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 weights_acc = append_to_bin(bin_data, weights_data, model, TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4);
             }
 
+            int uv_accessor_idx = -1;
+            if (!uvs.empty()) {
+                uv_accessor_idx = append_to_bin(bin_data, uvs, model,
+                    TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC2);
+            }
+
             int idx_accessor_idx = append_to_bin(bin_data, prim.indices, model,
                 TINYGLTF_TARGET_ELEMENT_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT, TINYGLTF_TYPE_SCALAR);
 
             auto ps = prim.ps;
             MaterialKey mkey;
+            mkey.base_color_uri = prim.base_color_uri;
 
             if (prim.color_idx >= 0 && prim.color_idx < (int)ps->colors.size()) {
                 mkey.color = ps->colors[prim.color_idx];
@@ -518,6 +744,20 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 mat.pbrMetallicRoughness.baseColorFactor = {(double)mkey.color.r(), (double)mkey.color.g(), (double)mkey.color.b(), (double)mkey.color.a()};
                 mat.pbrMetallicRoughness.roughnessFactor = (double)mkey.roughness;
                 mat.pbrMetallicRoughness.metallicFactor = (double)mkey.metalness;
+
+                if (!mkey.base_color_uri.empty()) {
+                    tinygltf::Image img;
+                    img.uri = mkey.base_color_uri;
+                    int img_idx = model.images.size();
+                    model.images.push_back(img);
+
+                    tinygltf::Texture tex;
+                    tex.source = img_idx;
+                    int tex_idx = model.textures.size();
+                    model.textures.push_back(tex);
+
+                    mat.pbrMetallicRoughness.baseColorTexture.index = tex_idx;
+                }
 
                 if (mkey.clearcoat > 0.0f) {
                     tinygltf::Value::Object ext;
@@ -613,10 +853,15 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             gltf_prim.attributes["NORMAL"] = norm_accessor_idx;
             if (joints_acc != -1) gltf_prim.attributes["JOINTS_0"] = joints_acc;
             if (weights_acc != -1) gltf_prim.attributes["WEIGHTS_0"] = weights_acc;
+            if (uv_accessor_idx != -1) gltf_prim.attributes["TEXCOORD_0"] = uv_accessor_idx;
             gltf_prim.indices = idx_accessor_idx;
             gltf_prim.material = mat_idx;
             gltf_prim.mode = TINYGLTF_MODE_TRIANGLES;
             mesh.primitives.push_back(gltf_prim);
+        }
+
+        if (atlas) {
+            xatlas::Destroy(atlas);
         }
 
         int mesh_idx = model.meshes.size();
@@ -646,7 +891,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         }
     }
 
-    // 4. Process Animations
     if (global_anims.type() == Value::Type::VECTOR) {
         for (const auto& anim_val : global_anims.toVector()) {
             if (anim_val.type() != Value::Type::VECTOR) continue;
@@ -673,7 +917,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 std::vector<float> translations;
                 bool has_translation = false;
 
-                // Pre-check if any keyframe uses translation
                 for (const auto& kf_val : track[1].toVector()) {
                     if (kf_val.type() != Value::Type::VECTOR) continue;
                     if (kf_val.toVector().size() > 2) {
@@ -719,7 +962,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                             translations.push_back(trans_gltf.y());
                             translations.push_back(trans_gltf.z());
                         } else {
-                            // Fallback to the bone's rest position if omitted in this keyframe
                             translations.push_back(model.nodes[node_idx].translation[0]);
                             translations.push_back(model.nodes[node_idx].translation[1]);
                             translations.push_back(model.nodes[node_idx].translation[2]);

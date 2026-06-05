@@ -95,6 +95,7 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->iridescences = polyset.iridescences;
     result->iridescenceIORs = polyset.iridescenceIORs;
     result->autoSmoothAngles = polyset.autoSmoothAngles;
+    result->colormaps = polyset.colormaps;
     return result;
   }
   result->vertices.reserve(polyset.vertices.size());
@@ -129,6 +130,7 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->iridescences = polyset.iridescences;
     result->iridescenceIORs = polyset.iridescenceIORs;
     result->autoSmoothAngles = polyset.autoSmoothAngles;
+    result->colormaps = polyset.colormaps;
   }
   for (size_t i = 0, n = polyset.indices.size(); i < n; i++) {
     const auto& pgon = polyset.indices[i];

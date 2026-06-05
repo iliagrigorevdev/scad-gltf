@@ -747,6 +747,21 @@ set(TINYGLTF_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(tinygltf)
 target_include_directories(OpenSCADLibInternal SYSTEM PUBLIC ${tinygltf_SOURCE_DIR})
 
+FetchContent_Declare(
+  xatlas
+  GIT_REPOSITORY https://github.com/jpcy/xatlas.git
+  GIT_TAG master
+)
+FetchContent_MakeAvailable(xatlas)
+if (NOT TARGET xatlas)
+  add_library(xatlas STATIC ${xatlas_SOURCE_DIR}/source/xatlas/xatlas.cpp)
+  target_include_directories(xatlas PUBLIC ${xatlas_SOURCE_DIR}/source/xatlas)
+  if(EMSCRIPTEN)
+    target_compile_definitions(xatlas PRIVATE XA_MULTITHREADED=0)
+  endif()
+endif()
+target_link_libraries(OpenSCADLibInternal PUBLIC xatlas)
+
 # Automatically add the current source and build directories to the include path.
 set(CMAKE_INCLUDE_CURRENT_DIR ON) # (does not propagate down to subdirectories)
 

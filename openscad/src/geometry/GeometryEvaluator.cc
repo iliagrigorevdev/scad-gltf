@@ -544,7 +544,11 @@ Response GeometryEvaluator::visit(State& state, const ColorNode& node)
       ResultObject res = applyToChildren(node, OpenSCADOperator::UNION);
       if ((geom = res.constptr())) {
         auto mutableGeom = res.asMutableGeometry();
-        if (mutableGeom) mutableGeom->setColor(node.color, node.roughness, node.metalness, node.clearcoat, node.clearcoatRoughness, node.sheen, node.sheenColor, node.sheenRoughness, node.transmission, node.thickness, node.attenuationColor, node.attenuationDistance, node.ior, node.emissive, node.emissiveIntensity, node.specularColor, node.specularIntensity, node.iridescence, node.iridescenceIOR, node.autoSmoothAngle);
+        if (mutableGeom) {
+          std::shared_ptr<const Value> colormap_ptr;
+          if (node.colormap.type() != Value::Type::UNDEFINED) colormap_ptr = std::make_shared<const Value>(node.colormap.clone());
+          mutableGeom->setColor(node.color, node.roughness, node.metalness, node.clearcoat, node.clearcoatRoughness, node.sheen, node.sheenColor, node.sheenRoughness, node.transmission, node.thickness, node.attenuationColor, node.attenuationDistance, node.ior, node.emissive, node.emissiveIntensity, node.specularColor, node.specularIntensity, node.iridescence, node.iridescenceIOR, node.autoSmoothAngle, colormap_ptr);
+        }
         geom = mutableGeom;
       }
     } else {
@@ -629,8 +633,7 @@ Response GeometryEvaluator::visit(State& state, const ArmatureNode& node)
 
       auto armatureGeom = std::make_shared<ArmatureGeometry>(node.animations.clone(), state.matrix());
       if (unioned_children) {
-          if (typeid(*unioned_children) == typeid(GeometryList)) {
-              auto gl = std::static_pointer_cast<const GeometryList>(unioned_children);
+          if (auto gl = std::dynamic_pointer_cast<const GeometryList>(unioned_children)) {
               armatureGeom->children = gl->children;
           } else {
               armatureGeom->children.push_back({node.shared_from_this(), unioned_children});
@@ -660,8 +663,7 @@ Response GeometryEvaluator::visit(State& state, const BoneNode& node)
 
       auto boneGeom = std::make_shared<BoneGeometry>(node.bone_name, node.matrix, state.matrix());
       if (unioned_children) {
-          if (typeid(*unioned_children) == typeid(GeometryList)) {
-              auto gl = std::static_pointer_cast<const GeometryList>(unioned_children);
+          if (auto gl = std::dynamic_pointer_cast<const GeometryList>(unioned_children)) {
               boneGeom->children = gl->children;
           } else {
               boneGeom->children.push_back({node.shared_from_this(), unioned_children});

@@ -41,7 +41,7 @@ public:
   [[nodiscard]] virtual size_t numFacets() const = 0;
   [[nodiscard]] unsigned int getConvexity() const { return convexity; }
   void setConvexity(int c) { this->convexity = c; }
-  virtual void setColor(const Color4f& c, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f) {}
+  virtual void setColor(const Color4f& c, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f, std::shared_ptr<const class Value> colormap = nullptr) {}
 
   virtual void transform(const Transform3d& /*mat*/) { assert(!"transform not implemented!"); }
   virtual void resize(const Vector3d& /*newsize*/, const Eigen::Matrix<bool, 3, 1>& /*autosize*/)
@@ -114,11 +114,11 @@ public:
     }
   }
 
-  void setColor(const Color4f& c, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f) override {
+  void setColor(const Color4f& c, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f, std::shared_ptr<const class Value> colormap = nullptr) override {
     for (auto& item : children) {
       if (item.second) {
         auto new_geom = item.second->copy();
-        new_geom->setColor(c, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR, autoSmoothAngle);
+        new_geom->setColor(c, roughness, metalness, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness, transmission, thickness, attenuationColor, attenuationDistance, ior, emissive, emissiveIntensity, specularColor, specularIntensity, iridescence, iridescenceIOR, autoSmoothAngle, colormap);
         item.second = std::move(new_geom);
       }
     }
