@@ -472,6 +472,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     };
 
     std::map<MaterialKey, int> material_cache;
+    std::map<std::string, int> image_cache;
 
     Vector4f defBlack; defBlack[0]=0; defBlack[1]=0; defBlack[2]=0; defBlack[3]=1;
     Vector4f defWhite; defWhite[0]=1; defWhite[1]=1; defWhite[2]=1; defWhite[3]=1;
@@ -762,17 +763,23 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 mat.pbrMetallicRoughness.metallicFactor = (double)mkey.metalness;
 
                 if (!mkey.base_color_uri.empty()) {
-                    tinygltf::Image img;
-                    img.uri = mkey.base_color_uri;
-                    int img_idx = model.images.size();
-                    model.images.push_back(img);
+                    auto img_it = image_cache.find(mkey.base_color_uri);
+                    if (img_it != image_cache.end()) {
+                        mat.pbrMetallicRoughness.baseColorTexture.index = img_it->second;
+                    } else {
+                        tinygltf::Image img;
+                        img.uri = mkey.base_color_uri;
+                        int img_idx = model.images.size();
+                        model.images.push_back(img);
 
-                    tinygltf::Texture tex;
-                    tex.source = img_idx;
-                    int tex_idx = model.textures.size();
-                    model.textures.push_back(tex);
+                        tinygltf::Texture tex;
+                        tex.source = img_idx;
+                        int tex_idx = model.textures.size();
+                        model.textures.push_back(tex);
 
-                    mat.pbrMetallicRoughness.baseColorTexture.index = tex_idx;
+                        mat.pbrMetallicRoughness.baseColorTexture.index = tex_idx;
+                        image_cache[mkey.base_color_uri] = tex_idx;
+                    }
                 }
 
                 if (mkey.clearcoat > 0.0f) {
