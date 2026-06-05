@@ -12,8 +12,8 @@ class ColorNode : public AbstractNode
 {
 public:
   VISITABLE();
-  ColorNode(const ModuleInstantiation *mi) : AbstractNode(mi), colormap(Value::undef("default")) {}
-  ColorNode(const ColorNode& other) : AbstractNode(other.modinst), colormap(other.colormap.clone())
+  ColorNode(const ModuleInstantiation *mi) : AbstractNode(mi), colormap(Value::undef("default")), normalmap(Value::undef("default")) {}
+  ColorNode(const ColorNode& other) : AbstractNode(other.modinst), colormap(other.colormap.clone()), normalmap(other.normalmap.clone())
   {
     color = other.color;
     roughness = other.roughness;
@@ -60,4 +60,5 @@ public:
   float iridescenceIOR = 1.3f;
   float autoSmoothAngle = 0.0f;
   Value colormap;
+  Value normalmap;
 };

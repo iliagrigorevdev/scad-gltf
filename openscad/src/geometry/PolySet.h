@@ -45,6 +45,7 @@ public:
   std::vector<float> iridescenceIORs;
   std::vector<float> autoSmoothAngles;
   std::vector<std::shared_ptr<const class Value>> colormaps;
+  std::vector<std::shared_ptr<const class Value>> normalmaps;
 
   PolySet(unsigned int dim, boost::tribool convex = unknown);
 
@@ -59,7 +60,7 @@ public:
   size_t numFacets() const override { return indices.size(); }
   void transform(const Transform3d& mat) override;
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
-  void setColor(const Color4f& c, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f, std::shared_ptr<const class Value> colormap = nullptr) override;
+  void setColor(const Color4f& c, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f, std::shared_ptr<const class Value> colormap = nullptr, std::shared_ptr<const class Value> normalmap = nullptr) override;
 
   bool isConvex() const;
   boost::tribool convexValue() const { return convex_; }

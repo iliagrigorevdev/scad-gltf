@@ -360,6 +360,7 @@ std::unique_ptr<PolySet> createSortedPolySet(const PolySet& ps)
   out->iridescenceIORs = ps.iridescenceIORs;
   out->autoSmoothAngles = ps.autoSmoothAngles;
   out->colormaps = ps.colormaps;
+  out->normalmaps = ps.normalmaps;
 
   std::vector<int> indexTranslationMap(vertexMap.size());
   out->vertices.reserve(vertexMap.size());

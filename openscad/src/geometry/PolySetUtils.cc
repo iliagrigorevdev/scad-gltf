@@ -131,6 +131,7 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->iridescenceIORs = polyset.iridescenceIORs;
     result->autoSmoothAngles = polyset.autoSmoothAngles;
     result->colormaps = polyset.colormaps;
+    result->normalmaps = polyset.normalmaps;
   }
   for (size_t i = 0, n = polyset.indices.size(); i < n; i++) {
     const auto& pgon = polyset.indices[i];

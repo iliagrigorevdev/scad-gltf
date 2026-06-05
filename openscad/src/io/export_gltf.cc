@@ -47,18 +47,18 @@ static std::string base64_encode(const unsigned char* data, size_t len) {
 }
 
 // Highly optimized evaluator that re-uses a single ContextFrame closure
-struct ColormapEvaluator {
+struct MapEvaluator {
     ContextHandle<Context> body_context;
     const Expression* expr;
     std::shared_ptr<AssignmentList> params;
 
-    ColormapEvaluator(const FunctionType& func)
+    MapEvaluator(const FunctionType& func)
         : body_context(Context::create<Context>(func.getContext())),
           expr(func.getExpr().get()),
           params(func.getParameters()) {}
 
-    Color4f eval(const Vector3d& p3d) {
-        Color4f c(1.0f, 1.0f, 1.0f, 1.0f);
+    Color4f eval(const Vector3d& p3d, const Color4f& default_color) {
+        Color4f c = default_color;
         try {
             if (params) {
                 if (params->size() > 0 && (*params)[0]) body_context->set_variable((*params)[0]->getName(), Value(p3d.x()));
@@ -71,14 +71,14 @@ struct ColormapEvaluator {
             if (res.type() == Value::Type::VECTOR) {
                 const auto& vec = res.toVector();
                 c = Color4f(
-                    (float)(vec.size() > 0 ? vec[0].toDouble() : 0.0),
-                    (float)(vec.size() > 1 ? vec[1].toDouble() : 0.0),
-                    (float)(vec.size() > 2 ? vec[2].toDouble() : 0.0),
-                    (float)(vec.size() > 3 ? vec[3].toDouble() : 1.0)
+                    (float)(vec.size() > 0 ? vec[0].toDouble() : default_color.r()),
+                    (float)(vec.size() > 1 ? vec[1].toDouble() : default_color.g()),
+                    (float)(vec.size() > 2 ? vec[2].toDouble() : default_color.b()),
+                    (float)(vec.size() > 3 ? vec[3].toDouble() : default_color.a())
                 );
             } else if (res.type() == Value::Type::NUMBER) {
                 float v = (float)res.toDouble();
-                c = Color4f(v, v, v, 1.0f);
+                c = Color4f(v, v, v, default_color.a());
             }
         } catch(...) {}
         return c;
@@ -92,7 +92,9 @@ struct PrimitiveInfo {
     std::vector<float> normals;
     std::vector<int> orig_v_idx;
     std::shared_ptr<const class Value> colormap;
+    std::shared_ptr<const class Value> normalmap;
     std::string base_color_uri;
+    std::string normal_texture_uri;
     float min_pos[3];
     float max_pos[3];
     std::shared_ptr<const PolySet> ps;
@@ -231,9 +233,15 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                     colormap = ps->colormaps[color_idx];
                 }
 
+                std::shared_ptr<const Value> normalmap = nullptr;
+                if (color_idx >= 0 && color_idx < ps->normalmaps.size()) {
+                    normalmap = ps->normalmaps[color_idx];
+                }
+
                 PrimitiveInfo prim;
                 prim.color_idx = color_idx;
                 prim.colormap = colormap;
+                prim.normalmap = normalmap;
                 prim.ps = ps;
                 for(int i=0; i<3; ++i) { prim.min_pos[i] = FLT_MAX; prim.max_pos[i] = -FLT_MAX; }
 
@@ -431,9 +439,11 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         Color4f specularColor;
         float specularIntensity, iridescence, iridescenceIOR;
         std::string base_color_uri;
+        std::string normal_texture_uri;
 
         bool operator<(const MaterialKey& o) const {
             if (base_color_uri != o.base_color_uri) return base_color_uri < o.base_color_uri;
+            if (normal_texture_uri != o.normal_texture_uri) return normal_texture_uri < o.normal_texture_uri;
             if (color.r() != o.color.r()) return color.r() < o.color.r();
             if (color.g() != o.color.g()) return color.g() < o.color.g();
             if (color.b() != o.color.b()) return color.b() < o.color.b();
@@ -482,13 +492,15 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         int num_atlas_meshes = 0;
         for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
             const auto& prim = minfo.primitives[p_idx];
-            if (prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) {
+            if ((prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) ||
+                (prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION)) {
                 prim_to_atlas[p_idx] = num_atlas_meshes++;
             }
         }
 
         xatlas::Atlas* atlas = nullptr;
         std::string mesh_base_color_uri;
+        std::string mesh_normal_texture_uri;
 
         if (num_atlas_meshes > 0) {
             atlas = xatlas::Create();
@@ -513,7 +525,19 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             uint32_t width = atlas->width;
             uint32_t height = atlas->height;
             if (width > 0 && height > 0 && atlas->atlasCount > 0) {
-                std::vector<uint8_t> pixels(width * height * 4, 0);
+                bool has_colormap = false;
+                bool has_normalmap = false;
+                for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
+                    if (prim_to_atlas[p_idx] != -1) {
+                        if (minfo.primitives[p_idx].colormap && minfo.primitives[p_idx].colormap->type() == Value::Type::FUNCTION) has_colormap = true;
+                        if (minfo.primitives[p_idx].normalmap && minfo.primitives[p_idx].normalmap->type() == Value::Type::FUNCTION) has_normalmap = true;
+                    }
+                }
+
+                std::vector<uint8_t> pixels;
+                std::vector<uint8_t> npixels;
+                if (has_colormap) pixels.resize(width * height * 4, 0);
+                if (has_normalmap) npixels.resize(width * height * 4, 0);
 
                 for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
                     int a_idx = prim_to_atlas[p_idx];
@@ -521,9 +545,12 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                     const xatlas::Mesh& xmesh = atlas->meshes[a_idx];
                     const auto& prim = minfo.primitives[p_idx];
-                    auto cmap = prim.colormap;
 
-                    ColormapEvaluator evaluator(cmap->toFunction());
+                    std::unique_ptr<MapEvaluator> ceval;
+                    if (has_colormap && prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) ceval = std::make_unique<MapEvaluator>(prim.colormap->toFunction());
+
+                    std::unique_ptr<MapEvaluator> neval;
+                    if (has_normalmap && prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION) neval = std::make_unique<MapEvaluator>(prim.normalmap->toFunction());
 
                     auto get_pos = [&](uint32_t orig_idx) -> Vector3d {
                         int v_idx = prim.orig_v_idx[orig_idx];
@@ -565,65 +592,91 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                                 if (u >= -1e-4f && v >= -1e-4f && w >= -1e-4f) {
                                     Vector3d p3d = u * p0 + v * p1 + w * p2;
-                                    Color4f c = evaluator.eval(p3d);
 
                                     int pixel_idx = (y * width + x) * 4;
-                                    pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(c.r() * 255.0f)));
-                                    pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(c.g() * 255.0f)));
-                                    pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(c.b() * 255.0f)));
-                                    pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(c.a() * 255.0f)));
-                                }
-                            }
-                        }
-                    }
-                }
 
-                for (int iter = 0; iter < 2; ++iter) {
-                    std::vector<uint8_t> dilated_pixels = pixels;
-                    for (uint32_t y = 0; y < height; ++y) {
-                        for (uint32_t x = 0; x < width; ++x) {
-                            int p_idx = (y * width + x) * 4;
-                            if (pixels[p_idx + 3] == 0) {
-                                int r=0, g=0, b=0, a=0, count=0;
-                                for (int dy = -1; dy <= 1; ++dy) {
-                                    for (int dx = -1; dx <= 1; ++dx) {
-                                        if (dx == 0 && dy == 0) continue;
-                                        int nx = x + dx;
-                                        int ny = y + dy;
-                                        if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
-                                            int n_idx = (ny * width + nx) * 4;
-                                            if (pixels[n_idx + 3] > 0) {
-                                                r += pixels[n_idx + 0];
-                                                g += pixels[n_idx + 1];
-                                                b += pixels[n_idx + 2];
-                                                a += pixels[n_idx + 3];
-                                                count++;
-                                            }
+                                    if (has_colormap) {
+                                        if (ceval) {
+                                            Color4f c = ceval->eval(p3d, Color4f(1, 1, 1, 1));
+                                            pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(c.r() * 255.0f)));
+                                            pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(c.g() * 255.0f)));
+                                            pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(c.b() * 255.0f)));
+                                            pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(c.a() * 255.0f)));
+                                        } else {
+                                            pixels[pixel_idx + 0] = 255;
+                                            pixels[pixel_idx + 1] = 255;
+                                            pixels[pixel_idx + 2] = 255;
+                                            pixels[pixel_idx + 3] = 255;
+                                        }
+                                    }
+
+                                    if (has_normalmap) {
+                                        if (neval) {
+                                            Color4f n = neval->eval(p3d, Color4f(0.5f, 0.5f, 1.0f, 1.0f));
+                                            npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(n.r() * 255.0f)));
+                                            npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(n.g() * 255.0f)));
+                                            npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(n.b() * 255.0f)));
+                                            npixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(n.a() * 255.0f)));
+                                        } else {
+                                            npixels[pixel_idx + 0] = 128;
+                                            npixels[pixel_idx + 1] = 128;
+                                            npixels[pixel_idx + 2] = 255;
+                                            npixels[pixel_idx + 3] = 255;
                                         }
                                     }
                                 }
-                                if (count > 0) {
-                                    dilated_pixels[p_idx + 0] = r / count;
-                                    dilated_pixels[p_idx + 1] = g / count;
-                                    dilated_pixels[p_idx + 2] = b / count;
-                                    dilated_pixels[p_idx + 3] = 255;
-                                }
                             }
                         }
                     }
-                    pixels = std::move(dilated_pixels);
                 }
 
-                std::vector<unsigned char> png_data;
-                auto write_func = [](void *context, void *data, int size) {
-                    auto *vec = static_cast<std::vector<unsigned char>*>(context);
-                    vec->insert(vec->end(), static_cast<unsigned char*>(data), static_cast<unsigned char*>(data) + size);
+                auto dilate_and_encode = [&](std::vector<uint8_t>& px) -> std::string {
+                    for (int iter = 0; iter < 2; ++iter) {
+                        std::vector<uint8_t> dilated_pixels = px;
+                        for (uint32_t y = 0; y < height; ++y) {
+                            for (uint32_t x = 0; x < width; ++x) {
+                                int p_idx = (y * width + x) * 4;
+                                if (px[p_idx + 3] == 0) {
+                                    int r=0, g=0, b=0, a=0, count=0;
+                                    for (int dy = -1; dy <= 1; ++dy) {
+                                        for (int dx = -1; dx <= 1; ++dx) {
+                                            if (dx == 0 && dy == 0) continue;
+                                            int nx = x + dx;
+                                            int ny = y + dy;
+                                            if (nx >= 0 && nx < (int)width && ny >= 0 && ny < (int)height) {
+                                                int n_idx = (ny * width + nx) * 4;
+                                                if (px[n_idx + 3] > 0) {
+                                                    r += px[n_idx + 0];
+                                                    g += px[n_idx + 1];
+                                                    b += px[n_idx + 2];
+                                                    a += px[n_idx + 3];
+                                                    count++;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if (count > 0) {
+                                        dilated_pixels[p_idx + 0] = r / count;
+                                        dilated_pixels[p_idx + 1] = g / count;
+                                        dilated_pixels[p_idx + 2] = b / count;
+                                        dilated_pixels[p_idx + 3] = 255;
+                                    }
+                                }
+                            }
+                        }
+                        px = std::move(dilated_pixels);
+                    }
+                    std::vector<unsigned char> png_data;
+                    auto write_func = [](void *context, void *data, int size) {
+                        auto *vec = static_cast<std::vector<unsigned char>*>(context);
+                        vec->insert(vec->end(), static_cast<unsigned char*>(data), static_cast<unsigned char*>(data) + size);
+                    };
+                    stbi_write_png_to_func(write_func, &png_data, width, height, 4, px.data(), width * 4);
+                    return "data:image/png;base64," + base64_encode(png_data.data(), png_data.size());
                 };
-                stbi_write_png_to_func(write_func, &png_data, width, height, 4, pixels.data(), width * 4);
 
-                if (!png_data.empty()) {
-                    mesh_base_color_uri = "data:image/png;base64," + base64_encode(png_data.data(), png_data.size());
-                }
+                if (has_colormap) mesh_base_color_uri = dilate_and_encode(pixels);
+                if (has_normalmap) mesh_normal_texture_uri = dilate_and_encode(npixels);
             }
         }
 
@@ -636,8 +689,10 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
             if (a_idx != -1) {
                 prim.base_color_uri = mesh_base_color_uri;
+                prim.normal_texture_uri = mesh_normal_texture_uri;
             } else {
                 prim.base_color_uri = "";
+                prim.normal_texture_uri = "";
             }
 
             std::vector<float> uvs;
@@ -707,6 +762,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             auto ps = prim.ps;
             MaterialKey mkey;
             mkey.base_color_uri = prim.base_color_uri;
+            mkey.normal_texture_uri = prim.normal_texture_uri;
 
             if (prim.color_idx >= 0 && prim.color_idx < (int)ps->colors.size()) {
                 mkey.color = ps->colors[prim.color_idx];
@@ -779,6 +835,26 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                         mat.pbrMetallicRoughness.baseColorTexture.index = tex_idx;
                         image_cache[mkey.base_color_uri] = tex_idx;
+                    }
+                }
+
+                if (!mkey.normal_texture_uri.empty()) {
+                    auto img_it = image_cache.find(mkey.normal_texture_uri);
+                    if (img_it != image_cache.end()) {
+                        mat.normalTexture.index = img_it->second;
+                    } else {
+                        tinygltf::Image img;
+                        img.uri = mkey.normal_texture_uri;
+                        int img_idx = model.images.size();
+                        model.images.push_back(img);
+
+                        tinygltf::Texture tex;
+                        tex.source = img_idx;
+                        int tex_idx = model.textures.size();
+                        model.textures.push_back(tex);
+
+                        mat.normalTexture.index = tex_idx;
+                        image_cache[mkey.normal_texture_uri] = tex_idx;
                     }
                 }
 
