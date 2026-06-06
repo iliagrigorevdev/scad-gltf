@@ -578,9 +578,10 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                         Vector3d gltf_p0 = get_gltf_pos(v0.xref);
                         Vector3d gltf_p1 = get_gltf_pos(v1.xref);
                         Vector3d gltf_p2 = get_gltf_pos(v2.xref);
-                        float nuv0x = v0.uv[0] / (float)width, nuv0y = v0.uv[1] / (float)height;
-                        float nuv1x = v1.uv[0] / (float)width, nuv1y = v1.uv[1] / (float)height;
-                        float nuv2x = v2.uv[0] / (float)width, nuv2y = v2.uv[1] / (float)height;
+                        // Invert V coordinate for MikkTSpace tangent calculation as per glTF specification
+                        float nuv0x = v0.uv[0] / (float)width, nuv0y = 1.0f - (v0.uv[1] / (float)height);
+                        float nuv1x = v1.uv[0] / (float)width, nuv1y = 1.0f - (v1.uv[1] / (float)height);
+                        float nuv2x = v2.uv[0] / (float)width, nuv2y = 1.0f - (v2.uv[1] / (float)height);
 
                         Vector3d dp1 = gltf_p1 - gltf_p0;
                         Vector3d dp2 = gltf_p2 - gltf_p0;
@@ -705,7 +706,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                             Vector3d N_ws = (T_can * dx + B_can * dy + N_interp * dz).normalized();
 
                                             float dx_uv = N_ws.dot(T_uv);
-                                            float dy_uv = -N_ws.dot(B_uv); // Invert for OpenGL convention (+Y is Up, +V is Down)
+                                            float dy_uv = N_ws.dot(B_uv);
                                             float dz_uv = N_ws.dot(N_interp);
 
                                             npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)((dx_uv * 0.5f + 0.5f) * 255.0f)));
