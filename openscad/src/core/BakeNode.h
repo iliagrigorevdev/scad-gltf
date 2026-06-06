@@ -8,6 +8,9 @@ public:
     VISITABLE();
     BakeNode(const ModuleInstantiation *mi) : AbstractNode(mi) {}
     std::string name() const override { return "bake"; }
+
+    bool bake_colors = false;
+    bool bake_normals = false;
 };
 
 void register_builtin_bake();

@@ -701,7 +701,11 @@ Response GeometryEvaluator::visit(State& state, const BakeNode& node)
 
         if (low_ps && high_ps && !low_ps->isEmpty() && !high_ps->isEmpty()) {
             auto baked_ps = std::make_shared<PolySet>(*low_ps);
-            baked_ps->high_poly_bake = high_ps;
+            if (node.bake_colors || node.bake_normals) {
+                baked_ps->high_poly_bake = high_ps;
+                baked_ps->bake_colors = node.bake_colors;
+                baked_ps->bake_normals = node.bake_normals;
+            }
             geom = baked_ps;
         } else {
             geom = low_geom;

@@ -39,15 +39,26 @@ class SimpleBVH {
 public:
     std::vector<float> vertices;
     std::vector<unsigned int> indices;
+    std::vector<Color4f> face_colors;
     nanort::BVHAccel<float> accel;
 
     SimpleBVH(const PolySet& ps) {
-        for (const auto& face : ps.indices) {
+        for (size_t i = 0; i < ps.indices.size(); ++i) {
+            const auto& face = ps.indices[i];
+            int color_idx = -1;
+            if (!ps.color_indices.empty() && i < ps.color_indices.size()) {
+                color_idx = ps.color_indices[i];
+            }
+            Color4f c(0.5f, 0.5f, 0.5f, 1.0f);
+            if (color_idx >= 0 && color_idx < (int)ps.colors.size()) {
+                c = ps.colors[color_idx];
+            }
+
             if (face.size() >= 3) {
-                for (size_t i = 1; i + 1 < face.size(); ++i) {
+                for (size_t j = 1; j + 1 < face.size(); ++j) {
                     auto p0 = ps.vertices[face[0]];
-                    auto p1 = ps.vertices[face[i]];
-                    auto p2 = ps.vertices[face[i+1]];
+                    auto p1 = ps.vertices[face[j]];
+                    auto p2 = ps.vertices[face[j+1]];
 
                     unsigned int start_idx = vertices.size() / 3;
                     vertices.push_back((float)p0.x()); vertices.push_back((float)p0.y()); vertices.push_back((float)p0.z());
@@ -57,6 +68,8 @@ public:
                     indices.push_back(start_idx);
                     indices.push_back(start_idx + 1);
                     indices.push_back(start_idx + 2);
+
+                    face_colors.push_back(c);
                 }
             }
         }
@@ -68,7 +81,7 @@ public:
         accel.Build(indices.size() / 3, triangle_mesh, triangle_pred, build_options);
     }
 
-    bool intersect(const Vector3d& origin, const Vector3d& dir, double& t, Vector3d& n) const {
+    bool intersect(const Vector3d& origin, const Vector3d& dir, double& t, Vector3d& n, Color4f& color) const {
         nanort::Ray<float> ray;
         ray.min_t = 1e-5f;
         ray.max_t = (float)t;
@@ -93,6 +106,8 @@ public:
             n = (p1 - p0).cross(p2 - p0);
             if (n.norm() > 1e-8) n.normalize();
             else n = Vector3d(0, 1, 0);
+
+            color = face_colors[prim_idx];
             return true;
         }
         return false;
@@ -164,6 +179,8 @@ struct PrimitiveInfo {
     std::shared_ptr<const class Value> colormap;
     std::shared_ptr<const class Value> normalmap;
     std::shared_ptr<SimpleBVH> high_poly_bvh;
+    bool bake_colors = false;
+    bool bake_normals = false;
     std::string base_color_uri;
     std::string normal_texture_uri;
     float min_pos[3];
@@ -275,12 +292,16 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             if (Feature::ExperimentalPredictibleOutput.is_enabled()) ps = createSortedPolySet(*ps);
 
             std::shared_ptr<SimpleBVH> high_poly_bvh;
+            bool bake_colors = false;
+            bool bake_normals = false;
             if (ps->high_poly_bake) {
                 auto high_tri = ps->high_poly_bake->isTriangular() ? std::make_shared<PolySet>(*ps->high_poly_bake) : PolySetUtils::tessellate_faces(*ps->high_poly_bake);
                 for (auto& v : high_tri->vertices) {
                     v = C * M_accum * v;
                 }
                 high_poly_bvh = std::make_shared<SimpleBVH>(*high_tri);
+                bake_colors = ps->bake_colors;
+                bake_normals = ps->bake_normals;
             }
 
             MeshInfo minfo;
@@ -323,6 +344,8 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                 prim.colormap = colormap;
                 prim.normalmap = normalmap;
                 prim.high_poly_bvh = high_poly_bvh;
+                prim.bake_colors = bake_colors;
+                prim.bake_normals = bake_normals;
                 prim.ps = ps;
                 for(int i=0; i<3; ++i) { prim.min_pos[i] = FLT_MAX; prim.max_pos[i] = -FLT_MAX; }
 
@@ -575,7 +598,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             const auto& prim = minfo.primitives[p_idx];
             if ((prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) ||
                 (prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION) ||
-                prim.high_poly_bvh) {
+                (prim.high_poly_bvh && (prim.bake_colors || prim.bake_normals))) {
                 prim_to_atlas[p_idx] = num_atlas_meshes++;
             }
         }
@@ -614,7 +637,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     if (prim_to_atlas[p_idx] != -1) {
                         if (minfo.primitives[p_idx].colormap && minfo.primitives[p_idx].colormap->type() == Value::Type::FUNCTION) has_colormap = true;
                         if ((minfo.primitives[p_idx].normalmap && minfo.primitives[p_idx].normalmap->type() == Value::Type::FUNCTION) ||
-                            minfo.primitives[p_idx].high_poly_bvh) has_normalmap = true;
+                            (minfo.primitives[p_idx].high_poly_bvh && minfo.primitives[p_idx].bake_normals)) has_normalmap = true;
+                        if (minfo.primitives[p_idx].high_poly_bvh && minfo.primitives[p_idx].bake_colors) has_colormap = true;
                     }
                 }
 
@@ -743,8 +767,50 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                                 if (u >= -1e-4f && v >= -1e-4f && w >= -1e-4f) {
                                     Vector3d p3d = u * p0 + v * p1 + w * p2;
-
                                     int pixel_idx = (y * width + x) * 4;
+
+                                    bool trace_high_poly = prim.high_poly_bvh && (prim.bake_normals || prim.bake_colors);
+                                    bool hit_high_poly = false;
+                                    Vector3d best_n = Vector3d::Zero();
+                                    Color4f best_c(1,1,1,1);
+                                    Vector3d T_interp;
+                                    Vector3d local_b;
+                                    Vector3d n3d;
+
+                                    if (trace_high_poly) {
+                                        n3d = (u * n0 + v * n1 + w * n2).normalized();
+                                        Vector3d gltf_p3d = u * gltf_p0 + v * gltf_p1 + w * gltf_p2;
+
+                                        T_interp = (u * t0.head<3>() + v * t1.head<3>() + w * t2.head<3>()).normalized();
+                                        float w_interp = t0.w();
+                                        local_b = n3d.cross(T_interp).normalized() * w_interp;
+
+                                        double t_out = 0.5;
+                                        Vector3d hit_n_out = n3d;
+                                        Color4f hit_c_out(1,1,1,1);
+                                        bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d + n3d * 1e-4, n3d, t_out, hit_n_out, hit_c_out);
+
+                                        double t_in = 0.5;
+                                        Vector3d hit_n_in = n3d;
+                                        Color4f hit_c_in(1,1,1,1);
+                                        bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d - n3d * 1e-4, -n3d, t_in, hit_n_in, hit_c_in);
+
+                                        best_n = n3d;
+                                        if (hit_out && hit_in) {
+                                            if (t_out < t_in) {
+                                                best_n = hit_n_out; best_c = hit_c_out;
+                                            } else {
+                                                best_n = hit_n_in; best_c = hit_c_in;
+                                            }
+                                            hit_high_poly = true;
+                                        } else if (hit_out) {
+                                            best_n = hit_n_out; best_c = hit_c_out;
+                                            hit_high_poly = true;
+                                        } else if (hit_in) {
+                                            best_n = hit_n_in; best_c = hit_c_in;
+                                            hit_high_poly = true;
+                                        }
+                                    }
 
                                     if (has_colormap) {
                                         if (ceval) {
@@ -753,6 +819,18 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                             pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(c.g() * 255.0f)));
                                             pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(c.b() * 255.0f)));
                                             pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(c.a() * 255.0f)));
+                                        } else if (prim.high_poly_bvh && prim.bake_colors) {
+                                            if (hit_high_poly) {
+                                                pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(best_c.r() * 255.0f)));
+                                                pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(best_c.g() * 255.0f)));
+                                                pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(best_c.b() * 255.0f)));
+                                                pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(best_c.a() * 255.0f)));
+                                            } else {
+                                                pixels[pixel_idx + 0] = 255;
+                                                pixels[pixel_idx + 1] = 255;
+                                                pixels[pixel_idx + 2] = 255;
+                                                pixels[pixel_idx + 3] = 0; // alpha 0 to allow dilation
+                                            }
                                         } else {
                                             pixels[pixel_idx + 0] = 255;
                                             pixels[pixel_idx + 1] = 255;
@@ -763,13 +841,13 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                                     if (has_normalmap) {
                                         if (neval) {
-                                            Color4f n = neval->eval(p3d, Color4f(0.5f, 0.5f, 1.0f, 1.0f));
+                                            Color4f n_col = neval->eval(p3d, Color4f(0.5f, 0.5f, 1.0f, 1.0f));
 
                                             Vector3d N_interp = (u * n0 + v * n1 + w * n2).normalized();
-                                            Vector3d T_interp = (u * t0.head<3>() + v * t1.head<3>() + w * t2.head<3>()).normalized();
+                                            Vector3d T_interp_n = (u * t0.head<3>() + v * t1.head<3>() + w * t2.head<3>()).normalized();
                                             float w_interp = t0.w(); // xatlas islands don't fold over, w is uniform per-triangle
 
-                                            Vector3d T_uv = (T_interp - N_interp * N_interp.dot(T_interp));
+                                            Vector3d T_uv = (T_interp_n - N_interp * N_interp.dot(T_interp_n));
                                             if (T_uv.norm() > 1e-8f) {
                                                 T_uv.normalize();
                                             } else {
@@ -785,9 +863,9 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                             T_can.normalize();
                                             Vector3d B_can = N_interp.cross(T_can).normalized();
 
-                                            float dx = n.r() * 2.0f - 1.0f;
-                                            float dy = n.g() * 2.0f - 1.0f;
-                                            float dz = n.b() * 2.0f - 1.0f;
+                                            float dx = n_col.r() * 2.0f - 1.0f;
+                                            float dy = n_col.g() * 2.0f - 1.0f;
+                                            float dz = n_col.b() * 2.0f - 1.0f;
 
                                             Vector3d N_ws = (T_can * dx + B_can * dy + N_interp * dz).normalized();
 
@@ -798,39 +876,22 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                             npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)((dx_uv * 0.5f + 0.5f) * 255.0f)));
                                             npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((dy_uv * 0.5f + 0.5f) * 255.0f)));
                                             npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((dz_uv * 0.5f + 0.5f) * 255.0f)));
-                                            npixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(n.a() * 255.0f)));
-                                        } else if (prim.high_poly_bvh) {
-                                            Vector3d n3d = (u * n0 + v * n1 + w * n2).normalized();
-                                            Vector3d gltf_p3d = u * gltf_p0 + v * gltf_p1 + w * gltf_p2;
+                                            npixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(n_col.a() * 255.0f)));
+                                        } else if (prim.high_poly_bvh && prim.bake_normals) {
+                                            if (hit_high_poly) {
+                                                Vector3d ts_n(best_n.dot(T_interp), best_n.dot(local_b), best_n.dot(n3d));
+                                                if (ts_n.norm() > 1e-8) ts_n.normalize();
 
-                                            Vector3d T_interp = (u * t0.head<3>() + v * t1.head<3>() + w * t2.head<3>()).normalized();
-                                            float w_interp = t0.w();
-                                            Vector3d local_b = n3d.cross(T_interp).normalized() * w_interp;
-
-                                            double t_out = 0.5;
-                                            Vector3d hit_n_out = n3d;
-                                            bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d + n3d * 1e-4, n3d, t_out, hit_n_out);
-
-                                            double t_in = 0.5;
-                                            Vector3d hit_n_in = n3d;
-                                            bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d - n3d * 1e-4, -n3d, t_in, hit_n_in);
-
-                                            Vector3d best_n = n3d;
-                                            if (hit_out && hit_in) {
-                                                best_n = (t_out < t_in) ? hit_n_out : hit_n_in;
-                                            } else if (hit_out) {
-                                                best_n = hit_n_out;
-                                            } else if (hit_in) {
-                                                best_n = hit_n_in;
+                                                npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.x() * 0.5 + 0.5) * 255.0)));
+                                                npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.y() * 0.5 + 0.5) * 255.0)));
+                                                npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.z() * 0.5 + 0.5) * 255.0)));
+                                                npixels[pixel_idx + 3] = 255;
+                                            } else {
+                                                npixels[pixel_idx + 0] = 128;
+                                                npixels[pixel_idx + 1] = 128;
+                                                npixels[pixel_idx + 2] = 255;
+                                                npixels[pixel_idx + 3] = 0; // alpha 0 to allow dilation
                                             }
-
-                                            Vector3d ts_n(best_n.dot(T_interp), best_n.dot(local_b), best_n.dot(n3d));
-                                            if (ts_n.norm() > 1e-8) ts_n.normalize();
-
-                                            npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.x() * 0.5 + 0.5) * 255.0)));
-                                            npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.y() * 0.5 + 0.5) * 255.0)));
-                                            npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.z() * 0.5 + 0.5) * 255.0)));
-                                            npixels[pixel_idx + 3] = 255;
                                         } else {
                                             npixels[pixel_idx + 0] = 128;
                                             npixels[pixel_idx + 1] = 128;
