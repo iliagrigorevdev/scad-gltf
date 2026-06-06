@@ -23,6 +23,7 @@
 #include <xatlas.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
+#include <nanort.h>
 
 #define TINYGLTF_IMPLEMENTATION
 #define TINYGLTF_NO_STB_IMAGE
@@ -31,6 +32,74 @@
 #define TINYGLTF_NO_INCLUDE_JSON
 #include "json/json.hpp"
 #include <tiny_gltf.h>
+
+namespace {
+
+class SimpleBVH {
+public:
+    std::vector<float> vertices;
+    std::vector<unsigned int> indices;
+    nanort::BVHAccel<float> accel;
+
+    SimpleBVH(const PolySet& ps) {
+        for (const auto& face : ps.indices) {
+            if (face.size() >= 3) {
+                for (size_t i = 1; i + 1 < face.size(); ++i) {
+                    auto p0 = ps.vertices[face[0]];
+                    auto p1 = ps.vertices[face[i]];
+                    auto p2 = ps.vertices[face[i+1]];
+
+                    unsigned int start_idx = vertices.size() / 3;
+                    vertices.push_back((float)p0.x()); vertices.push_back((float)p0.y()); vertices.push_back((float)p0.z());
+                    vertices.push_back((float)p1.x()); vertices.push_back((float)p1.y()); vertices.push_back((float)p1.z());
+                    vertices.push_back((float)p2.x()); vertices.push_back((float)p2.y()); vertices.push_back((float)p2.z());
+
+                    indices.push_back(start_idx);
+                    indices.push_back(start_idx + 1);
+                    indices.push_back(start_idx + 2);
+                }
+            }
+        }
+
+        nanort::BVHBuildOptions<float> build_options;
+        nanort::TriangleMesh<float> triangle_mesh(vertices.data(), indices.data(), sizeof(float)*3);
+        nanort::TriangleSAHPred<float> triangle_pred(vertices.data(), indices.data(), sizeof(float)*3);
+
+        accel.Build(indices.size() / 3, triangle_mesh, triangle_pred, build_options);
+    }
+
+    bool intersect(const Vector3d& origin, const Vector3d& dir, double& t, Vector3d& n) const {
+        nanort::Ray<float> ray;
+        ray.min_t = 1e-5f;
+        ray.max_t = (float)t;
+        ray.org[0] = (float)origin.x(); ray.org[1] = (float)origin.y(); ray.org[2] = (float)origin.z();
+        ray.dir[0] = (float)dir.x(); ray.dir[1] = (float)dir.y(); ray.dir[2] = (float)dir.z();
+
+        nanort::TriangleIntersector<float> triangle_intersector(vertices.data(), indices.data(), sizeof(float)*3);
+        nanort::TriangleIntersection<float> isect;
+
+        bool hit = accel.Traverse(ray, triangle_intersector, &isect);
+        if (hit && isect.t < t) {
+            t = isect.t;
+            unsigned int prim_idx = isect.prim_id;
+            unsigned int i0 = indices[prim_idx * 3];
+            unsigned int i1 = indices[prim_idx * 3 + 1];
+            unsigned int i2 = indices[prim_idx * 3 + 2];
+
+            Vector3d p0(vertices[i0*3], vertices[i0*3+1], vertices[i0*3+2]);
+            Vector3d p1(vertices[i1*3], vertices[i1*3+1], vertices[i1*3+2]);
+            Vector3d p2(vertices[i2*3], vertices[i2*3+1], vertices[i2*3+2]);
+
+            n = (p1 - p0).cross(p2 - p0);
+            if (n.norm() > 1e-8) n.normalize();
+            else n = Vector3d(0, 1, 0);
+            return true;
+        }
+        return false;
+    }
+};
+
+} // namespace
 
 static std::string base64_encode(const unsigned char* data, size_t len) {
     static const char chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -94,6 +163,7 @@ struct PrimitiveInfo {
     std::vector<int> orig_v_idx;
     std::shared_ptr<const class Value> colormap;
     std::shared_ptr<const class Value> normalmap;
+    std::shared_ptr<SimpleBVH> high_poly_bvh;
     std::string base_color_uri;
     std::string normal_texture_uri;
     float min_pos[3];
@@ -204,6 +274,15 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         if (ps && !ps->vertices.empty()) {
             if (Feature::ExperimentalPredictibleOutput.is_enabled()) ps = createSortedPolySet(*ps);
 
+            std::shared_ptr<SimpleBVH> high_poly_bvh;
+            if (ps->high_poly_bake) {
+                auto high_tri = ps->high_poly_bake->isTriangular() ? std::make_shared<PolySet>(*ps->high_poly_bake) : PolySetUtils::tessellate_faces(*ps->high_poly_bake);
+                for (auto& v : high_tri->vertices) {
+                    v = C * M_accum * v;
+                }
+                high_poly_bvh = std::make_shared<SimpleBVH>(*high_tri);
+            }
+
             MeshInfo minfo;
             if (parent_node_idx >= 0 && parent_node_idx < (int)model.nodes.size()) {
                 const std::string& p_name = model.nodes[parent_node_idx].name;
@@ -243,6 +322,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                 prim.color_idx = color_idx;
                 prim.colormap = colormap;
                 prim.normalmap = normalmap;
+                prim.high_poly_bvh = high_poly_bvh;
                 prim.ps = ps;
                 for(int i=0; i<3; ++i) { prim.min_pos[i] = FLT_MAX; prim.max_pos[i] = -FLT_MAX; }
 
@@ -494,7 +574,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
             const auto& prim = minfo.primitives[p_idx];
             if ((prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) ||
-                (prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION)) {
+                (prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION) ||
+                prim.high_poly_bvh) {
                 prim_to_atlas[p_idx] = num_atlas_meshes++;
             }
         }
@@ -532,7 +613,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
                     if (prim_to_atlas[p_idx] != -1) {
                         if (minfo.primitives[p_idx].colormap && minfo.primitives[p_idx].colormap->type() == Value::Type::FUNCTION) has_colormap = true;
-                        if (minfo.primitives[p_idx].normalmap && minfo.primitives[p_idx].normalmap->type() == Value::Type::FUNCTION) has_normalmap = true;
+                        if ((minfo.primitives[p_idx].normalmap && minfo.primitives[p_idx].normalmap->type() == Value::Type::FUNCTION) ||
+                            minfo.primitives[p_idx].high_poly_bvh) has_normalmap = true;
                     }
                 }
 
@@ -627,6 +709,10 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                         Vector3d p1 = get_pos(v1.xref);
                         Vector3d p2 = get_pos(v2.xref);
 
+                        Vector3d gltf_p0 = get_gltf_pos(v0.xref);
+                        Vector3d gltf_p1 = get_gltf_pos(v1.xref);
+                        Vector3d gltf_p2 = get_gltf_pos(v2.xref);
+
                         Vector3d n0 = get_gltf_norm(v0.xref);
                         Vector3d n1 = get_gltf_norm(v1.xref);
                         Vector3d n2 = get_gltf_norm(v2.xref);
@@ -713,6 +799,38 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                             npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((dy_uv * 0.5f + 0.5f) * 255.0f)));
                                             npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((dz_uv * 0.5f + 0.5f) * 255.0f)));
                                             npixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(n.a() * 255.0f)));
+                                        } else if (prim.high_poly_bvh) {
+                                            Vector3d n3d = (u * n0 + v * n1 + w * n2).normalized();
+                                            Vector3d gltf_p3d = u * gltf_p0 + v * gltf_p1 + w * gltf_p2;
+
+                                            Vector3d T_interp = (u * t0.head<3>() + v * t1.head<3>() + w * t2.head<3>()).normalized();
+                                            float w_interp = t0.w();
+                                            Vector3d local_b = n3d.cross(T_interp).normalized() * w_interp;
+
+                                            double t_out = 0.5;
+                                            Vector3d hit_n_out = n3d;
+                                            bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d + n3d * 1e-4, n3d, t_out, hit_n_out);
+
+                                            double t_in = 0.5;
+                                            Vector3d hit_n_in = n3d;
+                                            bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d - n3d * 1e-4, -n3d, t_in, hit_n_in);
+
+                                            Vector3d best_n = n3d;
+                                            if (hit_out && hit_in) {
+                                                best_n = (t_out < t_in) ? hit_n_out : hit_n_in;
+                                            } else if (hit_out) {
+                                                best_n = hit_n_out;
+                                            } else if (hit_in) {
+                                                best_n = hit_n_in;
+                                            }
+
+                                            Vector3d ts_n(best_n.dot(T_interp), best_n.dot(local_b), best_n.dot(n3d));
+                                            if (ts_n.norm() > 1e-8) ts_n.normalize();
+
+                                            npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.x() * 0.5 + 0.5) * 255.0)));
+                                            npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.y() * 0.5 + 0.5) * 255.0)));
+                                            npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.z() * 0.5 + 0.5) * 255.0)));
+                                            npixels[pixel_idx + 3] = 255;
                                         } else {
                                             npixels[pixel_idx + 0] = 128;
                                             npixels[pixel_idx + 1] = 128;

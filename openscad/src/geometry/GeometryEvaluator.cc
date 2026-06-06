@@ -10,6 +10,7 @@
 
 #include "Feature.h"
 #include "core/AnimationNode.h"
+#include "core/BakeNode.h"
 #include "core/BaseVisitable.h"
 #include "core/CgalAdvNode.h"
 #include "core/ColorNode.h"
@@ -672,6 +673,44 @@ Response GeometryEvaluator::visit(State& state, const BoneNode& node)
           }
       }
       geom = boneGeom;
+    } else {
+      geom = smartCacheGet(node, state.preferNef());
+    }
+    addToParent(state, node, geom);
+    node.progress_report();
+  }
+  return Response::ContinueTraversal;
+}
+
+Response GeometryEvaluator::visit(State& state, const BakeNode& node)
+{
+  if (state.isPrefix()) {
+    if (isSmartCached(node)) return Response::PruneTraversal;
+    state.setPreferNef(true);
+  }
+  if (state.isPostfix()) {
+    std::shared_ptr<const Geometry> geom;
+    if (!isSmartCached(node)) {
+      auto children = collectChildren3D(node);
+      if (children.size() >= 2) {
+        auto high_geom = children.front().second;
+        auto low_geom = std::next(children.begin())->second;
+
+        auto low_ps = PolySetUtils::getGeometryAsPolySet(low_geom);
+        auto high_ps = PolySetUtils::getGeometryAsPolySet(high_geom);
+
+        if (low_ps && high_ps && !low_ps->isEmpty() && !high_ps->isEmpty()) {
+            auto baked_ps = std::make_shared<PolySet>(*low_ps);
+            baked_ps->high_poly_bake = high_ps;
+            geom = baked_ps;
+        } else {
+            geom = low_geom;
+        }
+      } else if (children.size() == 1) {
+          geom = children.front().second;
+      } else {
+          geom = PolySet::createEmpty();
+      }
     } else {
       geom = smartCacheGet(node, state.preferNef());
     }

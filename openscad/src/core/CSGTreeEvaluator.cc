@@ -9,6 +9,7 @@
 #include <string>
 
 #include "core/AnimationNode.h"
+#include "core/BakeNode.h"
 #include "core/BaseVisitable.h"
 #include "core/CSGNode.h"
 #include "core/CgalAdvNode.h"
@@ -354,6 +355,14 @@ Response CSGTreeEvaluator::visit(State& state, const BoneNode& node) {
   if (state.isPrefix()) {
     state.setMatrix(state.matrix() * node.matrix); // Applies Bone offset for F5 preview!
   }
+  if (state.isPostfix()) {
+    applyToChildren(state, node, OpenSCADOperator::UNION);
+    addToParent(state, node);
+  }
+  return Response::ContinueTraversal;
+}
+
+Response CSGTreeEvaluator::visit(State& state, const BakeNode& node) {
   if (state.isPostfix()) {
     applyToChildren(state, node, OpenSCADOperator::UNION);
     addToParent(state, node);

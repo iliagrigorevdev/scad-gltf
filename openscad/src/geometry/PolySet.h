@@ -22,6 +22,7 @@ public:
   VISITABLE_GEOMETRY();
   PolygonIndices indices;
   std::vector<Vector3d> vertices;
+  std::shared_ptr<const PolySet> high_poly_bake;
   // Per polygon color, indexing the colors vector below. Can be empty, and -1 means no specific color.
   std::vector<int32_t> color_indices;
   std::vector<Color4f> colors;

@@ -70,6 +70,7 @@ extern void register_builtin_roof();
 #endif
 extern void register_builtin_text();
 extern void register_builtin_animation();
+extern void register_builtin_bake();
 extern void initialize_builtin_dxf_dim();
 
 /*!
@@ -87,6 +88,7 @@ void Builtins::initialize()
   register_builtin_csgops();
   register_builtin_transform();
   register_builtin_animation();
+  register_builtin_bake();
   register_builtin_color();
   register_builtin_primitives();
   register_builtin_surface();

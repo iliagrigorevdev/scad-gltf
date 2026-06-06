@@ -748,6 +748,21 @@ FetchContent_MakeAvailable(tinygltf)
 target_include_directories(OpenSCADLibInternal SYSTEM PUBLIC ${tinygltf_SOURCE_DIR})
 
 FetchContent_Declare(
+  nanort
+  GIT_REPOSITORY https://github.com/lighttransport/nanort.git
+  GIT_TAG release
+)
+FetchContent_GetProperties(nanort)
+if(NOT nanort_POPULATED)
+  FetchContent_Populate(nanort)
+endif()
+if (NOT TARGET nanort)
+  add_library(nanort INTERFACE)
+  target_include_directories(nanort INTERFACE ${nanort_SOURCE_DIR})
+endif()
+target_link_libraries(OpenSCADLibInternal PUBLIC nanort)
+
+FetchContent_Declare(
   xatlas
   GIT_REPOSITORY https://github.com/jpcy/xatlas.git
   GIT_TAG master
@@ -1019,6 +1034,7 @@ set(CORE_SOURCES
   src/core/AnimationNode.cc
   src/core/Arguments.cc
   src/core/Assignment.cc
+  src/core/BakeNode.cc
   src/core/BuiltinContext.cc
   src/core/Builtins.cc
   src/core/CSGNode.cc
