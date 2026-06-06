@@ -90,6 +90,7 @@ struct PrimitiveInfo {
     std::vector<uint32_t> indices;
     std::vector<float> positions;
     std::vector<float> normals;
+    std::vector<float> tangents;
     std::vector<int> orig_v_idx;
     std::shared_ptr<const class Value> colormap;
     std::shared_ptr<const class Value> normalmap;
@@ -501,6 +502,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         xatlas::Atlas* atlas = nullptr;
         std::string mesh_base_color_uri;
         std::string mesh_normal_texture_uri;
+        std::map<int, std::vector<Vector4d>> a_idx_to_tangents;
 
         if (num_atlas_meshes > 0) {
             atlas = xatlas::Create();
@@ -556,6 +558,60 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                         int v_idx = prim.orig_v_idx[orig_idx];
                         return prim.ps->vertices[v_idx];
                     };
+                    auto get_gltf_pos = [&](uint32_t orig_idx) -> Vector3d {
+                        return Vector3d(prim.positions[orig_idx*3+0], prim.positions[orig_idx*3+1], prim.positions[orig_idx*3+2]);
+                    };
+                    auto get_gltf_norm = [&](uint32_t orig_idx) -> Vector3d {
+                        return Vector3d(prim.normals[orig_idx*3+0], prim.normals[orig_idx*3+1], prim.normals[orig_idx*3+2]);
+                    };
+
+                    std::vector<Vector3d> tan1(xmesh.vertexCount, Vector3d::Zero());
+                    std::vector<Vector3d> tan2(xmesh.vertexCount, Vector3d::Zero());
+
+                    for (uint32_t f = 0; f < xmesh.indexCount / 3; ++f) {
+                        uint32_t i0 = xmesh.indexArray[f*3 + 0];
+                        uint32_t i1 = xmesh.indexArray[f*3 + 1];
+                        uint32_t i2 = xmesh.indexArray[f*3 + 2];
+                        const xatlas::Vertex& v0 = xmesh.vertexArray[i0];
+                        const xatlas::Vertex& v1 = xmesh.vertexArray[i1];
+                        const xatlas::Vertex& v2 = xmesh.vertexArray[i2];
+                        Vector3d gltf_p0 = get_gltf_pos(v0.xref);
+                        Vector3d gltf_p1 = get_gltf_pos(v1.xref);
+                        Vector3d gltf_p2 = get_gltf_pos(v2.xref);
+                        float nuv0x = v0.uv[0] / (float)width, nuv0y = v0.uv[1] / (float)height;
+                        float nuv1x = v1.uv[0] / (float)width, nuv1y = v1.uv[1] / (float)height;
+                        float nuv2x = v2.uv[0] / (float)width, nuv2y = v2.uv[1] / (float)height;
+
+                        Vector3d dp1 = gltf_p1 - gltf_p0;
+                        Vector3d dp2 = gltf_p2 - gltf_p0;
+                        float du1 = nuv1x - nuv0x;
+                        float dv1 = nuv1y - nuv0y;
+                        float du2 = nuv2x - nuv0x;
+                        float dv2 = nuv2y - nuv0y;
+
+                        float det = du1 * dv2 - du2 * dv1;
+                        float r = (std::abs(det) > 1e-8f) ? 1.0f / det : 0.0f;
+                        Vector3d sdir = (dp1 * dv2 - dp2 * dv1) * r;
+                        Vector3d tdir = (dp2 * du1 - dp1 * du2) * r;
+
+                        tan1[i0] += sdir; tan1[i1] += sdir; tan1[i2] += sdir;
+                        tan2[i0] += tdir; tan2[i1] += tdir; tan2[i2] += tdir;
+                    }
+
+                    std::vector<Vector4d> tangents(xmesh.vertexCount);
+                    for (uint32_t i = 0; i < xmesh.vertexCount; ++i) {
+                        Vector3d n = get_gltf_norm(xmesh.vertexArray[i].xref);
+                        Vector3d t = tan1[i];
+                        Vector3d t_ortho = (t - n * n.dot(t));
+                        if (t_ortho.norm() > 1e-8f) {
+                            t_ortho.normalize();
+                        } else {
+                            t_ortho = Vector3d(1, 0, 0); // fallback
+                        }
+                        float w = (n.cross(t_ortho).dot(tan2[i]) < 0.0f) ? -1.0f : 1.0f;
+                        tangents[i] = Vector4d(t_ortho.x(), t_ortho.y(), t_ortho.z(), w);
+                    }
+                    a_idx_to_tangents[a_idx] = tangents;
 
                     for (uint32_t f = 0; f < xmesh.indexCount / 3; ++f) {
                         uint32_t i0 = xmesh.indexArray[f*3 + 0];
@@ -569,6 +625,14 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                         Vector3d p0 = get_pos(v0.xref);
                         Vector3d p1 = get_pos(v1.xref);
                         Vector3d p2 = get_pos(v2.xref);
+
+                        Vector3d n0 = get_gltf_norm(v0.xref);
+                        Vector3d n1 = get_gltf_norm(v1.xref);
+                        Vector3d n2 = get_gltf_norm(v2.xref);
+
+                        Vector4d t0 = a_idx_to_tangents[a_idx][i0];
+                        Vector4d t1 = a_idx_to_tangents[a_idx][i1];
+                        Vector4d t2 = a_idx_to_tangents[a_idx][i2];
 
                         float uv0x = v0.uv[0], uv0y = v0.uv[1];
                         float uv1x = v1.uv[0], uv1y = v1.uv[1];
@@ -613,9 +677,40 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                     if (has_normalmap) {
                                         if (neval) {
                                             Color4f n = neval->eval(p3d, Color4f(0.5f, 0.5f, 1.0f, 1.0f));
-                                            npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(n.r() * 255.0f)));
-                                            npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(n.g() * 255.0f)));
-                                            npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(n.b() * 255.0f)));
+
+                                            Vector3d N_interp = (u * n0 + v * n1 + w * n2).normalized();
+                                            Vector3d T_interp = (u * t0.head<3>() + v * t1.head<3>() + w * t2.head<3>()).normalized();
+                                            float w_interp = t0.w(); // xatlas islands don't fold over, w is uniform per-triangle
+
+                                            Vector3d T_uv = (T_interp - N_interp * N_interp.dot(T_interp));
+                                            if (T_uv.norm() > 1e-8f) {
+                                                T_uv.normalize();
+                                            } else {
+                                                T_uv = Vector3d(0, 1, 0).cross(N_interp);
+                                                if (T_uv.norm() < 1e-4f) T_uv = Vector3d(1, 0, 0).cross(N_interp);
+                                                T_uv.normalize();
+                                            }
+
+                                            Vector3d B_uv = N_interp.cross(T_uv).normalized() * w_interp;
+
+                                            Vector3d T_can = Vector3d(0, 1, 0).cross(N_interp);
+                                            if (T_can.norm() < 1e-4f) T_can = Vector3d(1, 0, 0).cross(N_interp);
+                                            T_can.normalize();
+                                            Vector3d B_can = N_interp.cross(T_can).normalized();
+
+                                            float dx = n.r() * 2.0f - 1.0f;
+                                            float dy = n.g() * 2.0f - 1.0f;
+                                            float dz = n.b() * 2.0f - 1.0f;
+
+                                            Vector3d N_ws = (T_can * dx + B_can * dy + N_interp * dz).normalized();
+
+                                            float dx_uv = N_ws.dot(T_uv);
+                                            float dy_uv = -N_ws.dot(B_uv); // Invert for OpenGL convention (+Y is Up, +V is Down)
+                                            float dz_uv = N_ws.dot(N_interp);
+
+                                            npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)((dx_uv * 0.5f + 0.5f) * 255.0f)));
+                                            npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((dy_uv * 0.5f + 0.5f) * 255.0f)));
+                                            npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((dz_uv * 0.5f + 0.5f) * 255.0f)));
                                             npixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(n.a() * 255.0f)));
                                         } else {
                                             npixels[pixel_idx + 0] = 128;
@@ -707,6 +802,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             }
 
             std::vector<float> uvs;
+            std::vector<float> tangents;
 
             if (atlas && a_idx != -1) {
                 const xatlas::Mesh& xmesh = atlas->meshes[a_idx];
@@ -715,6 +811,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 new_pos.reserve(xmesh.vertexCount * 3);
                 new_norm.reserve(xmesh.vertexCount * 3);
                 uvs.reserve(xmesh.vertexCount * 2);
+                tangents.reserve(xmesh.vertexCount * 4);
                 new_ind.reserve(xmesh.indexCount);
 
                 for (uint32_t i = 0; i < xmesh.vertexCount; ++i) {
@@ -727,6 +824,14 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     new_norm.push_back(prim.normals[v.xref * 3 + 2]);
                     uvs.push_back(v.uv[0] / (float)atlas->width);
                     uvs.push_back(v.uv[1] / (float)atlas->height);
+
+                    if (a_idx_to_tangents.count(a_idx)) {
+                        Vector4d t = a_idx_to_tangents[a_idx][i];
+                        tangents.push_back((float)t.x());
+                        tangents.push_back((float)t.y());
+                        tangents.push_back((float)t.z());
+                        tangents.push_back((float)t.w());
+                    }
                 }
 
                 for (uint32_t i = 0; i < xmesh.indexCount; ++i) {
@@ -736,6 +841,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 prim.positions = std::move(new_pos);
                 prim.normals = std::move(new_norm);
                 prim.indices = std::move(new_ind);
+                prim.tangents = std::move(tangents);
             }
 
             int pos_accessor_idx = append_to_bin(bin_data, prim.positions, model,
@@ -765,6 +871,12 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             if (!uvs.empty()) {
                 uv_accessor_idx = append_to_bin(bin_data, uvs, model,
                     TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC2);
+            }
+
+            int tangent_accessor_idx = -1;
+            if (!prim.tangents.empty()) {
+                tangent_accessor_idx = append_to_bin(bin_data, prim.tangents, model,
+                    TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4);
             }
 
             int idx_accessor_idx = append_to_bin(bin_data, prim.indices, model,
@@ -964,6 +1076,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             if (joints_acc != -1) gltf_prim.attributes["JOINTS_0"] = joints_acc;
             if (weights_acc != -1) gltf_prim.attributes["WEIGHTS_0"] = weights_acc;
             if (uv_accessor_idx != -1) gltf_prim.attributes["TEXCOORD_0"] = uv_accessor_idx;
+            if (tangent_accessor_idx != -1) gltf_prim.attributes["TANGENT"] = tangent_accessor_idx;
             gltf_prim.indices = idx_accessor_idx;
             gltf_prim.material = mat_idx;
             gltf_prim.mode = TINYGLTF_MODE_TRIANGLES;
