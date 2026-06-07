@@ -359,8 +359,6 @@ std::unique_ptr<PolySet> createSortedPolySet(const PolySet& ps)
   out->iridescences = ps.iridescences;
   out->iridescenceIORs = ps.iridescenceIORs;
   out->autoSmoothAngles = ps.autoSmoothAngles;
-  out->colormaps = ps.colormaps;
-  out->normalmaps = ps.normalmaps;
 
   out->high_poly_bake = ps.high_poly_bake;
   out->bake_colors = ps.bake_colors;

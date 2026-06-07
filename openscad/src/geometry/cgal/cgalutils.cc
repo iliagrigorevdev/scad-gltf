@@ -469,10 +469,6 @@ std::unique_ptr<PolySet> createPolySetFromNefPolyhedron3(const CGAL_Nef_polyhedr
   polyset->iridescenceIORs.push_back(1.3f);
   polyset->autoSmoothAngles.push_back(0.0f);
   polyset->autoSmoothAngles.push_back(0.0f);
-  polyset->colormaps.push_back(nullptr);
-  polyset->colormaps.push_back(nullptr);
-  polyset->normalmaps.push_back(nullptr);
-  polyset->normalmaps.push_back(nullptr);
 
   polyset->vertices.reserve(verts.size());
   for (const auto& v : verts) {

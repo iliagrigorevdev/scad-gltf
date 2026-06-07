@@ -62,7 +62,7 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   node->emissive = defaultBlack;
   node->specularColor = defaultWhite;
 
-  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness", "attenuationColor", "attenuationDistance", "ior", "emissive", "emissiveIntensity", "specularColor", "specularIntensity", "iridescence", "iridescenceIOR", "colormap", "normalmap"});
+  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness", "attenuationColor", "attenuationDistance", "ior", "emissive", "emissiveIntensity", "specularColor", "specularIntensity", "iridescence", "iridescenceIOR"});
   if (parameters["c"].type() == Value::Type::VECTOR) {
     const auto& vec = parameters["c"].toVector();
     Vector4f color;
@@ -168,12 +168,6 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   if (parameters["$asa"].type() == Value::Type::NUMBER) {
     node->autoSmoothAngle = parameters["$asa"].toDouble();
   }
-  if (parameters["colormap"].type() != Value::Type::UNDEFINED) {
-    node->colormap = parameters["colormap"].clone();
-  }
-  if (parameters["normalmap"].type() != Value::Type::UNDEFINED) {
-    node->normalmap = parameters["normalmap"].clone();
-  }
 
   return children.instantiate(node);
 }
@@ -189,9 +183,7 @@ std::string ColorNode::toString() const
              ", emissive=[", this->emissive.r(), ", ", this->emissive.g(), ", ", this->emissive.b(), "], emissiveIntensity=", this->emissiveIntensity,
              ", specularColor=[", this->specularColor.r(), ", ", this->specularColor.g(), ", ", this->specularColor.b(), "], specularIntensity=", this->specularIntensity,
              ", iridescence=", this->iridescence, ", iridescenceIOR=", this->iridescenceIOR,
-             ", $asa=", this->autoSmoothAngle,
-             ", colormap=", (this->colormap.type() != Value::Type::UNDEFINED ? "function" : "undef"),
-             ", normalmap=", (this->normalmap.type() != Value::Type::UNDEFINED ? "function" : "undef"), ")");
+             ", $asa=", this->autoSmoothAngle, ")");
 }
 
 std::string ColorNode::name() const

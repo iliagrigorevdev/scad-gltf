@@ -546,11 +546,7 @@ Response GeometryEvaluator::visit(State& state, const ColorNode& node)
       if ((geom = res.constptr())) {
         auto mutableGeom = res.asMutableGeometry();
         if (mutableGeom) {
-          std::shared_ptr<const Value> colormap_ptr;
-          if (node.colormap.type() != Value::Type::UNDEFINED) colormap_ptr = std::make_shared<const Value>(node.colormap.clone());
-          std::shared_ptr<const Value> normalmap_ptr;
-          if (node.normalmap.type() != Value::Type::UNDEFINED) normalmap_ptr = std::make_shared<const Value>(node.normalmap.clone());
-          mutableGeom->setColor(node.color, node.roughness, node.metalness, node.clearcoat, node.clearcoatRoughness, node.sheen, node.sheenColor, node.sheenRoughness, node.transmission, node.thickness, node.attenuationColor, node.attenuationDistance, node.ior, node.emissive, node.emissiveIntensity, node.specularColor, node.specularIntensity, node.iridescence, node.iridescenceIOR, node.autoSmoothAngle, colormap_ptr, normalmap_ptr);
+          mutableGeom->setColor(node.color, node.roughness, node.metalness, node.clearcoat, node.clearcoatRoughness, node.sheen, node.sheenColor, node.sheenRoughness, node.transmission, node.thickness, node.attenuationColor, node.attenuationDistance, node.ior, node.emissive, node.emissiveIntensity, node.specularColor, node.specularIntensity, node.iridescence, node.iridescenceIOR, node.autoSmoothAngle);
         }
         geom = mutableGeom;
       }

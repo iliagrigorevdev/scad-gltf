@@ -6,36 +6,12 @@
 #include "core/ModuleInstantiation.h"
 #include "core/node.h"
 #include "geometry/linalg.h"
-#include "core/Value.h"
 
 class ColorNode : public AbstractNode
 {
 public:
   VISITABLE();
-  ColorNode(const ModuleInstantiation *mi) : AbstractNode(mi), colormap(Value::undef("default")), normalmap(Value::undef("default")) {}
-  ColorNode(const ColorNode& other) : AbstractNode(other.modinst), colormap(other.colormap.clone()), normalmap(other.normalmap.clone())
-  {
-    color = other.color;
-    roughness = other.roughness;
-    metalness = other.metalness;
-    clearcoat = other.clearcoat;
-    clearcoatRoughness = other.clearcoatRoughness;
-    sheen = other.sheen;
-    sheenColor = other.sheenColor;
-    sheenRoughness = other.sheenRoughness;
-    transmission = other.transmission;
-    thickness = other.thickness;
-    attenuationColor = other.attenuationColor;
-    attenuationDistance = other.attenuationDistance;
-    ior = other.ior;
-    emissive = other.emissive;
-    emissiveIntensity = other.emissiveIntensity;
-    specularColor = other.specularColor;
-    specularIntensity = other.specularIntensity;
-    iridescence = other.iridescence;
-    iridescenceIOR = other.iridescenceIOR;
-    autoSmoothAngle = other.autoSmoothAngle;
-  }
+  ColorNode(const ModuleInstantiation *mi) : AbstractNode(mi) {}
   std::string toString() const override;
   std::string name() const override;
 
@@ -59,6 +35,4 @@ public:
   float iridescence = 0.0f;
   float iridescenceIOR = 1.3f;
   float autoSmoothAngle = 0.0f;
-  Value colormap;
-  Value normalmap;
 };

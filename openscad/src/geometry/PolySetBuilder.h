@@ -35,9 +35,9 @@ public:
   void addVertex(const Vector3d& v);
   // Calling this is optional; will be called automatically when adding a new polygon or building the
   // PolySet
-  void endPolygon(const Color4f& color = {}, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f, std::shared_ptr<const class Value> colormap = nullptr, std::shared_ptr<const class Value> normalmap = nullptr);
+  void endPolygon(const Color4f& color = {}, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f);
 
-  void addColor(const Color4f& color, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f, std::shared_ptr<const class Value> colormap = nullptr, std::shared_ptr<const class Value> normalmap = nullptr);
+  void addColor(const Color4f& color, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f);
   void addColorIndex(int idx);  // should be paired with begin/endPolygon()
 
   std::unique_ptr<PolySet> build();
@@ -66,8 +66,6 @@ private:
   std::vector<float> iridescences_;
   std::vector<float> iridescenceIORs_;
   std::vector<float> autoSmoothAngles_;
-  std::vector<std::shared_ptr<const class Value>> colormaps_;
-  std::vector<std::shared_ptr<const class Value>> normalmaps_;
   int convexity_{1};
   int dim_;
   boost::tribool convex_;

@@ -1,10 +1,4 @@
 #include "io/export.h"
-
-#include "core/Context.h"
-#include "core/Value.h"
-#include "core/Assignment.h"
-#include "core/Expression.h"
-
 #include "geometry/Geometry.h"
 #include "geometry/AnimationGeometry.h"
 #include "geometry/PolySet.h"
@@ -32,45 +26,6 @@
 #define TINYGLTF_NO_INCLUDE_JSON
 #include "json/json.hpp"
 #include <tiny_gltf.h>
-
-// Highly optimized evaluator that re-uses a single ContextFrame closure
-struct MapEvaluator {
-    ContextHandle<Context> body_context;
-    const Expression* expr;
-    std::shared_ptr<AssignmentList> params;
-
-    MapEvaluator(const FunctionType& func)
-        : body_context(Context::create<Context>(func.getContext())),
-          expr(func.getExpr().get()),
-          params(func.getParameters()) {}
-
-    Color4f eval(const Vector3d& p3d, const Color4f& default_color) {
-        Color4f c = default_color;
-        try {
-            if (params) {
-                if (params->size() > 0 && (*params)[0]) body_context->set_variable((*params)[0]->getName(), Value(p3d.x()));
-                if (params->size() > 1 && (*params)[1]) body_context->set_variable((*params)[1]->getName(), Value(p3d.y()));
-                if (params->size() > 2 && (*params)[2]) body_context->set_variable((*params)[2]->getName(), Value(p3d.z()));
-            }
-
-            // *body_context returns the std::shared_ptr<const Context>
-            Value res = expr->evaluate(*body_context);
-            if (res.type() == Value::Type::VECTOR) {
-                const auto& vec = res.toVector();
-                c = Color4f(
-                    (float)(vec.size() > 0 ? vec[0].toDouble() : default_color.r()),
-                    (float)(vec.size() > 1 ? vec[1].toDouble() : default_color.g()),
-                    (float)(vec.size() > 2 ? vec[2].toDouble() : default_color.b()),
-                    (float)(vec.size() > 3 ? vec[3].toDouble() : default_color.a())
-                );
-            } else if (res.type() == Value::Type::NUMBER) {
-                float v = (float)res.toDouble();
-                c = Color4f(v, v, v, default_color.a());
-            }
-        } catch(...) {}
-        return c;
-    }
-};
 
 namespace {
 
@@ -128,18 +83,9 @@ public:
     std::vector<int> face_color_idx;
     std::vector<Vector3d> orig_vertices;
     std::vector<Vector3d> tri_vertex_normals;
-    std::vector<std::shared_ptr<MapEvaluator>> evaluators;
     nanort::BVHAccel<float> accel;
 
     SimpleBVH(const PolySet& ps, const Transform3d& transform) {
-        for (const auto& cm : ps.colormaps) {
-            if (cm && cm->type() == Value::Type::FUNCTION) {
-                evaluators.push_back(std::make_shared<MapEvaluator>(cm->toFunction()));
-            } else {
-                evaluators.push_back(nullptr);
-            }
-        }
-
         std::vector<Vector3d> transformed_vertices(ps.vertices.size());
         for (size_t i = 0; i < ps.vertices.size(); ++i) {
             transformed_vertices[i] = transform * ps.vertices[i];
@@ -224,15 +170,6 @@ public:
 
             color = face_colors[prim_idx];
 
-            int c_idx = face_color_idx[prim_idx];
-            if (c_idx >= 0 && c_idx < (int)evaluators.size() && evaluators[c_idx]) {
-                Vector3d op0 = orig_vertices[prim_idx * 3];
-                Vector3d op1 = orig_vertices[prim_idx * 3 + 1];
-                Vector3d op2 = orig_vertices[prim_idx * 3 + 2];
-                Vector3d op3d = w * op0 + u * op1 + v * op2;
-                color = evaluators[c_idx]->eval(op3d, color);
-            }
-
             return true;
         }
         return false;
@@ -262,8 +199,6 @@ struct PrimitiveInfo {
     std::vector<float> normals;
     std::vector<float> tangents;
     std::vector<int> orig_v_idx;
-    std::shared_ptr<const class Value> colormap;
-    std::shared_ptr<const class Value> normalmap;
     std::shared_ptr<SimpleBVH> high_poly_bvh;
     bool bake_colors = false;
     bool bake_normals = false;
@@ -415,20 +350,8 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                     autoSmoothAngle = ps->autoSmoothAngles[color_idx];
                 }
 
-                std::shared_ptr<const Value> colormap = nullptr;
-                if (color_idx >= 0 && color_idx < ps->colormaps.size()) {
-                    colormap = ps->colormaps[color_idx];
-                }
-
-                std::shared_ptr<const Value> normalmap = nullptr;
-                if (color_idx >= 0 && color_idx < ps->normalmaps.size()) {
-                    normalmap = ps->normalmaps[color_idx];
-                }
-
                 PrimitiveInfo prim;
                 prim.color_idx = color_idx;
-                prim.colormap = colormap;
-                prim.normalmap = normalmap;
                 prim.high_poly_bvh = high_poly_bvh;
                 prim.bake_colors = bake_colors;
                 prim.bake_normals = bake_normals;
@@ -650,10 +573,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         std::vector<int> prim_to_atlas(minfo.primitives.size(), -1);
         int num_atlas_meshes = 0;
         for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
-            const auto& prim = minfo.primitives[p_idx];
-            if ((prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) ||
-                (prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION) ||
-                (prim.high_poly_bvh && (prim.bake_colors || prim.bake_normals))) {
+            const auto& prim = minfo.primitives[p_idx];            if (prim.high_poly_bvh && (prim.bake_colors || prim.bake_normals)) {
                 prim_to_atlas[p_idx] = num_atlas_meshes++;
             }
         }
@@ -685,14 +605,11 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
             uint32_t width = atlas->width;
             uint32_t height = atlas->height;
-            if (width > 0 && height > 0 && atlas->atlasCount > 0) {
-                bool has_colormap = false;
+            if (width > 0 && height > 0 && atlas->atlasCount > 0) {                bool has_colormap = false;
                 bool has_normalmap = false;
                 for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
                     if (prim_to_atlas[p_idx] != -1) {
-                        if (minfo.primitives[p_idx].colormap && minfo.primitives[p_idx].colormap->type() == Value::Type::FUNCTION) has_colormap = true;
-                        if ((minfo.primitives[p_idx].normalmap && minfo.primitives[p_idx].normalmap->type() == Value::Type::FUNCTION) ||
-                            (minfo.primitives[p_idx].high_poly_bvh && minfo.primitives[p_idx].bake_normals)) has_normalmap = true;
+                        if (minfo.primitives[p_idx].high_poly_bvh && minfo.primitives[p_idx].bake_normals) has_normalmap = true;
                         if (minfo.primitives[p_idx].high_poly_bvh && minfo.primitives[p_idx].bake_colors) has_colormap = true;
                     }
                 }
@@ -708,17 +625,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                     const xatlas::Mesh& xmesh = atlas->meshes[a_idx];
                     const auto& prim = minfo.primitives[p_idx];
-
-                    std::unique_ptr<MapEvaluator> ceval;
-                    if (has_colormap && prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) ceval = std::make_unique<MapEvaluator>(prim.colormap->toFunction());
-
-                    std::unique_ptr<MapEvaluator> neval;
-                    if (has_normalmap && prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION) neval = std::make_unique<MapEvaluator>(prim.normalmap->toFunction());
-
-                    auto get_pos = [&](uint32_t orig_idx) -> Vector3d {
-                        int v_idx = prim.orig_v_idx[orig_idx];
-                        return prim.ps->vertices[v_idx];
-                    };
                     auto get_gltf_pos = [&](uint32_t orig_idx) -> Vector3d {
                         return Vector3d(prim.positions[orig_idx*3+0], prim.positions[orig_idx*3+1], prim.positions[orig_idx*3+2]);
                     };
@@ -784,10 +690,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                         const xatlas::Vertex& v1 = xmesh.vertexArray[i1];
                         const xatlas::Vertex& v2 = xmesh.vertexArray[i2];
 
-                        Vector3d p0 = get_pos(v0.xref);
-                        Vector3d p1 = get_pos(v1.xref);
-                        Vector3d p2 = get_pos(v2.xref);
-
                         Vector3d gltf_p0 = get_gltf_pos(v0.xref);
                         Vector3d gltf_p1 = get_gltf_pos(v1.xref);
                         Vector3d gltf_p2 = get_gltf_pos(v2.xref);
@@ -821,7 +723,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                 float w = 1.0f - u - v;
 
                                 if (u >= -1e-4f && v >= -1e-4f && w >= -1e-4f) {
-                                    Vector3d p3d = u * p0 + v * p1 + w * p2;
                                     int pixel_idx = (y * width + x) * 4;
 
                                     bool trace_high_poly = prim.high_poly_bvh && (prim.bake_normals || prim.bake_colors);
@@ -873,13 +774,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                     }
 
                                     if (has_colormap) {
-                                        if (ceval) {
-                                            Color4f c = ceval->eval(p3d, Color4f(1, 1, 1, 1));
-                                            pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(c.r() * 255.0f)));
-                                            pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(c.g() * 255.0f)));
-                                            pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(c.b() * 255.0f)));
-                                            pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(c.a() * 255.0f)));
-                                        } else if (prim.high_poly_bvh && prim.bake_colors) {
+                                        if (prim.high_poly_bvh && prim.bake_colors) {
                                             if (hit_high_poly) {
                                                 pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(best_c.r() * 255.0f)));
                                                 pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(best_c.g() * 255.0f)));
@@ -900,44 +795,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                     }
 
                                     if (has_normalmap) {
-                                        if (neval) {
-                                            Color4f n_col = neval->eval(p3d, Color4f(0.5f, 0.5f, 1.0f, 1.0f));
-
-                                            Vector3d N_interp = (u * n0 + v * n1 + w * n2).normalized();
-                                            Vector3d T_interp_n = (u * t0.head<3>() + v * t1.head<3>() + w * t2.head<3>()).normalized();
-                                            float w_interp = t0.w(); // xatlas islands don't fold over, w is uniform per-triangle
-
-                                            Vector3d T_uv = (T_interp_n - N_interp * N_interp.dot(T_interp_n));
-                                            if (T_uv.norm() > 1e-8f) {
-                                                T_uv.normalize();
-                                            } else {
-                                                T_uv = Vector3d(0, 1, 0).cross(N_interp);
-                                                if (T_uv.norm() < 1e-4f) T_uv = Vector3d(1, 0, 0).cross(N_interp);
-                                                T_uv.normalize();
-                                            }
-
-                                            Vector3d B_uv = N_interp.cross(T_uv).normalized() * w_interp;
-
-                                            Vector3d T_can = Vector3d(0, 1, 0).cross(N_interp);
-                                            if (T_can.norm() < 1e-4f) T_can = Vector3d(1, 0, 0).cross(N_interp);
-                                            T_can.normalize();
-                                            Vector3d B_can = N_interp.cross(T_can).normalized();
-
-                                            float dx = n_col.r() * 2.0f - 1.0f;
-                                            float dy = n_col.g() * 2.0f - 1.0f;
-                                            float dz = n_col.b() * 2.0f - 1.0f;
-
-                                            Vector3d N_ws = (T_can * dx + B_can * dy + N_interp * dz).normalized();
-
-                                            float dx_uv = N_ws.dot(T_uv);
-                                            float dy_uv = N_ws.dot(B_uv);
-                                            float dz_uv = N_ws.dot(N_interp);
-
-                                            npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)((dx_uv * 0.5f + 0.5f) * 255.0f)));
-                                            npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((dy_uv * 0.5f + 0.5f) * 255.0f)));
-                                            npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((dz_uv * 0.5f + 0.5f) * 255.0f)));
-                                            npixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(n_col.a() * 255.0f)));
-                                        } else if (prim.high_poly_bvh && prim.bake_normals) {
+                                        if (prim.high_poly_bvh && prim.bake_normals) {
                                             if (hit_high_poly) {
                                                 Vector3d ts_n(best_n.dot(T_interp), best_n.dot(local_b), best_n.dot(n3d));
                                                 if (ts_n.norm() > 1e-8) ts_n.normalize();
