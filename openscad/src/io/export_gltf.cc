@@ -744,6 +744,9 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                     int inside_count = 0;
                                     int hit_count = 0;
 
+                                    double max_bake_dist = prim.bake_distance;
+                                    double bias = prim.bake_bias;
+
                                     for (int sy = 0; sy < 2; ++sy) {
                                         for (int sx = 0; sx < 2; ++sx) {
                                             float px = x + 0.25f + sx * 0.5f;
@@ -757,29 +760,21 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                                 inside_count++;
                                                 Vector3d n3d = (u * n0 + v * n1 + w * n2).normalized();
                                                 Vector3d gltf_p3d = u * gltf_p0 + v * gltf_p1 + w * gltf_p2;
-
-                                                double max_bake_dist = prim.bake_distance;
-                                                double bias = prim.bake_bias;
-
                                                 double t_out = max_bake_dist;
                                                 Vector3d hit_n_out = n3d;
                                                 Color4f hit_c_out(1,1,1,1);
                                                 bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d - n3d * bias, n3d, t_out, hit_n_out, hit_c_out);
 
-                                                double t_in = max_bake_dist;
+                                                double t_in = hit_out ? t_out : max_bake_dist;
                                                 Vector3d hit_n_in = n3d;
                                                 Color4f hit_c_in(1,1,1,1);
                                                 bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d + n3d * bias, -n3d, t_in, hit_n_in, hit_c_in);
 
-                                                if (hit_out && hit_in) {
-                                                    if (t_out < t_in) { accum_n += hit_n_out; accum_c += Vector4d(hit_c_out.r(), hit_c_out.g(), hit_c_out.b(), hit_c_out.a()); }
-                                                    else { accum_n += hit_n_in; accum_c += Vector4d(hit_c_in.r(), hit_c_in.g(), hit_c_in.b(), hit_c_in.a()); }
+                                                if (hit_in) {
+                                                    accum_n += hit_n_in; accum_c += Vector4d(hit_c_in.r(), hit_c_in.g(), hit_c_in.b(), hit_c_in.a());
                                                     hit_count++;
                                                 } else if (hit_out) {
                                                     accum_n += hit_n_out; accum_c += Vector4d(hit_c_out.r(), hit_c_out.g(), hit_c_out.b(), hit_c_out.a());
-                                                    hit_count++;
-                                                } else if (hit_in) {
-                                                    accum_n += hit_n_in; accum_c += Vector4d(hit_c_in.r(), hit_c_in.g(), hit_c_in.b(), hit_c_in.a());
                                                     hit_count++;
                                                 }
                                             }
