@@ -74,6 +74,52 @@ struct MapEvaluator {
 
 namespace {
 
+struct MeshNormalCalculator {
+    std::vector<Vector3d> face_normals;
+    std::vector<std::vector<int>> vertex_to_faces;
+
+    MeshNormalCalculator(const PolySet& ps, const std::vector<Vector3d>& transformed_vertices, const std::vector<int>& face_subset = {}) {
+        size_t num_faces = face_subset.empty() ? ps.indices.size() : face_subset.size();
+        face_normals.assign(num_faces, Vector3d::Zero());
+        vertex_to_faces.resize(ps.vertices.size());
+
+        for (size_t i = 0; i < num_faces; ++i) {
+            int f_idx = face_subset.empty() ? i : face_subset[i];
+            const auto& f = ps.indices[f_idx];
+            if (f.size() < 3) continue;
+            Vector3d p0 = transformed_vertices[f[0]];
+            Vector3d p1 = transformed_vertices[f[1]];
+            Vector3d p2 = transformed_vertices[f[2]];
+            Vector3d n = (p1 - p0).cross(p2 - p0);
+            if (n.norm() > 1e-8) n.normalize();
+            else n = Vector3d(0, 1, 0);
+            face_normals[i] = n;
+
+            for (int v_idx : f) {
+                if (v_idx >= 0 && v_idx < (int)ps.vertices.size()) {
+                    vertex_to_faces[v_idx].push_back(i);
+                }
+            }
+        }
+    }
+
+    Vector3d get_smooth_normal(int v_idx, int local_f_idx, float autoSmoothAngle) const {
+        Vector3d n = face_normals[local_f_idx];
+        if (autoSmoothAngle > 0.0f) {
+            float cos_threshold = std::cos(autoSmoothAngle * M_PI / 180.0f);
+            Vector3d sum_n = Vector3d::Zero();
+            for (int adj_f_idx : vertex_to_faces[v_idx]) {
+                Vector3d adj_fn = face_normals[adj_f_idx];
+                if (n.dot(adj_fn) >= cos_threshold - 1e-5) {
+                    sum_n += adj_fn;
+                }
+            }
+            if (sum_n.norm() > 1e-8) return sum_n.normalized();
+        }
+        return n;
+    }
+};
+
 class SimpleBVH {
 public:
     std::vector<float> vertices;
@@ -81,6 +127,7 @@ public:
     std::vector<Color4f> face_colors;
     std::vector<int> face_color_idx;
     std::vector<Vector3d> orig_vertices;
+    std::vector<Vector3d> tri_vertex_normals;
     std::vector<std::shared_ptr<MapEvaluator>> evaluators;
     nanort::BVHAccel<float> accel;
 
@@ -93,6 +140,13 @@ public:
             }
         }
 
+        std::vector<Vector3d> transformed_vertices(ps.vertices.size());
+        for (size_t i = 0; i < ps.vertices.size(); ++i) {
+            transformed_vertices[i] = transform * ps.vertices[i];
+        }
+
+        MeshNormalCalculator normal_calc(ps, transformed_vertices);
+
         for (size_t i = 0; i < ps.indices.size(); ++i) {
             const auto& face = ps.indices[i];
             int color_idx = -1;
@@ -100,33 +154,34 @@ public:
                 color_idx = ps.color_indices[i];
             }
             Color4f c(0.5f, 0.5f, 0.5f, 1.0f);
+            float autoSmoothAngle = 0.0f;
             if (color_idx >= 0 && color_idx < (int)ps.colors.size()) {
                 c = ps.colors[color_idx];
+                if (color_idx < (int)ps.autoSmoothAngles.size()) {
+                    autoSmoothAngle = ps.autoSmoothAngles[color_idx];
+                }
             }
 
             if (face.size() >= 3) {
                 for (size_t j = 1; j + 1 < face.size(); ++j) {
-                    auto p0_orig = ps.vertices[face[0]];
-                    auto p1_orig = ps.vertices[face[j]];
-                    auto p2_orig = ps.vertices[face[j+1]];
+                    int tri_idx[3] = {face[0], face[j], face[j+1]};
 
-                    auto p0 = transform * p0_orig;
-                    auto p1 = transform * p1_orig;
-                    auto p2 = transform * p2_orig;
+                    for (int k = 0; k < 3; ++k) {
+                        int v_idx = tri_idx[k];
+                        auto p_orig = ps.vertices[v_idx];
+                        auto p = transformed_vertices[v_idx];
 
-                    unsigned int start_idx = vertices.size() / 3;
-                    vertices.push_back((float)p0.x()); vertices.push_back((float)p0.y()); vertices.push_back((float)p0.z());
-                    vertices.push_back((float)p1.x()); vertices.push_back((float)p1.y()); vertices.push_back((float)p1.z());
-                    vertices.push_back((float)p2.x()); vertices.push_back((float)p2.y()); vertices.push_back((float)p2.z());
+                        unsigned int v_pos = vertices.size() / 3;
+                        vertices.push_back((float)p.x());
+                        vertices.push_back((float)p.y());
+                        vertices.push_back((float)p.z());
 
-                    orig_vertices.push_back(p0_orig);
-                    orig_vertices.push_back(p1_orig);
-                    orig_vertices.push_back(p2_orig);
+                        orig_vertices.push_back(p_orig);
+                        indices.push_back(v_pos);
 
-                    indices.push_back(start_idx);
-                    indices.push_back(start_idx + 1);
-                    indices.push_back(start_idx + 2);
-
+                        Vector3d n = normal_calc.get_smooth_normal(v_idx, i, autoSmoothAngle);
+                        tri_vertex_normals.push_back(n);
+                    }
                     face_colors.push_back(c);
                     face_color_idx.push_back(color_idx);
                 }
@@ -154,15 +209,16 @@ public:
         if (hit && isect.t < t) {
             t = isect.t;
             unsigned int prim_idx = isect.prim_id;
-            unsigned int i0 = indices[prim_idx * 3];
-            unsigned int i1 = indices[prim_idx * 3 + 1];
-            unsigned int i2 = indices[prim_idx * 3 + 2];
 
-            Vector3d p0(vertices[i0*3], vertices[i0*3+1], vertices[i0*3+2]);
-            Vector3d p1(vertices[i1*3], vertices[i1*3+1], vertices[i1*3+2]);
-            Vector3d p2(vertices[i2*3], vertices[i2*3+1], vertices[i2*3+2]);
+            float u = isect.u;
+            float v = isect.v;
+            float w = 1.0f - u - v;
 
-            n = (p1 - p0).cross(p2 - p0);
+            Vector3d n0 = tri_vertex_normals[prim_idx * 3 + 0];
+            Vector3d n1 = tri_vertex_normals[prim_idx * 3 + 1];
+            Vector3d n2 = tri_vertex_normals[prim_idx * 3 + 2];
+
+            n = (w * n0 + u * n1 + v * n2);
             if (n.norm() > 1e-8) n.normalize();
             else n = Vector3d(0, 1, 0);
 
@@ -170,9 +226,6 @@ public:
 
             int c_idx = face_color_idx[prim_idx];
             if (c_idx >= 0 && c_idx < (int)evaluators.size() && evaluators[c_idx]) {
-                float u = isect.u;
-                float v = isect.v;
-                float w = 1.0f - u - v;
                 Vector3d op0 = orig_vertices[prim_idx * 3];
                 Vector3d op1 = orig_vertices[prim_idx * 3 + 1];
                 Vector3d op2 = orig_vertices[prim_idx * 3 + 2];
@@ -384,28 +437,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                     gltf_vertices[i] = C * M_accum * ps->vertices[i];
                 }
 
-                std::vector<Vector3d> face_normals(face_indices.size());
-                for (size_t i = 0; i < face_indices.size(); ++i) {
-                    const auto& f = ps->indices[face_indices[i]];
-                    if (f.size() < 3) continue;
-                    Vector3d p0 = gltf_vertices[f[0]];
-                    Vector3d p1 = gltf_vertices[f[1]];
-                    Vector3d p2 = gltf_vertices[f[2]];
-                    Vector3d n = (p1 - p0).cross(p2 - p0);
-                    if (n.norm() > 1e-8) n.normalize();
-                    else n = Vector3d(0, 1, 0);
-                    face_normals[i] = n;
-                }
-
-                std::vector<std::vector<int>> vertex_to_faces(ps->vertices.size());
-                for (size_t i = 0; i < face_indices.size(); ++i) {
-                    const auto& f = ps->indices[face_indices[i]];
-                    for (int v_idx : f) {
-                        vertex_to_faces[v_idx].push_back(i);
-                    }
-                }
-
-                float cos_threshold = std::cos(autoSmoothAngle * M_PI / 180.0f);
+                MeshNormalCalculator normal_calc(*ps, gltf_vertices, face_indices);
 
                 struct VertKey {
                     int v_idx;
@@ -450,25 +482,12 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                     const auto& f = ps->indices[face_indices[i]];
                     if (f.size() < 3) continue;
 
-                    Vector3d fn = face_normals[i];
-
                     for (size_t j = 1; j + 1 < f.size(); ++j) {
                         int tri[3] = {f[0], f[j], f[j+1]};
 
                         for (int k = 0; k < 3; ++k) {
                             int v = tri[k];
-                            Vector3d n = fn;
-
-                            if (autoSmoothAngle > 0.0f) {
-                                Vector3d sum_n = Vector3d::Zero();
-                                for (int adj_f_idx : vertex_to_faces[v]) {
-                                    Vector3d adj_fn = face_normals[adj_f_idx];
-                                    if (fn.dot(adj_fn) >= cos_threshold - 1e-5) {
-                                        sum_n += adj_fn;
-                                    }
-                                }
-                                if (sum_n.norm() > 1e-8) n = sum_n.normalized();
-                            }
+                            Vector3d n = normal_calc.get_smooth_normal(v, i, autoSmoothAngle);
 
                             prim.indices.push_back(add_vertex(v, n));
                         }
