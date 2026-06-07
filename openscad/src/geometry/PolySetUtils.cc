@@ -100,6 +100,9 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->high_poly_bake = polyset.high_poly_bake;
     result->bake_colors = polyset.bake_colors;
     result->bake_normals = polyset.bake_normals;
+    result->bake_distance = polyset.bake_distance;
+    result->bake_bias = polyset.bake_bias;
+    result->bake_dilation = polyset.bake_dilation;
     return result;
   }
   result->vertices.reserve(polyset.vertices.size());
@@ -209,6 +212,9 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
   result->high_poly_bake = polyset.high_poly_bake;
   result->bake_colors = polyset.bake_colors;
   result->bake_normals = polyset.bake_normals;
+  result->bake_distance = polyset.bake_distance;
+  result->bake_bias = polyset.bake_bias;
+  result->bake_dilation = polyset.bake_dilation;
   return result;
 }
 

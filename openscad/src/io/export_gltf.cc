@@ -267,6 +267,9 @@ struct PrimitiveInfo {
     std::shared_ptr<SimpleBVH> high_poly_bvh;
     bool bake_colors = false;
     bool bake_normals = false;
+    double bake_distance = 2.0;
+    double bake_bias = 1e-4;
+    int bake_dilation = 8;
     std::string base_color_uri;
     std::string normal_texture_uri;
     float min_pos[3];
@@ -429,6 +432,9 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                 prim.high_poly_bvh = high_poly_bvh;
                 prim.bake_colors = bake_colors;
                 prim.bake_normals = bake_normals;
+                prim.bake_distance = ps->bake_distance;
+                prim.bake_bias = ps->bake_bias;
+                prim.bake_dilation = ps->bake_dilation;
                 prim.ps = ps;
                 for(int i=0; i<3; ++i) { prim.min_pos[i] = FLT_MAX; prim.max_pos[i] = -FLT_MAX; }
 
@@ -834,15 +840,20 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                         float w_interp = t0.w();
                                         local_b = n3d.cross(T_interp).normalized() * w_interp;
 
-                                        double t_out = 0.5;
+                                        double max_bake_dist = prim.bake_distance;
+                                        double bias = prim.bake_bias;
+
+                                        // Start slightly inside and look outward to catch coplanar and outside features
+                                        double t_out = max_bake_dist;
                                         Vector3d hit_n_out = n3d;
                                         Color4f hit_c_out(1,1,1,1);
-                                        bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d + n3d * 1e-4, n3d, t_out, hit_n_out, hit_c_out);
+                                        bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d - n3d * bias, n3d, t_out, hit_n_out, hit_c_out);
 
-                                        double t_in = 0.5;
+                                        // Start slightly outside and look inward to catch coplanar and inside features
+                                        double t_in = max_bake_dist;
                                         Vector3d hit_n_in = n3d;
                                         Color4f hit_c_in(1,1,1,1);
-                                        bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d - n3d * 1e-4, -n3d, t_in, hit_n_in, hit_c_in);
+                                        bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d + n3d * bias, -n3d, t_in, hit_n_in, hit_c_in);
 
                                         best_n = n3d;
                                         if (hit_out && hit_in) {
@@ -954,8 +965,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     }
                 }
 
-                auto dilate_and_encode = [&](std::vector<uint8_t>& px, uint8_t defR, uint8_t defG, uint8_t defB) -> std::string {
-                    for (int iter = 0; iter < 8; ++iter) {
+                auto dilate_and_encode = [&](std::vector<uint8_t>& px, uint8_t defR, uint8_t defG, uint8_t defB, int dilation_iters) -> std::string {
+                    for (int iter = 0; iter < dilation_iters; ++iter) {
                         std::vector<uint8_t> dilated_pixels = px;
                         int changed = 0;
                         for (uint32_t y = 0; y < height; ++y) {
@@ -1010,8 +1021,15 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     return "data:image/png;base64," + base64_encode(png_data.data(), png_data.size());
                 };
 
-                if (has_colormap) mesh_base_color_uri = dilate_and_encode(pixels, 128, 128, 128);
-                if (has_normalmap) mesh_normal_texture_uri = dilate_and_encode(npixels, 128, 128, 255);
+                int atlas_dilation = 8;
+                for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
+                    if (prim_to_atlas[p_idx] != -1) {
+                        atlas_dilation = std::max(atlas_dilation, minfo.primitives[p_idx].bake_dilation);
+                    }
+                }
+
+                if (has_colormap) mesh_base_color_uri = dilate_and_encode(pixels, 128, 128, 128, atlas_dilation);
+                if (has_normalmap) mesh_normal_texture_uri = dilate_and_encode(npixels, 128, 128, 255, atlas_dilation);
             }
         }
 
