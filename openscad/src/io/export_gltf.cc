@@ -33,103 +33,6 @@
 #include "json/json.hpp"
 #include <tiny_gltf.h>
 
-namespace {
-
-class SimpleBVH {
-public:
-    std::vector<float> vertices;
-    std::vector<unsigned int> indices;
-    std::vector<Color4f> face_colors;
-    nanort::BVHAccel<float> accel;
-
-    SimpleBVH(const PolySet& ps) {
-        for (size_t i = 0; i < ps.indices.size(); ++i) {
-            const auto& face = ps.indices[i];
-            int color_idx = -1;
-            if (!ps.color_indices.empty() && i < ps.color_indices.size()) {
-                color_idx = ps.color_indices[i];
-            }
-            Color4f c(0.5f, 0.5f, 0.5f, 1.0f);
-            if (color_idx >= 0 && color_idx < (int)ps.colors.size()) {
-                c = ps.colors[color_idx];
-            }
-
-            if (face.size() >= 3) {
-                for (size_t j = 1; j + 1 < face.size(); ++j) {
-                    auto p0 = ps.vertices[face[0]];
-                    auto p1 = ps.vertices[face[j]];
-                    auto p2 = ps.vertices[face[j+1]];
-
-                    unsigned int start_idx = vertices.size() / 3;
-                    vertices.push_back((float)p0.x()); vertices.push_back((float)p0.y()); vertices.push_back((float)p0.z());
-                    vertices.push_back((float)p1.x()); vertices.push_back((float)p1.y()); vertices.push_back((float)p1.z());
-                    vertices.push_back((float)p2.x()); vertices.push_back((float)p2.y()); vertices.push_back((float)p2.z());
-
-                    indices.push_back(start_idx);
-                    indices.push_back(start_idx + 1);
-                    indices.push_back(start_idx + 2);
-
-                    face_colors.push_back(c);
-                }
-            }
-        }
-
-        nanort::BVHBuildOptions<float> build_options;
-        nanort::TriangleMesh<float> triangle_mesh(vertices.data(), indices.data(), sizeof(float)*3);
-        nanort::TriangleSAHPred<float> triangle_pred(vertices.data(), indices.data(), sizeof(float)*3);
-
-        accel.Build(indices.size() / 3, triangle_mesh, triangle_pred, build_options);
-    }
-
-    bool intersect(const Vector3d& origin, const Vector3d& dir, double& t, Vector3d& n, Color4f& color) const {
-        nanort::Ray<float> ray;
-        ray.min_t = 1e-5f;
-        ray.max_t = (float)t;
-        ray.org[0] = (float)origin.x(); ray.org[1] = (float)origin.y(); ray.org[2] = (float)origin.z();
-        ray.dir[0] = (float)dir.x(); ray.dir[1] = (float)dir.y(); ray.dir[2] = (float)dir.z();
-
-        nanort::TriangleIntersector<float> triangle_intersector(vertices.data(), indices.data(), sizeof(float)*3);
-        nanort::TriangleIntersection<float> isect;
-
-        bool hit = accel.Traverse(ray, triangle_intersector, &isect);
-        if (hit && isect.t < t) {
-            t = isect.t;
-            unsigned int prim_idx = isect.prim_id;
-            unsigned int i0 = indices[prim_idx * 3];
-            unsigned int i1 = indices[prim_idx * 3 + 1];
-            unsigned int i2 = indices[prim_idx * 3 + 2];
-
-            Vector3d p0(vertices[i0*3], vertices[i0*3+1], vertices[i0*3+2]);
-            Vector3d p1(vertices[i1*3], vertices[i1*3+1], vertices[i1*3+2]);
-            Vector3d p2(vertices[i2*3], vertices[i2*3+1], vertices[i2*3+2]);
-
-            n = (p1 - p0).cross(p2 - p0);
-            if (n.norm() > 1e-8) n.normalize();
-            else n = Vector3d(0, 1, 0);
-
-            color = face_colors[prim_idx];
-            return true;
-        }
-        return false;
-    }
-};
-
-} // namespace
-
-static std::string base64_encode(const unsigned char* data, size_t len) {
-    static const char chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    std::string ret;
-    ret.reserve(((len + 2) / 3) * 4);
-    for (size_t i = 0; i < len; i += 3) {
-        uint32_t val = (data[i] << 16) | (i + 1 < len ? data[i + 1] << 8 : 0) | (i + 2 < len ? data[i + 2] : 0);
-        ret.push_back(chars[(val >> 18) & 0x3F]);
-        ret.push_back(chars[(val >> 12) & 0x3F]);
-        ret.push_back(i + 1 < len ? chars[(val >> 6) & 0x3F] : '=');
-        ret.push_back(i + 2 < len ? chars[val & 0x3F] : '=');
-    }
-    return ret;
-}
-
 // Highly optimized evaluator that re-uses a single ContextFrame closure
 struct MapEvaluator {
     ContextHandle<Context> body_context;
@@ -168,6 +71,136 @@ struct MapEvaluator {
         return c;
     }
 };
+
+namespace {
+
+class SimpleBVH {
+public:
+    std::vector<float> vertices;
+    std::vector<unsigned int> indices;
+    std::vector<Color4f> face_colors;
+    std::vector<int> face_color_idx;
+    std::vector<Vector3d> orig_vertices;
+    std::vector<std::shared_ptr<MapEvaluator>> evaluators;
+    nanort::BVHAccel<float> accel;
+
+    SimpleBVH(const PolySet& ps, const Transform3d& transform) {
+        for (const auto& cm : ps.colormaps) {
+            if (cm && cm->type() == Value::Type::FUNCTION) {
+                evaluators.push_back(std::make_shared<MapEvaluator>(cm->toFunction()));
+            } else {
+                evaluators.push_back(nullptr);
+            }
+        }
+
+        for (size_t i = 0; i < ps.indices.size(); ++i) {
+            const auto& face = ps.indices[i];
+            int color_idx = -1;
+            if (!ps.color_indices.empty() && i < ps.color_indices.size()) {
+                color_idx = ps.color_indices[i];
+            }
+            Color4f c(0.5f, 0.5f, 0.5f, 1.0f);
+            if (color_idx >= 0 && color_idx < (int)ps.colors.size()) {
+                c = ps.colors[color_idx];
+            }
+
+            if (face.size() >= 3) {
+                for (size_t j = 1; j + 1 < face.size(); ++j) {
+                    auto p0_orig = ps.vertices[face[0]];
+                    auto p1_orig = ps.vertices[face[j]];
+                    auto p2_orig = ps.vertices[face[j+1]];
+
+                    auto p0 = transform * p0_orig;
+                    auto p1 = transform * p1_orig;
+                    auto p2 = transform * p2_orig;
+
+                    unsigned int start_idx = vertices.size() / 3;
+                    vertices.push_back((float)p0.x()); vertices.push_back((float)p0.y()); vertices.push_back((float)p0.z());
+                    vertices.push_back((float)p1.x()); vertices.push_back((float)p1.y()); vertices.push_back((float)p1.z());
+                    vertices.push_back((float)p2.x()); vertices.push_back((float)p2.y()); vertices.push_back((float)p2.z());
+
+                    orig_vertices.push_back(p0_orig);
+                    orig_vertices.push_back(p1_orig);
+                    orig_vertices.push_back(p2_orig);
+
+                    indices.push_back(start_idx);
+                    indices.push_back(start_idx + 1);
+                    indices.push_back(start_idx + 2);
+
+                    face_colors.push_back(c);
+                    face_color_idx.push_back(color_idx);
+                }
+            }
+        }
+
+        nanort::BVHBuildOptions<float> build_options;
+        nanort::TriangleMesh<float> triangle_mesh(vertices.data(), indices.data(), sizeof(float)*3);
+        nanort::TriangleSAHPred<float> triangle_pred(vertices.data(), indices.data(), sizeof(float)*3);
+
+        accel.Build(indices.size() / 3, triangle_mesh, triangle_pred, build_options);
+    }
+
+    bool intersect(const Vector3d& origin, const Vector3d& dir, double& t, Vector3d& n, Color4f& color) const {
+        nanort::Ray<float> ray;
+        ray.min_t = 1e-5f;
+        ray.max_t = (float)t;
+        ray.org[0] = (float)origin.x(); ray.org[1] = (float)origin.y(); ray.org[2] = (float)origin.z();
+        ray.dir[0] = (float)dir.x(); ray.dir[1] = (float)dir.y(); ray.dir[2] = (float)dir.z();
+
+        nanort::TriangleIntersector<float> triangle_intersector(vertices.data(), indices.data(), sizeof(float)*3);
+        nanort::TriangleIntersection<float> isect;
+
+        bool hit = accel.Traverse(ray, triangle_intersector, &isect);
+        if (hit && isect.t < t) {
+            t = isect.t;
+            unsigned int prim_idx = isect.prim_id;
+            unsigned int i0 = indices[prim_idx * 3];
+            unsigned int i1 = indices[prim_idx * 3 + 1];
+            unsigned int i2 = indices[prim_idx * 3 + 2];
+
+            Vector3d p0(vertices[i0*3], vertices[i0*3+1], vertices[i0*3+2]);
+            Vector3d p1(vertices[i1*3], vertices[i1*3+1], vertices[i1*3+2]);
+            Vector3d p2(vertices[i2*3], vertices[i2*3+1], vertices[i2*3+2]);
+
+            n = (p1 - p0).cross(p2 - p0);
+            if (n.norm() > 1e-8) n.normalize();
+            else n = Vector3d(0, 1, 0);
+
+            color = face_colors[prim_idx];
+
+            int c_idx = face_color_idx[prim_idx];
+            if (c_idx >= 0 && c_idx < (int)evaluators.size() && evaluators[c_idx]) {
+                float u = isect.u;
+                float v = isect.v;
+                float w = 1.0f - u - v;
+                Vector3d op0 = orig_vertices[prim_idx * 3];
+                Vector3d op1 = orig_vertices[prim_idx * 3 + 1];
+                Vector3d op2 = orig_vertices[prim_idx * 3 + 2];
+                Vector3d op3d = w * op0 + u * op1 + v * op2;
+                color = evaluators[c_idx]->eval(op3d, color);
+            }
+
+            return true;
+        }
+        return false;
+    }
+};
+
+} // namespace
+
+static std::string base64_encode(const unsigned char* data, size_t len) {
+    static const char chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string ret;
+    ret.reserve(((len + 2) / 3) * 4);
+    for (size_t i = 0; i < len; i += 3) {
+        uint32_t val = (data[i] << 16) | (i + 1 < len ? data[i + 1] << 8 : 0) | (i + 2 < len ? data[i + 2] : 0);
+        ret.push_back(chars[(val >> 18) & 0x3F]);
+        ret.push_back(chars[(val >> 12) & 0x3F]);
+        ret.push_back(i + 1 < len ? chars[(val >> 6) & 0x3F] : '=');
+        ret.push_back(i + 2 < len ? chars[val & 0x3F] : '=');
+    }
+    return ret;
+}
 
 struct PrimitiveInfo {
     int color_idx;
@@ -296,10 +329,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             bool bake_normals = false;
             if (ps->high_poly_bake) {
                 auto high_tri = ps->high_poly_bake->isTriangular() ? std::make_shared<PolySet>(*ps->high_poly_bake) : PolySetUtils::tessellate_faces(*ps->high_poly_bake);
-                for (auto& v : high_tri->vertices) {
-                    v = C * M_accum * v;
-                }
-                high_poly_bvh = std::make_shared<SimpleBVH>(*high_tri);
+                high_poly_bvh = std::make_shared<SimpleBVH>(*high_tri, C * M_accum);
                 bake_colors = ps->bake_colors;
                 bake_normals = ps->bake_normals;
             }
