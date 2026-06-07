@@ -599,7 +599,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             }
 
             xatlas::PackOptions packOptions;
-            packOptions.resolution = 0; // 0 to auto-fit all into 1 atlas
+            packOptions.resolution = 2048; // Higher default resolution for better quality
             packOptions.padding = 2;
             xatlas::Generate(atlas, xatlas::ChartOptions(), packOptions);
 
@@ -713,104 +713,148 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                         for (int y = min_y; y <= max_y; ++y) {
                             for (int x = min_x; x <= max_x; ++x) {
-                                float px = x + 0.5f;
-                                float py = y + 0.5f;
+                                float px_center = x + 0.5f;
+                                float py_center = y + 0.5f;
 
                                 float det = (uv1y - uv2y)*(uv0x - uv2x) + (uv2x - uv1x)*(uv0y - uv2y);
                                 if (std::abs(det) < 1e-8f) continue;
-                                float u = ((uv1y - uv2y)*(px - uv2x) + (uv2x - uv1x)*(py - uv2y)) / det;
-                                float v = ((uv2y - uv0y)*(px - uv2x) + (uv0x - uv2x)*(py - uv2y)) / det;
-                                float w = 1.0f - u - v;
 
-                                if (u >= -1e-4f && v >= -1e-4f && w >= -1e-4f) {
-                                    int pixel_idx = (y * width + x) * 4;
+                                float du_dx = (uv1y - uv2y) / det;
+                                float du_dy = (uv2x - uv1x) / det;
+                                float dv_dx = (uv2y - uv0y) / det;
+                                float dv_dy = (uv0x - uv2x) / det;
 
-                                    bool trace_high_poly = prim.high_poly_bvh && (prim.bake_normals || prim.bake_colors);
-                                    bool hit_high_poly = false;
-                                    Vector3d best_n = Vector3d::Zero();
-                                    Color4f best_c(1,1,1,1);
-                                    Vector3d T_interp;
-                                    Vector3d local_b;
-                                    Vector3d n3d;
+                                float u_c = du_dx * (px_center - uv2x) + du_dy * (py_center - uv2y);
+                                float v_c = dv_dx * (px_center - uv2x) + dv_dy * (py_center - uv2y);
+                                float w_c = 1.0f - u_c - v_c;
 
-                                    if (trace_high_poly) {
-                                        n3d = (u * n0 + v * n1 + w * n2).normalized();
-                                        Vector3d gltf_p3d = u * gltf_p0 + v * gltf_p1 + w * gltf_p2;
+                                float margin_u = 0.5f * (std::abs(du_dx) + std::abs(du_dy)) + 1e-4f;
+                                float margin_v = 0.5f * (std::abs(dv_dx) + std::abs(dv_dy)) + 1e-4f;
+                                float margin_w = margin_u + margin_v + 1e-4f;
 
-                                        T_interp = (u * t0.head<3>() + v * t1.head<3>() + w * t2.head<3>()).normalized();
-                                        float w_interp = t0.w();
-                                        local_b = n3d.cross(T_interp).normalized() * w_interp;
+                                if (u_c < -margin_u || v_c < -margin_v || w_c < -margin_w) continue;
 
-                                        double max_bake_dist = prim.bake_distance;
-                                        double bias = prim.bake_bias;
+                                int pixel_idx = (y * width + x) * 4;
 
-                                        // Start slightly inside and look outward to catch coplanar and outside features
-                                        double t_out = max_bake_dist;
-                                        Vector3d hit_n_out = n3d;
-                                        Color4f hit_c_out(1,1,1,1);
-                                        bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d - n3d * bias, n3d, t_out, hit_n_out, hit_c_out);
+                                bool trace_high_poly = prim.high_poly_bvh && (prim.bake_normals || prim.bake_colors);
 
-                                        // Start slightly outside and look inward to catch coplanar and inside features
-                                        double t_in = max_bake_dist;
-                                        Vector3d hit_n_in = n3d;
-                                        Color4f hit_c_in(1,1,1,1);
-                                        bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d + n3d * bias, -n3d, t_in, hit_n_in, hit_c_in);
+                                if (trace_high_poly) {
+                                    Vector3d accum_n = Vector3d::Zero();
+                                    Vector4d accum_c = Vector4d::Zero();
+                                    int inside_count = 0;
+                                    int hit_count = 0;
 
-                                        best_n = n3d;
-                                        if (hit_out && hit_in) {
-                                            if (t_out < t_in) {
-                                                best_n = hit_n_out; best_c = hit_c_out;
-                                            } else {
-                                                best_n = hit_n_in; best_c = hit_c_in;
+                                    for (int sy = 0; sy < 3; ++sy) {
+                                        for (int sx = 0; sx < 3; ++sx) {
+                                            float px = x + 0.166667f + sx * 0.333333f;
+                                            float py = y + 0.166667f + sy * 0.333333f;
+
+                                            float u = du_dx * (px - uv2x) + du_dy * (py - uv2y);
+                                            float v = dv_dx * (px - uv2x) + dv_dy * (py - uv2y);
+                                            float w = 1.0f - u - v;
+
+                                            if (u >= -1e-4f && v >= -1e-4f && w >= -1e-4f) {
+                                                inside_count++;
+                                                Vector3d n3d = (u * n0 + v * n1 + w * n2).normalized();
+                                                Vector3d gltf_p3d = u * gltf_p0 + v * gltf_p1 + w * gltf_p2;
+
+                                                double max_bake_dist = prim.bake_distance;
+                                                double bias = prim.bake_bias;
+
+                                                double t_out = max_bake_dist;
+                                                Vector3d hit_n_out = n3d;
+                                                Color4f hit_c_out(1,1,1,1);
+                                                bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d - n3d * bias, n3d, t_out, hit_n_out, hit_c_out);
+
+                                                double t_in = max_bake_dist;
+                                                Vector3d hit_n_in = n3d;
+                                                Color4f hit_c_in(1,1,1,1);
+                                                bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d + n3d * bias, -n3d, t_in, hit_n_in, hit_c_in);
+
+                                                if (hit_out && hit_in) {
+                                                    if (t_out < t_in) { accum_n += hit_n_out; accum_c += Vector4d(hit_c_out.r(), hit_c_out.g(), hit_c_out.b(), hit_c_out.a()); }
+                                                    else { accum_n += hit_n_in; accum_c += Vector4d(hit_c_in.r(), hit_c_in.g(), hit_c_in.b(), hit_c_in.a()); }
+                                                    hit_count++;
+                                                } else if (hit_out) {
+                                                    accum_n += hit_n_out; accum_c += Vector4d(hit_c_out.r(), hit_c_out.g(), hit_c_out.b(), hit_c_out.a());
+                                                    hit_count++;
+                                                } else if (hit_in) {
+                                                    accum_n += hit_n_in; accum_c += Vector4d(hit_c_in.r(), hit_c_in.g(), hit_c_in.b(), hit_c_in.a());
+                                                    hit_count++;
+                                                }
                                             }
-                                            hit_high_poly = true;
-                                        } else if (hit_out) {
-                                            best_n = hit_n_out; best_c = hit_c_out;
-                                            hit_high_poly = true;
-                                        } else if (hit_in) {
-                                            best_n = hit_n_in; best_c = hit_c_in;
-                                            hit_high_poly = true;
                                         }
                                     }
 
-                                    if (has_colormap) {
-                                        if (prim.high_poly_bvh && prim.bake_colors) {
-                                            if (hit_high_poly) {
-                                                pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(best_c.r() * 255.0f)));
-                                                pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(best_c.g() * 255.0f)));
-                                                pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(best_c.b() * 255.0f)));
-                                                pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(best_c.a() * 255.0f)));
+                                    if (inside_count > 0) {
+                                        float cu = std::max(0.0f, std::min(1.0f, u_c));
+                                        float cv = std::max(0.0f, std::min(1.0f, v_c));
+                                        float cw = 1.0f - cu - cv;
+
+                                        Vector3d T_interp = (cu * t0.head<3>() + cv * t1.head<3>() + cw * t2.head<3>()).normalized();
+                                        float w_interp = t0.w();
+                                        Vector3d n3d_c = (cu * n0 + cv * n1 + cw * n2).normalized();
+                                        Vector3d local_b = n3d_c.cross(T_interp).normalized() * w_interp;
+
+                                        if (has_colormap) {
+                                            if (prim.bake_colors) {
+                                                if (hit_count > 0) {
+                                                    Vector4d avg_c = accum_c / hit_count;
+                                                    pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(avg_c.x() * 255.0f)));
+                                                    pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(avg_c.y() * 255.0f)));
+                                                    pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(avg_c.z() * 255.0f)));
+                                                    pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(avg_c.w() * 255.0f)));
+                                                } else {
+                                                    pixels[pixel_idx + 0] = 255;
+                                                    pixels[pixel_idx + 1] = 255;
+                                                    pixels[pixel_idx + 2] = 255;
+                                                    pixels[pixel_idx + 3] = 0; // alpha 0 to allow dilation
+                                                }
                                             } else {
                                                 pixels[pixel_idx + 0] = 255;
                                                 pixels[pixel_idx + 1] = 255;
                                                 pixels[pixel_idx + 2] = 255;
-                                                pixels[pixel_idx + 3] = 0; // alpha 0 to allow dilation
+                                                pixels[pixel_idx + 3] = 255;
                                             }
-                                        } else {
+                                        }
+
+                                        if (has_normalmap) {
+                                            if (prim.bake_normals) {
+                                                if (hit_count > 0) {
+                                                    Vector3d avg_n = accum_n / hit_count;
+                                                    if (avg_n.norm() > 1e-8) avg_n.normalize();
+                                                    else avg_n = n3d_c;
+
+                                                    Vector3d ts_n(avg_n.dot(T_interp), avg_n.dot(local_b), avg_n.dot(n3d_c));
+                                                    if (ts_n.norm() > 1e-8) ts_n.normalize();
+
+                                                    npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.x() * 0.5 + 0.5) * 255.0)));
+                                                    npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.y() * 0.5 + 0.5) * 255.0)));
+                                                    npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.z() * 0.5 + 0.5) * 255.0)));
+                                                    npixels[pixel_idx + 3] = 255;
+                                                } else {
+                                                    npixels[pixel_idx + 0] = 128;
+                                                    npixels[pixel_idx + 1] = 128;
+                                                    npixels[pixel_idx + 2] = 255;
+                                                    npixels[pixel_idx + 3] = 0; // alpha 0 to allow dilation
+                                                }
+                                            } else {
+                                                npixels[pixel_idx + 0] = 128;
+                                                npixels[pixel_idx + 1] = 128;
+                                                npixels[pixel_idx + 2] = 255;
+                                                npixels[pixel_idx + 3] = 255;
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    if (u_c >= -1e-4f && v_c >= -1e-4f && w_c >= -1e-4f) {
+                                        if (has_colormap) {
                                             pixels[pixel_idx + 0] = 255;
                                             pixels[pixel_idx + 1] = 255;
                                             pixels[pixel_idx + 2] = 255;
                                             pixels[pixel_idx + 3] = 255;
                                         }
-                                    }
-
-                                    if (has_normalmap) {
-                                        if (prim.high_poly_bvh && prim.bake_normals) {
-                                            if (hit_high_poly) {
-                                                Vector3d ts_n(best_n.dot(T_interp), best_n.dot(local_b), best_n.dot(n3d));
-                                                if (ts_n.norm() > 1e-8) ts_n.normalize();
-
-                                                npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.x() * 0.5 + 0.5) * 255.0)));
-                                                npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.y() * 0.5 + 0.5) * 255.0)));
-                                                npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((ts_n.z() * 0.5 + 0.5) * 255.0)));
-                                                npixels[pixel_idx + 3] = 255;
-                                            } else {
-                                                npixels[pixel_idx + 0] = 128;
-                                                npixels[pixel_idx + 1] = 128;
-                                                npixels[pixel_idx + 2] = 255;
-                                                npixels[pixel_idx + 3] = 0; // alpha 0 to allow dilation
-                                            }
-                                        } else {
+                                        if (has_normalmap) {
                                             npixels[pixel_idx + 0] = 128;
                                             npixels[pixel_idx + 1] = 128;
                                             npixels[pixel_idx + 2] = 255;
@@ -1056,8 +1100,18 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                         int img_idx = model.images.size();
                         model.images.push_back(img);
 
+                        if (model.samplers.empty()) {
+                            tinygltf::Sampler sampler;
+                            sampler.minFilter = TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR;
+                            sampler.magFilter = TINYGLTF_TEXTURE_FILTER_LINEAR;
+                            sampler.wrapS = TINYGLTF_TEXTURE_WRAP_REPEAT;
+                            sampler.wrapT = TINYGLTF_TEXTURE_WRAP_REPEAT;
+                            model.samplers.push_back(sampler);
+                        }
+
                         tinygltf::Texture tex;
                         tex.source = img_idx;
+                        tex.sampler = 0;
                         int tex_idx = model.textures.size();
                         model.textures.push_back(tex);
 
@@ -1076,8 +1130,18 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                         int img_idx = model.images.size();
                         model.images.push_back(img);
 
+                        if (model.samplers.empty()) {
+                            tinygltf::Sampler sampler;
+                            sampler.minFilter = TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR;
+                            sampler.magFilter = TINYGLTF_TEXTURE_FILTER_LINEAR;
+                            sampler.wrapS = TINYGLTF_TEXTURE_WRAP_REPEAT;
+                            sampler.wrapT = TINYGLTF_TEXTURE_WRAP_REPEAT;
+                            model.samplers.push_back(sampler);
+                        }
+
                         tinygltf::Texture tex;
                         tex.source = img_idx;
+                        tex.sampler = 0;
                         int tex_idx = model.textures.size();
                         model.textures.push_back(tex);
 
