@@ -362,6 +362,10 @@ std::unique_ptr<PolySet> createSortedPolySet(const PolySet& ps)
   out->colormaps = ps.colormaps;
   out->normalmaps = ps.normalmaps;
 
+  out->high_poly_bake = ps.high_poly_bake;
+  out->bake_colors = ps.bake_colors;
+  out->bake_normals = ps.bake_normals;
+
   std::vector<int> indexTranslationMap(vertexMap.size());
   out->vertices.reserve(vertexMap.size());
 

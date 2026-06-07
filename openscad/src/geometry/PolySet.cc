@@ -109,6 +109,12 @@ void PolySet::transform(const Transform3d& mat)
       std::reverse(p.begin(), p.end());
     }
   bbox_.setNull();
+
+  if (high_poly_bake) {
+    auto new_high_poly = std::make_shared<PolySet>(*high_poly_bake);
+    new_high_poly->transform(mat);
+    high_poly_bake = new_high_poly;
+  }
 }
 
 void PolySet::setColor(const Color4f& c, float roughness, float metalness, float clearcoat, float clearcoatRoughness, float sheen, const Color4f& sheenColor, float sheenRoughness, float transmission, float thickness, const Color4f& attenuationColor, float attenuationDistance, float ior, const Color4f& emissive, float emissiveIntensity, const Color4f& specularColor, float specularIntensity, float iridescence, float iridescenceIOR, float autoSmoothAngle, std::shared_ptr<const class Value> colormap, std::shared_ptr<const class Value> normalmap)

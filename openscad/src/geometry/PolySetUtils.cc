@@ -96,6 +96,10 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->iridescenceIORs = polyset.iridescenceIORs;
     result->autoSmoothAngles = polyset.autoSmoothAngles;
     result->colormaps = polyset.colormaps;
+    result->normalmaps = polyset.normalmaps;
+    result->high_poly_bake = polyset.high_poly_bake;
+    result->bake_colors = polyset.bake_colors;
+    result->bake_normals = polyset.bake_normals;
     return result;
   }
   result->vertices.reserve(polyset.vertices.size());
@@ -202,6 +206,9 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
   if (degeneratePolygons > 0) {
     LOG(message_group::Warning, "PolySet has degenerate polygons");
   }
+  result->high_poly_bake = polyset.high_poly_bake;
+  result->bake_colors = polyset.bake_colors;
+  result->bake_normals = polyset.bake_normals;
   return result;
 }
 
