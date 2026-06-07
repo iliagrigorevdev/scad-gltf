@@ -744,10 +744,10 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                     int inside_count = 0;
                                     int hit_count = 0;
 
-                                    for (int sy = 0; sy < 3; ++sy) {
-                                        for (int sx = 0; sx < 3; ++sx) {
-                                            float px = x + 0.166667f + sx * 0.333333f;
-                                            float py = y + 0.166667f + sy * 0.333333f;
+                                    for (int sy = 0; sy < 2; ++sy) {
+                                        for (int sx = 0; sx < 2; ++sx) {
+                                            float px = x + 0.25f + sx * 0.5f;
+                                            float py = y + 0.25f + sy * 0.5f;
 
                                             float u = du_dx * (px - uv2x) + du_dy * (py - uv2y);
                                             float v = dv_dx * (px - uv2x) + dv_dy * (py - uv2y);
