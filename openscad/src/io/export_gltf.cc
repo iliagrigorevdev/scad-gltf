@@ -940,7 +940,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 return "data:image/png;base64," + base64_encode(png_data.data(), png_data.size());
             };
 
-            if (group.has_colormap) group.base_color_uri = dilate_and_encode(pixels, 128, 128, 128, group.max_dilation);
+            if (group.has_colormap) group.base_color_uri = dilate_and_encode(pixels, 255, 255, 255, group.max_dilation);
             if (group.has_normalmap) group.normal_texture_uri = dilate_and_encode(npixels, 128, 128, 255, group.max_dilation);
         }
 
