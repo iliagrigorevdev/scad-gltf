@@ -234,16 +234,6 @@ Transform3d get_z_to_y_up_matrix() {
     return C;
 }
 
-bool contains_bone(const std::shared_ptr<const Geometry>& geom) {
-    if (std::dynamic_pointer_cast<const BoneGeometry>(geom)) return true;
-    if (auto gl = std::dynamic_pointer_cast<const GeometryList>(geom)) {
-        for (const auto& item : gl->getChildren()) {
-            if (contains_bone(item.second)) return true;
-        }
-    }
-    return false;
-}
-
 int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_idx,
                   tinygltf::Model& model, std::vector<MeshInfo>& meshes_info,
                   std::map<std::string, int>& bone_to_node, Value& global_anims,
@@ -304,8 +294,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         }
         return node_idx;
     }
-    else if (std::dynamic_pointer_cast<const GeometryList>(geom) && contains_bone(geom)) {
-        auto geomList = std::dynamic_pointer_cast<const GeometryList>(geom);
+    else if (auto geomList = std::dynamic_pointer_cast<const GeometryList>(geom)) {
         for (const auto& item : geomList->getChildren()) {
             int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, current_joint_idx, gltf_joints, inverse_bind_matrices, scene_nodes);
             if (child_idx >= 0 && parent_node_idx >= 0) {

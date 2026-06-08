@@ -66,11 +66,14 @@ class Geometry;
 class Polygon2d;
 class Tree;
 
-static bool contains_bone(const std::shared_ptr<const Geometry>& geom) {
+static bool is_unmergeable(const std::shared_ptr<const Geometry>& geom) {
   if (std::dynamic_pointer_cast<const BoneGeometry>(geom)) return true;
+  if (auto ps = std::dynamic_pointer_cast<const PolySet>(geom)) {
+    if (ps->high_poly_bake) return true;
+  }
   if (auto gl = std::dynamic_pointer_cast<const GeometryList>(geom)) {
     for (const auto& item : gl->getChildren()) {
-      if (contains_bone(item.second)) return true;
+      if (is_unmergeable(item.second)) return true;
     }
   }
   return false;
@@ -193,19 +196,19 @@ GeometryEvaluator::ResultObject GeometryEvaluator::applyToChildren3D(const Abstr
     }
     if (actualchildren.empty()) return {};
 
-    bool has_bones = false;
+    bool has_unmergeables = false;
     for (const auto& item : actualchildren) {
-      if (contains_bone(item.second)) {
-        has_bones = true;
+      if (is_unmergeable(item.second)) {
+        has_unmergeables = true;
         break;
       }
     }
 
-    if (has_bones) {
-      GeometryList::Geometries child_bones;
+    if (has_unmergeables) {
+      GeometryList::Geometries child_unmergeables;
       GeometryList::Geometries child_meshes;
       for (const auto& item : actualchildren) {
-        if (contains_bone(item.second)) child_bones.push_back(item);
+        if (is_unmergeable(item.second)) child_unmergeables.push_back(item);
         else child_meshes.push_back(item);
       }
 
@@ -230,7 +233,7 @@ GeometryEvaluator::ResultObject GeometryEvaluator::applyToChildren3D(const Abstr
 #endif
       }
 
-      auto geomList = std::make_shared<GeometryList>(std::move(child_bones));
+      auto geomList = std::make_shared<GeometryList>(std::move(child_unmergeables));
       if (unioned_meshes) {
         geomList->children.push_front({child_meshes.front().first, unioned_meshes});
       }
