@@ -704,6 +704,9 @@ Response GeometryEvaluator::visit(State& state, const BakeNode& node)
                 baked_ps->bake_distance = node.distance;
                 baked_ps->bake_bias = node.bias;
                 baked_ps->bake_dilation = node.dilation;
+                baked_ps->bake_resolution = node.resolution;
+                baked_ps->bake_msaa = node.msaa;
+                baked_ps->bake_index = node.index;
             }
             geom = baked_ps;
         } else {

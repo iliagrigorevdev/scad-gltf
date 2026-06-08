@@ -6,7 +6,7 @@
 #include "core/Parameters.h"
 
 std::shared_ptr<AbstractNode> builtin_bake(const ModuleInstantiation *inst, Arguments arguments, const Children& children) {
-    Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"colors", "normals", "distance", "bias", "dilation"});
+    Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"colors", "normals", "distance", "bias", "dilation", "resolution", "msaa", "index"});
     auto node = std::make_shared<BakeNode>(inst);
 
     if (parameters["colors"].type() == Value::Type::BOOL) {
@@ -30,10 +30,19 @@ std::shared_ptr<AbstractNode> builtin_bake(const ModuleInstantiation *inst, Argu
     if (parameters["dilation"].type() == Value::Type::NUMBER) {
         node->dilation = static_cast<int>(parameters["dilation"].toDouble());
     }
+    if (parameters["resolution"].type() == Value::Type::NUMBER) {
+        node->resolution = static_cast<int>(parameters["resolution"].toDouble());
+    }
+    if (parameters["msaa"].type() == Value::Type::NUMBER) {
+        node->msaa = static_cast<int>(parameters["msaa"].toDouble());
+    }
+    if (parameters["index"].type() == Value::Type::NUMBER) {
+        node->index = static_cast<int>(parameters["index"].toDouble());
+    }
 
     return children.instantiate(node);
 }
 
 void register_builtin_bake() {
-    Builtins::init("bake", new BuiltinModule(builtin_bake), {"bake(colors=false, normals=false, distance=2.0, bias=0.0001, dilation=8)"});
+    Builtins::init("bake", new BuiltinModule(builtin_bake), {"bake(colors=false, normals=false, distance=2.0, bias=0.0001, dilation=8, resolution=2048, msaa=2, index=0)"});
 }
