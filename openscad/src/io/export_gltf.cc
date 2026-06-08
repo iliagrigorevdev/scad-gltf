@@ -585,9 +585,14 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
         if (num_atlas_meshes > 0) {
             atlas = xatlas::Create();
+            int atlas_dilation = 0;
+
             for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
                 if (prim_to_atlas[p_idx] == -1) continue;
                 const auto& prim = minfo.primitives[p_idx];
+
+                atlas_dilation = std::max(atlas_dilation, prim.bake_dilation); // Accumulate maximum required dilation
+
                 xatlas::MeshDecl meshDecl;
                 meshDecl.vertexCount = prim.positions.size() / 3;
                 meshDecl.vertexPositionData = prim.positions.data();
@@ -600,12 +605,13 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
             xatlas::PackOptions packOptions;
             packOptions.resolution = 2048; // Higher default resolution for better quality
-            packOptions.padding = 2;
+            packOptions.padding = std::max(atlas_dilation, 2);
             xatlas::Generate(atlas, xatlas::ChartOptions(), packOptions);
 
             uint32_t width = atlas->width;
             uint32_t height = atlas->height;
-            if (width > 0 && height > 0 && atlas->atlasCount > 0) {                bool has_colormap = false;
+            if (width > 0 && height > 0 && atlas->atlasCount > 0) {
+                bool has_colormap = false;
                 bool has_normalmap = false;
                 for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
                     if (prim_to_atlas[p_idx] != -1) {
@@ -917,13 +923,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     stbi_write_png_to_func(write_func, &png_data, width, height, 4, px.data(), width * 4);
                     return "data:image/png;base64," + base64_encode(png_data.data(), png_data.size());
                 };
-
-                int atlas_dilation = 8;
-                for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
-                    if (prim_to_atlas[p_idx] != -1) {
-                        atlas_dilation = std::max(atlas_dilation, minfo.primitives[p_idx].bake_dilation);
-                    }
-                }
 
                 if (has_colormap) mesh_base_color_uri = dilate_and_encode(pixels, 128, 128, 128, atlas_dilation);
                 if (has_normalmap) mesh_normal_texture_uri = dilate_and_encode(npixels, 128, 128, 255, atlas_dilation);
