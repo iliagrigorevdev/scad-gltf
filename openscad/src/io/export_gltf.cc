@@ -1106,6 +1106,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 mat.pbrMetallicRoughness.metallicFactor = (double)mkey.metalness;
 
                 if (!mkey.base_color_uri.empty()) {
+                    mat.pbrMetallicRoughness.baseColorFactor = {1.0, 1.0, 1.0, 1.0};
                     auto img_it = image_cache.find(mkey.base_color_uri);
                     if (img_it != image_cache.end()) {
                         mat.pbrMetallicRoughness.baseColorTexture.index = img_it->second;
