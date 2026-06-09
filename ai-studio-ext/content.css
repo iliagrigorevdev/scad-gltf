@@ -1,0 +1,236 @@
+.scad-preview-btn {
+  background: #00aaff;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+.scad-preview-btn:hover {
+  background: #0088cc;
+}
+
+#scad-preview-iframe {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 600px;
+  height: 550px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
+  z-index: 999999;
+  background: #222;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  border: 1px solid #555;
+}
+
+#scad-preview-iframe iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.scad-close-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: red;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 25px;
+  height: 25px;
+  cursor: pointer;
+  font-weight: bold;
+  z-index: 10;
+}
+
+.scad-prompt-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background: #8a2be2;
+  color: white;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 24px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  z-index: 999999;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  font-family: sans-serif;
+  transition:
+    transform 0.1s,
+    background 0.2s;
+}
+
+.scad-prompt-btn:hover {
+  background: #7a1fd1;
+  transform: scale(1.05);
+}
+
+.scad-prompt-btn:active {
+  transform: scale(0.95);
+}
+
+.scad-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9999999; /* Ensure it stays on top of AI studio UI */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(3px);
+}
+
+.scad-modal-content {
+  background: #1e1e1e;
+  color: #ddd;
+  padding: 20px;
+  border-radius: 12px;
+  width: 500px;
+  max-width: 90vw;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+  border: 1px solid #444;
+  font-family: system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.scad-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scad-modal-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.scad-modal-close {
+  background: transparent;
+  color: #aaa;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.scad-modal-close:hover {
+  color: #fff;
+}
+
+.scad-help-text {
+  font-size: 12px;
+  color: #aaa;
+  margin: 0;
+}
+
+.scad-prompt-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  background: #2a2a2a;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #444;
+}
+
+.scad-prompt-toggles label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  user-select: none;
+}
+
+.scad-prompt-group {
+  background: #2a2a2a;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #444;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scad-prompt-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: bold;
+  color: #eee;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #444;
+}
+
+.scad-prompt-group-header label {
+  font-weight: normal;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.scad-prompt-toggles.nested {
+  background: transparent;
+  padding: 0;
+  border: none;
+  margin: 0;
+}
+
+#scad-prompt-desc {
+  width: 100%;
+  background: #2a2a2a;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 12px;
+  font-family: sans-serif;
+  font-size: 14px;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+
+#scad-prompt-desc:focus {
+  border-color: #8a2be2;
+}
+
+.scad-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.scad-primary-btn {
+  background: #8a2be2;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.scad-primary-btn:hover {
+  background: #7a1fd1;
+}
