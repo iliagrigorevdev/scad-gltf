@@ -1,4 +1,9 @@
 import { generatePrompt } from "openscad-gltf-wasm/prompt";
+import {
+  PROMPT_UI_HTML,
+  setupPromptToggles,
+  getPromptOptions,
+} from "./prompt-ui.js";
 
 console.log("🚀 SCAD Preview Extension loaded!");
 
@@ -96,28 +101,7 @@ function createPromptModal() {
       </div>
       <p class="scad-help-text">Describe the object you want to generate. The copied prompt will include advanced PBR and Animation rules based on your selection.</p>
 
-      <div class="scad-prompt-toggles">
-        <label><input type="checkbox" id="ext-opt-pbr-basic" checked /> Basic PBR</label>
-        <label><input type="checkbox" id="ext-opt-pbr-autosmooth" checked /> Auto Smooth</label>
-        <label><input type="checkbox" id="ext-opt-bake-colors" /> Bake Colors</label>
-        <label><input type="checkbox" id="ext-opt-bake-normals" /> Bake Normals</label>
-        <label><input type="checkbox" id="ext-opt-anim" checked /> Animations</label>
-      </div>
-
-      <div class="scad-prompt-group">
-        <div class="scad-prompt-group-header">
-          <span>Extended PBR</span>
-          <label><input type="checkbox" id="ext-opt-pbr-all" checked /> Enable All</label>
-        </div>
-        <div class="scad-prompt-toggles nested">
-          <label><input type="checkbox" class="ext-pbr-child" id="ext-opt-pbr-transmission" checked /> Transmission</label>
-          <label><input type="checkbox" class="ext-pbr-child" id="ext-opt-pbr-clearcoat" checked /> Clearcoat</label>
-          <label><input type="checkbox" class="ext-pbr-child" id="ext-opt-pbr-sheen" checked /> Sheen</label>
-          <label><input type="checkbox" class="ext-pbr-child" id="ext-opt-pbr-emissive" checked /> Emissive</label>
-          <label><input type="checkbox" class="ext-pbr-child" id="ext-opt-pbr-specular" checked /> Specular</label>
-          <label><input type="checkbox" class="ext-pbr-child" id="ext-opt-pbr-iridescence" checked /> Iridescence</label>
-        </div>
-      </div>
+      <div id="scad-prompt-ui-container"></div>
 
       <textarea id="scad-prompt-desc" rows="3" placeholder="e.g. A shiny gold ring with an embedded red gem"></textarea>
 
@@ -129,6 +113,11 @@ function createPromptModal() {
 
   document.body.appendChild(modal);
 
+  // Setup generic shared UI toggles with persistent states
+  const uiContainer = document.getElementById("scad-prompt-ui-container");
+  uiContainer.innerHTML = PROMPT_UI_HTML;
+  setupPromptToggles(uiContainer, "scad_prompt_settings");
+
   // Event Listeners for the Modal
   document.getElementById("scad-prompt-close").onclick = () =>
     (modal.style.display = "none");
@@ -137,58 +126,6 @@ function createPromptModal() {
   modal.onclick = (e) => {
     if (e.target === modal) modal.style.display = "none";
   };
-
-  // Grouped Checkbox Logic
-  const extPbrAll = document.getElementById("ext-opt-pbr-all");
-  const extPbrChildren = document.querySelectorAll(".ext-pbr-child");
-
-  const updatePbrAllState = () => {
-    const allChecked = Array.from(extPbrChildren).every((c) => c.checked);
-    const someChecked = Array.from(extPbrChildren).some((c) => c.checked);
-    extPbrAll.checked = allChecked;
-    extPbrAll.indeterminate = someChecked && !allChecked;
-  };
-
-  extPbrAll.addEventListener("change", (e) => {
-    const checked = e.target.checked;
-    extPbrChildren.forEach((cb) => (cb.checked = checked));
-  });
-
-  extPbrChildren.forEach((cb) => {
-    cb.addEventListener("change", updatePbrAllState);
-  });
-
-  // --- Persist Options Logic ---
-  const STORAGE_KEY = "scad_prompt_settings";
-
-  const saveSettings = () => {
-    const state = {};
-    modal.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
-      state[cb.id] = cb.checked;
-    });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  };
-
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Restore Checkboxes Only
-      modal.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
-        if (parsed[cb.id] !== undefined) {
-          cb.checked = parsed[cb.id];
-        }
-      });
-      updatePbrAllState(); // Recalculate indeterminate state
-    }
-  } catch (e) {
-    console.warn("Could not load SCAD prompt settings", e);
-  }
-
-  // Listeners to auto-save to storage on option modifications
-  modal.addEventListener("change", (e) => {
-    if (e.target.type === "checkbox") saveSettings();
-  });
 
   document.getElementById("scad-prompt-submit").onclick = async () => {
     const description = document
@@ -199,20 +136,7 @@ function createPromptModal() {
       return;
     }
 
-    const options = {
-      basic: document.getElementById("ext-opt-pbr-basic").checked,
-      transmission: document.getElementById("ext-opt-pbr-transmission").checked,
-      clearcoat: document.getElementById("ext-opt-pbr-clearcoat").checked,
-      sheen: document.getElementById("ext-opt-pbr-sheen").checked,
-      emissive: document.getElementById("ext-opt-pbr-emissive").checked,
-      specular: document.getElementById("ext-opt-pbr-specular").checked,
-      iridescence: document.getElementById("ext-opt-pbr-iridescence").checked,
-      autoSmoothAngle: document.getElementById("ext-opt-pbr-autosmooth")
-        .checked,
-      bakeColors: document.getElementById("ext-opt-bake-colors").checked,
-      bakeNormals: document.getElementById("ext-opt-bake-normals").checked,
-      animation: document.getElementById("ext-opt-anim").checked,
-    };
+    const options = getPromptOptions(uiContainer);
 
     try {
       // 1. Generate the advanced LLM prompt via prompt.js

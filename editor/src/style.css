@@ -161,14 +161,23 @@ button.danger:hover {
   font-size: 13px;
   user-select: none;
 }
-#prompt-options {
+
+/* --- Shared Prompt UI Styles --- */
+.scad-prompt-toggles {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 12px;
-  margin-bottom: 5px;
+  font-size: 13px;
+  user-select: none;
+  margin-bottom: 8px;
 }
-
-.prompt-group {
+.scad-prompt-toggles label {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.scad-prompt-group {
   background: #2a2a2a;
   padding: 8px;
   border-radius: 4px;
@@ -178,8 +187,7 @@ button.danger:hover {
   gap: 8px;
   margin-bottom: 8px;
 }
-
-.prompt-group-header {
+.scad-prompt-group-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -189,8 +197,7 @@ button.danger:hover {
   padding-bottom: 6px;
   border-bottom: 1px solid #444;
 }
-
-.prompt-group-header label {
+.scad-prompt-group-header label {
   font-weight: normal;
   font-size: 12px;
   cursor: pointer;
@@ -198,11 +205,8 @@ button.danger:hover {
   align-items: center;
   gap: 4px;
 }
-
-.toggles.nested {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
+.scad-prompt-toggles.nested {
+  margin-bottom: 0;
 }
 
 .toggles label {

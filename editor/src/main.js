@@ -5,6 +5,11 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import {
+  PROMPT_UI_HTML,
+  setupPromptToggles,
+  getPromptOptions,
+} from "./prompt-ui.js";
 
 const defaultScad = `// Test your SCAD code here!
 $fn=50;
@@ -38,6 +43,7 @@ const animControlsSection = document.getElementById("anim-controls-section");
 const animPlayBtn = document.getElementById("anim-play-btn");
 const animSelect = document.getElementById("anim-select");
 const animSlider = document.getElementById("anim-slider");
+const promptUiContainer = document.getElementById("prompt-ui-container");
 
 let currentSelectedModelIdx = "";
 let currentMesh = null;
@@ -75,40 +81,14 @@ function getDownloadName() {
 modelNameInputEl.addEventListener("input", checkChanges);
 
 // --- Prompt Logic ---
-const pbrAllBtn = document.getElementById("opt-pbr-all");
-const pbrChildren = document.querySelectorAll(".pbr-child");
-
-if (pbrAllBtn && pbrChildren.length > 0) {
-  pbrAllBtn.addEventListener("change", (e) => {
-    const checked = e.target.checked;
-    pbrChildren.forEach((cb) => (cb.checked = checked));
-  });
-
-  pbrChildren.forEach((cb) => {
-    cb.addEventListener("change", () => {
-      const allChecked = Array.from(pbrChildren).every((c) => c.checked);
-      const someChecked = Array.from(pbrChildren).some((c) => c.checked);
-      pbrAllBtn.checked = allChecked;
-      pbrAllBtn.indeterminate = someChecked && !allChecked;
-    });
-  });
+if (promptUiContainer) {
+  promptUiContainer.innerHTML = PROMPT_UI_HTML;
+  setupPromptToggles(promptUiContainer, "scad_editor_prompt_settings");
 }
 
 copyPromptBtn.onclick = async () => {
   const desc = promptDescEl.value.trim() || "an object";
-  const options = {
-    basic: document.getElementById("opt-pbr-basic").checked,
-    transmission: document.getElementById("opt-pbr-transmission").checked,
-    clearcoat: document.getElementById("opt-pbr-clearcoat").checked,
-    sheen: document.getElementById("opt-pbr-sheen").checked,
-    emissive: document.getElementById("opt-pbr-emissive").checked,
-    specular: document.getElementById("opt-pbr-specular").checked,
-    iridescence: document.getElementById("opt-pbr-iridescence").checked,
-    autoSmoothAngle: document.getElementById("opt-pbr-autosmooth").checked,
-    bakeColors: document.getElementById("opt-bake-colors").checked,
-    bakeNormals: document.getElementById("opt-bake-normals").checked,
-    animation: document.getElementById("opt-anim").checked,
-  };
+  const options = getPromptOptions(promptUiContainer);
 
   const promptText = generatePrompt(desc, options);
 
