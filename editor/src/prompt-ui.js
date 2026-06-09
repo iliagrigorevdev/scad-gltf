@@ -2,8 +2,6 @@ export const PROMPT_UI_HTML = `
   <div class="scad-prompt-toggles">
     <label><input type="checkbox" id="opt-pbr-basic" checked /> Basic PBR</label>
     <label><input type="checkbox" id="opt-pbr-autosmooth" checked /> Auto Smooth</label>
-    <label><input type="checkbox" id="opt-bake-colors" /> Bake Colors</label>
-    <label><input type="checkbox" id="opt-bake-normals" /> Bake Normals</label>
     <label><input type="checkbox" id="opt-anim" checked /> Animations</label>
   </div>
 
@@ -21,15 +19,23 @@ export const PROMPT_UI_HTML = `
       <label><input type="checkbox" class="pbr-child" id="opt-pbr-iridescence" checked /> Iridescence</label>
     </div>
   </div>
+
+  <div class="scad-prompt-group">
+    <div class="scad-prompt-group-header">
+      <span>Baking</span>
+      <label><input type="checkbox" id="opt-bake-all" /> Enable All</label>
+    </div>
+    <div class="scad-prompt-toggles nested" id="bake-children">
+      <label><input type="checkbox" class="bake-child" id="opt-bake-colors" /> Bake Colors</label>
+      <label><input type="checkbox" class="bake-child" id="opt-bake-normals" /> Bake Normals</label>
+    </div>
+  </div>
 `;
 
 export function setupPromptToggles(
   containerElement,
   storageKey = "scad_prompt_settings",
 ) {
-  const pbrAllBtn = containerElement.querySelector("#opt-pbr-all");
-  const pbrChildren = containerElement.querySelectorAll(".pbr-child");
-
   const saveSettings = () => {
     const state = {};
     containerElement
@@ -40,28 +46,38 @@ export function setupPromptToggles(
     localStorage.setItem(storageKey, JSON.stringify(state));
   };
 
-  const updatePbrAllState = () => {
-    if (!pbrAllBtn || pbrChildren.length === 0) return;
-    const allChecked = Array.from(pbrChildren).every((c) => c.checked);
-    const someChecked = Array.from(pbrChildren).some((c) => c.checked);
-    pbrAllBtn.checked = allChecked;
-    pbrAllBtn.indeterminate = someChecked && !allChecked;
-  };
+  const setupGroup = (allBtnId, childSelector) => {
+    const allBtn = containerElement.querySelector(allBtnId);
+    const children = containerElement.querySelectorAll(childSelector);
 
-  if (pbrAllBtn && pbrChildren.length > 0) {
-    pbrAllBtn.addEventListener("change", (e) => {
-      const checked = e.target.checked;
-      pbrChildren.forEach((cb) => (cb.checked = checked));
-      saveSettings();
-    });
+    const updateState = () => {
+      if (!allBtn || children.length === 0) return;
+      const allChecked = Array.from(children).every((c) => c.checked);
+      const someChecked = Array.from(children).some((c) => c.checked);
+      allBtn.checked = allChecked;
+      allBtn.indeterminate = someChecked && !allChecked;
+    };
 
-    pbrChildren.forEach((cb) => {
-      cb.addEventListener("change", () => {
-        updatePbrAllState();
+    if (allBtn && children.length > 0) {
+      allBtn.addEventListener("change", (e) => {
+        const checked = e.target.checked;
+        children.forEach((cb) => (cb.checked = checked));
         saveSettings();
       });
-    });
-  }
+
+      children.forEach((cb) => {
+        cb.addEventListener("change", () => {
+          updateState();
+          saveSettings();
+        });
+      });
+    }
+
+    return updateState;
+  };
+
+  const updatePbrState = setupGroup("#opt-pbr-all", ".pbr-child");
+  const updateBakeState = setupGroup("#opt-bake-all", ".bake-child");
 
   // Load from Local Storage
   try {
@@ -86,7 +102,8 @@ export function setupPromptToggles(
   });
 
   // Init visual state
-  updatePbrAllState();
+  updatePbrState();
+  updateBakeState();
 }
 
 export function getPromptOptions(containerElement) {
