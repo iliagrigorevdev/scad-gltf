@@ -2,86 +2,210 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Standalone SCAD Preview Tester</title>
-    <style>
-      body {
-        display: flex;
-        height: 100vh;
-        margin: 0;
-        font-family: sans-serif;
-        background: #222;
-        color: white;
-      }
-      #editor {
-        width: 40%;
-        padding: 20px;
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-      }
-      textarea {
-        flex-grow: 1;
-        font-family: monospace;
-        font-size: 14px;
-        padding: 10px;
-        margin-bottom: 10px;
-        background: #333;
-        color: #0f0;
-        border: 1px solid #555;
-      }
-      button {
-        padding: 10px;
-        font-size: 16px;
-        cursor: pointer;
-        background: #00aaff;
-        color: white;
-        border: none;
-        font-weight: bold;
-      }
-      button:hover {
-        background: #0088cc;
-      }
-      iframe {
-        width: 60%;
-        height: 100%;
-        border: none;
-        border-left: 2px solid #444;
-      }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Studio SCAD Extension Standalone</title>
+    <meta name="theme-color" content="#222222" />
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div id="editor">
-      <h2>SCAD Input</h2>
-      <textarea id="scad-code">
-// Test your SCAD code here!
-$fn=50;
-difference() {
-    cube([20, 20, 20], center=true);
-    sphere(r=12);
-}
-      </textarea>
-      <button id="render-btn">Render 3D</button>
+    <div id="app-container">
+      <!-- Left / Top Half: Controls -->
+      <div id="left-panel">
+        <div class="panel-section">
+          <h2>1. AI Prompt Generator</h2>
+          <p class="help-text">
+            Describe the object you want to generate. The copied prompt will
+            include advanced PBR and Animation rules based on your selection.
+          </p>
+          <div id="prompt-options" class="toggles" style="margin-bottom: 8px">
+            <label
+              ><input type="checkbox" id="opt-pbr-basic" checked /> Basic
+              PBR</label
+            >
+            <label
+              ><input type="checkbox" id="opt-pbr-autosmooth" checked /> Auto
+              Smooth</label
+            >
+            <label
+              ><input type="checkbox" id="opt-bake-colors" /> Bake Colors</label
+            >
+            <label
+              ><input type="checkbox" id="opt-bake-normals" /> Bake
+              Normals</label
+            >
+            <label
+              ><input type="checkbox" id="opt-anim" checked /> Animations</label
+            >
+          </div>
+
+          <div class="prompt-group">
+            <div class="prompt-group-header">
+              <span>Extended PBR</span>
+              <label
+                ><input type="checkbox" id="opt-pbr-all" checked /> Enable
+                All</label
+              >
+            </div>
+            <div
+              class="toggles nested"
+              id="pbr-children"
+              style="margin-bottom: 0"
+            >
+              <label
+                ><input
+                  type="checkbox"
+                  class="pbr-child"
+                  id="opt-pbr-transmission"
+                  checked
+                />
+                Transmission</label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  class="pbr-child"
+                  id="opt-pbr-clearcoat"
+                  checked
+                />
+                Clearcoat</label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  class="pbr-child"
+                  id="opt-pbr-sheen"
+                  checked
+                />
+                Sheen</label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  class="pbr-child"
+                  id="opt-pbr-emissive"
+                  checked
+                />
+                Emissive</label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  class="pbr-child"
+                  id="opt-pbr-specular"
+                  checked
+                />
+                Specular</label
+              >
+              <label
+                ><input
+                  type="checkbox"
+                  class="pbr-child"
+                  id="opt-pbr-iridescence"
+                  checked
+                />
+                Iridescence</label
+              >
+            </div>
+          </div>
+
+          <textarea
+            id="prompt-desc"
+            rows="2"
+            placeholder="e.g. A shiny gold ring with an embedded red gem"
+          ></textarea>
+          <button id="copy-prompt-btn">📋 Copy Prompt to Clipboard</button>
+        </div>
+
+        <div class="panel-section flex-grow">
+          <h2>2. SCAD Editor</h2>
+          <input type="text" id="model-name-input" placeholder="Name" />
+          <textarea id="editor" spellcheck="false"></textarea>
+
+          <div class="controls-row">
+            <button id="render-btn" class="primary">▶ Render</button>
+            <button id="load-scad-btn">📁 Load</button>
+            <button id="download-scad-btn">⬇ SCAD</button>
+            <button id="export-gltf-btn">⬇ GLTF</button>
+            <button id="capture-image-btn">📷 Image</button>
+            <button id="share-btn">🔗 Share</button>
+          </div>
+          <div class="controls-row toggles">
+            <label
+              ><input type="checkbox" id="auto-render-cb" checked /> Auto
+              Render</label
+            >
+          </div>
+        </div>
+
+        <div
+          class="panel-section"
+          id="anim-controls-section"
+          style="display: none"
+        >
+          <h2>3. Animation Controls</h2>
+          <div class="controls-row">
+            <button id="anim-play-btn" class="primary" style="width: 90px">
+              ⏸ Pause
+            </button>
+            <select id="anim-select"></select>
+          </div>
+          <div class="controls-row">
+            <input
+              type="range"
+              id="anim-slider"
+              min="0"
+              max="1"
+              step="0.001"
+              value="0"
+            />
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <h2>4. SCAD Serve Backend</h2>
+          <div class="controls-row">
+            <input
+              type="text"
+              id="backend-url"
+              value="http://localhost:3000"
+              placeholder="http://localhost:3000"
+            />
+            <button id="backend-connect-btn">Connect</button>
+          </div>
+          <div id="backend-ui">
+            <div class="controls-row">
+              <select id="backend-select">
+                <option value="">-- Create New Model --</option>
+              </select>
+              <button
+                id="backend-single-save-btn"
+                class="primary"
+                style="display: none"
+              >
+                Save
+              </button>
+              <button
+                id="backend-delete-btn"
+                class="danger"
+                style="display: none"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right / Bottom Half: Viewer -->
+      <div id="right-panel">
+        <div id="status">Waiting for code...</div>
+        <div id="viewer"></div>
+      </div>
     </div>
 
-    <!-- This loads your exact extension preview file -->
-    <iframe id="preview-frame" src="preview.html"></iframe>
+    <!-- Drag and Drop Overlay -->
+    <div id="drag-overlay">Drop .scad file here</div>
 
-    <script>
-      const renderBtn = document.getElementById("render-btn");
-      const iframe = document.getElementById("preview-frame");
-      const scadCode = document.getElementById("scad-code");
-
-      renderBtn.onclick = () => {
-        const code = scadCode.value.trim();
-        // Send the code to the iframe to render
-        iframe.contentWindow.postMessage(
-          {
-            type: "RENDER_SCAD",
-            code: code,
-          },
-          "*",
-        );
-      };
-    </script>
+    <script type="module" src="/src/main.js"></script>
   </body>
 </html>
