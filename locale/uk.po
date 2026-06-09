@@ -1,0 +1,3488 @@
+# Ukrainian translations for OpenSCAD package.
+# Copyright (C) 2018 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the OpenSCAD package.
+# Kyrylo Romanenko <romanenko-kv@hotmail.com>, 2018.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: OpenSCAD 2018.08.15\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-13 22:53+0100\n"
+"PO-Revision-Date: 2018-11-11 13:00+0200\n"
+"Last-Translator: Kyrylo Romanenko <romanenko-kv@hotmail.com>\n"
+"Language-Team: Ukrainian\n"
+"Language: uk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10>=1 && n%10<=4 && (n%100<11 || "
+"n%100>14) ? 0 : n%10==0 && n%10>=5 && n%10<=9 ? 1 : 2);\n"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AboutDialog.h:102
+#: src/gui/AboutDialog.h:17
+msgid "About OpenSCAD"
+msgstr "Про OpenSCAD"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AboutDialog.h:104
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:304
+msgid ""
+"<html><head/><body>\n"
+"<p style=\"font-family: 'Open Sans', 'Droid Sans', 'sans-serif'; font-"
+"weight: bold; padding-bottom: 0; margin-bottom: 0; font-size: 22pt;\"><span "
+"style=\"color: green;\">Open</span>SCAD</p>\n"
+"<p style=\"font-family: 'Open Sans', 'Droid Sans', 'sans-serif'; font-"
+"weight: normal; font-size: 14pt; padding-top: 0; margin-top: 0; margin-left: "
+"2em;\">The Programmers Solid 3D CAD Modeller</p>\n"
+"</body></html>\n"
+"\n"
+"\n"
+msgstr ""
+"<html><head/><body>\n"
+"<p style=\"font-family: 'Open Sans', 'Droid Sans', 'sans-serif'; font-"
+"weight: bold; padding-bottom: 0; margin-bottom: 0; font-size: 22pt;\"><span "
+"style=\"color: green;\">Open</span>SCAD</p>\n"
+"<p style=\"font-family: 'Open Sans', 'Droid Sans', 'sans-serif'; font-"
+"weight: normal; font-size: 14pt; padding-top: 0; margin-top: 0; margin-left: "
+"2em;\">Твердотільна тривимірна САПР для програмістів</p>\n"
+"</body></html>\n"
+"\n"
+"\n"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AboutDialog.h:111
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:516
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:634
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:222
+#: build/OpenSCADLibInternal_autogen/include/ui_OctoPrintApiKeyDialog.h:110
+#: build/OpenSCADLibInternal_autogen/include/ui_PrintInitDialog.h:186
+msgid "OK"
+msgstr "OK"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:256
+#: src/gui/MainWindow.cc:291
+msgid "Animate"
+msgstr "Анімувати"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:257
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:259
+msgid "Toggle animation pause/unpause"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:261
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:263
+msgid "Move to beginning (first frame)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:265
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:267
+msgid "Step one frame back"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:269
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:271
+msgid "Step one frame forward"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:273
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:275
+msgid "Move to end (last frame)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:278
+msgid "Time:"
+msgstr "Час:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:279
+msgid "FPS:"
+msgstr "FPS:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:280
+msgid "Steps:"
+msgstr "Кроки:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Animate.h:281
+msgid "Dump Pictures"
+msgstr "Зберігати картинки"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:853
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:362
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:214
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2232
+msgid "Preferences"
+msgstr "Налаштування"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:854
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:855
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:859
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:863
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:865
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:867
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:869
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:871
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:882
+msgid "Trim"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:856
+#, fuzzy
+msgid "Reset Trim"
+msgstr "Скинути вид"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:857
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:860
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:861
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:862
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:864
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:866
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:868
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:870
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:881
+msgid "DeadZone"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:858
+msgid "Auto Trim Axes"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:872
+msgid "Axis 2"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:873
+msgid "Axis 0"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:874
+msgid "Axis 3"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:875
+msgid "Axis 6"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:876
+msgid "Axis 8"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:877
+msgid "Axis 7"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:878
+msgid "Axis 5"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:879
+msgid "Axis 1"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:880
+msgid "Axis 4"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:883
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:279
+#, fuzzy
+msgid "Rotation"
+msgstr "&Документація"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:884
+#, fuzzy
+msgid "Zoom"
+msgstr "Приблизити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:885
+msgid "X"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:886
+msgid "Gain"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:887
+msgid "Y"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:888
+msgid "Z"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:889
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:280
+msgid "Translation"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:890
+#, fuzzy
+msgid "ViewPort rel.<br/>Translation"
+msgstr "Вставити &зміщення видового екрану"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:891
+#, fuzzy
+msgid "ViewPort rel.<br />Rotation"
+msgstr "Вставити &зміщення видового екрану"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:892
+msgid "Axis Setup:"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:893
+msgid "<b>Driver selection:</b> <i>(changes requires restarting OpenSCAD)</i>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:894
+#, fuzzy
+msgid "SpaceNav"
+msgstr "Пробілами"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:895
+msgid "HIDAPI"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:896
+msgid "QGamepad"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:897
+msgid "Joystick"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:898
+msgid "DBus"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:899
+msgid "Axes Mapping:"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:900
+msgid "Status:"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:901
+#, fuzzy
+msgid "TextLabel"
+msgstr "Текст"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_AxisConfigWidget.h:902
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2236
+msgid "Update"
+msgstr "Оновлення"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:363
+msgid "Button 19"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:364
+msgid "Button 5"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:365
+msgid "Button 14"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:366
+msgid "Button 7"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:367
+msgid "Button 16"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:368
+msgid "Button 20"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:369
+msgid "Button 1"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:370
+msgid "Button 21"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:371
+msgid "Button 18"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:372
+msgid "Button 0"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:373
+msgid "Button 4"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:374
+msgid "Button 10"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:375
+msgid "Button 6"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:376
+msgid "Button 8"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:377
+msgid "Button 15"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:378
+msgid "Button 11"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:379
+msgid "Button 3"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:380
+msgid "Button 23"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:381
+msgid "Button 9"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:382
+msgid "Button 2"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:383
+msgid "Button 13"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:384
+msgid "Button 12"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:385
+msgid "Button 17"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ButtonConfigWidget.h:386
+msgid "Button 22"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:399
+#, fuzzy
+msgid "Color List"
+msgstr "Схема кольорів:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:400
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:402
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:404
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:406
+#, fuzzy
+msgid "Reset Sample Text"
+msgstr "Показувати масштабні маркери"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:408
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:410
+#, fuzzy
+msgid "Copy Color Name"
+msgstr "Шрифт"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:412
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:414
+msgid "Copy Color RGB"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:416
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:305
+#, fuzzy
+msgid "Filter"
+msgstr "Фільтр:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:417
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:446
+#, fuzzy
+msgid "Color name"
+msgstr "Схема кольорів:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:418
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:309
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2279
+#: src/core/Settings.cc:152
+msgid "Fixed"
+msgstr "Фіксований"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:419
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:310
+msgid "Wildcard"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:420
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:311
+msgid "RegExp"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:422
+#, fuzzy
+msgid "Sort order"
+msgstr "Межа"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:423
+msgid "Ascending"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:424
+msgid "Descending"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:425
+msgid "Alphabetically"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:426
+#, fuzzy
+msgid "By color"
+msgstr "Схема кольорів:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:427
+msgid "By color warmth"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:428
+msgid "By lightness"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:430
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:316
+#, fuzzy
+msgid "Selection"
+msgstr "Програма"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:433
+msgid "Reset background color"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:435
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:439
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:451
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:455
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:476
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:477
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:513
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:620
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:621
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:627
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:628
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:631
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:209
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:210
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:216
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:217
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:220
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2353
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2360
+msgid "..."
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:437
+msgid "Select background color"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:440
+#, fuzzy
+msgid "Color RGB"
+msgstr "Схема кольорів:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:441
+msgid "As Foreground"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:442
+msgid "As Background"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:443
+msgid "R:"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:444
+msgid "G:"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:445
+msgid "B:"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:449
+msgid "Reset foreground color"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ColorList.h:453
+msgid "Select foreground color"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Console.h:42
+msgid "Clear"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Console.h:44
+#, fuzzy
+msgid "Clear console"
+msgstr "Консоль"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Console.h:46
+#, fuzzy
+msgid "Save As..."
+msgstr "Зберегти &як..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Console.h:48
+msgid "Save console content to file"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:92
+#, fuzzy
+msgid "Error Log"
+msgstr "Сховати панелі інструментів"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:93
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:267
+msgid "RowSelected"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:95
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:269
+msgid "Return"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:98
+msgid "double click to jump to file and line"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:100
+#, fuzzy
+msgid "&Show"
+msgstr "Показуваті вісі"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:101
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:306
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1546
+msgid "All"
+msgstr "Все"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:102
+msgid "ERROR"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:103
+msgid "WARNING"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:104
+msgid "UI-WARNING"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:105
+msgid "FONT-WARNING"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:106
+msgid "EXPORT-WARNING"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:107
+msgid "EXPORT-ERROR"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ErrorLog.h:108
+msgid "DEPRECATED"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:448
+#, fuzzy
+msgid "Export 3MF Options"
+msgstr "Можливості"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:450
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:543
+msgid ""
+"<html><head/><body><p>Set the PDF page (paper) size.  </p></body></html>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:452
+msgid "Unit"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:453
+#: src/core/Settings.cc:431
+msgid "Micron"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:454
+msgid "micron"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:455
+msgid "Millimeter (default)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:456
+msgid "millimeter"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:457
+#: src/core/Settings.cc:433
+msgid "Centimeter"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:458
+msgid "centimeter"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:459
+#: src/core/Settings.cc:434
+msgid "Meter"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:460
+#, fuzzy
+msgid "meter"
+msgstr "Параметр"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:461
+#: src/core/Settings.cc:435
+msgid "Inch"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:462
+msgid "inch"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:463
+msgid "Foot"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:464
+msgid "foot"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:468
+#, fuzzy
+msgid "Colors"
+msgstr "Схема кольорів:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:469
+msgid "Use colors from model and color scheme"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:470
+msgid "model"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:471
+#: src/core/Settings.cc:424
+msgid "No colors"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:472
+msgid "none"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:473
+msgid "Use selected color for all objects"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:474
+msgid "selected-only"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:478
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:561
+msgid "Meta data"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:479
+msgid ""
+"The fields Title, Application and CreationDate are always filled in the "
+"exported file when meta data is enabled."
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:481
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:570
+msgid "A copyright associated with this document"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:483
+msgid "Copyright"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:484
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:567
+msgid "Title, leave empty to use the file name"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:485
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterDescriptionWidget.h:101
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterDescriptionWidget.h:102
+msgid "Description"
+msgstr "Опис"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:486
+#, fuzzy
+msgid "Designer"
+msgstr "&Дизайн"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:487
+msgid "License terms"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:489
+msgid "An industry rating associated with this document"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:494
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:574
+msgid "A name for a designer of this document"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:498
+msgid "Rating"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:500
+msgid "License information associated with this document"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:504
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:564
+msgid "A description of the document"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:507
+#, fuzzy
+msgid "Format"
+msgstr "Форма"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:508
+msgid "Decimal precision"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:509
+msgid "Export colors as"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:511
+msgid "Reset value to the default decimal precision value."
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:514
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:632
+#: build/OpenSCADLibInternal_autogen/include/ui_PrintInitDialog.h:184
+msgid "Always show dialog"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Export3mfDialog.h:515
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:633
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:221
+#: build/OpenSCADLibInternal_autogen/include/ui_OctoPrintApiKeyDialog.h:109
+#: build/OpenSCADLibInternal_autogen/include/ui_PrintInitDialog.h:185
+msgid "Cancel"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:541
+#, fuzzy
+msgid "Export PDF Options"
+msgstr "Можливості"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:545
+#, fuzzy
+msgid "Page Size"
+msgstr "Розмір"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:546
+#: src/core/Settings.cc:376
+msgid "A6 (105 x 148 mm)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:547
+msgid "a6"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:548
+#: src/core/Settings.cc:377
+msgid "A5 (148 x 210 mm)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:549
+msgid "a5"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:550
+#: src/core/Settings.cc:378
+msgid "A4 (210x297 mm)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:551
+msgid "a4"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:552
+#: src/core/Settings.cc:379
+msgid "A3 (297x420 mm)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:553
+msgid "a3"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:554
+#: src/core/Settings.cc:380
+msgid "Letter (8.5x11 in)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:555
+msgid "letter"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:556
+#: src/core/Settings.cc:381
+msgid "Legal (8.5x14 in)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:557
+msgid "legal"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:558
+#: src/core/Settings.cc:382
+msgid "Tabloid (11x17 in)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:560
+msgid "tabloid"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:562
+msgid ""
+"The fields Title, Creator and CreateDate are always filled in the exported "
+"file when meta data is enabled."
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:568
+msgid "Subject"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:572
+msgid "Keywords"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:577
+msgid "Author"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:580
+msgid ""
+"<html><head/><body><p>Set the direction of the largest page dimension.</p></"
+"body></html>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:582
+#, fuzzy
+msgid "Page Orientation"
+msgstr "Відступи"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:583
+#: src/core/Settings.cc:386
+msgid "Portrait (Vertical)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:585
+#: src/core/Settings.cc:387
+msgid "Landscape (Horizontal)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:586
+msgid "landscape"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:588
+msgid ""
+"<html><head/><body><p>Determine best orientation based on maximum geometry "
+"dimension.</p></body></html>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:590
+#: src/core/Settings.cc:388
+msgid "Auto"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:591
+msgid "auto"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:592
+#, fuzzy
+msgid "Annotations"
+msgstr "&Документація"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:594
+msgid ""
+"<html><head/><body><p>Include design filename on page.</p></body></html>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:596
+msgid "Show Design Filename"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:598
+msgid ""
+"<html><head/><body><p>Include rulers on page to confirm 1:1 printing scale.</"
+"p></body></html>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:600
+#, fuzzy
+msgid "Show Scale"
+msgstr "Показувати масштабні маркери"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:602
+msgid ""
+"<html><head/><body><p>Include a grid of the selected size on the page.</p></"
+"body></html>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:604
+#, fuzzy
+msgid "Show Grid"
+msgstr "Показувати ребра"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:605
+msgid "2mm"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:606
+msgid "2.5mm"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:607
+msgid "4mm"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:608
+msgid "5mm"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:609
+msgid "10mm"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:611
+msgid ""
+"<html><head/><body><p>Include text describing usage of scale.</p></body></"
+"html>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:613
+#, fuzzy
+msgid "Show Scale Usage"
+msgstr "Показувати масштабні маркери"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:614
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:203
+msgid "Fill and Stroke"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:616
+msgid ""
+"<html><head/><body><p>Enable filling of exported geometry with a color.</p></"
+"body></html>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:618
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:207
+msgid "Fill Geometry"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:623
+msgid ""
+"<html><head/><body><p>Enable outline stroke for exported geometry.</p></"
+"body></html>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:625
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:214
+msgid "Stroke Outline"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:629
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:218
+msgid "Stroke Width:"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportPdfDialog.h:630
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:219
+msgid " mm"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:202
+#, fuzzy
+msgid "Export SVG Options"
+msgstr "Можливості"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:205
+msgid "Enable filling of exported geometry with a color."
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ExportSvgDialog.h:212
+msgid "Enable outline stroke for exported geometry."
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontListDialog.h:106
+msgid "OpenSCAD Font List"
+msgstr "Список шрифтів OpenSCAD"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontListDialog.h:107
+#: build/OpenSCADLibInternal_autogen/include/ui_LibraryInfoDialog.h:77
+msgid "&OK"
+msgstr "&OK"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontListDialog.h:108
+msgid "Copy to Clipboard"
+msgstr "Скопіювати до буферу"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontListDialog.h:109
+msgid "Filter:"
+msgstr "Фільтр:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontListDialog.h:110
+msgid ""
+"<html><head/><body><p>This list shows the fonts currently registered with "
+"OpenSCAD.</p><p>Example:</p><pre style=\" margin-top:12px; margin-"
+"bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-"
+"indent:0px;\"><span style=\" font-family:'Courier New,courier';\">  "
+"text(&quot;OpenSCAD&quot;, font = &quot;DejaVu Sans&quot;);</span></pre><pre "
+"style=\" margin-top:0px; margin-bottom:12px; margin-left:0px; margin-"
+"right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-"
+"family:'Courier New,courier';\">  text(&quot;OpenSCAD&quot;, font = "
+"&quot;Liberation Sans:style=Italic&quot;);</span></pre></body></html>"
+msgstr ""
+"<html><head/><body><p>Цей перелік показує шрифти зареєстровані у OpenSCAD.</"
+"p><p>Приклад:</p><pre style=\" margin-top:12px; margin-bottom:0px; margin-"
+"left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span "
+"style=\" font-family:'Courier New,courier';\">  text(&quot;OpenSCAD&quot;, "
+"font = &quot;DejaVu Sans&quot;);</span></pre><pre style=\" margin-top:0px; "
+"margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; "
+"text-indent:0px;\"><span style=\" font-family:'Courier New,courier';\">  "
+"text(&quot;OpenSCAD&quot;, font = &quot;Liberation Sans:style=Italic&quot;);"
+"</span></pre></body></html>"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:291
+#: src/gui/MainWindow.cc:292
+#, fuzzy
+msgid "Font List"
+msgstr "Список &шрифтів"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:292
+msgid "ResetSampleText"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:293
+#, fuzzy
+msgid "Open Font Folder"
+msgstr "&Файл"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:294
+msgid "Copy Font Folder"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:295
+msgid "Copy Full Path to Font"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:296
+#, fuzzy
+msgid "Copy Font Style"
+msgstr "Список &шрифтів"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:297
+#, fuzzy
+msgid "Copy Font Name"
+msgstr "Шрифт"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:298
+#, fuzzy
+msgid "Show Font Name"
+msgstr "Шрифт"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:299
+msgid "Show Styled Font Name"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:300
+#, fuzzy
+msgid "Show Font Style"
+msgstr "Список &шрифтів"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:301
+#, fuzzy
+msgid "Show Sample Text"
+msgstr "Показувати масштабні маркери"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:302
+#, fuzzy
+msgid "ShowFileName"
+msgstr "&Файл"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:303
+#, fuzzy
+msgid "Show File Path"
+msgstr "Показувати масштабні маркери"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:304
+#, fuzzy
+msgid "Reset Columns"
+msgstr "Скинути вид"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:307
+msgid "Any"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:313
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:317
+#: src/gui/FontList.cc:367
+#, fuzzy
+msgid "Font name"
+msgstr "Шрифт"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:314
+#: src/gui/FontList.cc:371
+msgid "Sample text"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:315
+msgid "Chars"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:318
+#, fuzzy
+msgid "Font path"
+msgstr "Шрифт"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_FontList.h:319
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2278
+msgid "Style"
+msgstr "Стиль"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:293
+msgid "Welcome to OpenSCAD"
+msgstr "Ласкаво просимо до OpenSCAD"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:294
+msgid "New"
+msgstr "Новий"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:295
+msgid "Open"
+msgstr "Відкрити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:296
+msgid "Help"
+msgstr "Допомога"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:297
+msgid "Recents"
+msgstr "Нещодавнє"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:298
+msgid "Open Recent"
+msgstr "Відкрити нещодавнє"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:299
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:301
+msgid "Examples"
+msgstr "Приклади"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:302
+msgid "Open Example"
+msgstr "Відкрити приклад"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:311
+msgid "Don't show again"
+msgstr "Не показувати знову"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LaunchingScreen.h:312
+msgid "Version"
+msgstr "Версія"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LibraryInfoDialog.h:75
+msgid "Lib & Build Info"
+msgstr "Інформація про бібліотеку і збірку"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_LibraryInfoDialog.h:76
+msgid "OpenSCAD Detailed Library and Build Information"
+msgstr "Детальна інформація про бібліотеку і збірку OpenSCAD"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1249
+#, fuzzy
+msgid "&New File"
+msgstr "&Файл"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1251
+msgid "Ctrl+N"
+msgstr "Ctrl+N"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1253
+#, fuzzy
+msgid "New Window"
+msgstr "Знайти &попереднє"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1254
+#, fuzzy
+msgid "&Open File"
+msgstr "&Файл"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1256
+msgid "Ctrl+O"
+msgstr "Ctrl+O"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1258
+msgid "Open in New Window"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1259
+msgid "&Save"
+msgstr "&Зберегти"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1261
+msgid "Ctrl+S"
+msgstr "Ctrl+S"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1263
+msgid "Save &As..."
+msgstr "Зберегти &як..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1265
+msgid "Ctrl+Shift+S"
+msgstr "Ctrl+Shift+S"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1267
+msgid "Save a Copy"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1268
+#, fuzzy
+msgid "Save All"
+msgstr "Зберегти &як..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1269
+msgid "&Reload"
+msgstr "&Перезавантажити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1271
+msgid "Ctrl+R"
+msgstr "Ctrl+R"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1273
+msgid "&Quit"
+msgstr "Ви&йти"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1275
+msgid "Ctrl+Q"
+msgstr "Ctrl+Q"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1277
+msgid "&Undo"
+msgstr "Ві&дмінити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1279
+msgid "Ctrl+Z"
+msgstr "Ctrl+Z"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1281
+msgid "&Redo"
+msgstr "Поверну&ти"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1283
+msgid "Ctrl+Shift+Z"
+msgstr "Ctrl+Shift+Z"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1286
+msgid "Ctrl+Y"
+msgstr "Ctrl+Y"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1288
+msgid "Cu&t"
+msgstr "Ви&різати"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1290
+msgid "Ctrl+X"
+msgstr "Ctrl+X"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1292
+msgid "&Copy"
+msgstr "&Копіювати"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1294
+msgid "Ctrl+C"
+msgstr "Ctrl+C"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1296
+msgid "&Paste"
+msgstr "В&ставити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1298
+msgid "Ctrl+V"
+msgstr "Ctrl+V"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1300
+msgid "&Indent"
+msgstr "В&ідступити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1302
+msgid "Ctrl+I"
+msgstr "Ctrl+I"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1304
+msgid "C&omment"
+msgstr "К&оментувати"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1306
+msgid "Ctrl+D"
+msgstr "Ctrl+D"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1308
+msgid "Unco&mment"
+msgstr "Ро&зкоментувати"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1310
+msgid "Ctrl+Shift+D"
+msgstr "Ctrl+Shift+D"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1312
+#, fuzzy
+msgid "Show Next Tab"
+msgstr "Показати деталі"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1314
+#, fuzzy
+msgid "Ctrl+Tab"
+msgstr "Ctrl+T"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1316
+#, fuzzy
+msgid "Show Previous Tab"
+msgstr "Показати деталі"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1318
+#, fuzzy
+msgid "Ctrl+Shift+Tab"
+msgstr "Ctrl+Shift+S"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1320
+#, fuzzy
+msgid "Copy viewport ima&ge"
+msgstr "Копіювати видовий екран"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1322
+msgid "Ctrl+Shift+C"
+msgstr "Ctrl+Shift+C"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1324
+#, fuzzy
+msgid "Copy viewport transl&ation"
+msgstr "Вставити &зміщення видового екрану"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1326
+msgid "Ctrl+T"
+msgstr "Ctrl+T"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1328
+#, fuzzy
+msgid "Cop&y viewport rotation"
+msgstr "Вставити оберт видового екрану"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1329
+#, fuzzy
+msgid "Copy vie&wport distance"
+msgstr "Копіювати видовий екран"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1330
+#, fuzzy
+msgid "Copy vie&wport fov"
+msgstr "Копіювати видовий екран"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1331
+msgid "Increase Font &Size"
+msgstr "З&більшити розмір шрифту"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1333
+msgid "Ctrl++"
+msgstr "Ctrl++"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1335
+msgid "Decrease Font Si&ze"
+msgstr "З&меншити розмір шрифту"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1337
+msgid "Ctrl+-"
+msgstr "Ctrl+-"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1339
+msgid "&Reload and Preview"
+msgstr "Перезаванта&жити й переглянути"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1341
+msgid "F4"
+msgstr "F4"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1343
+msgid "&Preview"
+msgstr "Пере&глянути"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1345
+msgid "F5"
+msgstr "F5"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1347
+msgid "R&ender"
+msgstr "По&будувати"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1349
+msgid "F6"
+msgstr "F6"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1351
+msgid "&3D Print"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1353
+msgid "F8"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1355
+msgid "Measure &Distance"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1357
+msgid "D"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1359
+msgid "Measure &Angle"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1361
+msgid "A"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1363
+msgid "&Check Validity"
+msgstr "Перевірити &валідніть"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1364
+msgid "Display A&ST..."
+msgstr "Показати Абстрактне &Дерево Синтаксису..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1365
+msgid "Display CSG &Tree..."
+msgstr "&Показати дерево CSG..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1366
+msgid "Display CSG Pr&oducts..."
+msgstr "Показати &результати CSG..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1367
+#, fuzzy
+msgid "Export as &STL (binary)..."
+msgstr "Експортувати у &STL..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1368
+#, fuzzy
+msgid "Export as &STL (ascii)..."
+msgstr "Експортувати у &STL..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1369
+#, fuzzy
+msgid "Export as &OBJ..."
+msgstr "Експортувати у &OFF"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1370
+#, fuzzy
+msgid "Export as &POV..."
+msgstr "Експортувати у &OFF"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1371
+msgid "Export as &OFF..."
+msgstr "Експортувати у &OFF"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1372
+#, fuzzy
+msgid "Export as &WRL..."
+msgstr "Експортувати у &STL..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1373
+msgid "Preview"
+msgstr "Перегляд"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1375
+msgid "F9"
+msgstr "F9"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1377
+msgid "Thrown Together"
+msgstr "Однією купою"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1379
+msgid "F12"
+msgstr "F12"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1381
+msgid "Show Edges"
+msgstr "Показувати ребра"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1383
+msgid "Ctrl+1"
+msgstr "Ctrl+1"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1385
+msgid "Show Axes"
+msgstr "Показуваті вісі"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1387
+msgid "Ctrl+2"
+msgstr "Ctrl+2"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1389
+msgid "Show Crosshairs"
+msgstr "Показувати перехрестя"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1391
+msgid "Ctrl+3"
+msgstr "Ctrl+3"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1393
+msgid "Show Scale Markers"
+msgstr "Показувати масштабні маркери"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1394
+msgid "&Top"
+msgstr "З&верху"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1396
+msgid "Ctrl+4"
+msgstr "Ctrl+4"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1398
+msgid "&Bottom"
+msgstr "З&низу"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1400
+msgid "Ctrl+5"
+msgstr "Ctrl+5"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1402
+msgid "&Left"
+msgstr "З&ліва"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1404
+msgid "Ctrl+6"
+msgstr "Ctrl+6"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1406
+msgid "&Right"
+msgstr "С&права"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1408
+msgid "Ctrl+7"
+msgstr "Ctrl+7"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1410
+msgid "&Front"
+msgstr "&Спереду"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1412
+msgid "Ctrl+8"
+msgstr "Ctrl+8"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1414
+msgid "Bac&k"
+msgstr "Зза&ду"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1416
+msgid "Ctrl+9"
+msgstr "Ctrl+9"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1418
+msgid "&Diagonal"
+msgstr "&Діагональна проекція"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1420
+msgid "Ctrl+0"
+msgstr "Ctrl+0"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1422
+msgid "Ce&nter"
+msgstr "&Центрувати"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1424
+#, fuzzy
+msgid "Ctrl+Shift+0"
+msgstr "Ctrl+Shift+S"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1426
+msgid "&Perspective"
+msgstr "Перспе&ктивний вид"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1427
+msgid "&Orthogonal"
+msgstr "&Ортогональний вид"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1428
+msgid "&About"
+msgstr "Про OpenSCAD"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1429
+msgid "&Documentation"
+msgstr "&Документація"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1430
+#, fuzzy
+msgid "&Offline Documentation"
+msgstr "&Документація"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1431
+#, fuzzy
+msgid "&Offline Cheat Sheet"
+msgstr "&Шпаргалка"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1432
+msgid "Clear Recent"
+msgstr "Очистити недавнє"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1433
+msgid "Export as &DXF..."
+msgstr "Експортувати у &DXF..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1434
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1436
+msgid "Revoke Trusted Python Files"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1438
+msgid "&Close"
+msgstr "&Закрити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1440
+msgid "Ctrl+W"
+msgstr "Ctrl+W"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1442
+msgid "&Preferences"
+msgstr "&Налаштування"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1443
+msgid "&Find..."
+msgstr "З&найти"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1445
+msgid "Ctrl+F"
+msgstr "Ctrl+F"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1447
+msgid "Fin&d and Replace..."
+msgstr "Знайти та &замінити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1449
+msgid "Ctrl+Alt+F"
+msgstr "Ctrl+Alt+F"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1451
+msgid "Find Ne&xt"
+msgstr "Знайти на&ступне"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1453
+msgid "Ctrl+G"
+msgstr "Ctrl+G"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1455
+msgid "Find Pre&vious"
+msgstr "Знайти &попереднє"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1457
+msgid "Ctrl+Shift+G"
+msgstr "Ctrl+Shift+G"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1459
+msgid "Use Se&lection for Find"
+msgstr "&Шукати виділений текст"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1461
+msgid "Ctrl+E"
+msgstr "Ctrl+E"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1463
+msgid "Jump to next error"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1465
+#, fuzzy
+msgid "Ctrl+Alt+E"
+msgstr "Ctrl+Alt+F"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1467
+msgid "&Flush Caches"
+msgstr "О&чистити кеш"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1468
+msgid "&OpenSCAD Homepage"
+msgstr "&Сторінка OpenSCAD"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1469
+msgid "&Automatic Reload and Preview"
+msgstr "&Автоматичне оновлення перегляду"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1470
+msgid "Export as &Image..."
+msgstr "Експортувати у &зображення..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1471
+msgid "Export as &CSG..."
+msgstr "Експортувати у &CSG..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1472
+msgid "&Library info"
+msgstr "Інформація про &бібліотеку"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1473
+msgid "Show &Library Folder..."
+msgstr "Показати &каталог бібліотек..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1474
+msgid "Reset View"
+msgstr "Скинути вид"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1475
+msgid "Export as S&VG..."
+msgstr "Експортувати у &SVG..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1476
+msgid "Export as &AMF..."
+msgstr "Експортувати у &AMF..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1477
+#, fuzzy
+msgid "Export as &3MF..."
+msgstr "Експортувати у &AMF..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1478
+msgid "Zoom In"
+msgstr "Приблизити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1480
+msgid "Ctrl+]"
+msgstr "Ctrl+]"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1482
+msgid "Zoom Out"
+msgstr "Віддалити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1484
+msgid "Ctrl+["
+msgstr "Ctrl+["
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1486
+msgid "View All"
+msgstr "Побачити все"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1488
+msgid "Ctrl+Shift+V"
+msgstr "Ctrl+Shift+V"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1490
+msgid "Conv&ert Tabs to Spaces"
+msgstr "Перетворити &табуляції на пробіли"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1491
+msgid "Toggle Bookmark"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1493
+#, fuzzy
+msgid "Ctrl+F2"
+msgstr "Ctrl+F"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1495
+msgid "Jump to next bookmark"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1497
+#, fuzzy
+msgid "F2"
+msgstr "F12"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1499
+msgid "Jump to previous bookmark"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1501
+#, fuzzy
+msgid "Shift+F2"
+msgstr "Ctrl+Shift+S"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1503
+#, fuzzy
+msgid "Hide Editor toolbar"
+msgstr "Сховати панелі інструментів"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1504
+msgid "U&nindent"
+msgstr "Прибрати відступи"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1506
+msgid "Ctrl+Shift+I"
+msgstr "Ctrl+Shift+I"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1508
+msgid "&Cheat Sheet"
+msgstr "&Шпаргалка"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1509
+#, fuzzy
+msgid "Export as PDF..."
+msgstr "Експортувати у &DXF..."
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1510
+#, fuzzy
+msgid "Hide 3D View toolbar"
+msgstr "Сховати панелі інструментів"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1511
+#, fuzzy
+msgid "&Next Window\tCtrl+K"
+msgstr "Знайти &попереднє"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1512
+#, fuzzy
+msgid "&Previous Window\tCtrl+H"
+msgstr "Знайти &попереднє"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1513
+#, fuzzy
+msgid "Insert Template"
+msgstr "Ставить табуляцію"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1515
+msgid "Alt+Ins"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1517
+msgid "Fold/Unfoll All"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1518
+msgid "Jump To ..."
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1520
+#, fuzzy
+msgid "Ctrl+J"
+msgstr "Ctrl+N"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1522
+#: src/gui/MainWindow.cc:1725 src/gui/MainWindow.cc:1732
+#: src/gui/MainWindow.cc:1745 src/gui/MainWindow.cc:1750
+msgid "Create Virtual Environment"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1523
+#: src/gui/MainWindow.cc:1767
+msgid "Select Virtual Environment"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1524
+#: build/OpenSCADLibInternal_autogen/include/ui_OctoPrintApiKeyDialog.h:107
+msgid "Message"
+msgstr "Повідомлення"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1527
+msgid "&File"
+msgstr "&Файл"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1528
+msgid "Recen&t Files"
+msgstr "&Недавні файли"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1529
+msgid "&Examples"
+msgstr "&Приклади"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1530
+msgid "E&xport"
+msgstr "&Експорт"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1531
+msgid "Python"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1532
+msgid "&Edit"
+msgstr "&Редагувати"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1533
+msgid "&Design"
+msgstr "&Дизайн"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1534
+msgid "&View"
+msgstr "&Вид"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1535
+msgid "&Help"
+msgstr "Допо&мога"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1536
+#, fuzzy
+msgid "&Window"
+msgstr "Знайти &попереднє"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1537
+msgid "Find"
+msgstr "Знайти"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1538
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1545
+msgid "Replace"
+msgstr "Замінити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1540
+msgid "Search string"
+msgstr "Шукати рядок"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1541
+#, fuzzy
+msgid "Previous"
+msgstr "Знайти &попереднє"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1542
+msgid "Next"
+msgstr "Наступний"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1543
+msgid "Done"
+msgstr "Готово"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1544
+msgid "Replacement string"
+msgstr "Замінити на рядок"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MainWindow.h:1547
+msgid "Customizer Widget"
+msgstr "Віджет параметрів"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:215
+msgid "Ctrl + Shift + Middle-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:216
+msgid "Left-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:217
+msgid "Ctrl + Left-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:218
+msgid "Shift + Left-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:219
+msgid "Ctrl + Shift + Right-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:220
+#, fuzzy
+msgid "Preset"
+msgstr "Скидання"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:221
+msgid "Right-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:222
+msgid "Ctrl + Middle-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:223
+msgid "Shift + Middle-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:224
+msgid "Ctrl + Right-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:225
+msgid "Ctrl + Shift + Left-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:226
+msgid "Shift + Right-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_MouseConfigWidget.h:227
+msgid "Middle-click"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_OctoPrintApiKeyDialog.h:106
+msgid "OctoPrint API Key Request"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_OctoPrintApiKeyDialog.h:108
+msgid "Retry"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_OpenCSGWarningDialog.h:76
+msgid "OpenGL Warning"
+msgstr "Попередження OpenGL"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_OpenCSGWarningDialog.h:77
+msgid ""
+"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/"
+"REC-html40/strict.dtd\">\n"
+"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/"
+"css\">\n"
+"p, li { white-space: pre-wrap; }\n"
+"</style></head><body style=\" font-family:'Lucida Grande'; font-size:13pt; "
+"font-weight:400; font-style:normal;\">\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; "
+"margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"></"
+"p></body></html>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_OpenCSGWarningDialog.h:82
+msgid "Show this message again"
+msgstr "Показати це повідомлення знову"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_OpenCSGWarningDialog.h:83
+msgid "Close"
+msgstr "Закрити"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterCheckBox.h:60
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterComboBox.h:56
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterDescriptionWidget.h:99
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterSlider.h:86
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterSpinBox.h:69
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterText.h:55
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterVector.h:108
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:141
+msgid "Form"
+msgstr "Форма"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterDescriptionWidget.h:100
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2354
+msgid "Parameter"
+msgstr "Параметр"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:142
+msgid "Automatic Preview"
+msgstr "Автоматичний перегляд"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:143
+msgid "Show Details"
+msgstr "Показати деталі"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:144
+msgid "Inline Details"
+msgstr "Деталі в рядках"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:145
+msgid "Hide Details"
+msgstr "Сховати деталі"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:146
+msgid "Description Only"
+msgstr "Тільки опис"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:148
+msgid "<design default>"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:151
+msgid "preset selection"
+msgstr "вибір пресету"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:154
+#, fuzzy
+msgid "Add new preset"
+msgstr "додати новий пресет"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:156
+msgid "+"
+msgstr "+"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:158
+#, fuzzy
+msgid "Remove current preset"
+msgstr "видалити поточний пресет"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ParameterWidget.h:160
+msgid "-"
+msgstr "-"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2233
+msgid "3D View"
+msgstr "3D вид"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2234
+msgctxt "preferences"
+msgid "Advanced"
+msgstr "Поглиблене"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2235
+#: src/gui/MainWindow.cc:287
+msgid "Editor"
+msgstr "Редактор"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2237
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2327
+msgid "Features"
+msgstr "Можливості"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2239
+msgid "Enable/Disable experimental features"
+msgstr "Увімкнути/Вимкнути експериментальні можливості"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2241
+#, fuzzy
+msgid "Axes"
+msgstr "Показуваті вісі"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2243
+msgid "Input driver configuration and Axis mapping"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2245
+msgid "Buttons"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2246
+msgid "Mouse"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2247
+#: build/OpenSCADLibInternal_autogen/include/ui_PrintInitDialog.h:178
+msgid "3D Print"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2249
+msgid "3D Printing Services"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2251
+msgid "Dialogs"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2252
+msgid "Directory of the output file"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2253
+msgid "Extension of the output file without leading dot"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2254
+msgid "Full path to the main source file"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2255
+msgid "Directory of the main source file"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2256
+msgid "Full path to the output file"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2257
+msgid "Color scheme:"
+msgstr "Схема кольорів:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2258
+msgid "Show Warnings and Errors in 3D View"
+msgstr "Показувати попередження та помилки у 3D виді"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2259
+msgid "mouse centric zoom"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2260
+msgid "Number Scroll"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2261
+#: src/core/Settings.cc:189
+#, fuzzy
+msgid "Alt"
+msgstr "Все"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2262
+#: src/core/Settings.cc:190
+msgid "Left Mouse Button"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2263
+#: src/core/Settings.cc:191
+msgid "Either"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2265
+#, fuzzy
+msgid "Step Size"
+msgstr "Розмір"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2266
+msgid "Number Scroll Via Mouse Wheel"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2267
+msgid "Modifier For Wheel Scroll "
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2268
+msgid "Autocomplete"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2269
+msgid "Enable Autocompletion"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2270
+msgid "Character Threshold"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2271
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2296
+msgid "Line wrap"
+msgstr "Згортання рядків"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2272
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2285
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2291
+#: src/core/Settings.cc:45 src/core/Settings.cc:146 src/core/Settings.cc:157
+#: src/core/Settings.cc:163 src/gui/input/ButtonConfigWidget.cc:241
+msgid "None"
+msgstr "Нема"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2273
+#: src/core/Settings.cc:147
+msgid "Wrap at character boundaries"
+msgstr "Згортати на межах знаків"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2274
+#: src/core/Settings.cc:148
+msgid "Wrap at word boundaries"
+msgstr "Згортати на межах слів"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2276
+msgid "Line wrap indentation"
+msgstr "Відступ згортання рядків"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2277
+msgid "Line wrap visualization"
+msgstr "Візуалізація згортання рядків"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2280
+#: src/core/Settings.cc:152
+msgid "Same"
+msgstr "Такий самий"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2281
+#: src/core/Settings.cc:152
+msgid "Indented"
+msgstr "З відступом"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2283
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2314
+#: src/core/Settings.cc:180
+msgid "Indent"
+msgstr "Відступ"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2284
+msgid "Start"
+msgstr "Початок"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2286
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2292
+#: src/core/Settings.cc:158 src/core/Settings.cc:164
+msgid "Text"
+msgstr "Текст"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2287
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2293
+#: src/core/Settings.cc:159 src/core/Settings.cc:165
+msgid "Border"
+msgstr "Межа"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2288
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2294
+#: src/core/Settings.cc:160 src/core/Settings.cc:166
+msgid "Margin"
+msgstr "Поле"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2290
+msgid "End"
+msgstr "Кінець"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2297
+msgid "Display"
+msgstr "Показ"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2298
+msgid "Highlight current line"
+msgstr "Підсвічувати поточний рядок"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2299
+msgid "Display Line Numbers"
+msgstr "Показувати номери рядків"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2300
+msgid "Enable brace matching"
+msgstr "Увімкнути парні дужки"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2301
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2373
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2386
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2388
+msgid "Font"
+msgstr "Шрифт"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2302
+msgid "Color syntax highlighting"
+msgstr "Кольорова підсвітка синтаксису"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2303
+msgid "Ctrl/Cmd-Mouse-wheel zooms text"
+msgstr "Ctrl/Cmd-колесо масштабує текст"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2304
+msgid "Indentation"
+msgstr "Відступи"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2305
+msgid "Auto Indent"
+msgstr "Автовідступи"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2306
+msgid "Backspace unindents"
+msgstr "Backspace відміняє відступ"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2307
+msgid "Indent using"
+msgstr "Робити відступи"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2308
+#: src/core/Settings.cc:178
+msgid "Spaces"
+msgstr "Пробілами"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2309
+#: src/core/Settings.cc:178
+msgid "Tabs"
+msgstr "Табуляцією"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2311
+msgid "Indentation width"
+msgstr "Ширина відступу"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2312
+msgid "Tab width"
+msgstr "Ширина табуляції"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2313
+msgid "Tab key function"
+msgstr "Клавіша Tab виконує"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2315
+#: src/core/Settings.cc:181
+msgid "Insert Tab"
+msgstr "Ставить табуляцію"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2317
+msgid "Show whitespace"
+msgstr "Показувати пробіл"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2318
+#: src/core/Settings.cc:169
+msgid "Never"
+msgstr "Ніколи"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2319
+#: src/core/Settings.cc:170
+msgid "Always"
+msgstr "Завжди"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2320
+msgid "Only after indentation"
+msgstr "Тільки після відступу"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2322
+msgid "Size"
+msgstr "Розмір"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2323
+msgid "Automatically check for updates"
+msgstr "Автоматично перевіряти оновлення"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2324
+msgid "Include development snapshots"
+msgstr "Включити розробницькі збірки"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2325
+msgid "Check Now"
+msgstr "Перевірити зараз"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2326
+msgid "Last checked: "
+msgstr "Останнього разу перевірено:"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2328
+msgid "General"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2329
+msgid "Default Print Service"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2330
+msgid "Enable remote print services"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2331
+#: build/OpenSCADLibInternal_autogen/include/ui_PrintInitDialog.h:181
+#: src/gui/Preferences.cc:436
+msgid "OctoPrint"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2332
+msgid "URL"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2333
+msgid "API Key"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2334
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2335
+msgid "Load"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2337
+#, fuzzy
+msgid "Check"
+msgstr "Перевірити зараз"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2338
+msgid "Slicing Profile"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2339
+msgid "Slicing Engine"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2340
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2346
+msgid "File Format"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2341
+#, fuzzy
+msgid "Action"
+msgstr "Програма"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2342
+msgid "Request"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2343
+#, fuzzy
+msgid "Show"
+msgstr "Показуваті вісі"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2344
+msgid "Note: The API key is stored unencrypted in the application settings."
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2345
+#: src/gui/Preferences.cc:437
+#, fuzzy
+msgid "Local Application"
+msgstr "Програма"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2347
+#, fuzzy
+msgid "File"
+msgstr "&Файл"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2352
+msgid "Executable"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2356
+msgid ""
+"Directory for storing the exported file, leave empty to use the default "
+"system location."
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2359
+msgid "Temp Dir"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2361
+msgid "3D Preview (OpenCSG)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2362
+msgid "Show capability warning"
+msgstr "Показувати попередження про здатності"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2363
+msgid "Turn off rendering at "
+msgstr "Вимкнути рендеринг на "
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2364
+msgid "elements"
+msgstr "елементів"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2365
+msgid "Force Goldfeather"
+msgstr "Примусово вмикати Goldfeather"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2366
+#, fuzzy
+msgid "3D Rendering"
+msgstr "По&будувати"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2367
+msgid "Backend"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2368
+msgid "CGAL Cache size"
+msgstr "Розмір кешу CGAL"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2369
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2371
+msgid "MB"
+msgstr "МБ"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2370
+msgid "PolySet Cache size"
+msgstr "Розмір кешу PolySet"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2372
+msgid "User Interface"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2374
+msgid "Enable docking of Editor and Console in different places"
+msgstr "Дозволити стикування Редактору та Консолі в різних місцях"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2375
+msgid "Enable undocking of Editor and Console to separate windows"
+msgstr "Дозволити відстикування Редактору та Консолі до різних вікон"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2376
+msgid "Show Welcome Screen"
+msgstr "Показувати вікно привітання"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2377
+msgid "Enable user interface localization (requires restart of OpenSCAD)"
+msgstr "Увімкнути локалізацію інтерфейсу (потребує перезапуску)"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2378
+msgid "Bring window to front after automatic reload"
+msgstr "Піднести вікно на передній план після автоматичного перевантаження"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2379
+msgid "Play sound notification on render complete"
+msgstr "Програвати звукове оповіщення по завершенні рендерингу"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2380
+#, fuzzy
+msgid "Play sound when render completion time is at least"
+msgstr "Програвати звукове оповіщення по завершенні рендерингу"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2381
+msgid "sec"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2382
+#: src/gui/MainWindow.cc:288
+msgid "Console"
+msgstr "Консоль"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2383
+msgid "Clear console before Preview/Render"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2384
+msgid "Maximum lines for Console to keep:"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2385
+msgid "(0 for unlimited)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2387
+#: src/gui/MainWindow.cc:289
+msgid "Customizer"
+msgstr "Кастомайзер"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2389
+msgid "OpenSCAD Language Features"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2390
+#, fuzzy
+msgid "Warnings"
+msgstr "Попередження OpenGL"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2391
+msgid "Stop on the first warning"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2392
+msgid "Check the parameter range for builtin modules"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2393
+msgid "Warn when there is a parameter mismatch in user module calls"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2394
+msgid "Trace"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2395
+msgid "Trace depth:"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2396
+msgid "(max. number or trace messages)"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2397
+msgid "Show parameters of usermodule calls in trace"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2398
+msgid "Render Summary"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2399
+msgid "Camera"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2400
+msgid "Bounding Box"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2401
+msgid "Measurements: Area"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2402
+#, fuzzy
+msgid "Export Features"
+msgstr "Можливості"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2403
+msgid "Toolbar Export 3D"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2404
+msgid "Toolbar Export 2D"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2405
+msgid "Debugging"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2406
+#, fuzzy
+msgid "Enable tracing of HIDAPI events (requires restart of OpenSCAD)"
+msgstr "Увімкнути локалізацію інтерфейсу (потребує перезапуску)"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2407
+msgid "Dialog visibility"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2408
+msgid "Always show PDF export dialog"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2409
+msgid "Always show 3MF export dialog"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_Preferences.h:2410
+msgid "Always show Print Service dialog"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_PrintInitDialog.h:180
+#, fuzzy
+msgid "Run local Application"
+msgstr "Програма"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_PrintInitDialog.h:182
+msgid "File format"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_PrintInitDialog.h:183
+msgid "Enable remote services that need network access"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ProgressWidget.h:70
+msgid "%v / %m"
+msgstr "%v / %m"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:266
+#, fuzzy
+msgid "ViewportControlWidget"
+msgstr "Сховати панелі інструментів"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:271
+#, fuzzy
+msgid "Aspect Ratio"
+msgstr "Програма"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:272
+msgid "Width"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:273
+#, fuzzy
+msgid "Height"
+msgstr "С&права"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:275
+msgid "Lock"
+msgstr ""
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:276
+#, fuzzy
+msgid "Details"
+msgstr "Показати деталі"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:277
+#, fuzzy
+msgid "Distance"
+msgstr "Поглиблене"
+
+#: build/OpenSCADLibInternal_autogen/include/ui_ViewportControl.h:278
+msgid "FOV"
+msgstr ""
+
+#: src/core/Settings.cc:48
+#, c-format
+msgid "axis-%d"
+msgstr ""
+
+#: src/core/Settings.cc:49
+#, c-format
+msgid "Axis %d"
+msgstr ""
+
+#: src/core/Settings.cc:52
+#, c-format
+msgid "axis-inverted-%d"
+msgstr ""
+
+#: src/core/Settings.cc:53
+#, c-format
+msgid "Axis %d (inverted)"
+msgstr ""
+
+#: src/core/Settings.cc:172
+msgid "After indentation"
+msgstr "Після відступу"
+
+#: src/core/Settings.cc:206
+msgid "Upload only"
+msgstr ""
+
+#: src/core/Settings.cc:207
+msgid "Upload & Slice"
+msgstr ""
+
+#: src/core/Settings.cc:208
+msgid "Upload, Slice & Select for printing"
+msgstr ""
+
+#: src/core/Settings.cc:209
+msgid "Upload, Slice & Start printing"
+msgstr ""
+
+#: src/core/Settings.cc:423
+msgid "Use colors from model"
+msgstr ""
+
+#: src/core/Settings.cc:425
+#, fuzzy
+msgid "Use selected color only"
+msgstr "&Шукати виділений текст"
+
+#: src/core/Settings.cc:432
+#, fuzzy
+msgid "Millimeter"
+msgstr "Параметр"
+
+#: src/core/Settings.cc:436
+msgid "Feet"
+msgstr ""
+
+#: src/core/Settings.cc:444
+#, fuzzy
+msgid "Color"
+msgstr "Схема кольорів:"
+
+#: src/core/Settings.cc:445
+msgid "Base Material"
+msgstr ""
+
+#: src/glview/Camera.cc:183
+#, fuzzy, c-format
+msgid ""
+"Viewport: translate = [ %.2f %.2f %.2f ], rotate = [ %.2f %.2f %.2f ], "
+"distance = %.2f, fov = %.2f"
+msgstr ""
+"Вид: переміщення = [ %.2f %.2f %.2f ], оберт = [ %.2f %.2f %.2f ], відстань "
+"= %.2f"
+
+#: src/gui/Animate.cc:201
+#, fuzzy
+msgid "press to pause animation"
+msgstr "вибір пресету"
+
+#: src/gui/Animate.cc:205
+msgid "press to start animation"
+msgstr ""
+
+#: src/gui/Animate.cc:208
+msgid "incorrect values"
+msgstr ""
+
+#: src/gui/Console.cc:165
+msgid "Save console content"
+msgstr ""
+
+#: src/gui/Export3mfDialog.cc:77
+msgid ""
+"This OpenSCAD build uses lib3mf version 1. Setting the decimal precision for "
+"export needs version 2 or later."
+msgstr ""
+
+#: src/gui/ExternalToolInterface.cc:185
+msgid "Exported design exceeds the service upload limit of (%1 MB)."
+msgstr ""
+
+#: src/gui/FontList.cc:368
+#, fuzzy
+msgid "Styled font name"
+msgstr "Шрифт"
+
+#: src/gui/FontList.cc:369
+#, fuzzy
+msgid "Font style"
+msgstr "Список &шрифтів"
+
+#: src/gui/FontList.cc:372
+#, fuzzy
+msgid "File name"
+msgstr "&Файл"
+
+#: src/gui/FontList.cc:373
+msgid "File path"
+msgstr ""
+
+#: src/gui/FontList.cc:374
+msgid "Hash"
+msgstr ""
+
+#: src/gui/input/AxisConfigWidget.h:87
+msgid ""
+"This driver was not enabled during build time and is thus not available."
+msgstr ""
+
+#: src/gui/input/AxisConfigWidget.h:90
+msgid ""
+"The DBUS driver is not for actual devices but for remote control, Linux only."
+msgstr ""
+
+#: src/gui/input/AxisConfigWidget.h:92
+msgid ""
+"The HIDAPI driver communicates directly with the 3D mice, Windows and macOS."
+msgstr ""
+
+#: src/gui/input/AxisConfigWidget.h:94
+msgid ""
+"The SpaceNav driver enables 3D-input-devices using the spacenavd daemon, "
+"Linux only."
+msgstr ""
+
+#: src/gui/input/AxisConfigWidget.h:96
+msgid ""
+"The Joystick driver uses the Linux joystick device (fixed to /dev/input/"
+"js0), Linux only."
+msgstr ""
+
+#: src/gui/input/AxisConfigWidget.h:98
+msgid "The QGAMEPAD driver is for multiplattform Gamepad Support."
+msgstr ""
+
+#: src/gui/input/ButtonConfigWidget.cc:242
+#, fuzzy
+msgid "Toggle Perspective"
+msgstr "Перспе&ктивний вид"
+
+#: src/gui/MainWindow.cc:290
+#, fuzzy
+msgid "Error-Log"
+msgstr "Сховати панелі інструментів"
+
+#: src/gui/MainWindow.cc:293
+msgid "Viewport-Control"
+msgstr ""
+
+#: src/gui/MainWindow.cc:1303
+msgid "Compile error."
+msgstr "Помилка компіляції."
+
+#: src/gui/MainWindow.cc:1306
+msgid "Error while compiling '%1'."
+msgstr "Помилка під час компіляції '%1'."
+
+#: src/gui/MainWindow.cc:1311
+msgid "Compilation generated %1 warning."
+msgid_plural "Compilation generated %1 warnings."
+msgstr[0] "Компіляція видала %1 попередження."
+msgstr[1] "Компіляція видала %1 попереджень."
+msgstr[2] "Компіляція видала %1 попереджень."
+
+#: src/gui/MainWindow.cc:1324
+#, fuzzy
+msgid ""
+" For details see the <a href=\"#errorlog\">error log</a> and <a "
+"href=\"#console\">console window</a>."
+msgstr " Для деталей дивіться <a href=\"#console\">вікно консолі</a>."
+
+#: src/gui/MainWindow.cc:1710
+msgid "Trusted Files"
+msgstr ""
+
+#: src/gui/MainWindow.cc:2069
+msgid ""
+"Python files can potentially contain harmful stuff.\n"
+"Do you trust this file ?\n"
+msgstr ""
+
+#: src/gui/MainWindow.cc:2177
+msgid "Application"
+msgstr "Програма"
+
+#: src/gui/MainWindow.cc:2178
+msgid ""
+"The document has been modified.\n"
+"Do you really want to reload the file?"
+msgstr ""
+"Документ було змінено.\n"
+"Ви дійсно бажаєте перезавантажити файл?"
+
+#: src/gui/MainWindow.cc:2893
+msgid "Export %1 File"
+msgstr "Експорт файлу %1"
+
+#: src/gui/MainWindow.cc:2894
+msgid "%1 Files (*%2)"
+msgstr "%1 файли (*%2)"
+
+#: src/gui/MainWindow.cc:2944
+msgid "Export CSG File"
+msgstr "Експорт CSG файлу"
+
+#: src/gui/MainWindow.cc:2945
+msgid "CSG Files (*.csg)"
+msgstr "CSG файли (*.csg)"
+
+#: src/gui/MainWindow.cc:2969
+msgid "Export Image"
+msgstr "Експорт зображення"
+
+#: src/gui/MainWindow.cc:2969
+msgid "PNG Files (*.png)"
+msgstr "PNG файли (*.png)"
+
+#: src/gui/MainWindow.cc:3394 src/gui/TabManager.cc:647
+#: src/gui/TabManager.cc:695
+msgid "Untitled.scad"
+msgstr "Безіменний.scad"
+
+#: src/gui/Network.h:151
+msgid "Timeout error"
+msgstr ""
+
+#: src/gui/OctoPrintApiKeyDialog.cc:57
+msgid "API key created, waiting for approval in OctoPrint..."
+msgstr ""
+
+#: src/gui/OctoPrintApiKeyDialog.cc:88
+msgid "API key approved."
+msgstr ""
+
+#: src/gui/OctoPrintApiKeyDialog.cc:98
+msgid "API key approval failed."
+msgstr ""
+
+#: src/gui/OpenSCADApp.cc:46
+msgid "Unknown error"
+msgstr "Невідома помилка"
+
+#: src/gui/OpenSCADApp.cc:50
+msgid "Critical Error"
+msgstr "Критична помилка"
+
+#: src/gui/OpenSCADApp.cc:51
+msgid ""
+"A critical error was caught. The application may have become unstable:\n"
+"%1"
+msgstr ""
+"Сталась критична помилка. Програма могла стати нестабільною:\n"
+" %1"
+
+#: src/gui/OpenSCADApp.cc:77
+msgid ""
+"Fontconfig needs to update its font cache.\n"
+"This can take up to a couple of minutes."
+msgstr ""
+"Конфігуратор шрифтів має оновити свій кеш.\n"
+"Це може зайняти до кількох хвилин."
+
+#: src/gui/parameter/ParameterWidget.cc:111
+msgid "Saving presets"
+msgstr "Пресети записуються"
+
+#: src/gui/parameter/ParameterWidget.cc:112
+msgid "%1 was found, but was unreadable. Do you want to overwrite %1?"
+msgstr "%1 було знайдено, але не читається. Бажаєте переписати %1?"
+
+#: src/gui/parameter/ParameterWidget.cc:210
+msgid "Create new set of parameter"
+msgstr "Створити новий набір параметрів"
+
+#: src/gui/parameter/ParameterWidget.cc:210
+msgid "Enter name of the parameter set"
+msgstr "Введіть назву набору параметрів"
+
+#: src/gui/parameter/ParameterWidget.cc:252
+msgid "New set "
+msgstr ""
+
+#: src/gui/Preferences.cc:286 src/gui/Preferences.cc:291
+#: src/gui/Preferences.cc:1151 src/gui/Preferences.cc:1190
+msgid "<Default>"
+msgstr ""
+
+#: src/gui/Preferences.cc:435
+msgid "NONE"
+msgstr ""
+
+#: src/gui/Preferences.cc:1134
+msgid "Success: Server Version = %2, API Version = %1"
+msgstr ""
+
+#: src/gui/Preferences.cc:1136 src/gui/Preferences.cc:1161
+#: src/gui/Preferences.cc:1200
+#, fuzzy
+msgid "Error"
+msgstr "Сховати панелі інструментів"
+
+#: src/gui/QGLView.cc:161
+msgid ""
+"Warning: Missing OpenGL capabilities for OpenCSG - OpenCSG has been "
+"disabled.\n"
+"\n"
+msgstr ""
+"Попередження: Відсутні можливости OpenGL для OpenCSG - OpenCSG буде "
+"вимкнено.\n"
+"\n"
+
+#: src/gui/QGLView.cc:163
+msgid ""
+"It is highly recommended to use OpenSCAD on a system with OpenGL 2.0 or "
+"later.\n"
+"Your renderer information is as follows:\n"
+msgstr ""
+"Дуже рекомендовано використовувати OpenSCAD на системі з OpenGL 2.0 або "
+"новішим.\n"
+"Ваш рендерер такий:\n"
+
+#: src/gui/QGLView.cc:167
+msgid ""
+"GLEW version %1\n"
+"%2 (%3)\n"
+"OpenGL version %4\n"
+msgstr ""
+"Версія GLEW %1\n"
+"%2 (%3)\n"
+"Версія OpenGL %4\n"
+
+#: src/gui/QGLView.cc:173
+#, fuzzy
+msgid ""
+"GLAD version %1\n"
+"%2 (%3)\n"
+"OpenGL version %4\n"
+msgstr ""
+"Версія GLEW %1\n"
+"%2 (%3)\n"
+"Версія OpenGL %4\n"
+
+#: src/gui/TabManager.cc:359
+msgid "Copy file name"
+msgstr ""
+
+#: src/gui/TabManager.cc:365
+msgid "Copy full path"
+msgstr ""
+
+#: src/gui/TabManager.cc:371
+#, fuzzy
+msgid "Open Folder"
+msgstr "&Файл"
+
+#: src/gui/TabManager.cc:376
+#, fuzzy
+msgid "Close Tab"
+msgstr "Закрити"
+
+#: src/gui/TabManager.cc:518
+msgid "The document has been modified."
+msgstr "Документ було змінено"
+
+#: src/gui/TabManager.cc:519
+msgid "Do you want to save your changes?"
+msgstr "Зберегти ваші зміни?"
+
+#: src/gui/TabManager.cc:550
+msgid "Some tabs have unsaved changes."
+msgstr ""
+
+#: src/gui/TabManager.cc:551
+#, fuzzy
+msgid "Do you want to save all your changes?"
+msgstr "Зберегти ваші зміни?"
+
+#: src/gui/TabManager.cc:614 src/gui/TabManager.cc:722
+msgid "Failed to open file for writing"
+msgstr "Неможливо відкрити файл для запису"
+
+#: src/gui/TabManager.cc:638 src/gui/TabManager.cc:736
+msgid "Error saving design"
+msgstr "Помилка при збереженні дизайну"
+
+#: src/gui/TabManager.cc:648
+msgid "Save File"
+msgstr "Збереги файл"
+
+#: src/gui/TabManager.cc:648
+msgid "OpenSCAD Designs (*.scad)"
+msgstr "Дизайн OpenSCAD (*.scad)"
+
+#: src/gui/TabManager.cc:661
+msgid ""
+"%1 already exists.\n"
+"Do you want to replace it?"
+msgstr ""
+"%1 вже існує.\n"
+"Перезаписати?"
+
+#: src/gui/ViewportControl.cc:177 src/gui/ViewportControl.cc:180
+#: src/gui/ViewportControl.cc:193
+msgid "extreme values might may lead to strange behavior"
+msgstr ""
+
+#: src/gui/ViewportControl.cc:190
+msgid "negative distances are not supported"
+msgstr ""
+
+#: src/io/export.cc:245
+#, fuzzy, c-format
+msgid "Can't open file \"%1$s\" for export"
+msgstr "Не можу відкрити файл \"%1$s\" для експорту"
+
+#: src/io/export.cc:261
+#, fuzzy, c-format
+msgid "\"%1$s\" write error. (Disk full?)"
+msgstr "ПОМИЛКА: \"%1$s\" помилка запису. (Диск переповнено?)"
+
+#: examples
+msgid "Parametric"
+msgstr "Пераметричне"
+
+#: examples
+msgid "Functions"
+msgstr "Функції"
+
+#: examples
+msgid "Old"
+msgstr "Старі"
+
+#: examples
+msgid "Advanced"
+msgstr "Поглиблене"
+
+#: examples
+msgid "Basics"
+msgstr "Основи"
+
+#. (itstool) path: component/summary
+#: openscad.appdata.xml.in2:6
+msgid "The Programmers Solid 3D CAD Modeller"
+msgstr "Твердотільна тривимірна САПР для програмістів"
+
+#. (itstool) path: description/p
+#: openscad.appdata.xml.in2:20
+msgid ""
+"OpenSCAD is a software for creating solid 3D CAD models. Unlike most free "
+"software for creating 3D models (such as Blender) it does not focus on the "
+"artistic aspects of 3D modelling but instead on the CAD aspects. Thus it "
+"might be the application you are looking for when you are planning to create "
+"3D models of machine parts but pretty sure is not what you are looking for "
+"when you are more interested in creating computer-animated movies."
+msgstr ""
+"OpenSCAD це програмне забезпечення для створення твердотільних 3D моделей. "
+"На відміну від більшості вільного ПЗ для створення 3D моделей (такого як "
+"Blender) він не зосереджується на мистецьких аспектах моделювання, замість "
+"цього - на аспектах САПР. Тому це може бути програма, яку ви шукаєте коли "
+"плануєте створювати 3D моделі запчастин механізмів, але зовсім не те що ви "
+"шукали, плануючи створення анімаційних фільмів."
+
+#. (itstool) path: description/p
+#: openscad.appdata.xml.in2:21
+msgid ""
+"OpenSCAD is not an interactive modeller. Instead it is something like a 3D-"
+"compiler that reads in a script file that describes the object and renders "
+"the 3D model from this script file. This gives you (the designer) full "
+"control over the modelling process and enables you to easily change any step "
+"in the modelling process or make designs that are defined by configurable "
+"parameters."
+msgstr ""
+"OpenSCAD це не інтерактивний моделер. Замість цього це щось на зразок 3D-"
+"компілятору який читає скриптовий файл, у якому описано модель, та будує 3D "
+"модель зі скриптового файлу. Це дає вам (розробнику) повний контроль над "
+"процесом конструювання та дозволяє легко змінити будь-який крок в процесі "
+"моделювання, або розробляти моделі, які повністю визначені через "
+"конфігураційні параметри."
+
+#. (itstool) path: description/p
+#: openscad.appdata.xml.in2:22
+msgid ""
+"OpenSCAD provides two main modelling techniques: First there is constructive "
+"solid geometry (aka CSG) and second there is extrusion of 2D outlines. As "
+"data exchange format for this 2D outlines Autocad DXF files are used. In "
+"addition to 2D paths for extrusion it is also possible to read design "
+"parameters from DXF files. Besides DXF files OpenSCAD can read and create 3D "
+"models in the STL and OFF file formats."
+msgstr ""
+"OpenSCAD забезпечує дві техніки моделювання: перша це Конструктивна блокова "
+"геометрія (або CSG), а друга це видавлювання 2D контурів. В якості формату "
+"обміну даних для цих 2D контурів використовуються файли AutoCAD DXF. Окрім "
+"файлів DXF OpenSCAD може читати та створювати 3D моделі у форматах файлів "
+"STL та OFF."
+
+#~ msgid "&Font List"
+#~ msgstr "Список &шрифтів"
+
+#, fuzzy
+#~ msgid "Line"
+#~ msgstr "Згортання рядків"
+
+#, fuzzy
+#~ msgid "Filename"
+#~ msgstr "&Файл"
+
+#, fuzzy
+#~ msgid "Font Lists"
+#~ msgstr "Список &шрифтів"
+
+#, fuzzy
+#~ msgid "Hide Editor"
+#~ msgstr "C&ховати редактор"
+
+#~ msgid "Surfaces"
+#~ msgstr "Поверхні"
+
+#~ msgid "F10"
+#~ msgstr "F10"
+
+#~ msgid "F11"
+#~ msgstr "F11"
+
+#, fuzzy
+#~ msgid "Hide Console"
+#~ msgstr "За&ховати консоль"
+
+#~ msgid "Hide Customizer"
+#~ msgstr "Приховати кастомайзер"
+
+#, fuzzy
+#~ msgid "Hide Error Log"
+#~ msgstr "Сховати панелі інструментів"
+
+#, fuzzy
+#~ msgid "Hide ErrorLog"
+#~ msgstr "Сховати панелі інструментів"
+
+#, fuzzy
+#~ msgid "Hide Animation Toolbar/Window"
+#~ msgstr "Сховати панелі інструментів"
+
+#, fuzzy
+#~ msgid "&Editor"
+#~ msgstr "Редактор"
+
+#, fuzzy
+#~ msgid "&Console"
+#~ msgstr "Консоль"
+
+#, fuzzy
+#~ msgid "C&ustomizer"
+#~ msgstr "Кастомайзер"
+
+#, fuzzy
+#~ msgid "Error &Log"
+#~ msgstr "Сховати панелі інструментів"
+
+#, fuzzy
+#~ msgid "&Animate"
+#~ msgstr "Анімувати"
+
+#~ msgid "OpenCSG"
+#~ msgstr "OpenCSG"
+
+#, fuzzy
+#~ msgid "play animation"
+#~ msgstr "Програма"
+
+#, fuzzy
+#~ msgid "Untitled"
+#~ msgstr "Безіменний"
+
+#~ msgid "Enable OpenCSG"
+#~ msgstr "Увімкнути OpenCSG"
+
+#~ msgid "Enable for OpenGL 1.x"
+#~ msgstr "Увімкнути для OpenGL 1.x"
+
+#~ msgid ""
+#~ "Warning: You may experience OpenCSG rendering errors.\n"
+#~ "\n"
+#~ msgstr ""
+#~ "Попередження: Можливі помилки рендерінгу OpenCSG.\n"
+#~ "\n"
+
+#~ msgid "save preset"
+#~ msgstr "збереги пресет"
+
+#, fuzzy
+#~ msgid "delete current preset"
+#~ msgstr "видалити поточний пресет"
+
+#~ msgid "add new preset"
+#~ msgstr "додати новий пресет"
+
+#, fuzzy
+#~ msgid "reset all parameters to the currently selected preset"
+#~ msgstr "скинути пераметри до поточного пресету"
+
+#, fuzzy
+#~ msgid "Search"
+#~ msgstr "Шукати рядок"
+
+#~ msgid "changes on current preset not saved"
+#~ msgstr "зміни до поточного пресету не збережені"
+
+#~ msgid ""
+#~ "The changes on the current preset %1 are not saved yet. Do you really "
+#~ "want to reset this preset and lose your changes?"
+#~ msgstr ""
+#~ "Зміни до поточного пресету %1 ще не збережені. Ви дійсно бажаєте скинути "
+#~ "цей пресет та втратити зміни?"
+
+#, fuzzy
+#~ msgid "Save current preset"
+#~ msgstr "зберегти поточний пресет"
+
+#~ msgid "JSON file read only"
+#~ msgstr "JSON файл тільки для зчитування"
+
+#~ msgid ""
+#~ "The current preset %1 contains changes, but is not saved yet. Do you "
+#~ "really want to change the preset and lose your changes?"
+#~ msgstr ""
+#~ "Поточний пресет %1 містить зміни, але ще не збережений. Ви дійсно бажаєте "
+#~ "змінити пресет та втратити ваші зміни?"
+
+#, fuzzy
+#~ msgid "Do you want to delete the current preset?"
+#~ msgstr "Зберегти ваші зміни?"
+
+#, fuzzy
+#~ msgid "The set name  %1 already exists. Do you want overwrite it?"
+#~ msgstr ""
+#~ "%1 вже існує.\n"
+#~ "Перезаписати?"
+
+#, fuzzy
+#~ msgid "Find Next"
+#~ msgstr "Знайти на&ступне"
+
+#, fuzzy
+#~ msgid "Find Previous"
+#~ msgstr "Знайти &попереднє"
+
+#, fuzzy
+#~ msgid "Some of the tabs are modified."
+#~ msgstr "Документ було змінено"
+
+#~ msgid "Saved design '%s'."
+#~ msgstr "Дизайн '%s' збережено."
+
+#, fuzzy
+#~ msgid "Save As"
+#~ msgstr "Зберегти &як..."
+
+#~ msgid "Prev."
+#~ msgstr "Попередній"
+
+#~ msgid "&New"
+#~ msgstr "&Новий"
+
+#~ msgid "&Open..."
+#~ msgstr "&Відкрити..."
+
+#~ msgid "Editor Type"
+#~ msgstr "Тип редактору"
+
+#~ msgid "Simple Editor"
+#~ msgstr "Простий редактор"
+
+#~ msgid "QScintilla Editor"
+#~ msgstr "QScintilla редактор"
+
+#~ msgid "(requires restart)"
+#~ msgstr "(потребує перезапуску)"
+
+#~ msgid "Allow opening multiple documents"
+#~ msgstr "Дозволити відкривати багато документів"
+
+#~ msgid "Untitled.csg"
+#~ msgstr "Безіменний.csg"
+
+#~ msgid "Untitled.png"
+#~ msgstr "Безіменний.png"
+
+#~ msgid "no preset selected"
+#~ msgstr "пресет не обрано"
