@@ -1,0 +1,18 @@
+[submodule "openscad/libraries/MCAD"]
+	path = openscad/libraries/MCAD
+	url = https://github.com/openscad/MCAD.git
+[submodule "openscad/mimalloc"]
+	path = openscad/submodules/mimalloc
+	url = https://github.com/microsoft/mimalloc.git
+[submodule "openscad/submodules/manifold"]
+	path = openscad/submodules/manifold
+	url = https://github.com/elalish/manifold.git
+[submodule "openscad/sanitizers-cmake"]
+	path = openscad/submodules/sanitizers-cmake
+	url = https://github.com/arsenm/sanitizers-cmake.git
+[submodule "openscad/OpenCSG"]
+	path = openscad/submodules/OpenCSG
+	url = https://github.com/floriankirsch/OpenCSG.git
+[submodule "openscad/Clipper2"]
+	path = openscad/submodules/Clipper2
+	url = https://github.com/AngusJohnson/Clipper2.git
