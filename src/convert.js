@@ -1,4 +1,4 @@
-import OpenScad from "./openscad.js";
+import OpenScad from "./ext/openscad.js";
 
 // Helper to resolve relative paths for the virtual file system
 function resolvePath(base, relative) {

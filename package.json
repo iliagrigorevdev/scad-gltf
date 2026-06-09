@@ -1,26 +1,24 @@
 {
-  "name": "openscad-gltf-wasm",
-  "version": "0.14.0",
+  "name": "scad-gltf",
+  "version": "0.1.0",
   "type": "module",
-  "main": "openscad.js",
+  "main": "./src/openscad.js",
   "bin": {
     "scad-convert": "./bin/scad-convert.js",
-    "scad-serve": "./bin/scad-serve.js",
-    "scad-godot-prompt": "./bin/scad-godot-prompt.sh"
+    "scad-serve": "./bin/scad-serve.js"
   },
   "exports": {
-    ".": "./openscad.js",
-    "./convert": "./convert.js",
-    "./convert.js": "./convert.js",
-    "./prompt": "./prompt.js",
-    "./prompt.js": "./prompt.js",
-    "./openscad.wasm": "./openscad.wasm"
+    ".": "./src/ext/openscad.js",
+    "./convert": "./src/convert.js",
+    "./convert.js": "./src/convert.js",
+    "./prompt": "./src/prompt.js",
+    "./prompt.js": "./src/prompt.js",
+    "./openscad.wasm": "./src/ext/openscad.wasm"
   },
   "scripts": {
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "express": "^5.2.1"
   },
   "devDependencies": {
