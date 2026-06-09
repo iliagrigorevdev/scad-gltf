@@ -9,7 +9,7 @@ export default defineConfig({
       input: {
         index: "index.html",
         preview: "preview.html",
-        content: "content.js",
+        content: "src/content.js",
       },
       output: {
         entryFileNames: "[name].js",
@@ -23,7 +23,7 @@ export default defineConfig({
       name: "copy-extension-files",
       writeBundle() {
         copyFileSync("manifest.json", "dist/manifest.json");
-        copyFileSync("content.css", "dist/content.css");
+        copyFileSync("src/content.css", "dist/content.css");
       },
     },
   ],
