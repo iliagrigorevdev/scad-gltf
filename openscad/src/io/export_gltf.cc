@@ -1120,8 +1120,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                             tinygltf::Sampler sampler;
                             sampler.minFilter = TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR;
                             sampler.magFilter = TINYGLTF_TEXTURE_FILTER_LINEAR;
-                            sampler.wrapS = TINYGLTF_TEXTURE_WRAP_REPEAT;
-                            sampler.wrapT = TINYGLTF_TEXTURE_WRAP_REPEAT;
+                            sampler.wrapS = TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE;
+                            sampler.wrapT = TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE;
                             model.samplers.push_back(sampler);
                         }
 
@@ -1150,8 +1150,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                             tinygltf::Sampler sampler;
                             sampler.minFilter = TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR;
                             sampler.magFilter = TINYGLTF_TEXTURE_FILTER_LINEAR;
-                            sampler.wrapS = TINYGLTF_TEXTURE_WRAP_REPEAT;
-                            sampler.wrapT = TINYGLTF_TEXTURE_WRAP_REPEAT;
+                            sampler.wrapS = TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE;
+                            sampler.wrapT = TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE;
                             model.samplers.push_back(sampler);
                         }
 
