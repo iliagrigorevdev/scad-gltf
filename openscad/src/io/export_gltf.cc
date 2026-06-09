@@ -643,6 +643,11 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 const xatlas::Mesh& xmesh = group.atlas->meshes[a_idx];
                 const auto& prim = meshes_info[prim_info.m_idx].primitives[prim_info.p_idx];
 
+                Color4f low_poly_color = exportInfo.defaultColor;
+                if (prim.color_idx >= 0 && prim.color_idx < (int)prim.ps->colors.size()) {
+                    low_poly_color = prim.ps->colors[prim.color_idx];
+                }
+
                 auto get_gltf_pos = [&](uint32_t orig_idx) -> Vector3d {
                     return Vector3d(prim.positions[orig_idx*3+0], prim.positions[orig_idx*3+1], prim.positions[orig_idx*3+2]);
                 };
@@ -822,10 +827,10 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                                 pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(avg_c.z() * 255.0f)));
                                                 pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(avg_c.w() * 255.0f)));
                                             } else {
-                                                pixels[pixel_idx + 0] = 255;
-                                                pixels[pixel_idx + 1] = 255;
-                                                pixels[pixel_idx + 2] = 255;
-                                                pixels[pixel_idx + 3] = 0; // alpha 0 to allow dilation
+                                                pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.r() * 255.0f)));
+                                                pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.g() * 255.0f)));
+                                                pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.b() * 255.0f)));
+                                                pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.a() * 255.0f)));
                                             }
                                         } else {
                                             pixels[pixel_idx + 0] = 255;
