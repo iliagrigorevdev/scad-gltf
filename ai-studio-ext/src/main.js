@@ -904,6 +904,40 @@ setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
 
 editorEl.placeholder = defaultScad;
 
+async function decodeCode(hash) {
+  if (!hash) return null;
+  const type = hash.charAt(0);
+  const data = hash.substring(1);
+  let b64 = data.replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4) b64 += "=";
+
+  if (type === "c") {
+    try {
+      if (typeof DecompressionStream !== "undefined") {
+        const binaryString = atob(b64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const stream = new Blob([bytes])
+          .stream()
+          .pipeThrough(new DecompressionStream("deflate-raw"));
+        const buffer = await new Response(stream).arrayBuffer();
+        return new TextDecoder().decode(buffer);
+      }
+    } catch (e) {
+      console.warn("DecompressionStream failed", e);
+    }
+  } else if (type === "u") {
+    try {
+      return decodeURIComponent(escape(atob(b64)));
+    } catch (e) {
+      console.warn("Unescape failed", e);
+    }
+  }
+  return null;
+}
+
 (async function init() {
   const isLocal = ["localhost", "127.0.0.1", ""].includes(
     window.location.hostname,
@@ -911,6 +945,19 @@ editorEl.placeholder = defaultScad;
   if (isLocal) {
     const url = backendUrlEl.value.trim();
     await connectToServer(url, true);
+  }
+
+  if (window.location.hash) {
+    try {
+      const hash = window.location.hash.substring(1);
+      const code = await decodeCode(hash);
+      if (code) {
+        editorEl.value = code;
+      }
+      window.history.replaceState(null, "", window.location.pathname);
+    } catch (e) {
+      console.error("Failed to decode hash", e);
+    }
   }
 
   checkChanges();

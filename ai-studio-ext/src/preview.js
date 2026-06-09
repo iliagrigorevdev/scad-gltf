@@ -402,7 +402,15 @@ openEditorBtn.addEventListener("click", async () => {
     openEditorBtn.innerText = "Preparing...";
 
     const hash = await encodeCode(latestScadCode);
-    const url = `https://iliagrigorevdev.github.io/openscad-gltf-viewer/#${hash}`;
+    let url = "index.html#" + hash;
+
+    if (
+      typeof chrome !== "undefined" &&
+      chrome.runtime &&
+      chrome.runtime.getURL
+    ) {
+      url = chrome.runtime.getURL("index.html") + "#" + hash;
+    }
 
     window.open(url, "_blank");
     window.parent.postMessage({ type: "CLOSE_PREVIEW" }, "*");
