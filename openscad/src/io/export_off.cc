@@ -60,7 +60,7 @@ void export_off(const std::shared_ptr<const Geometry>& geom, std::ostream& outpu
     if (has_color) {
       auto color_index = ps->color_indices[i];
       if (color_index >= 0) {
-        auto color = ps->materials[color_index].color;
+        auto color = ps->colors[color_index];
         int r, g, b, a;
         if (!color.getRgba(r, g, b, a)) {
           LOG(message_group::Warning, "Invalid color in OFF export");

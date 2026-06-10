@@ -128,7 +128,7 @@ void PolySetRenderer::createPolySetStates(const ShaderUtils::ShaderInfo *shaderi
 
   for (const auto& polyset : this->polysets_) {
     Color4f color;
-    if (!polyset->materials.empty()) color = polyset->materials[0].color;
+    if (!polyset->colors.empty()) color = polyset->colors[0];
     getShaderColor(ColorMode::MATERIAL, color, color);
     add_shader_pointers(vbo_builder, shaderinfo);
 

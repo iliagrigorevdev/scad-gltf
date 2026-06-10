@@ -33,6 +33,7 @@ public:
   int bake_index = 0;
   // Per polygon color, indexing the colors vector below. Can be empty, and -1 means no specific color.
   std::vector<int32_t> color_indices;
+  std::vector<Color4f> colors;
   std::vector<MaterialProperties> materials;
 
   PolySet(unsigned int dim, boost::tribool convex = unknown);
@@ -48,7 +49,7 @@ public:
   size_t numFacets() const override { return indices.size(); }
   void transform(const Transform3d& mat) override;
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
-  void setColor(const MaterialProperties& properties) override;
+  void setColor(const Color4f& color, const MaterialProperties& properties) override;
 
   bool isConvex() const;
   boost::tribool convexValue() const { return convex_; }

@@ -339,6 +339,7 @@ std::unique_ptr<PolySet> createSortedPolySet(const PolySet& ps)
     out->indices.push_back(face);
   }
   out->color_indices = ps.color_indices;
+  out->colors = ps.colors;
   out->materials = ps.materials;
 
   out->high_poly_bake = ps.high_poly_bake;

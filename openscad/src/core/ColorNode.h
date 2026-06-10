@@ -16,5 +16,6 @@ public:
   std::string toString() const override;
   std::string name() const override;
 
+  Color4f color;
   MaterialProperties material;
 };

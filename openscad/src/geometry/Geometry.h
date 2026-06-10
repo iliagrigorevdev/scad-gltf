@@ -11,7 +11,6 @@
 #include "geometry/linalg.h"
 
 struct MaterialProperties {
-  Color4f color;
   float roughness = 1.0f;
   float metalness = 0.0f;
   float clearcoat = 0.0f;
@@ -41,11 +40,8 @@ struct MaterialProperties {
     specularColor = defWhite;
   }
 
-  bool isValid() const { return color.isValid(); }
-
-  auto to_tuple() const {
+    auto to_tuple() const {
     return std::make_tuple(
-        color.r(), color.g(), color.b(), color.a(),
         roughness, metalness, clearcoat, clearcoatRoughness,
         sheen, sheenColor.r(), sheenColor.g(), sheenColor.b(), sheenColor.a(), sheenRoughness,
         transmission, thickness, attenuationColor.r(), attenuationColor.g(), attenuationColor.b(), attenuationColor.a(), attenuationDistance,
@@ -91,7 +87,7 @@ public:
   [[nodiscard]] virtual size_t numFacets() const = 0;
   [[nodiscard]] unsigned int getConvexity() const { return convexity; }
   void setConvexity(int c) { this->convexity = c; }
-  virtual void setColor(const MaterialProperties& properties) {}
+  virtual void setColor(const Color4f& color, const MaterialProperties& properties) {}
 
   virtual void transform(const Transform3d& /*mat*/) { assert(!"transform not implemented!"); }
   virtual void resize(const Vector3d& /*newsize*/, const Eigen::Matrix<bool, 3, 1>& /*autosize*/)
@@ -164,11 +160,11 @@ public:
     }
   }
 
-  void setColor(const MaterialProperties& properties) override {
+  void setColor(const Color4f& color, const MaterialProperties& properties) override {
     for (auto& item : children) {
       if (item.second) {
         auto new_geom = item.second->copy();
-        new_geom->setColor(properties);
+        new_geom->setColor(color, properties);
         item.second = std::move(new_geom);
       }
     }

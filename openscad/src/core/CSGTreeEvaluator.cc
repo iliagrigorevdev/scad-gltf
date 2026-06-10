@@ -291,7 +291,7 @@ Response CSGTreeEvaluator::visit(State& state, const TransformNode& node)
 Response CSGTreeEvaluator::visit(State& state, const ColorNode& node)
 {
   if (state.isPrefix()) {
-    if (!state.color().isValid()) state.setColor(node.material.color);
+    if (!state.color().isValid()) state.setColor(node.color);
   }
   if (state.isPostfix()) {
     applyToChildren(state, node, OpenSCADOperator::UNION);

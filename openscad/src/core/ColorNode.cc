@@ -73,12 +73,12 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
             "color() expects numbers between 0.0 and 1.0. Value of %1$.1f is out of range", color[i]);
       }
     }
-    node->material.color = color;
+    node->color = color;
   } else if (parameters["c"].type() == Value::Type::STRING) {
     auto colorname = parameters["c"].toString();
     const auto parsed_color = OpenSCAD::parse_color(colorname);
     if (parsed_color) {
-      node->material.color = *parsed_color;
+      node->color = *parsed_color;
     } else {
       LOG(message_group::Warning, inst->location(), parameters.documentRoot(),
           "Unable to parse color \"%1$s\"", colorname);
@@ -88,10 +88,10 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
     }
   }
   if (parameters["alpha"].type() == Value::Type::NUMBER) {
-    node->material.color.setAlpha(parameters["alpha"].toDouble());
-    if (node->material.color.a() < 0.0f || node->material.color.a() > 1.0f) {
+    node->color.setAlpha(parameters["alpha"].toDouble());
+    if (node->color.a() < 0.0f || node->color.a() > 1.0f) {
       LOG(message_group::Warning, inst->location(), parameters.documentRoot(),
-          "color() expects alpha between 0.0 and 1.0. Value of %1$.1f is out of range", node->material.color.a());
+          "color() expects alpha between 0.0 and 1.0. Value of %1$.1f is out of range", node->color.a());
     }
   }
 
@@ -174,8 +174,8 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
 
 std::string ColorNode::toString() const
 {
-  return STR("color([", this->material.color.r(), ", ", this->material.color.g(), ", ", this->material.color.b(), ", ",
-             this->material.color.a(), "], roughness=", this->material.roughness, ", metalness=", this->material.metalness,
+  return STR("color([", this->color.r(), ", ", this->color.g(), ", ", this->color.b(), ", ",
+             this->color.a(), "], roughness=", this->material.roughness, ", metalness=", this->material.metalness,
              ", clearcoat=", this->material.clearcoat, ", clearcoatRoughness=", this->material.clearcoatRoughness,
              ", sheen=", this->material.sheen, ", sheenColor=[", this->material.sheenColor.r(), ", ", this->material.sheenColor.g(), ", ", this->material.sheenColor.b(), "], sheenRoughness=", this->material.sheenRoughness,
              ", transmission=", this->material.transmission, ", thickness=", this->material.thickness,

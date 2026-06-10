@@ -549,7 +549,7 @@ Response GeometryEvaluator::visit(State& state, const ColorNode& node)
       if ((geom = res.constptr())) {
         auto mutableGeom = res.asMutableGeometry();
         if (mutableGeom) {
-          mutableGeom->setColor(node.material);
+          mutableGeom->setColor(node.color, node.material);
         }
         geom = mutableGeom;
       }

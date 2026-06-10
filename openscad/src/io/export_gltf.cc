@@ -101,8 +101,10 @@ public:
             }
             Color4f c(0.5f, 0.5f, 0.5f, 1.0f);
             float autoSmoothAngle = 0.0f;
+            if (color_idx >= 0 && color_idx < (int)ps.colors.size()) {
+                c = ps.colors[color_idx];
+            }
             if (color_idx >= 0 && color_idx < (int)ps.materials.size()) {
-                c = ps.materials[color_idx].color;
                 autoSmoothAngle = ps.materials[color_idx].autoSmoothAngle;
             }
 
@@ -504,6 +506,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     }
 
     struct MaterialKey {
+        Color4f color;
         MaterialProperties props;
         std::string base_color_uri;
         std::string normal_texture_uri;
@@ -511,6 +514,10 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         bool operator<(const MaterialKey& o) const {
             if (base_color_uri != o.base_color_uri) return base_color_uri < o.base_color_uri;
             if (normal_texture_uri != o.normal_texture_uri) return normal_texture_uri < o.normal_texture_uri;
+            if (color.r() != o.color.r()) return color.r() < o.color.r();
+            if (color.g() != o.color.g()) return color.g() < o.color.g();
+            if (color.b() != o.color.b()) return color.b() < o.color.b();
+            if (color.a() != o.color.a()) return color.a() < o.color.a();
             return props < o.props;
         }
     };
@@ -600,8 +607,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 const auto& prim = meshes_info[prim_info.m_idx].primitives[prim_info.p_idx];
 
                 Color4f low_poly_color = exportInfo.defaultColor;
-                if (prim.color_idx >= 0 && prim.color_idx < (int)prim.ps->materials.size()) {
-                    low_poly_color = prim.ps->materials[prim.color_idx].color;
+                if (prim.color_idx >= 0 && prim.color_idx < (int)prim.ps->colors.size()) {
+                    low_poly_color = prim.ps->colors[prim.color_idx];
                 }
 
                 auto get_gltf_pos = [&](uint32_t orig_idx) -> Vector3d {
@@ -1007,11 +1014,12 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             mkey.base_color_uri = prim.base_color_uri;
             mkey.normal_texture_uri = prim.normal_texture_uri;
 
-            if (prim.color_idx >= 0 && prim.color_idx < (int)ps->materials.size()) {
-                mkey.props = ps->materials[prim.color_idx];
+            if (prim.color_idx >= 0 && prim.color_idx < (int)ps->colors.size()) {
+                mkey.color = ps->colors[prim.color_idx];
+                if (prim.color_idx < (int)ps->materials.size()) mkey.props = ps->materials[prim.color_idx];
             } else {
+                mkey.color = exportInfo.defaultColor;
                 mkey.props = MaterialProperties{};
-                mkey.props.color = exportInfo.defaultColor;
             }
 
             int mat_idx = -1;
@@ -1022,7 +1030,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 tinygltf::Material mat;
                 mat.doubleSided = true;
 
-                mat.pbrMetallicRoughness.baseColorFactor = {(double)mkey.props.color.r(), (double)mkey.props.color.g(), (double)mkey.props.color.b(), (double)mkey.props.color.a()};
+                mat.pbrMetallicRoughness.baseColorFactor = {(double)mkey.color.r(), (double)mkey.color.g(), (double)mkey.color.b(), (double)mkey.color.a()};
                 mat.pbrMetallicRoughness.roughnessFactor = (double)mkey.props.roughness;
                 mat.pbrMetallicRoughness.metallicFactor = (double)mkey.props.metalness;
 
@@ -1169,7 +1177,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     use_iridescence = true;
                 }
 
-                if (mkey.props.color.a() < 1.0f) mat.alphaMode = "BLEND";
+                if (mkey.color.a() < 1.0f) mat.alphaMode = "BLEND";
 
                 mat_idx = model.materials.size();
                 model.materials.push_back(mat);

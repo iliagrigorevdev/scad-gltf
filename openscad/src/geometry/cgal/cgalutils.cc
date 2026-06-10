@@ -407,12 +407,14 @@ std::unique_ptr<PolySet> createPolySetFromNefPolyhedron3(const CGAL_Nef_polyhedr
   }
 
   auto polyset = PolySet::createEmpty();
+  polyset->colors.reserve(2);
   polyset->materials.reserve(2);
 
   auto colorScheme = ColorMap::instance().findColorScheme(RenderSettings::inst()->colorscheme);
   MaterialProperties matFront, matBack;
-  matFront.color = ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_FRONT_COLOR);
-  matBack.color = ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_BACK_COLOR);
+
+  polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_FRONT_COLOR));
+  polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_BACK_COLOR));
   polyset->materials.push_back(matFront);
   polyset->materials.push_back(matBack);
 

@@ -114,7 +114,7 @@ void handle_triangle_color(const std::shared_ptr<const PolySet>& ps, ExportConte
   if (color_index < 0) {
     return;
   }
-  if (ps->materials.empty()) {
+  if (ps->colors.empty()) {
     return;
   }
   if (!ctx.basematerialgroup && !ctx.colorgroup) {
@@ -124,7 +124,7 @@ void handle_triangle_color(const std::shared_ptr<const PolySet>& ps, ExportConte
     return;
   }
 
-  const Color4f col = ps->materials[color_index].color;
+  const Color4f col = ps->colors[color_index];
   const auto col_it = ctx.materialColors.find(col);
 
   Lib3MF_uint32 col_idx = 0;

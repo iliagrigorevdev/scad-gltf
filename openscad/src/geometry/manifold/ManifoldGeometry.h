@@ -27,6 +27,7 @@ public:
 
   ManifoldGeometry();
   ManifoldGeometry(manifold::Manifold object, const std::set<uint32_t>& originalIDs = {},
+                   const std::map<uint32_t, Color4f>& colors = {},
                    const std::map<uint32_t, MaterialProperties>& materials = {},
                    const std::set<uint32_t>& subtractedIDs = {});
   ManifoldGeometry(const ManifoldGeometry& other) = default;
@@ -63,7 +64,7 @@ public:
   Polygon2d project() const;
 
   void transform(const Transform3d& mat) override;
-  void setColor(const MaterialProperties& properties) override;
+  void setColor(const Color4f& color, const MaterialProperties& properties) override;
   void toOriginal();
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
 
@@ -78,6 +79,7 @@ private:
 
   manifold::Manifold manifold_;
   std::set<uint32_t> originalIDs_;
+  std::map<uint32_t, Color4f> colors_;
   std::map<uint32_t, MaterialProperties> materials_;
   std::set<uint32_t> subtractedIDs_;
 };

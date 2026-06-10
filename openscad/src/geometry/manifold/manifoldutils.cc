@@ -50,22 +50,26 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
   mesh.triVerts.reserve(ps.indices.size() * 3);
 
   std::set<uint32_t> originalIDs;
+  std::map<uint32_t, Color4f> colors;
   std::map<uint32_t, MaterialProperties> materials;
 
-  std::map<MaterialProperties, std::vector<size_t>> colorToFaceIndices;
+  std::map<std::pair<std::optional<Color4f>, MaterialProperties>, std::vector<size_t>> colorToFaceIndices;
   for (size_t i = 0, n = ps.indices.size(); i < n; i++) {
     auto color_index = i < ps.color_indices.size() ? ps.color_indices[i] : -1;
+    std::optional<Color4f> color;
     MaterialProperties mat;
-    if (color_index >= 0 && color_index < ps.materials.size()) {
-        mat = ps.materials[color_index];
+    if (color_index >= 0) {
+        if (color_index < ps.colors.size()) color = ps.colors[color_index];
+        if (color_index < ps.materials.size()) mat = ps.materials[color_index];
     }
-    colorToFaceIndices[mat].push_back(i);
+    colorToFaceIndices[{color, mat}].push_back(i);
   }
   auto next_id = manifold::Manifold::ReserveIDs(colorToFaceIndices.size());
-  for (const auto&[mat, faceIndices] : colorToFaceIndices) {
+  for (const auto&[key, faceIndices] : colorToFaceIndices) {
     auto id = next_id++;
-    if (mat.isValid()) {
-      materials[id] = mat;
+    if (key.first.has_value()) {
+      colors[id] = key.first.value();
+      materials[id] = key.second;
     }
 
     mesh.runIndex.push_back(mesh.triVerts.size());
@@ -99,7 +103,7 @@ std::shared_ptr<ManifoldGeometry> createManifoldFromTriangularPolySet(const Poly
     }
   }
 
-  return std::make_shared<ManifoldGeometry>(mani, originalIDs, materials);
+  return std::make_shared<ManifoldGeometry>(mani, originalIDs, colors, materials);
 }
 
 }  // namespace

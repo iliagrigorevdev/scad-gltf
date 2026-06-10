@@ -35,9 +35,9 @@ public:
   void addVertex(const Vector3d& v);
   // Calling this is optional; will be called automatically when adding a new polygon or building the
   // PolySet
-  void endPolygon(const MaterialProperties& properties = {});
+  void endPolygon(const Color4f& color = {}, const MaterialProperties& properties = {});
 
-  void addColor(const MaterialProperties& properties);
+  void addColor(const Color4f& color, const MaterialProperties& properties);
   void addColorIndex(int idx);  // should be paired with begin/endPolygon()
 
   std::unique_ptr<PolySet> build();
@@ -46,6 +46,7 @@ private:
   Reindexer<Vector3d> vertices_;
   PolygonIndices indices_;
   std::vector<int32_t> color_indices_;
+  std::vector<Color4f> colors_;
   std::vector<MaterialProperties> materials_;
   int convexity_{1};
   int dim_;

@@ -65,8 +65,9 @@ void PolySetBuilder::setConvexity(int convexity)
   convexity_ = convexity;
 }
 
-void PolySetBuilder::addColor(const MaterialProperties& properties)
+void PolySetBuilder::addColor(const Color4f& color, const MaterialProperties& properties)
 {
+  colors_.push_back(color);
   materials_.push_back(properties);
 }
 
@@ -155,7 +156,7 @@ void PolySetBuilder::addVertex(const Vector3d& v)
   addVertex(vertexIndex(v));
 }
 
-void PolySetBuilder::endPolygon(const MaterialProperties& properties)
+void PolySetBuilder::endPolygon(const Color4f& color, const MaterialProperties& properties)
 {
   // FIXME: Should we check for self-touching polygons (non-consecutive duplicate indices)?
 
@@ -163,16 +164,23 @@ void PolySetBuilder::endPolygon(const MaterialProperties& properties)
   if (current_polygon_.size() >= 3) {
     indices_.push_back(current_polygon_);
 
-    if (properties.isValid()) {
+    if (color.isValid()) {
       if (color_indices_.empty() && indices_.size() > 1) {
         color_indices_.resize(indices_.size() - 1, -1);
       }
-      auto it = std::find(materials_.begin(), materials_.end(), properties);
-      if (it == materials_.end()) {
-        color_indices_.push_back(materials_.size());
+      int match_idx = -1;
+      for (size_t i = 0; i < colors_.size(); ++i) {
+        if (colors_[i] == color && materials_[i] == properties) {
+          match_idx = i;
+          break;
+        }
+      }
+      if (match_idx == -1) {
+        color_indices_.push_back(colors_.size());
+        colors_.push_back(color);
         materials_.push_back(properties);
       } else {
-        color_indices_.push_back(std::distance(materials_.begin(), it));
+        color_indices_.push_back(match_idx);
       }
     } else if (!color_indices_.empty()) {
       // Keep alignment when colors are skipped
@@ -197,15 +205,22 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
     auto nColors = ps.materials.size();
     color_map.resize(nColors);
     for (size_t i = 0; i < nColors; i++) {
-      const auto& mat = ps.materials[i];
+      const auto& col = ps.colors.size() > i ? ps.colors[i] : Color4f{};
+      const auto& mat = ps.materials.size() > i ? ps.materials[i] : MaterialProperties{};
 
-      // Find index of material in material vectors, or add it if it doesn't exist
-      auto it = std::find(materials_.begin(), materials_.end(), mat);
-      if (it == materials_.end()) {
-        color_map[i] = materials_.size();
+      int match_idx = -1;
+      for (size_t j = 0; j < colors_.size(); ++j) {
+        if (colors_[j] == col && materials_[j] == mat) {
+          match_idx = j;
+          break;
+        }
+      }
+      if (match_idx == -1) {
+        color_map[i] = colors_.size();
+        colors_.push_back(col);
         materials_.push_back(mat);
       } else {
-        color_map[i] = std::distance(materials_.begin(), it);
+        color_map[i] = match_idx;
       }
     }
     current_polygon_.clear();
@@ -220,6 +235,7 @@ std::unique_ptr<PolySet> PolySetBuilder::build()
   vertices_.copy(std::back_inserter(polyset->vertices));
   polyset->indices = std::move(indices_);
   polyset->color_indices = std::move(color_indices_);
+  polyset->colors = std::move(colors_);
   polyset->materials = std::move(materials_);
   polyset->setConvexity(convexity_);
   bool is_triangular = true;
