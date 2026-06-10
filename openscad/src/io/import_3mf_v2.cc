@@ -246,8 +246,10 @@ std::string import_3mf_mesh(const std::string& filename, unsigned int mesh_idx,
       const auto it = color_indices.find(col);
       int32_t cidx;
       if (it == color_indices.end()) {
-        cidx = ps->colors.size();
-        ps->colors.push_back(col);
+        cidx = ps->materials.size();
+        MaterialProperties mat;
+        mat.color = col;
+        ps->materials.push_back(mat);
         color_indices[col] = cidx;
       } else {
         cidx = it->second;
@@ -257,7 +259,7 @@ std::string import_3mf_mesh(const std::string& filename, unsigned int mesh_idx,
       ps->color_indices.push_back(-1);
     }
   }
-  if (ps->colors.empty()) {
+  if (ps->materials.empty()) {
     ps->color_indices.clear();
   }
   ps->setTriangular(true);

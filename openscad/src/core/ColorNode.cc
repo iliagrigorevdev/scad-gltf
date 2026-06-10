@@ -57,10 +57,10 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   Vector4f defaultWhite;
   defaultWhite[0] = 1.0f; defaultWhite[1] = 1.0f; defaultWhite[2] = 1.0f; defaultWhite[3] = 1.0f;
 
-  node->sheenColor = defaultBlack;
-  node->attenuationColor = defaultWhite;
-  node->emissive = defaultBlack;
-  node->specularColor = defaultWhite;
+  node->material.sheenColor = defaultBlack;
+  node->material.attenuationColor = defaultWhite;
+  node->material.emissive = defaultBlack;
+  node->material.specularColor = defaultWhite;
 
   Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness", "attenuationColor", "attenuationDistance", "ior", "emissive", "emissiveIntensity", "specularColor", "specularIntensity", "iridescence", "iridescenceIOR"});
   if (parameters["c"].type() == Value::Type::VECTOR) {
@@ -73,12 +73,12 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
             "color() expects numbers between 0.0 and 1.0. Value of %1$.1f is out of range", color[i]);
       }
     }
-    node->color = color;
+    node->material.color = color;
   } else if (parameters["c"].type() == Value::Type::STRING) {
     auto colorname = parameters["c"].toString();
     const auto parsed_color = OpenSCAD::parse_color(colorname);
     if (parsed_color) {
-      node->color = *parsed_color;
+      node->material.color = *parsed_color;
     } else {
       LOG(message_group::Warning, inst->location(), parameters.documentRoot(),
           "Unable to parse color \"%1$s\"", colorname);
@@ -88,28 +88,28 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
     }
   }
   if (parameters["alpha"].type() == Value::Type::NUMBER) {
-    node->color.setAlpha(parameters["alpha"].toDouble());
-    if (node->color.a() < 0.0f || node->color.a() > 1.0f) {
+    node->material.color.setAlpha(parameters["alpha"].toDouble());
+    if (node->material.color.a() < 0.0f || node->material.color.a() > 1.0f) {
       LOG(message_group::Warning, inst->location(), parameters.documentRoot(),
-          "color() expects alpha between 0.0 and 1.0. Value of %1$.1f is out of range", node->color.a());
+          "color() expects alpha between 0.0 and 1.0. Value of %1$.1f is out of range", node->material.color.a());
     }
   }
 
   if (parameters["roughness"].type() == Value::Type::NUMBER) {
-    node->roughness = parameters["roughness"].toDouble();
+    node->material.roughness = parameters["roughness"].toDouble();
   }
   if (parameters["metalness"].type() == Value::Type::NUMBER) {
-    node->metalness = parameters["metalness"].toDouble();
+    node->material.metalness = parameters["metalness"].toDouble();
   }
   if (parameters["clearcoat"].type() == Value::Type::NUMBER) {
-    node->clearcoat = parameters["clearcoat"].toDouble();
+    node->material.clearcoat = parameters["clearcoat"].toDouble();
   }
   if (parameters["clearcoatRoughness"].type() == Value::Type::NUMBER) {
-    node->clearcoatRoughness = parameters["clearcoatRoughness"].toDouble();
+    node->material.clearcoatRoughness = parameters["clearcoatRoughness"].toDouble();
   }
 
   if (parameters["sheen"].type() == Value::Type::NUMBER) {
-    node->sheen = parameters["sheen"].toDouble();
+    node->material.sheen = parameters["sheen"].toDouble();
   }
 
   auto parseColor = [&](const std::string& key, Color4f& outColor, const Color4f& defaultColor) {
@@ -133,40 +133,40 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
     }
   };
 
-  parseColor("sheenColor", node->sheenColor, defaultBlack);
-  parseColor("attenuationColor", node->attenuationColor, defaultWhite);
-  parseColor("emissive", node->emissive, defaultBlack);
-  parseColor("specularColor", node->specularColor, defaultWhite);
+  parseColor("sheenColor", node->material.sheenColor, defaultBlack);
+  parseColor("attenuationColor", node->material.attenuationColor, defaultWhite);
+  parseColor("emissive", node->material.emissive, defaultBlack);
+  parseColor("specularColor", node->material.specularColor, defaultWhite);
 
   if (parameters["sheenRoughness"].type() == Value::Type::NUMBER) {
-    node->sheenRoughness = parameters["sheenRoughness"].toDouble();
+    node->material.sheenRoughness = parameters["sheenRoughness"].toDouble();
   }
   if (parameters["transmission"].type() == Value::Type::NUMBER) {
-    node->transmission = parameters["transmission"].toDouble();
+    node->material.transmission = parameters["transmission"].toDouble();
   }
   if (parameters["thickness"].type() == Value::Type::NUMBER) {
-    node->thickness = parameters["thickness"].toDouble();
+    node->material.thickness = parameters["thickness"].toDouble();
   }
   if (parameters["attenuationDistance"].type() == Value::Type::NUMBER) {
-    node->attenuationDistance = parameters["attenuationDistance"].toDouble();
+    node->material.attenuationDistance = parameters["attenuationDistance"].toDouble();
   }
   if (parameters["ior"].type() == Value::Type::NUMBER) {
-    node->ior = parameters["ior"].toDouble();
+    node->material.ior = parameters["ior"].toDouble();
   }
   if (parameters["emissiveIntensity"].type() == Value::Type::NUMBER) {
-    node->emissiveIntensity = parameters["emissiveIntensity"].toDouble();
+    node->material.emissiveIntensity = parameters["emissiveIntensity"].toDouble();
   }
   if (parameters["specularIntensity"].type() == Value::Type::NUMBER) {
-    node->specularIntensity = parameters["specularIntensity"].toDouble();
+    node->material.specularIntensity = parameters["specularIntensity"].toDouble();
   }
   if (parameters["iridescence"].type() == Value::Type::NUMBER) {
-    node->iridescence = parameters["iridescence"].toDouble();
+    node->material.iridescence = parameters["iridescence"].toDouble();
   }
   if (parameters["iridescenceIOR"].type() == Value::Type::NUMBER) {
-    node->iridescenceIOR = parameters["iridescenceIOR"].toDouble();
+    node->material.iridescenceIOR = parameters["iridescenceIOR"].toDouble();
   }
   if (parameters["$asa"].type() == Value::Type::NUMBER) {
-    node->autoSmoothAngle = parameters["$asa"].toDouble();
+    node->material.autoSmoothAngle = parameters["$asa"].toDouble();
   }
 
   return children.instantiate(node);
@@ -174,16 +174,16 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
 
 std::string ColorNode::toString() const
 {
-  return STR("color([", this->color.r(), ", ", this->color.g(), ", ", this->color.b(), ", ",
-             this->color.a(), "], roughness=", this->roughness, ", metalness=", this->metalness,
-             ", clearcoat=", this->clearcoat, ", clearcoatRoughness=", this->clearcoatRoughness,
-             ", sheen=", this->sheen, ", sheenColor=[", this->sheenColor.r(), ", ", this->sheenColor.g(), ", ", this->sheenColor.b(), "], sheenRoughness=", this->sheenRoughness,
-             ", transmission=", this->transmission, ", thickness=", this->thickness,
-             ", attenuationColor=[", this->attenuationColor.r(), ", ", this->attenuationColor.g(), ", ", this->attenuationColor.b(), "], attenuationDistance=", this->attenuationDistance, ", ior=", this->ior,
-             ", emissive=[", this->emissive.r(), ", ", this->emissive.g(), ", ", this->emissive.b(), "], emissiveIntensity=", this->emissiveIntensity,
-             ", specularColor=[", this->specularColor.r(), ", ", this->specularColor.g(), ", ", this->specularColor.b(), "], specularIntensity=", this->specularIntensity,
-             ", iridescence=", this->iridescence, ", iridescenceIOR=", this->iridescenceIOR,
-             ", $asa=", this->autoSmoothAngle, ")");
+  return STR("color([", this->material.color.r(), ", ", this->material.color.g(), ", ", this->material.color.b(), ", ",
+             this->material.color.a(), "], roughness=", this->material.roughness, ", metalness=", this->material.metalness,
+             ", clearcoat=", this->material.clearcoat, ", clearcoatRoughness=", this->material.clearcoatRoughness,
+             ", sheen=", this->material.sheen, ", sheenColor=[", this->material.sheenColor.r(), ", ", this->material.sheenColor.g(), ", ", this->material.sheenColor.b(), "], sheenRoughness=", this->material.sheenRoughness,
+             ", transmission=", this->material.transmission, ", thickness=", this->material.thickness,
+             ", attenuationColor=[", this->material.attenuationColor.r(), ", ", this->material.attenuationColor.g(), ", ", this->material.attenuationColor.b(), "], attenuationDistance=", this->material.attenuationDistance, ", ior=", this->material.ior,
+             ", emissive=[", this->material.emissive.r(), ", ", this->material.emissive.g(), ", ", this->material.emissive.b(), "], emissiveIntensity=", this->material.emissiveIntensity,
+             ", specularColor=[", this->material.specularColor.r(), ", ", this->material.specularColor.g(), ", ", this->material.specularColor.b(), "], specularIntensity=", this->material.specularIntensity,
+             ", iridescence=", this->material.iridescence, ", iridescenceIOR=", this->material.iridescenceIOR,
+             ", $asa=", this->material.autoSmoothAngle, ")");
 }
 
 std::string ColorNode::name() const

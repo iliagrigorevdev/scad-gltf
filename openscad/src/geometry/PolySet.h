@@ -33,26 +33,7 @@ public:
   int bake_index = 0;
   // Per polygon color, indexing the colors vector below. Can be empty, and -1 means no specific color.
   std::vector<int32_t> color_indices;
-  std::vector<Color4f> colors;
-  std::vector<float> roughnesses;
-  std::vector<float> metalnesses;
-  std::vector<float> clearcoats;
-  std::vector<float> clearcoatRoughnesses;
-  std::vector<float> sheens;
-  std::vector<Color4f> sheenColors;
-  std::vector<float> sheenRoughnesses;
-  std::vector<float> transmissions;
-  std::vector<float> thicknesses;
-  std::vector<Color4f> attenuationColors;
-  std::vector<float> attenuationDistances;
-  std::vector<float> iors;
-  std::vector<Color4f> emissives;
-  std::vector<float> emissiveIntensities;
-  std::vector<Color4f> specularColors;
-  std::vector<float> specularIntensities;
-  std::vector<float> iridescences;
-  std::vector<float> iridescenceIORs;
-  std::vector<float> autoSmoothAngles;
+  std::vector<MaterialProperties> materials;
 
   PolySet(unsigned int dim, boost::tribool convex = unknown);
 
@@ -67,7 +48,7 @@ public:
   size_t numFacets() const override { return indices.size(); }
   void transform(const Transform3d& mat) override;
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
-  void setColor(const Color4f& c, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f) override;
+  void setColor(const MaterialProperties& properties) override;
 
   bool isConvex() const;
   boost::tribool convexValue() const { return convex_; }

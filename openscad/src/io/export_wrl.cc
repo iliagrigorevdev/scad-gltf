@@ -84,8 +84,8 @@ void export_wrl(const std::shared_ptr<const Geometry>& geom, std::ostream& outpu
   if (!ps->color_indices.empty()) {
     output << "colorPerVertex FALSE\n\n";
     output << "color Color { color [\n";
-    for (size_t i = 0; i < ps->colors.size(); ++i) {
-      auto color = ps->colors[i];
+    for (size_t i = 0; i < ps->materials.size(); ++i) {
+      auto color = ps->materials[i].color;
       float r, g, b, a;
       if (!color.getRgba(r, g, b, a)) {
         LOG(message_group::Warning, "Invalid color in WRL export");
@@ -98,7 +98,7 @@ void export_wrl(const std::shared_ptr<const Geometry>& geom, std::ostream& outpu
     output << "colorIndex [\n";
     for (size_t i = 0; i < ps->indices.size(); ++i) {
       auto color_index = ps->color_indices[i];
-      output << ((color_index >= 0) ? color_index : ps->colors.size()) << " ";
+      output << ((color_index >= 0) ? color_index : ps->materials.size()) << " ";
     }
     output << "]\n\n";
   }

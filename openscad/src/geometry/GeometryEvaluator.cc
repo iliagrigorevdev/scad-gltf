@@ -549,7 +549,7 @@ Response GeometryEvaluator::visit(State& state, const ColorNode& node)
       if ((geom = res.constptr())) {
         auto mutableGeom = res.asMutableGeometry();
         if (mutableGeom) {
-          mutableGeom->setColor(node.color, node.roughness, node.metalness, node.clearcoat, node.clearcoatRoughness, node.sheen, node.sheenColor, node.sheenRoughness, node.transmission, node.thickness, node.attenuationColor, node.attenuationDistance, node.ior, node.emissive, node.emissiveIntensity, node.specularColor, node.specularIntensity, node.iridescence, node.iridescenceIOR, node.autoSmoothAngle);
+          mutableGeom->setColor(node.material);
         }
         geom = mutableGeom;
       }

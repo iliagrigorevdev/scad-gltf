@@ -27,26 +27,7 @@ public:
 
   ManifoldGeometry();
   ManifoldGeometry(manifold::Manifold object, const std::set<uint32_t>& originalIDs = {},
-                   const std::map<uint32_t, Color4f>& originalIDToColor = {},
-                   const std::map<uint32_t, float>& originalIDToRoughness = {},
-                   const std::map<uint32_t, float>& originalIDToMetalness = {},
-                   const std::map<uint32_t, float>& originalIDToClearcoat = {},
-                   const std::map<uint32_t, float>& originalIDToClearcoatRoughness = {},
-                   const std::map<uint32_t, float>& originalIDToSheen = {},
-                   const std::map<uint32_t, Color4f>& originalIDToSheenColor = {},
-                   const std::map<uint32_t, float>& originalIDToSheenRoughness = {},
-                   const std::map<uint32_t, float>& originalIDToTransmission = {},
-                   const std::map<uint32_t, float>& originalIDToThickness = {},
-                   const std::map<uint32_t, Color4f>& originalIDToAttenuationColor = {},
-                   const std::map<uint32_t, float>& originalIDToAttenuationDistance = {},
-                   const std::map<uint32_t, float>& originalIDToIOR = {},
-                   const std::map<uint32_t, Color4f>& originalIDToEmissive = {},
-                   const std::map<uint32_t, float>& originalIDToEmissiveIntensity = {},
-                   const std::map<uint32_t, Color4f>& originalIDToSpecularColor = {},
-                   const std::map<uint32_t, float>& originalIDToSpecularIntensity = {},
-                   const std::map<uint32_t, float>& originalIDToIridescence = {},
-                   const std::map<uint32_t, float>& originalIDToIridescenceIOR = {},
-                   const std::map<uint32_t, float>& originalIDToAutoSmoothAngle = {},
+                   const std::map<uint32_t, MaterialProperties>& materials = {},
                    const std::set<uint32_t>& subtractedIDs = {});
   ManifoldGeometry(const ManifoldGeometry& other) = default;
 
@@ -82,7 +63,7 @@ public:
   Polygon2d project() const;
 
   void transform(const Transform3d& mat) override;
-  void setColor(const Color4f& c, float roughness = 1.0f, float metalness = 0.0f, float clearcoat = 0.0f, float clearcoatRoughness = 0.0f, float sheen = 0.0f, const Color4f& sheenColor = {}, float sheenRoughness = 0.0f, float transmission = 0.0f, float thickness = 0.0f, const Color4f& attenuationColor = {}, float attenuationDistance = 0.0f, float ior = 1.5f, const Color4f& emissive = {}, float emissiveIntensity = 1.0f, const Color4f& specularColor = {}, float specularIntensity = 1.0f, float iridescence = 0.0f, float iridescenceIOR = 1.3f, float autoSmoothAngle = 0.0f) override;
+  void setColor(const MaterialProperties& properties) override;
   void toOriginal();
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
 
@@ -97,25 +78,6 @@ private:
 
   manifold::Manifold manifold_;
   std::set<uint32_t> originalIDs_;
-  std::map<uint32_t, Color4f> originalIDToColor_;
-  std::map<uint32_t, float> originalIDToRoughness_;
-  std::map<uint32_t, float> originalIDToMetalness_;
-  std::map<uint32_t, float> originalIDToClearcoat_;
-  std::map<uint32_t, float> originalIDToClearcoatRoughness_;
-  std::map<uint32_t, float> originalIDToSheen_;
-  std::map<uint32_t, Color4f> originalIDToSheenColor_;
-  std::map<uint32_t, float> originalIDToSheenRoughness_;
-  std::map<uint32_t, float> originalIDToTransmission_;
-  std::map<uint32_t, float> originalIDToThickness_;
-  std::map<uint32_t, Color4f> originalIDToAttenuationColor_;
-  std::map<uint32_t, float> originalIDToAttenuationDistance_;
-  std::map<uint32_t, float> originalIDToIOR_;
-  std::map<uint32_t, Color4f> originalIDToEmissive_;
-  std::map<uint32_t, float> originalIDToEmissiveIntensity_;
-  std::map<uint32_t, Color4f> originalIDToSpecularColor_;
-  std::map<uint32_t, float> originalIDToSpecularIntensity_;
-  std::map<uint32_t, float> originalIDToIridescence_;
-  std::map<uint32_t, float> originalIDToIridescenceIOR_;
-  std::map<uint32_t, float> originalIDToAutoSmoothAngle_;
+  std::map<uint32_t, MaterialProperties> materials_;
   std::set<uint32_t> subtractedIDs_;
 };

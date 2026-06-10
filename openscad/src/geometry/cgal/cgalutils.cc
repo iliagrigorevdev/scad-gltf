@@ -407,68 +407,16 @@ std::unique_ptr<PolySet> createPolySetFromNefPolyhedron3(const CGAL_Nef_polyhedr
   }
 
   auto polyset = PolySet::createEmpty();
-  polyset->colors.reserve(2);
-  polyset->roughnesses.reserve(2);
-  polyset->metalnesses.reserve(2);
-  polyset->clearcoats.reserve(2);
-  polyset->clearcoatRoughnesses.reserve(2);
-  polyset->sheens.reserve(2);
-  polyset->sheenColors.reserve(2);
-  polyset->sheenRoughnesses.reserve(2);
-  polyset->transmissions.reserve(2);
-  polyset->thicknesses.reserve(2);
-  polyset->attenuationColors.reserve(2);
-  polyset->attenuationDistances.reserve(2);
-  polyset->iors.reserve(2);
-  polyset->emissives.reserve(2);
-  polyset->emissiveIntensities.reserve(2);
-  polyset->specularColors.reserve(2);
-  polyset->specularIntensities.reserve(2);
-  polyset->iridescences.reserve(2);
-  polyset->iridescenceIORs.reserve(2);
+  polyset->materials.reserve(2);
+
   auto colorScheme = ColorMap::instance().findColorScheme(RenderSettings::inst()->colorscheme);
-  polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_FRONT_COLOR));
-  polyset->colors.push_back(ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_BACK_COLOR));
-  polyset->roughnesses.push_back(1.0f);
-  polyset->roughnesses.push_back(1.0f);
-  polyset->metalnesses.push_back(0.0f);
-  polyset->metalnesses.push_back(0.0f);
-  polyset->clearcoats.push_back(0.0f);
-  polyset->clearcoats.push_back(0.0f);
-  polyset->clearcoatRoughnesses.push_back(0.0f);
-  polyset->clearcoatRoughnesses.push_back(0.0f);
-  polyset->sheens.push_back(0.0f);
-  polyset->sheens.push_back(0.0f);
-  Vector4f defaultSheen; defaultSheen[0]=0; defaultSheen[1]=0; defaultSheen[2]=0; defaultSheen[3]=1;
-  polyset->sheenColors.push_back(defaultSheen);
-  polyset->sheenColors.push_back(defaultSheen);
-  polyset->sheenRoughnesses.push_back(0.0f);
-  polyset->sheenRoughnesses.push_back(0.0f);
-  polyset->transmissions.push_back(0.0f);
-  polyset->transmissions.push_back(0.0f);
-  polyset->thicknesses.push_back(0.0f);
-  polyset->thicknesses.push_back(0.0f);
-  Vector4f defaultWhite; defaultWhite[0]=1; defaultWhite[1]=1; defaultWhite[2]=1; defaultWhite[3]=1;
-  polyset->attenuationColors.push_back(defaultWhite);
-  polyset->attenuationColors.push_back(defaultWhite);
-  polyset->attenuationDistances.push_back(0.0f);
-  polyset->attenuationDistances.push_back(0.0f);
-  polyset->iors.push_back(1.5f);
-  polyset->iors.push_back(1.5f);
-  polyset->emissives.push_back(defaultSheen);
-  polyset->emissives.push_back(defaultSheen);
-  polyset->emissiveIntensities.push_back(1.0f);
-  polyset->emissiveIntensities.push_back(1.0f);
-  polyset->specularColors.push_back(defaultWhite);
-  polyset->specularColors.push_back(defaultWhite);
-  polyset->specularIntensities.push_back(1.0f);
-  polyset->specularIntensities.push_back(1.0f);
-  polyset->iridescences.push_back(0.0f);
-  polyset->iridescences.push_back(0.0f);
-  polyset->iridescenceIORs.push_back(1.3f);
-  polyset->iridescenceIORs.push_back(1.3f);
-  polyset->autoSmoothAngles.push_back(0.0f);
-  polyset->autoSmoothAngles.push_back(0.0f);
+  MaterialProperties matFront, matBack;
+  matFront.color = ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_FRONT_COLOR);
+  matBack.color = ColorMap::getColor(*colorScheme, RenderColor::CGAL_FACE_BACK_COLOR);
+  polyset->materials.push_back(matFront);
+  polyset->materials.push_back(matBack);
+
+  polyset->vertices.reserve(verts.size());
 
   polyset->vertices.reserve(verts.size());
   for (const auto& v : verts) {

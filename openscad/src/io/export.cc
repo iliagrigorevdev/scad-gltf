@@ -339,26 +339,7 @@ std::unique_ptr<PolySet> createSortedPolySet(const PolySet& ps)
     out->indices.push_back(face);
   }
   out->color_indices = ps.color_indices;
-  out->colors = ps.colors;
-  out->roughnesses = ps.roughnesses;
-  out->metalnesses = ps.metalnesses;
-  out->clearcoats = ps.clearcoats;
-  out->clearcoatRoughnesses = ps.clearcoatRoughnesses;
-  out->sheens = ps.sheens;
-  out->sheenColors = ps.sheenColors;
-  out->sheenRoughnesses = ps.sheenRoughnesses;
-  out->transmissions = ps.transmissions;
-  out->thicknesses = ps.thicknesses;
-  out->attenuationColors = ps.attenuationColors;
-  out->attenuationDistances = ps.attenuationDistances;
-  out->iors = ps.iors;
-  out->emissives = ps.emissives;
-  out->emissiveIntensities = ps.emissiveIntensities;
-  out->specularColors = ps.specularColors;
-  out->specularIntensities = ps.specularIntensities;
-  out->iridescences = ps.iridescences;
-  out->iridescenceIORs = ps.iridescenceIORs;
-  out->autoSmoothAngles = ps.autoSmoothAngles;
+  out->materials = ps.materials;
 
   out->high_poly_bake = ps.high_poly_bake;
   out->bake_colors = ps.bake_colors;

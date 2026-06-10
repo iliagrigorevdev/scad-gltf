@@ -75,26 +75,7 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->vertices = polyset.vertices;
     result->indices = polyset.indices;
     result->color_indices = polyset.color_indices;
-    result->colors = polyset.colors;
-    result->roughnesses = polyset.roughnesses;
-    result->metalnesses = polyset.metalnesses;
-    result->clearcoats = polyset.clearcoats;
-    result->clearcoatRoughnesses = polyset.clearcoatRoughnesses;
-    result->sheens = polyset.sheens;
-    result->sheenColors = polyset.sheenColors;
-    result->sheenRoughnesses = polyset.sheenRoughnesses;
-    result->transmissions = polyset.transmissions;
-    result->thicknesses = polyset.thicknesses;
-    result->attenuationColors = polyset.attenuationColors;
-    result->attenuationDistances = polyset.attenuationDistances;
-    result->iors = polyset.iors;
-    result->emissives = polyset.emissives;
-    result->emissiveIntensities = polyset.emissiveIntensities;
-    result->specularColors = polyset.specularColors;
-    result->specularIntensities = polyset.specularIntensities;
-    result->iridescences = polyset.iridescences;
-    result->iridescenceIORs = polyset.iridescenceIORs;
-    result->autoSmoothAngles = polyset.autoSmoothAngles;
+    result->materials = polyset.materials;
     result->high_poly_bake = polyset.high_poly_bake;
     result->bake_colors = polyset.bake_colors;
     result->bake_normals = polyset.bake_normals;
@@ -118,26 +99,7 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
   if (has_colors) {
     assert(polyset.color_indices.size() == polyset.indices.size());
     polygon_color_indices.reserve(polyset.color_indices.size());
-    result->colors = polyset.colors;
-    result->roughnesses = polyset.roughnesses;
-    result->metalnesses = polyset.metalnesses;
-    result->clearcoats = polyset.clearcoats;
-    result->clearcoatRoughnesses = polyset.clearcoatRoughnesses;
-    result->sheens = polyset.sheens;
-    result->sheenColors = polyset.sheenColors;
-    result->sheenRoughnesses = polyset.sheenRoughnesses;
-    result->transmissions = polyset.transmissions;
-    result->thicknesses = polyset.thicknesses;
-    result->attenuationColors = polyset.attenuationColors;
-    result->attenuationDistances = polyset.attenuationDistances;
-    result->iors = polyset.iors;
-    result->emissives = polyset.emissives;
-    result->emissiveIntensities = polyset.emissiveIntensities;
-    result->specularColors = polyset.specularColors;
-    result->specularIntensities = polyset.specularIntensities;
-    result->iridescences = polyset.iridescences;
-    result->iridescenceIORs = polyset.iridescenceIORs;
-    result->autoSmoothAngles = polyset.autoSmoothAngles;
+    result->materials = polyset.materials;
   }
   for (size_t i = 0, n = polyset.indices.size(); i < n; i++) {
     const auto& pgon = polyset.indices[i];

@@ -268,8 +268,12 @@ std::unique_ptr<PolySet> import_off(const std::string& filename, const Location&
         const int a = i < words.size() ? getcolor(words[i++]) : 255;
         const Color4f color(r, g, b, a);
 
-        auto iter_pair = color_indices.insert_or_assign(color, ps->colors.size());
-        if (iter_pair.second) ps->colors.push_back(color);  // inserted
+        auto iter_pair = color_indices.insert_or_assign(color, ps->materials.size());
+        if (iter_pair.second) {
+          MaterialProperties mat;
+          mat.color = color;
+          ps->materials.push_back(mat);  // inserted
+        }
         ps->color_indices.resize(face_idx, -1);
         ps->color_indices.push_back(iter_pair.first->second);
       }
