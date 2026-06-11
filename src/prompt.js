@@ -184,13 +184,13 @@ armature(animations=anim_data) {
       );
     }
     explanations.push(
-      "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 8), 'resolution' (texture dimensions, default: 2048), 'msaa' (super-sampling anti-aliasing level, default: 2), and 'index' (atlas group identifier, default: 0).",
+      "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 2), 'resolution' (texture dimensions, default: 512), 'msaa' (super-sampling anti-aliasing level, default: 2), and 'index' (atlas group identifier, default: 0).",
     );
     explanations.push(
       "- The 'index' parameter enables multi-atlas texture baking. Low-poly meshes configured with the same 'index' will be packed together into a shared texture atlas, while meshes with distinct indices will be split into separate output image maps.",
     );
+
     flags.push("resolution=1024");
-    flags.push("msaa=3");
     const bakeSig = flags.length > 0 ? `bake(${flags.join(", ")})` : "bake()";
 
     const explanationText =
@@ -199,7 +199,7 @@ armature(animations=anim_data) {
         : "- You can toggle what gets baked using the 'colors' and 'normals' boolean parameters (both default to false).";
 
     prompt += `\n\nImportant Texture Baking rules:
-- Baking: Use the '${bakeSig}' module to project details from a high-resolution mesh onto a low-resolution mesh.
+- Baking: Use the 'bake()' module to project details from a high-resolution mesh onto a low-resolution mesh.
 - UV Unwrapping: The engine automatically generates UV coordinates and bakes the textures for the low-poly child mesh; you do not need to manually map textures.
 - Usage: The 'bake()' module strictly requires exactly TWO children. The FIRST child is the high-poly geometry, and the SECOND child is the low-poly geometry.
 ${explanationText}

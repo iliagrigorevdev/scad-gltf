@@ -27,8 +27,8 @@ public:
   bool bake_normals = false;
   double bake_distance = 2.0;
   double bake_bias = 1e-4;
-  int bake_dilation = 8;
-  int bake_resolution = 2048;
+  int bake_dilation = 2;
+  int bake_resolution = 512;
   int bake_msaa = 2;
   int bake_index = 0;
   // Per polygon color, indexing the colors vector below. Can be empty, and -1 means no specific color.

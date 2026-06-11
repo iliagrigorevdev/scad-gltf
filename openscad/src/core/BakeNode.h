@@ -12,8 +12,8 @@ public:
     bool bake_normals = false;
     double distance = 2.0;
     double bias = 1e-4;
-    int dilation = 8;
-    int resolution = 2048;
+    int dilation = 2;
+    int resolution = 512;
     int msaa = 2;
     int index = 0;
 };

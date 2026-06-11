@@ -205,8 +205,8 @@ struct PrimitiveInfo {
     bool bake_normals = false;
     double bake_distance = 2.0;
     double bake_bias = 1e-4;
-    int bake_dilation = 8;
-    int bake_resolution = 2048;
+    int bake_dilation = 2;
+    int bake_resolution = 512;
     int bake_msaa = 2;
     int bake_index = 0;
     std::string base_color_uri;
@@ -535,7 +535,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     };
     struct AtlasGroup {
         xatlas::Atlas* atlas = nullptr;
-        int resolution = 2048;
+        int resolution = 512;
         int msaa = 2;
         int max_dilation = 0;
         bool has_colormap = false;

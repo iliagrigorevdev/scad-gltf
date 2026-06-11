@@ -44,5 +44,5 @@ std::shared_ptr<AbstractNode> builtin_bake(const ModuleInstantiation *inst, Argu
 }
 
 void register_builtin_bake() {
-    Builtins::init("bake", new BuiltinModule(builtin_bake), {"bake(colors=false, normals=false, distance=2.0, bias=0.0001, dilation=8, resolution=2048, msaa=2, index=0)"});
+    Builtins::init("bake", new BuiltinModule(builtin_bake), {"bake(colors=false, normals=false, distance=2.0, bias=0.0001, dilation=2, resolution=512, msaa=2, index=0)"});
 }
