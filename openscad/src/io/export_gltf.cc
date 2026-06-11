@@ -13,6 +13,7 @@
 #include <cfloat>
 #include <cstring>
 #include <algorithm>
+#include <chrono>
 
 #include <xatlas.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -599,6 +600,11 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         }
     }
 
+    constexpr int BAKE_TIMEOUT_SECONDS = 10;
+    auto bake_start_time = std::chrono::steady_clock::now();
+    bool bake_timeout = false;
+    int pixel_counter = 0;
+
     for (auto& kv : atlas_groups) {
         auto& group = kv.second;
         group.atlas = xatlas::Create();
@@ -760,7 +766,17 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                             bool trace_high_poly = prim.high_poly_bvh && (prim.bake_normals || prim.bake_colors || prim.bake_orm || prim.bake_ao);
 
-                            if (trace_high_poly) {
+                            if (trace_high_poly && !bake_timeout) {
+                                if (++pixel_counter % 1024 == 0) {
+                                    auto now = std::chrono::steady_clock::now();
+                                    if (std::chrono::duration_cast<std::chrono::seconds>(now - bake_start_time).count() > BAKE_TIMEOUT_SECONDS) {
+                                        bake_timeout = true;
+                                        LOG(message_group::Error, "Baking of textures took too long, stopping and writing textures as is.");
+                                    }
+                                }
+                            }
+
+                            if (trace_high_poly && !bake_timeout) {
                                 Vector3d accum_n = Vector3d::Zero();
                                 Vector4d accum_c = Vector4d::Zero();
                                 float accum_r = 0.0f;
@@ -957,10 +973,17 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                             } else {
                                 if (u_c >= -1e-4f && v_c >= -1e-4f && w_c >= -1e-4f) {
                                     if (group.has_colormap) {
-                                        pixels[pixel_idx + 0] = 255;
-                                        pixels[pixel_idx + 1] = 255;
-                                        pixels[pixel_idx + 2] = 255;
-                                        pixels[pixel_idx + 3] = 255;
+                                        if (prim.bake_colors || bake_timeout) {
+                                            pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.r() * 255.0f)));
+                                            pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.g() * 255.0f)));
+                                            pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.b() * 255.0f)));
+                                            pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.a() * 255.0f)));
+                                        } else {
+                                            pixels[pixel_idx + 0] = 255;
+                                            pixels[pixel_idx + 1] = 255;
+                                            pixels[pixel_idx + 2] = 255;
+                                            pixels[pixel_idx + 3] = 255;
+                                        }
                                     }
                                     if (group.has_normalmap) {
                                         npixels[pixel_idx + 0] = 128;
@@ -969,10 +992,19 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                         npixels[pixel_idx + 3] = 255;
                                     }
                                     if (group.has_ormmap) {
-                                        opixels[pixel_idx + 0] = 255;
-                                        opixels[pixel_idx + 1] = 255;
-                                        opixels[pixel_idx + 2] = 0;
-                                        opixels[pixel_idx + 3] = 255;
+                                        if (prim.bake_orm || prim.bake_ao || bake_timeout) {
+                                            uint8_t c_r = (uint8_t)std::max(0, std::min(255, (int)(low_poly_roughness * 255.0f)));
+                                            uint8_t c_m = (uint8_t)std::max(0, std::min(255, (int)(low_poly_metalness * 255.0f)));
+                                            opixels[pixel_idx + 0] = 255;
+                                            opixels[pixel_idx + 1] = c_r;
+                                            opixels[pixel_idx + 2] = c_m;
+                                            opixels[pixel_idx + 3] = 255;
+                                        } else {
+                                            opixels[pixel_idx + 0] = 255;
+                                            opixels[pixel_idx + 1] = 255;
+                                            opixels[pixel_idx + 2] = 0;
+                                            opixels[pixel_idx + 3] = 255;
+                                        }
                                     }
                                 }
                             }
