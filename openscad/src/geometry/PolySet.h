@@ -33,7 +33,7 @@ public:
   int bake_resolution = 512;
   int bake_msaa = 2;
   int bake_index = 0;
-  int bake_ao_samples = 64;
+  int bake_ao_samples = 16;
   double bake_ao_distance = 10.0;
   // Per polygon color, indexing the colors vector below. Can be empty, and -1 means no specific color.
   std::vector<int32_t> color_indices;

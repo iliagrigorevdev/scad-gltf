@@ -198,7 +198,7 @@ armature(animations=anim_data) {
       );
     }
     explanations.push(
-      "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 2), 'resolution' (texture dimensions, default: 512), 'msaa' (super-sampling anti-aliasing level, default: 2), 'index' (atlas group identifier, default: 0), 'ao_samples' (number of rays for AO, default: 64), and 'ao_distance' (max ray distance for AO, default: 10.0).",
+      "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 2), 'resolution' (texture dimensions, default: 512), 'msaa' (super-sampling anti-aliasing level, default: 2), 'index' (atlas group identifier, default: 0), 'ao_samples' (number of rays for AO, default: 16), and 'ao_distance' (max ray distance for AO, default: 10.0).",
     );
     explanations.push(
       "- The 'index' parameter enables multi-atlas texture baking. Low-poly meshes configured with the same 'index' will be packed together into a shared texture atlas, while meshes with distinct indices will be split into separate output image maps.",
