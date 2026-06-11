@@ -81,12 +81,15 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->bake_colors = polyset.bake_colors;
     result->bake_normals = polyset.bake_normals;
     result->bake_orm = polyset.bake_orm;
+    result->bake_ao = polyset.bake_ao;
     result->bake_distance = polyset.bake_distance;
     result->bake_bias = polyset.bake_bias;
     result->bake_dilation = polyset.bake_dilation;
     result->bake_resolution = polyset.bake_resolution;
     result->bake_msaa = polyset.bake_msaa;
     result->bake_index = polyset.bake_index;
+    result->bake_ao_samples = polyset.bake_ao_samples;
+    result->bake_ao_distance = polyset.bake_ao_distance;
     return result;
   }
   result->vertices.reserve(polyset.vertices.size());
