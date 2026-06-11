@@ -117,9 +117,9 @@ void PolySet::transform(const Transform3d& mat)
   }
 }
 
-void PolySet::setColor(const Color4f& color, const MaterialProperties& properties)
+void PolySet::setColor(const Color4f& c, const MaterialProperties& properties)
 {
-  colors = {color};
+  colors = {c};
   materials = {properties};
   color_indices.assign(indices.size(), 0);
 }

@@ -202,25 +202,56 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
     }
     color_indices_.reserve(color_indices_.size() + ps.color_indices.size());
 
-    auto nColors = ps.materials.size();
+    auto nColors = ps.colors.size();
     color_map.resize(nColors);
     for (size_t i = 0; i < nColors; i++) {
-      const auto& col = ps.colors.size() > i ? ps.colors[i] : Color4f{};
+      const auto& color = ps.colors[i];
       const auto& mat = ps.materials.size() > i ? ps.materials[i] : MaterialProperties{};
 
       int match_idx = -1;
       for (size_t j = 0; j < colors_.size(); ++j) {
-        if (colors_[j] == col && materials_[j] == mat) {
+        if (colors_[j] == color && materials_[j] == mat) {
           match_idx = j;
           break;
         }
       }
       if (match_idx == -1) {
         color_map[i] = colors_.size();
-        colors_.push_back(col);
+        colors_.push_back(color);
         materials_.push_back(mat);
       } else {
         color_map[i] = match_idx;
+      }
+    }
+  }
+
+  reserve(numVertices() + ps.vertices.size(), numPolygons() + ps.indices.size());
+  for (size_t p_idx = 0; p_idx < ps.indices.size(); ++p_idx) {
+    const auto& poly = ps.indices[p_idx];
+    beginPolygon(poly.size());
+    for (const auto& ind : poly) {
+      addVertex(ps.vertices[ind]);
+    }
+
+    // Process indices per-polygon to prevent rejected/degenerate polygons from desyncing materials
+    if (current_polygon_.size() >= 3) {
+      indices_.push_back(current_polygon_);
+
+      int mapped_c_idx = -1;
+      if (!ps.color_indices.empty()) {
+        int original_c_idx = ps.color_indices[p_idx];
+        if (original_c_idx >= 0 && original_c_idx < color_map.size()) {
+          mapped_c_idx = color_map[original_c_idx];
+        }
+      }
+
+      if (mapped_c_idx != -1) {
+        if (color_indices_.empty() && indices_.size() > 1) {
+          color_indices_.resize(indices_.size() - 1, -1);
+        }
+        color_indices_.push_back(mapped_c_idx);
+      } else if (!color_indices_.empty()) {
+        color_indices_.push_back(-1);
       }
     }
     current_polygon_.clear();

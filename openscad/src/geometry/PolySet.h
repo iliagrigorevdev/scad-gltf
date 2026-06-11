@@ -49,7 +49,7 @@ public:
   size_t numFacets() const override { return indices.size(); }
   void transform(const Transform3d& mat) override;
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
-  void setColor(const Color4f& color, const MaterialProperties& properties) override;
+  void setColor(const Color4f& c, const MaterialProperties& properties) override;
 
   bool isConvex() const;
   boost::tribool convexValue() const { return convex_; }

@@ -419,8 +419,6 @@ std::unique_ptr<PolySet> createPolySetFromNefPolyhedron3(const CGAL_Nef_polyhedr
   polyset->materials.push_back(matBack);
 
   polyset->vertices.reserve(verts.size());
-
-  polyset->vertices.reserve(verts.size());
   for (const auto& v : verts) {
     polyset->vertices.emplace_back(v.cast<double>());
   }
