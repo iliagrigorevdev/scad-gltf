@@ -21,6 +21,7 @@ export function generatePrompt(description, options = {}) {
     iridescence: options.iridescence ?? true,
     bakeColors: options.bakeColors ?? false,
     bakeNormals: options.bakeNormals ?? false,
+    bakeOrm: options.bakeOrm ?? false,
     autoSmoothAngle: options.autoSmoothAngle ?? true,
     animation: options.animation ?? true,
     lazyUnion: options.lazyUnion ?? false,
@@ -168,7 +169,7 @@ armature(animations=anim_data) {
 }`;
   }
 
-  if (opts.bakeColors || opts.bakeNormals) {
+  if (opts.bakeColors || opts.bakeNormals || opts.bakeOrm) {
     const flags = [];
     const explanations = [];
     if (opts.bakeColors) {
@@ -181,6 +182,12 @@ armature(animations=anim_data) {
       flags.push("normals=true");
       explanations.push(
         "- Set 'normals=true' (default false) to project and bake the high-poly's physical geometric details as a tangent-space normal map onto the low-poly mesh.",
+      );
+    }
+    if (opts.bakeOrm) {
+      flags.push("orm=true");
+      explanations.push(
+        "- Set 'orm=true' (default false) to project and bake the high-poly's Occlusion, Roughness, and Metallic (ORM) values onto the low-poly mesh.",
       );
     }
     explanations.push(
@@ -196,7 +203,7 @@ armature(animations=anim_data) {
     const explanationText =
       explanations.length > 0
         ? explanations.join("\n")
-        : "- You can toggle what gets baked using the 'colors' and 'normals' boolean parameters (both default to false).";
+        : "- You can toggle what gets baked using the 'colors', 'normals', and 'orm' boolean parameters (all default to false).";
 
     prompt += `\n\nImportant Texture Baking rules:
 - Baking: Use the 'bake()' module to project details from a high-resolution mesh onto a low-resolution mesh.

@@ -25,6 +25,7 @@ public:
   std::shared_ptr<const PolySet> high_poly_bake;
   bool bake_colors = false;
   bool bake_normals = false;
+  bool bake_orm = false;
   double bake_distance = 2.0;
   double bake_bias = 1e-4;
   int bake_dilation = 2;

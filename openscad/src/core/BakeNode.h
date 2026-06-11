@@ -10,6 +10,7 @@ public:
 
     bool bake_colors = false;
     bool bake_normals = false;
+    bool bake_orm = false;
     double distance = 2.0;
     double bias = 1e-4;
     int dilation = 2;

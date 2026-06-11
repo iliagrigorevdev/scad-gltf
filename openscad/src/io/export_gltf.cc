@@ -81,6 +81,8 @@ public:
     std::vector<unsigned int> indices;
     std::vector<Color4f> face_colors;
     std::vector<int> face_color_idx;
+    std::vector<float> face_roughness;
+    std::vector<float> face_metalness;
     std::vector<Vector3d> orig_vertices;
     std::vector<Vector3d> tri_vertex_normals;
     nanort::BVHAccel<float> accel;
@@ -101,11 +103,15 @@ public:
             }
             Color4f c(0.5f, 0.5f, 0.5f, 1.0f);
             float autoSmoothAngle = 0.0f;
+            float roughness = 1.0f;
+            float metalness = 0.0f;
             if (color_idx >= 0 && color_idx < (int)ps.colors.size()) {
                 c = ps.colors[color_idx];
             }
             if (color_idx >= 0 && color_idx < (int)ps.materials.size()) {
                 autoSmoothAngle = ps.materials[color_idx].autoSmoothAngle;
+                roughness = ps.materials[color_idx].roughness;
+                metalness = ps.materials[color_idx].metalness;
             }
 
             if (face.size() >= 3) {
@@ -130,6 +136,8 @@ public:
                     }
                     face_colors.push_back(c);
                     face_color_idx.push_back(color_idx);
+                    face_roughness.push_back(roughness);
+                    face_metalness.push_back(metalness);
                 }
             }
         }
@@ -141,7 +149,7 @@ public:
         accel.Build(indices.size() / 3, triangle_mesh, triangle_pred, build_options);
     }
 
-    bool intersect(const Vector3d& origin, const Vector3d& dir, double& t, Vector3d& n, Color4f& color) const {
+    bool intersect(const Vector3d& origin, const Vector3d& dir, double& t, Vector3d& n, Color4f& color, float& roughness, float& metalness) const {
         nanort::Ray<float> ray;
         ray.min_t = 1e-5f;
         ray.max_t = (float)t;
@@ -169,6 +177,8 @@ public:
             else n = Vector3d(0, 1, 0);
 
             color = face_colors[prim_idx];
+            roughness = face_roughness[prim_idx];
+            metalness = face_metalness[prim_idx];
 
             return true;
         }
@@ -203,6 +213,7 @@ struct PrimitiveInfo {
     std::shared_ptr<SimpleBVH> high_poly_bvh;
     bool bake_colors = false;
     bool bake_normals = false;
+    bool bake_orm = false;
     double bake_distance = 2.0;
     double bake_bias = 1e-4;
     int bake_dilation = 2;
@@ -211,6 +222,7 @@ struct PrimitiveInfo {
     int bake_index = 0;
     std::string base_color_uri;
     std::string normal_texture_uri;
+    std::string orm_texture_uri;
     float min_pos[3];
     float max_pos[3];
     std::shared_ptr<const PolySet> ps;
@@ -311,11 +323,13 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             std::shared_ptr<SimpleBVH> high_poly_bvh;
             bool bake_colors = false;
             bool bake_normals = false;
+            bool bake_orm = false;
             if (ps->high_poly_bake) {
                 auto high_tri = ps->high_poly_bake->isTriangular() ? std::make_shared<PolySet>(*ps->high_poly_bake) : PolySetUtils::tessellate_faces(*ps->high_poly_bake);
                 high_poly_bvh = std::make_shared<SimpleBVH>(*high_tri, C * M_accum);
                 bake_colors = ps->bake_colors;
                 bake_normals = ps->bake_normals;
+                bake_orm = ps->bake_orm;
             }
 
             MeshInfo minfo;
@@ -348,6 +362,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                 prim.high_poly_bvh = high_poly_bvh;
                 prim.bake_colors = bake_colors;
                 prim.bake_normals = bake_normals;
+                prim.bake_orm = bake_orm;
                 prim.bake_distance = ps->bake_distance;
                 prim.bake_bias = ps->bake_bias;
                 prim.bake_dilation = ps->bake_dilation;
@@ -510,10 +525,12 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         MaterialProperties props;
         std::string base_color_uri;
         std::string normal_texture_uri;
+        std::string orm_texture_uri;
 
         bool operator<(const MaterialKey& o) const {
             if (base_color_uri != o.base_color_uri) return base_color_uri < o.base_color_uri;
             if (normal_texture_uri != o.normal_texture_uri) return normal_texture_uri < o.normal_texture_uri;
+            if (orm_texture_uri != o.orm_texture_uri) return orm_texture_uri < o.orm_texture_uri;
             if (color.r() != o.color.r()) return color.r() < o.color.r();
             if (color.g() != o.color.g()) return color.g() < o.color.g();
             if (color.b() != o.color.b()) return color.b() < o.color.b();
@@ -540,9 +557,11 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         int max_dilation = 0;
         bool has_colormap = false;
         bool has_normalmap = false;
+        bool has_ormmap = false;
         std::vector<AtlasPrimInfo> prims;
         std::string base_color_uri;
         std::string normal_texture_uri;
+        std::string orm_texture_uri;
         std::map<int, std::vector<Vector4d>> a_idx_to_tangents;
     };
 
@@ -552,7 +571,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         auto& minfo = meshes_info[m_idx];
         for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
             auto& prim = minfo.primitives[p_idx];
-            if (prim.high_poly_bvh && (prim.bake_colors || prim.bake_normals)) {
+            if (prim.high_poly_bvh && (prim.bake_colors || prim.bake_normals || prim.bake_orm)) {
                 int t_idx = prim.bake_index;
                 auto& group = atlas_groups[t_idx];
                 int a_idx = group.prims.size();
@@ -567,6 +586,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 group.max_dilation = std::max(group.max_dilation, prim.bake_dilation);
                 if (prim.bake_colors) group.has_colormap = true;
                 if (prim.bake_normals) group.has_normalmap = true;
+                if (prim.bake_orm) group.has_ormmap = true;
             }
         }
     }
@@ -598,8 +618,10 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         if (width > 0 && height > 0 && group.atlas->atlasCount > 0) {
             std::vector<uint8_t> pixels;
             std::vector<uint8_t> npixels;
+            std::vector<uint8_t> opixels;
             if (group.has_colormap) pixels.resize(width * height * 4, 0);
             if (group.has_normalmap) npixels.resize(width * height * 4, 0);
+            if (group.has_ormmap) opixels.resize(width * height * 4, 0);
 
             for (auto& prim_info : group.prims) {
                 int a_idx = prim_info.a_idx;
@@ -607,8 +629,14 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 const auto& prim = meshes_info[prim_info.m_idx].primitives[prim_info.p_idx];
 
                 Color4f low_poly_color = exportInfo.defaultColor;
+                float low_poly_roughness = 1.0f;
+                float low_poly_metalness = 0.0f;
                 if (prim.color_idx >= 0 && prim.color_idx < (int)prim.ps->colors.size()) {
                     low_poly_color = prim.ps->colors[prim.color_idx];
+                }
+                if (prim.color_idx >= 0 && prim.color_idx < (int)prim.ps->materials.size()) {
+                    low_poly_roughness = prim.ps->materials[prim.color_idx].roughness;
+                    low_poly_metalness = prim.ps->materials[prim.color_idx].metalness;
                 }
 
                 auto get_gltf_pos = [&](uint32_t orig_idx) -> Vector3d {
@@ -722,11 +750,13 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                             int pixel_idx = (y * width + x) * 4;
 
-                            bool trace_high_poly = prim.high_poly_bvh && (prim.bake_normals || prim.bake_colors);
+                            bool trace_high_poly = prim.high_poly_bvh && (prim.bake_normals || prim.bake_colors || prim.bake_orm);
 
                             if (trace_high_poly) {
                                 Vector3d accum_n = Vector3d::Zero();
                                 Vector4d accum_c = Vector4d::Zero();
+                                float accum_r = 0.0f;
+                                float accum_m = 0.0f;
                                 int inside_count = 0;
                                 int hit_count = 0;
 
@@ -753,18 +783,26 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                             double t_out = max_bake_dist;
                                             Vector3d hit_n_out = n3d;
                                             Color4f hit_c_out(1,1,1,1);
-                                            bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d - n3d * bias, n3d, t_out, hit_n_out, hit_c_out);
+                                            float hit_r_out = 1.0f, hit_m_out = 0.0f;
+                                            bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d - n3d * bias, n3d, t_out, hit_n_out, hit_c_out, hit_r_out, hit_m_out);
 
                                             double t_in = hit_out ? t_out : max_bake_dist;
                                             Vector3d hit_n_in = n3d;
                                             Color4f hit_c_in(1,1,1,1);
-                                            bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d + n3d * bias, -n3d, t_in, hit_n_in, hit_c_in);
+                                            float hit_r_in = 1.0f, hit_m_in = 0.0f;
+                                            bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d + n3d * bias, -n3d, t_in, hit_n_in, hit_c_in, hit_r_in, hit_m_in);
 
                                             if (hit_in) {
-                                                accum_n += hit_n_in; accum_c += Vector4d(hit_c_in.r(), hit_c_in.g(), hit_c_in.b(), hit_c_in.a());
+                                                accum_n += hit_n_in;
+                                                accum_c += Vector4d(hit_c_in.r(), hit_c_in.g(), hit_c_in.b(), hit_c_in.a());
+                                                accum_r += hit_r_in;
+                                                accum_m += hit_m_in;
                                                 hit_count++;
                                             } else if (hit_out) {
-                                                accum_n += hit_n_out; accum_c += Vector4d(hit_c_out.r(), hit_c_out.g(), hit_c_out.b(), hit_c_out.a());
+                                                accum_n += hit_n_out;
+                                                accum_c += Vector4d(hit_c_out.r(), hit_c_out.g(), hit_c_out.b(), hit_c_out.a());
+                                                accum_r += hit_r_out;
+                                                accum_m += hit_m_out;
                                                 hit_count++;
                                             }
                                         }
@@ -830,6 +868,29 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                             npixels[pixel_idx + 3] = 255;
                                         }
                                     }
+
+                                    if (group.has_ormmap) {
+                                        if (prim.bake_orm) {
+                                            if (hit_count > 0) {
+                                                float avg_r = accum_r / hit_count;
+                                                float avg_m = accum_m / hit_count;
+                                                opixels[pixel_idx + 0] = 255;
+                                                opixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(avg_r * 255.0f)));
+                                                opixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(avg_m * 255.0f)));
+                                                opixels[pixel_idx + 3] = 255;
+                                            } else {
+                                                opixels[pixel_idx + 0] = 255;
+                                                opixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_roughness * 255.0f)));
+                                                opixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_metalness * 255.0f)));
+                                                opixels[pixel_idx + 3] = 0;
+                                            }
+                                        } else {
+                                            opixels[pixel_idx + 0] = 255;
+                                            opixels[pixel_idx + 1] = 255;
+                                            opixels[pixel_idx + 2] = 0;
+                                            opixels[pixel_idx + 3] = 255;
+                                        }
+                                    }
                                 }
                             } else {
                                 if (u_c >= -1e-4f && v_c >= -1e-4f && w_c >= -1e-4f) {
@@ -844,6 +905,12 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                         npixels[pixel_idx + 1] = 128;
                                         npixels[pixel_idx + 2] = 255;
                                         npixels[pixel_idx + 3] = 255;
+                                    }
+                                    if (group.has_ormmap) {
+                                        opixels[pixel_idx + 0] = 255;
+                                        opixels[pixel_idx + 1] = 255;
+                                        opixels[pixel_idx + 2] = 0;
+                                        opixels[pixel_idx + 3] = 255;
                                     }
                                 }
                             }
@@ -910,12 +977,14 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
             if (group.has_colormap) group.base_color_uri = dilate_and_encode(pixels, 255, 255, 255, group.max_dilation);
             if (group.has_normalmap) group.normal_texture_uri = dilate_and_encode(npixels, 128, 128, 255, group.max_dilation);
+            if (group.has_ormmap) group.orm_texture_uri = dilate_and_encode(opixels, 255, 255, 0, group.max_dilation);
         }
 
         for (auto& prim_info : group.prims) {
             auto& prim = meshes_info[prim_info.m_idx].primitives[prim_info.p_idx];
             prim.base_color_uri = group.base_color_uri;
             prim.normal_texture_uri = group.normal_texture_uri;
+            prim.orm_texture_uri = group.orm_texture_uri;
 
             const xatlas::Mesh& xmesh = group.atlas->meshes[prim_info.a_idx];
             std::vector<float> new_pos, new_norm;
@@ -1013,6 +1082,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             MaterialKey mkey;
             mkey.base_color_uri = prim.base_color_uri;
             mkey.normal_texture_uri = prim.normal_texture_uri;
+            mkey.orm_texture_uri = prim.orm_texture_uri;
 
             if (prim.color_idx >= 0 && prim.color_idx < (int)ps->colors.size()) {
                 mkey.color = ps->colors[prim.color_idx];
@@ -1092,6 +1162,38 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                         mat.normalTexture.index = tex_idx;
                         image_cache[mkey.normal_texture_uri] = tex_idx;
+                    }
+                }
+
+                if (!mkey.orm_texture_uri.empty()) {
+                    mat.pbrMetallicRoughness.roughnessFactor = 1.0;
+                    mat.pbrMetallicRoughness.metallicFactor = 1.0;
+                    auto img_it = image_cache.find(mkey.orm_texture_uri);
+                    if (img_it != image_cache.end()) {
+                        mat.pbrMetallicRoughness.metallicRoughnessTexture.index = img_it->second;
+                    } else {
+                        tinygltf::Image img;
+                        img.uri = mkey.orm_texture_uri;
+                        int img_idx = model.images.size();
+                        model.images.push_back(img);
+
+                        if (model.samplers.empty()) {
+                            tinygltf::Sampler sampler;
+                            sampler.minFilter = TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR;
+                            sampler.magFilter = TINYGLTF_TEXTURE_FILTER_LINEAR;
+                            sampler.wrapS = TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE;
+                            sampler.wrapT = TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE;
+                            model.samplers.push_back(sampler);
+                        }
+
+                        tinygltf::Texture tex;
+                        tex.source = img_idx;
+                        tex.sampler = 0;
+                        int tex_idx = model.textures.size();
+                        model.textures.push_back(tex);
+
+                        mat.pbrMetallicRoughness.metallicRoughnessTexture.index = tex_idx;
+                        image_cache[mkey.orm_texture_uri] = tex_idx;
                     }
                 }
 

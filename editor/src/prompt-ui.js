@@ -28,6 +28,7 @@ export const PROMPT_UI_HTML = `
     <div class="scad-prompt-toggles nested" id="bake-children">
       <label><input type="checkbox" class="bake-child" id="opt-bake-colors" /> Bake Colors</label>
       <label><input type="checkbox" class="bake-child" id="opt-bake-normals" /> Bake Normals</label>
+      <label><input type="checkbox" class="bake-child" id="opt-bake-orm" /> Bake ORM</label>
     </div>
   </div>
 `;
@@ -126,6 +127,7 @@ export function getPromptOptions(containerElement) {
       containerElement.querySelector("#opt-bake-colors")?.checked ?? false,
     bakeNormals:
       containerElement.querySelector("#opt-bake-normals")?.checked ?? false,
+    bakeOrm: containerElement.querySelector("#opt-bake-orm")?.checked ?? false,
     animation: containerElement.querySelector("#opt-anim")?.checked ?? true,
   };
 }
