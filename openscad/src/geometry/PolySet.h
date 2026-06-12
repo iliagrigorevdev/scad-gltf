@@ -26,15 +26,12 @@ public:
   bool bake_colors = false;
   bool bake_normals = false;
   bool bake_orm = false;
-  bool bake_ao = false;
   double bake_distance = 2.0;
   double bake_bias = 1e-4;
   int bake_dilation = 2;
   int bake_resolution = 512;
   int bake_msaa = 2;
   int bake_index = 0;
-  int bake_ao_samples = 64;
-  double bake_ao_distance = 10.0;
   // Per polygon color, indexing the colors vector below. Can be empty, and -1 means no specific color.
   std::vector<int32_t> color_indices;
   std::vector<Color4f> colors;

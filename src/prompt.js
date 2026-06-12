@@ -22,7 +22,6 @@ export function generatePrompt(description, options = {}) {
     bakeColors: options.bakeColors ?? false,
     bakeNormals: options.bakeNormals ?? false,
     bakeOrm: options.bakeOrm ?? false,
-    bakeAo: options.bakeAo ?? false,
     autoSmoothAngle: options.autoSmoothAngle ?? true,
     animation: options.animation ?? true,
     lazyUnion: options.lazyUnion ?? false,
@@ -170,7 +169,7 @@ armature(animations=anim_data) {
 }`;
   }
 
-  if (opts.bakeColors || opts.bakeNormals || opts.bakeOrm || opts.bakeAo) {
+  if (opts.bakeColors || opts.bakeNormals || opts.bakeOrm) {
     const flags = [];
     const explanations = [];
     if (opts.bakeColors) {
@@ -191,14 +190,8 @@ armature(animations=anim_data) {
         "- Set 'orm=true' (default false) to project and bake the high-poly's Occlusion, Roughness, and Metallic (ORM) values onto the low-poly mesh.",
       );
     }
-    if (opts.bakeAo) {
-      flags.push("ao=true");
-      explanations.push(
-        "- Set 'ao=true' (default false) to compute ray-traced Ambient Occlusion and bake it into the Red (Occlusion) channel of the ORM texture.",
-      );
-    }
     explanations.push(
-      "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 2), 'resolution' (texture dimensions, default: 512), 'msaa' (super-sampling anti-aliasing level, default: 2), 'index' (atlas group identifier, default: 0), 'ao_samples' (number of rays for AO, default: 64), and 'ao_distance' (max ray distance for AO, default: 10.0).",
+      "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 2), 'resolution' (texture dimensions, default: 512), 'msaa' (super-sampling anti-aliasing level, default: 2), and 'index' (atlas group identifier, default: 0).",
     );
     explanations.push(
       "- The 'index' parameter enables multi-atlas texture baking. Low-poly meshes configured with the same 'index' will be packed together into a shared texture atlas, while meshes with distinct indices will be split into separate output image maps.",
@@ -210,7 +203,7 @@ armature(animations=anim_data) {
     const explanationText =
       explanations.length > 0
         ? explanations.join("\n")
-        : "- You can toggle what gets baked using the 'colors', 'normals', 'orm', and 'ao' boolean parameters (all default to false).";
+        : "- You can toggle what gets baked using the 'colors', 'normals', and 'orm' boolean parameters (all default to false).";
 
     prompt += `\n\nImportant Texture Baking rules:
 - Baking: Use the 'bake()' module to project details from a high-resolution mesh onto a low-resolution mesh.
