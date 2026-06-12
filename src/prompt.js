@@ -19,6 +19,8 @@ export function generatePrompt(description, options = {}) {
     emissive: options.emissive ?? true,
     specular: options.specular ?? true,
     iridescence: options.iridescence ?? true,
+    colormap: options.colormap ?? false,
+    normalmap: options.normalmap ?? false,
     bakeColors: options.bakeColors ?? false,
     bakeNormals: options.bakeNormals ?? false,
     bakeOrm: options.bakeOrm ?? false,
@@ -58,12 +60,18 @@ export function generatePrompt(description, options = {}) {
   if (opts.emissive) attrs.push("'emissive'", "'emissiveIntensity'");
   if (opts.specular) attrs.push("'specularColor'", "'specularIntensity'");
   if (opts.iridescence) attrs.push("'iridescence'", "'iridescenceIOR'");
+  if (opts.colormap) attrs.push("'colormap'");
+  if (opts.normalmap) attrs.push("'normalmap'");
 
   if (attrs.length > 0 || opts.autoSmoothAngle) {
     if (attrs.length > 0) {
       prompt += `\n\nPlease utilize extended color attributes, specifically including ${attrs.join(", ")} parameters.`;
     }
     prompt += `\n\nImportant PBR & Shading rules:`;
+
+    if (opts.colormap || opts.normalmap) {
+      prompt += `\n- Passing Functions: OpenSCAD separates function and variable namespaces. You CANNOT pass a function by its name directly (e.g., \`map=my_func\` will fail and evaluate to undef). If you define a custom function, you MUST wrap it in a function literal (lambda) when passing it. Example: \`map=function(x,y,z) my_func(x,y,z)\`.`;
+    }
 
     if (opts.basic) {
       prompt += `\n- Metalness: For solid metallic materials (e.g., gold, steel), use metalness near 1.0. High metalness blocks light transmission. (Default: 0.0)`;
@@ -93,6 +101,16 @@ export function generatePrompt(description, options = {}) {
     if (opts.iridescence) {
       prompt += `\n- Iridescence & Iridescence IOR: Simulates thin-film interference like soap bubbles, oil spills, or pearlescent surfaces. (Defaults: 0.0 and 1.3)`;
     }
+    if (opts.colormap) {
+      prompt += `\n- Colormap: Accepts a user-defined function to procedurally generate surface textures. The function MUST take 3 parameters (x, y, z) representing the 3D local coordinates of the surface, and return a color vector [r, g, b, a]. The exporter automatically unwraps the geometry and bakes this function into a 2D base color texture map. Example inline: \`colormap=function(x,y,z) [sin(x*10)/2+0.5, cos(y*10)/2+0.5, z/10, 1.0]\`.`;
+    }
+    if (opts.normalmap) {
+      prompt += `\n- Normalmap: Accepts a user-defined function to procedurally generate surface normals. The function takes 3 parameters (x, y, z) representing the 3D local coordinates, but it MUST return a color vector [r, g, b, a] representing a TANGENT-SPACE normal map.
+  - RGB encodes the normal vector mapped to 0-1.
+  - [0.5, 0.5, 1.0, 1.0] represents a flat, unmodified surface (the standard blue color).
+  - To create bumps, perturb the R and G channels around 0.5 based on the x/y/z coordinates.
+  - Example inline: \`normalmap=function(x,y,z) [0.5 + cos(x*10)*0.1, 0.5 + sin(y*10)*0.1, 1.0, 1.0]\`.`;
+    }
     if (opts.autoSmoothAngle) {
       prompt += `\n- Auto Smooth Angle: Generates smooth vertex normals for adjoining faces with an angle difference less than this value (in degrees). Use > 0 (e.g., 30 or 45) for curved/smooth surfaces, 0.0 for flat shading. Can be set globally using the special variable $asa (e.g., $asa=30;), or overridden per-material via the $asa parameter INSIDE the color() module. IMPORTANT: $asa ONLY affects surface shading (normals). It DOES NOT alter the actual geometry or polygon count. You must still use standard variables like $fn to increase geometric resolution. DO NOT pass $asa directly to geometry modules like sphere() or cylinder(). (Default: 0.0)`;
     }
@@ -106,6 +124,14 @@ export function generatePrompt(description, options = {}) {
     if (opts.emissive)
       exampleParams.push("emissive=[0.0, 0.5, 1.0]", "emissiveIntensity=2.0");
     if (opts.specular) exampleParams.push("specularIntensity=1.0");
+    if (opts.colormap)
+      exampleParams.push(
+        "colormap=function(x,y,z) [sin(x)/2+0.5, 0.5, 0.5, 1.0]",
+      );
+    if (opts.normalmap)
+      exampleParams.push(
+        "normalmap=function(x,y,z) [0.5+sin(x)/2, 0.5, 1.0, 1.0]",
+      );
     if (opts.autoSmoothAngle) exampleParams.push("$asa=45.0");
 
     let exampleStr =
@@ -175,7 +201,7 @@ armature(animations=anim_data) {
     if (opts.bakeColors) {
       flags.push("colors=true");
       explanations.push(
-        "- Set 'colors=true' (default false) to project and bake the high-poly's solid colors onto the low-poly mesh.",
+        "- Set 'colors=true' (default false) to project and bake the high-poly's solid colors and procedural 'colormap' functions onto the low-poly mesh.",
       );
     }
     if (opts.bakeNormals) {
@@ -212,9 +238,9 @@ armature(animations=anim_data) {
 ${explanationText}
 
 Example Baking Usage:
-// Bake the selected details of a high-resolution sphere onto a low-resolution one
+// Bake the selected details and procedural colormaps of a high-resolution sphere onto a low-resolution one
 ${bakeSig} {
-  color("white") sphere(r=10, $fn=100); // Child 1: High Poly
+  color("white", colormap=function(x,y,z) [sin(x*10)/2+0.5, cos(y*10)/2+0.5, 0.5, 1.0]) sphere(r=10, $fn=100); // Child 1: High Poly
   color("white", roughness=0.5, $asa=45) sphere(r=10, $fn=20); // Child 2: Low Poly
 }`;
   }
