@@ -419,21 +419,11 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                 float autoSmoothAngle = 0.0f;
                 std::shared_ptr<const class Value> colormap;
                 std::shared_ptr<const class Value> normalmap;
-                int tex_res = 512, tex_msaa = 2, tex_dil = 2, tex_idx = 0;
                 if (color_idx >= 0 && color_idx < (int)ps->materials.size()) {
                     autoSmoothAngle = ps->materials[color_idx].autoSmoothAngle;
                     colormap = ps->materials[color_idx].colormap;
                     normalmap = ps->materials[color_idx].normalmap;
-                    if (ps->materials[color_idx].texture_resolution > 0) tex_res = ps->materials[color_idx].texture_resolution;
-                    if (ps->materials[color_idx].texture_msaa > 0) tex_msaa = ps->materials[color_idx].texture_msaa;
-                    if (ps->materials[color_idx].texture_dilation >= 0) tex_dil = ps->materials[color_idx].texture_dilation;
-                    if (ps->materials[color_idx].texture_index >= 0) tex_idx = ps->materials[color_idx].texture_index;
                 }
-
-                if (ps->bake_resolution != 512 && tex_res == 512) tex_res = ps->bake_resolution;
-                if (ps->bake_msaa != 2 && tex_msaa == 2) tex_msaa = ps->bake_msaa;
-                if (ps->bake_dilation != 2 && tex_dil == 2) tex_dil = ps->bake_dilation;
-                if (ps->bake_index != 0 && tex_idx == 0) tex_idx = ps->bake_index;
 
                 PrimitiveInfo prim;
                 prim.color_idx = color_idx;
@@ -445,10 +435,10 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                 prim.bake_orm = bake_orm;
                 prim.bake_distance = ps->bake_distance;
                 prim.bake_bias = ps->bake_bias;
-                prim.bake_dilation = tex_dil;
-                prim.bake_resolution = tex_res;
-                prim.bake_msaa = tex_msaa;
-                prim.bake_index = tex_idx;
+                prim.bake_dilation = ps->bake_dilation;
+                prim.bake_resolution = ps->bake_resolution;
+                prim.bake_msaa = ps->bake_msaa;
+                prim.bake_index = ps->bake_index;
                 prim.ps = ps;
                 for(int i=0; i<3; ++i) { prim.min_pos[i] = FLT_MAX; prim.max_pos[i] = -FLT_MAX; }
 
@@ -851,9 +841,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                             int pixel_idx = (y * width + x) * 4;
 
                             bool trace_high_poly = prim.high_poly_bvh && (prim.bake_normals || prim.bake_colors || prim.bake_orm);
-                            bool evaluate_procedural = ceval || neval;
 
-                            if (trace_high_poly || evaluate_procedural) {
+                            if (trace_high_poly) {
                                 Vector3d accum_n = Vector3d::Zero();
                                 Vector4d accum_c = Vector4d::Zero();
                                 float accum_r = 0.0f;
@@ -879,35 +868,32 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                                         if (u >= -1e-4f && v >= -1e-4f && w >= -1e-4f) {
                                             inside_count++;
+                                            Vector3d n3d = (u * n0 + v * n1 + w * n2).normalized();
+                                            Vector3d gltf_p3d = u * gltf_p0 + v * gltf_p1 + w * gltf_p2;
+                                            double t_out = max_bake_dist;
+                                            Vector3d hit_n_out = n3d;
+                                            Color4f hit_c_out(1,1,1,1);
+                                            float hit_r_out = 1.0f, hit_m_out = 0.0f;
+                                            bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d - n3d * bias, n3d, t_out, hit_n_out, hit_c_out, hit_r_out, hit_m_out);
 
-                                            if (trace_high_poly) {
-                                                Vector3d n3d = (u * n0 + v * n1 + w * n2).normalized();
-                                                Vector3d gltf_p3d = u * gltf_p0 + v * gltf_p1 + w * gltf_p2;
-                                                double t_out = max_bake_dist;
-                                                Vector3d hit_n_out = n3d;
-                                                Color4f hit_c_out(1,1,1,1);
-                                                float hit_r_out = 1.0f, hit_m_out = 0.0f;
-                                                bool hit_out = prim.high_poly_bvh->intersect(gltf_p3d - n3d * bias, n3d, t_out, hit_n_out, hit_c_out, hit_r_out, hit_m_out);
+                                            double t_in = hit_out ? t_out : max_bake_dist;
+                                            Vector3d hit_n_in = n3d;
+                                            Color4f hit_c_in(1,1,1,1);
+                                            float hit_r_in = 1.0f, hit_m_in = 0.0f;
+                                            bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d + n3d * bias, -n3d, t_in, hit_n_in, hit_c_in, hit_r_in, hit_m_in);
 
-                                                double t_in = hit_out ? t_out : max_bake_dist;
-                                                Vector3d hit_n_in = n3d;
-                                                Color4f hit_c_in(1,1,1,1);
-                                                float hit_r_in = 1.0f, hit_m_in = 0.0f;
-                                                bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d + n3d * bias, -n3d, t_in, hit_n_in, hit_c_in, hit_r_in, hit_m_in);
-
-                                                if (hit_in) {
-                                                    accum_n += hit_n_in;
-                                                    accum_c += Vector4d(hit_c_in.r(), hit_c_in.g(), hit_c_in.b(), hit_c_in.a());
-                                                    accum_r += hit_r_in;
-                                                    accum_m += hit_m_in;
-                                                    hit_count++;
-                                                } else if (hit_out) {
-                                                    accum_n += hit_n_out;
-                                                    accum_c += Vector4d(hit_c_out.r(), hit_c_out.g(), hit_c_out.b(), hit_c_out.a());
-                                                    accum_r += hit_r_out;
-                                                    accum_m += hit_m_out;
-                                                    hit_count++;
-                                                }
+                                            if (hit_in) {
+                                                accum_n += hit_n_in;
+                                                accum_c += Vector4d(hit_c_in.r(), hit_c_in.g(), hit_c_in.b(), hit_c_in.a());
+                                                accum_r += hit_r_in;
+                                                accum_m += hit_m_in;
+                                                hit_count++;
+                                            } else if (hit_out) {
+                                                accum_n += hit_n_out;
+                                                accum_c += Vector4d(hit_c_out.r(), hit_c_out.g(), hit_c_out.b(), hit_c_out.a());
+                                                accum_r += hit_r_out;
+                                                accum_m += hit_m_out;
+                                                hit_count++;
                                             }
                                         }
                                     }
@@ -931,7 +917,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                             pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(c.g() * 255.0f)));
                                             pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(c.b() * 255.0f)));
                                             pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(c.a() * 255.0f)));
-                                        } else if (trace_high_poly && prim.bake_colors) {
+                                        } else if (prim.bake_colors) {
                                             if (hit_count > 0) {
                                                 Vector4d avg_c = accum_c / hit_count;
                                                 pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(avg_c.x() * 255.0f)));
@@ -990,7 +976,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                             npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((dy_uv * 0.5f + 0.5f) * 255.0f)));
                                             npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((dz_uv * 0.5f + 0.5f) * 255.0f)));
                                             npixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(n_col.a() * 255.0f)));
-                                        } else if (trace_high_poly && prim.bake_normals) {
+                                        } else if (prim.bake_normals) {
                                             if (hit_count > 0) {
                                                 Vector3d avg_n = accum_n / hit_count;
                                                 if (avg_n.norm() > 1e-8) avg_n.normalize();
@@ -1018,7 +1004,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                     }
 
                                     if (group.has_ormmap) {
-                                        if (trace_high_poly && prim.bake_orm) {
+                                        if (prim.bake_orm) {
                                             if (hit_count > 0) {
                                                 float avg_r = accum_r / hit_count;
                                                 float avg_m = accum_m / hit_count;

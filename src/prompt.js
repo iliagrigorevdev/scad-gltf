@@ -102,14 +102,13 @@ export function generatePrompt(description, options = {}) {
       prompt += `\n- Iridescence & Iridescence IOR: Simulates thin-film interference like soap bubbles, oil spills, or pearlescent surfaces. (Defaults: 0.0 and 1.3)`;
     }
     if (opts.colormap) {
-      prompt += `\n- Colormap: Accepts a user-defined function to procedurally generate surface textures. The function MUST take 3 parameters (x, y, z) representing the 3D local coordinates of the surface, and return a color vector [r, g, b, a]. The exporter automatically unwraps the geometry and bakes this function into a 2D base color texture map. You can control the baking output directly in the color() module using 'resolution' (default 512), 'msaa' (default 2), 'dilation' (default 2), and 'index' (atlas grouping, default 0). Example inline: \`colormap=function(x,y,z) [sin(x*10)/2+0.5, cos(y*10)/2+0.5, z/10, 1.0], resolution=1024\`.`;
+      prompt += `\n- Colormap: Accepts a user-defined function to procedurally generate surface textures. The function MUST take 3 parameters (x, y, z) representing the 3D local coordinates of the surface, and return a color vector [r, g, b, a]. The exporter automatically unwraps the geometry and bakes this function into a 2D base color texture map. Example inline: \`colormap=function(x,y,z) [sin(x*10)/2+0.5, cos(y*10)/2+0.5, z/10, 1.0]\`.`;
     }
     if (opts.normalmap) {
       prompt += `\n- Normalmap: Accepts a user-defined function to procedurally generate surface normals. The function takes 3 parameters (x, y, z) representing the 3D local coordinates, but it MUST return a color vector [r, g, b, a] representing a TANGENT-SPACE normal map.
   - RGB encodes the normal vector mapped to 0-1.
   - [0.5, 0.5, 1.0, 1.0] represents a flat, unmodified surface (the standard blue color).
   - To create bumps, perturb the R and G channels around 0.5 based on the x/y/z coordinates.
-  - Like colormap, you can control baking with 'resolution', 'msaa', 'dilation', and 'index' directly in color().
   - Example inline: \`normalmap=function(x,y,z) [0.5 + cos(x*10)*0.1, 0.5 + sin(y*10)*0.1, 1.0, 1.0]\`.`;
     }
     if (opts.autoSmoothAngle) {
@@ -128,7 +127,6 @@ export function generatePrompt(description, options = {}) {
     if (opts.colormap)
       exampleParams.push(
         "colormap=function(x,y,z) [sin(x)/2+0.5, 0.5, 0.5, 1.0]",
-        "resolution=1024",
       );
     if (opts.normalmap)
       exampleParams.push(
@@ -219,10 +217,10 @@ armature(animations=anim_data) {
       );
     }
     explanations.push(
-      "- You can customize the projection using 'distance' (max ray length, default: 2.0) and 'bias' (ray origin offset, default: 1e-4). Texture parameters like 'resolution', 'msaa', 'dilation', and 'index' can also be specified here to set defaults for the baked textures (though setting them directly on the low-poly's color() module is preferred).",
+      "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 2), 'resolution' (texture dimensions, default: 512), 'msaa' (super-sampling anti-aliasing level, default: 2), and 'index' (atlas group identifier, default: 0).",
     );
     explanations.push(
-      "- The 'index' parameter enables multi-atlas texture baking. Meshes configured with the same 'index' will be packed together into a shared texture atlas, while meshes with distinct indices will be split into separate output image maps.",
+      "- The 'index' parameter enables multi-atlas texture baking. Low-poly meshes configured with the same 'index' will be packed together into a shared texture atlas, while meshes with distinct indices will be split into separate output image maps.",
     );
 
     flags.push("resolution=1024");
