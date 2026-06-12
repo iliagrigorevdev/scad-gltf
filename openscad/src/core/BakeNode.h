@@ -18,7 +18,7 @@ public:
     int resolution = 512;
     int msaa = 2;
     int index = 0;
-    int ao_samples = 16;
+    int ao_samples = 64;
     double ao_distance = 10.0;
 };
 

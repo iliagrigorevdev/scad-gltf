@@ -222,7 +222,7 @@ struct PrimitiveInfo {
     int bake_resolution = 512;
     int bake_msaa = 2;
     int bake_index = 0;
-    int bake_ao_samples = 16;
+    int bake_ao_samples = 64;
     double bake_ao_distance = 10.0;
     std::string base_color_uri;
     std::string normal_texture_uri;
