@@ -63,7 +63,7 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   node->material.emissive = defaultBlack;
   node->material.specularColor = defaultWhite;
 
-  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness", "attenuationColor", "attenuationDistance", "ior", "emissive", "emissiveIntensity", "specularColor", "specularIntensity", "iridescence", "iridescenceIOR", "colormap", "normalmap"});
+  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness", "attenuationColor", "attenuationDistance", "ior", "emissive", "emissiveIntensity", "specularColor", "specularIntensity", "iridescence", "iridescenceIOR", "colormap", "normalmap", "resolution", "msaa", "dilation", "index"});
   if (parameters["c"].type() == Value::Type::VECTOR) {
     const auto& vec = parameters["c"].toVector();
     Vector4f color;
@@ -175,6 +175,18 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   if (parameters["normalmap"].type() != Value::Type::UNDEFINED) {
     node->material.normalmap = std::make_shared<const Value>(parameters["normalmap"].clone());
   }
+  if (parameters["resolution"].type() == Value::Type::NUMBER) {
+    node->material.texture_resolution = static_cast<int>(parameters["resolution"].toDouble());
+  }
+  if (parameters["msaa"].type() == Value::Type::NUMBER) {
+    node->material.texture_msaa = static_cast<int>(parameters["msaa"].toDouble());
+  }
+  if (parameters["dilation"].type() == Value::Type::NUMBER) {
+    node->material.texture_dilation = static_cast<int>(parameters["dilation"].toDouble());
+  }
+  if (parameters["index"].type() == Value::Type::NUMBER) {
+    node->material.texture_index = static_cast<int>(parameters["index"].toDouble());
+  }
 
   return children.instantiate(node);
 }
@@ -192,7 +204,11 @@ std::string ColorNode::toString() const
              ", iridescence=", this->material.iridescence, ", iridescenceIOR=", this->material.iridescenceIOR,
              ", $asa=", this->material.autoSmoothAngle,
              ", colormap=", (this->material.colormap && this->material.colormap->type() != Value::Type::UNDEFINED ? "function" : "undef"),
-             ", normalmap=", (this->material.normalmap && this->material.normalmap->type() != Value::Type::UNDEFINED ? "function" : "undef"), ")");
+             ", normalmap=", (this->material.normalmap && this->material.normalmap->type() != Value::Type::UNDEFINED ? "function" : "undef"),
+             ", resolution=", this->material.texture_resolution,
+             ", msaa=", this->material.texture_msaa,
+             ", dilation=", this->material.texture_dilation,
+             ", index=", this->material.texture_index, ")");
 }
 
 std::string ColorNode::name() const
@@ -202,7 +218,7 @@ std::string ColorNode::name() const
 
 void register_builtin_color()
 {
-  const char* full_params = ", roughness = 1.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor =[0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0, attenuationColor =[1.0, 1.0, 1.0], attenuationDistance = 0.0, ior = 1.5, emissive =[0.0, 0.0, 0.0], emissiveIntensity = 1.0, specularColor =[1.0, 1.0, 1.0], specularIntensity = 1.0, iridescence = 0.0, iridescenceIOR = 1.3)";
+  const char* full_params = ", roughness = 1.0, metalness = 0.0, clearcoat = 0.0, clearcoatRoughness = 0.0, sheen = 0.0, sheenColor =[0.0, 0.0, 0.0], sheenRoughness = 0.0, transmission = 0.0, thickness = 0.0, attenuationColor =[1.0, 1.0, 1.0], attenuationDistance = 0.0, ior = 1.5, emissive =[0.0, 0.0, 0.0], emissiveIntensity = 1.0, specularColor =[1.0, 1.0, 1.0], specularIntensity = 1.0, iridescence = 0.0, iridescenceIOR = 1.3, resolution = 512, msaa = 2, dilation = 2, index = 0)";
   Builtins::init("color", new BuiltinModule(builtin_color),
                  {
                    STR("color(c =[r, g, b, a]", full_params),
