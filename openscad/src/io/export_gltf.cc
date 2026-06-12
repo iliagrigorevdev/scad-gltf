@@ -767,15 +767,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                 float step = 1.0f / msaa;
                                 float offset = step * 0.5f;
 
-                                struct SampleHit {
-                                    bool hit;
-                                    Vector3d p;
-                                    Vector3d n;
-                                    Color4f c;
-                                    float r, m;
-                                };
-                                std::vector<SampleHit> hits(msaa * msaa);
-
                                 for (int sy = 0; sy < msaa; ++sy) {
                                     for (int sx = 0; sx < msaa; ++sx) {
                                         float px = x + offset + sx * step;
@@ -784,9 +775,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                         float u = du_dx * (px - uv2x) + du_dy * (py - uv2y);
                                         float v = dv_dx * (px - uv2x) + dv_dy * (py - uv2y);
                                         float w = 1.0f - u - v;
-
-                                        SampleHit& sh = hits[sy * msaa + sx];
-                                        sh.hit = false;
 
                                         if (u >= -1e-4f && v >= -1e-4f && w >= -1e-4f) {
                                             inside_count++;
@@ -805,19 +793,17 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                             bool hit_in = prim.high_poly_bvh->intersect(gltf_p3d + n3d * bias, -n3d, t_in, hit_n_in, hit_c_in, hit_r_in, hit_m_in);
 
                                             if (hit_in) {
-                                                sh.hit = true;
-                                                sh.p = gltf_p3d + n3d * bias - n3d * t_in;
-                                                sh.n = hit_n_in;
-                                                sh.c = hit_c_in;
-                                                sh.r = hit_r_in;
-                                                sh.m = hit_m_in;
+                                                accum_n += hit_n_in;
+                                                accum_c += Vector4d(hit_c_in.r(), hit_c_in.g(), hit_c_in.b(), hit_c_in.a());
+                                                accum_r += hit_r_in;
+                                                accum_m += hit_m_in;
+                                                hit_count++;
                                             } else if (hit_out) {
-                                                sh.hit = true;
-                                                sh.p = gltf_p3d - n3d * bias + n3d * t_out;
-                                                sh.n = hit_n_out;
-                                                sh.c = hit_c_out;
-                                                sh.r = hit_r_out;
-                                                sh.m = hit_m_out;
+                                                accum_n += hit_n_out;
+                                                accum_c += Vector4d(hit_c_out.r(), hit_c_out.g(), hit_c_out.b(), hit_c_out.a());
+                                                accum_r += hit_r_out;
+                                                accum_m += hit_m_out;
+                                                hit_count++;
                                             }
                                         }
                                     }
@@ -832,105 +818,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                     float w_interp = t0.w();
                                     Vector3d n3d_c = (cu * n0 + cv * n1 + cw * n2).normalized();
                                     Vector3d local_b = n3d_c.cross(T_interp).normalized() * w_interp;
-
-                                    for (int sy = 0; sy < msaa; ++sy) {
-                                        for (int sx = 0; sx < msaa; ++sx) {
-                                            SampleHit& sh = hits[sy * msaa + sx];
-                                            if (sh.hit) {
-                                                accum_c += Vector4d(sh.c.r(), sh.c.g(), sh.c.b(), sh.c.a());
-                                                accum_r += sh.r;
-                                                accum_m += sh.m;
-                                                hit_count++;
-
-                                                Vector3d geom_n = Vector3d::Zero();
-                                                int n_count = 0;
-
-                                                if (msaa > 1) {
-                                                    if (sx + 1 < msaa && hits[sy * msaa + sx + 1].hit &&
-                                                        sy + 1 < msaa && hits[(sy + 1) * msaa + sx].hit) {
-                                                        Vector3d dp_dx = hits[sy * msaa + sx + 1].p - sh.p;
-                                                        Vector3d dp_dy = hits[(sy + 1) * msaa + sx].p - sh.p;
-                                                        geom_n += dp_dx.cross(dp_dy);
-                                                        n_count++;
-                                                    }
-                                                    if (sx > 0 && hits[sy * msaa + sx - 1].hit &&
-                                                        sy > 0 && hits[(sy - 1) * msaa + sx].hit) {
-                                                        Vector3d dp_dx = sh.p - hits[sy * msaa + sx - 1].p;
-                                                        Vector3d dp_dy = sh.p - hits[(sy - 1) * msaa + sx].p;
-                                                        geom_n += dp_dx.cross(dp_dy);
-                                                        n_count++;
-                                                    }
-                                                    if (sx + 1 < msaa && hits[sy * msaa + sx + 1].hit &&
-                                                        sy > 0 && hits[(sy - 1) * msaa + sx].hit) {
-                                                        Vector3d dp_dx = hits[sy * msaa + sx + 1].p - sh.p;
-                                                        Vector3d dp_dy = sh.p - hits[(sy - 1) * msaa + sx].p;
-                                                        geom_n += dp_dx.cross(dp_dy);
-                                                        n_count++;
-                                                    }
-                                                    if (sx > 0 && hits[sy * msaa + sx - 1].hit &&
-                                                        sy + 1 < msaa && hits[(sy + 1) * msaa + sx].hit) {
-                                                        Vector3d dp_dx = sh.p - hits[sy * msaa + sx - 1].p;
-                                                        Vector3d dp_dy = hits[(sy + 1) * msaa + sx].p - sh.p;
-                                                        geom_n += dp_dx.cross(dp_dy);
-                                                        n_count++;
-                                                    }
-                                                } else if (prim.bake_normals) {
-                                                    float px_c = x + offset;
-                                                    float py_c = y + offset;
-
-                                                    auto shoot_ray = [&](float dx, float dy) -> Vector3d {
-                                                        float px_o = px_c + dx;
-                                                        float py_o = py_c + dy;
-                                                        float u_o = du_dx * (px_o - uv2x) + du_dy * (py_o - uv2y);
-                                                        float v_o = dv_dx * (px_o - uv2x) + dv_dy * (py_o - uv2y);
-                                                        float w_o = 1.0f - u_o - v_o;
-                                                        Vector3d n3d_o = (u_o * n0 + v_o * n1 + w_o * n2).normalized();
-                                                        Vector3d gltf_p3d_o = u_o * gltf_p0 + v_o * gltf_p1 + w_o * gltf_p2;
-                                                        double t_in_o = max_bake_dist;
-                                                        Vector3d hit_n_o = n3d_o;
-                                                        Color4f hit_c_o(1,1,1,1); float hit_r_o = 1.0f, hit_m_o = 0.0f;
-                                                        bool hit_in_o = prim.high_poly_bvh->intersect(gltf_p3d_o + n3d_o * bias, -n3d_o, t_in_o, hit_n_o, hit_c_o, hit_r_o, hit_m_o);
-                                                        if (hit_in_o) return gltf_p3d_o + n3d_o * bias - n3d_o * t_in_o;
-
-                                                        double t_out_o = max_bake_dist;
-                                                        bool hit_out_o = prim.high_poly_bvh->intersect(gltf_p3d_o - n3d_o * bias, n3d_o, t_out_o, hit_n_o, hit_c_o, hit_r_o, hit_m_o);
-                                                        if (hit_out_o) return gltf_p3d_o - n3d_o * bias + n3d_o * t_out_o;
-
-                                                        return sh.p;
-                                                    };
-
-                                                    Vector3d p_x = shoot_ray(1.0f, 0.0f);
-                                                    Vector3d p_y = shoot_ray(0.0f, 1.0f);
-                                                    Vector3d dp_dx = p_x - sh.p;
-                                                    Vector3d dp_dy = p_y - sh.p;
-                                                    geom_n = dp_dx.cross(dp_dy);
-                                                    n_count = 1;
-                                                }
-
-                                                Vector3d normal_to_add = sh.n;
-
-                                                if (n_count > 0) {
-                                                    geom_n /= n_count;
-                                                    if (geom_n.norm() > 1e-8) {
-                                                        geom_n.normalize();
-                                                        if (geom_n.dot(n3d_c) < 0) geom_n = -geom_n;
-
-                                                        float dot = geom_n.dot(sh.n);
-                                                        // Only apply geometric side normals at sharp cliffs
-                                                        // where the geometric depth gradient diverges massively from the smooth shading normal
-                                                        if (dot < 0.5f) {
-                                                            Vector3d geom_n_side = geom_n - sh.n * dot;
-                                                            float blend = std::pow(1.0f - std::max(0.0f, dot) * 2.0f, 2.0f);
-                                                            normal_to_add += geom_n_side * (10.0f * blend);
-                                                            normal_to_add.normalize();
-                                                        }
-                                                    }
-                                                }
-
-                                                accum_n += normal_to_add;
-                                            }
-                                        }
-                                    }
 
                                     if (group.has_colormap) {
                                         if (prim.bake_colors) {
