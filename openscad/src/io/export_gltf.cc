@@ -537,6 +537,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         bool has_colormap = false;
         bool has_normalmap = false;
         bool has_ormmap = false;
+        bool rotate_uvs = true;
         std::vector<AtlasPrimInfo> prims;
         std::string base_color_uri;
         std::string normal_texture_uri;
@@ -565,6 +566,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 if (prim.bake_params.dilation >= 0) {
                     group.max_dilation = std::max(group.max_dilation, prim.bake_params.dilation);
                 }
+                if (!prim.bake_params.rotate_uvs) group.rotate_uvs = false;
                 if (prim.bake_params.bake_colors) group.has_colormap = true;
                 if (prim.bake_params.bake_normals) group.has_normalmap = true;
                 if (prim.bake_params.bake_orm) group.has_ormmap = true;
@@ -596,6 +598,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         xatlas::PackOptions packOptions;
         packOptions.resolution = group.resolution;
         packOptions.padding = std::max(group.max_dilation, 2);
+        packOptions.rotateCharts = group.rotate_uvs;
+        packOptions.rotateChartsToAxis = group.rotate_uvs;
         xatlas::Generate(group.atlas, xatlas::ChartOptions(), packOptions);
 
         uint32_t orig_width = group.atlas->width;

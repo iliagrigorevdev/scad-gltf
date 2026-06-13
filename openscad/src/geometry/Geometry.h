@@ -66,6 +66,7 @@ struct BakeParameters {
   int resolution = -1;
   int msaa = -1;
   int index = 0;
+  bool rotate_uvs = true;
 };
 
 class AbstractNode;
