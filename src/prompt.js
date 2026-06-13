@@ -187,7 +187,7 @@ armature(animations=anim_data) {
     if (opts.bakeOrm) {
       flags.push("orm=true");
       explanations.push(
-        "- Set 'orm=true' (default false) to project and bake the high-poly's Occlusion, Roughness, and Metallic (ORM) values onto the low-poly mesh.",
+        "- Set 'orm=true' (default false) to project and bake the high-poly's Roughness, and Metallic values onto the low-poly mesh.",
       );
     }
     explanations.push(
