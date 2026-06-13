@@ -78,15 +78,7 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->colors = polyset.colors;
     result->materials = polyset.materials;
     result->high_poly_bake = polyset.high_poly_bake;
-    result->bake_colors = polyset.bake_colors;
-    result->bake_normals = polyset.bake_normals;
-    result->bake_orm = polyset.bake_orm;
-    result->bake_distance = polyset.bake_distance;
-    result->bake_bias = polyset.bake_bias;
-    result->bake_dilation = polyset.bake_dilation;
-    result->bake_resolution = polyset.bake_resolution;
-    result->bake_msaa = polyset.bake_msaa;
-    result->bake_index = polyset.bake_index;
+    result->bake_params = polyset.bake_params;
     return result;
   }
   result->vertices.reserve(polyset.vertices.size());
@@ -174,11 +166,7 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     LOG(message_group::Warning, "PolySet has degenerate polygons");
   }
   result->high_poly_bake = polyset.high_poly_bake;
-  result->bake_colors = polyset.bake_colors;
-  result->bake_normals = polyset.bake_normals;
-  result->bake_distance = polyset.bake_distance;
-  result->bake_bias = polyset.bake_bias;
-  result->bake_dilation = polyset.bake_dilation;
+  result->bake_params = polyset.bake_params;
   return result;
 }
 

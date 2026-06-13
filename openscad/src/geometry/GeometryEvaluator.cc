@@ -700,17 +700,9 @@ Response GeometryEvaluator::visit(State& state, const BakeNode& node)
 
         if (low_ps && high_ps && !low_ps->isEmpty() && !high_ps->isEmpty()) {
             auto baked_ps = std::make_shared<PolySet>(*low_ps);
-            if (node.bake_colors || node.bake_normals || node.bake_orm) {
+            if (node.bake_params.bake_colors || node.bake_params.bake_normals || node.bake_params.bake_orm) {
                 baked_ps->high_poly_bake = high_ps;
-                baked_ps->bake_colors = node.bake_colors;
-                baked_ps->bake_normals = node.bake_normals;
-                baked_ps->bake_orm = node.bake_orm;
-                baked_ps->bake_distance = node.distance;
-                baked_ps->bake_bias = node.bias;
-                baked_ps->bake_dilation = node.dilation;
-                baked_ps->bake_resolution = node.resolution;
-                baked_ps->bake_msaa = node.msaa;
-                baked_ps->bake_index = node.index;
+                baked_ps->bake_params = node.bake_params;
             }
             geom = baked_ps;
         } else {

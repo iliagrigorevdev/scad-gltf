@@ -55,6 +55,18 @@ struct MaterialProperties {
   bool operator<(const MaterialProperties& other) const { return to_tuple() < other.to_tuple(); }
 };
 
+struct BakeParameters {
+  bool bake_colors = false;
+  bool bake_normals = false;
+  bool bake_orm = false;
+  double distance = 2.0;
+  double bias = 1e-4;
+  int dilation = 2;
+  int resolution = 512;
+  int msaa = 2;
+  int index = 0;
+};
+
 class AbstractNode;
 class CGALNefGeometry;
 class GeometryList;

@@ -23,15 +23,7 @@ public:
   PolygonIndices indices;
   std::vector<Vector3d> vertices;
   std::shared_ptr<const PolySet> high_poly_bake;
-  bool bake_colors = false;
-  bool bake_normals = false;
-  bool bake_orm = false;
-  double bake_distance = 2.0;
-  double bake_bias = 1e-4;
-  int bake_dilation = 2;
-  int bake_resolution = 512;
-  int bake_msaa = 2;
-  int bake_index = 0;
+  BakeParameters bake_params;
   // Per polygon color, indexing the colors vector below. Can be empty, and -1 means no specific color.
   std::vector<int32_t> color_indices;
   std::vector<Color4f> colors;

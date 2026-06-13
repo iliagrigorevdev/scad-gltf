@@ -211,15 +211,7 @@ struct PrimitiveInfo {
     std::vector<float> uvs;
     std::vector<int> orig_v_idx;
     std::shared_ptr<SimpleBVH> high_poly_bvh;
-    bool bake_colors = false;
-    bool bake_normals = false;
-    bool bake_orm = false;
-    double bake_distance = 2.0;
-    double bake_bias = 1e-4;
-    int bake_dilation = 2;
-    int bake_resolution = 512;
-    int bake_msaa = 2;
-    int bake_index = 0;
+    BakeParameters bake_params;
     std::string base_color_uri;
     std::string normal_texture_uri;
     std::string orm_texture_uri;
@@ -321,15 +313,11 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             if (Feature::ExperimentalPredictibleOutput.is_enabled()) ps = createSortedPolySet(*ps);
 
             std::shared_ptr<SimpleBVH> high_poly_bvh;
-            bool bake_colors = false;
-            bool bake_normals = false;
-            bool bake_orm = false;
+            BakeParameters bake_params;
             if (ps->high_poly_bake) {
                 auto high_tri = ps->high_poly_bake->isTriangular() ? std::make_shared<PolySet>(*ps->high_poly_bake) : PolySetUtils::tessellate_faces(*ps->high_poly_bake);
                 high_poly_bvh = std::make_shared<SimpleBVH>(*high_tri, C * M_accum);
-                bake_colors = ps->bake_colors;
-                bake_normals = ps->bake_normals;
-                bake_orm = ps->bake_orm;
+                bake_params = ps->bake_params;
             }
 
             MeshInfo minfo;
@@ -360,15 +348,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                 PrimitiveInfo prim;
                 prim.color_idx = color_idx;
                 prim.high_poly_bvh = high_poly_bvh;
-                prim.bake_colors = bake_colors;
-                prim.bake_normals = bake_normals;
-                prim.bake_orm = bake_orm;
-                prim.bake_distance = ps->bake_distance;
-                prim.bake_bias = ps->bake_bias;
-                prim.bake_dilation = ps->bake_dilation;
-                prim.bake_resolution = ps->bake_resolution;
-                prim.bake_msaa = ps->bake_msaa;
-                prim.bake_index = ps->bake_index;
+                prim.bake_params = bake_params;
                 prim.ps = ps;
                 for(int i=0; i<3; ++i) { prim.min_pos[i] = FLT_MAX; prim.max_pos[i] = -FLT_MAX; }
 
@@ -571,22 +551,22 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         auto& minfo = meshes_info[m_idx];
         for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
             auto& prim = minfo.primitives[p_idx];
-            if (prim.high_poly_bvh && (prim.bake_colors || prim.bake_normals || prim.bake_orm)) {
-                int t_idx = prim.bake_index;
+            if (prim.high_poly_bvh && (prim.bake_params.bake_colors || prim.bake_params.bake_normals || prim.bake_params.bake_orm)) {
+                int t_idx = prim.bake_params.index;
                 auto& group = atlas_groups[t_idx];
                 int a_idx = group.prims.size();
                 group.prims.push_back({(int)m_idx, (int)p_idx, a_idx});
                 if (group.prims.size() == 1) {
-                    group.resolution = prim.bake_resolution;
-                    group.msaa = std::max(1, prim.bake_msaa);
+                    group.resolution = prim.bake_params.resolution;
+                    group.msaa = std::max(1, prim.bake_params.msaa);
                 } else {
-                    group.resolution = std::max(group.resolution, prim.bake_resolution);
-                    group.msaa = std::max(group.msaa, std::max(1, prim.bake_msaa));
+                    group.resolution = std::max(group.resolution, prim.bake_params.resolution);
+                    group.msaa = std::max(group.msaa, std::max(1, prim.bake_params.msaa));
                 }
-                group.max_dilation = std::max(group.max_dilation, prim.bake_dilation);
-                if (prim.bake_colors) group.has_colormap = true;
-                if (prim.bake_normals) group.has_normalmap = true;
-                if (prim.bake_orm) group.has_ormmap = true;
+                group.max_dilation = std::max(group.max_dilation, prim.bake_params.dilation);
+                if (prim.bake_params.bake_colors) group.has_colormap = true;
+                if (prim.bake_params.bake_normals) group.has_normalmap = true;
+                if (prim.bake_params.bake_orm) group.has_ormmap = true;
             }
         }
     }
@@ -750,7 +730,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                             int pixel_idx = (y * width + x) * 4;
 
-                            bool trace_high_poly = prim.high_poly_bvh && (prim.bake_normals || prim.bake_colors || prim.bake_orm);
+                            bool trace_high_poly = prim.high_poly_bvh && (prim.bake_params.bake_normals || prim.bake_params.bake_colors || prim.bake_params.bake_orm);
 
                             if (trace_high_poly) {
                                 Vector3d accum_n = Vector3d::Zero();
@@ -760,8 +740,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                 int inside_count = 0;
                                 int hit_count = 0;
 
-                                double max_bake_dist = prim.bake_distance;
-                                double bias = prim.bake_bias;
+                                double max_bake_dist = prim.bake_params.distance;
+                                double bias = prim.bake_params.bias;
 
                                 int msaa = group.msaa;
                                 float step = 1.0f / msaa;
@@ -820,7 +800,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                     Vector3d local_b = n3d_c.cross(T_interp).normalized() * w_interp;
 
                                     if (group.has_colormap) {
-                                        if (prim.bake_colors) {
+                                        if (prim.bake_params.bake_colors) {
                                             if (hit_count > 0) {
                                                 Vector4d avg_c = accum_c / hit_count;
                                                 pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(avg_c.x() * 255.0f)));
@@ -842,7 +822,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                     }
 
                                     if (group.has_normalmap) {
-                                        if (prim.bake_normals) {
+                                        if (prim.bake_params.bake_normals) {
                                             if (hit_count > 0) {
                                                 Vector3d avg_n = accum_n / hit_count;
                                                 if (avg_n.norm() > 1e-8) avg_n.normalize();
@@ -870,7 +850,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                     }
 
                                     if (group.has_ormmap) {
-                                        if (prim.bake_orm) {
+                                        if (prim.bake_params.bake_orm) {
                                             if (hit_count > 0) {
                                                 float avg_r = accum_r / hit_count;
                                                 float avg_m = accum_m / hit_count;

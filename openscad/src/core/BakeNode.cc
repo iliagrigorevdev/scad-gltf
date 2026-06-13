@@ -10,40 +10,40 @@ std::shared_ptr<AbstractNode> builtin_bake(const ModuleInstantiation *inst, Argu
     auto node = std::make_shared<BakeNode>(inst);
 
     if (parameters["colors"].type() == Value::Type::BOOL) {
-        node->bake_colors = parameters["colors"].toBool();
+        node->bake_params.bake_colors = parameters["colors"].toBool();
     } else if (parameters["colors"].type() == Value::Type::NUMBER) {
-        node->bake_colors = parameters["colors"].toDouble() != 0.0;
+        node->bake_params.bake_colors = parameters["colors"].toDouble() != 0.0;
     }
 
     if (parameters["normals"].type() == Value::Type::BOOL) {
-        node->bake_normals = parameters["normals"].toBool();
+        node->bake_params.bake_normals = parameters["normals"].toBool();
     } else if (parameters["normals"].type() == Value::Type::NUMBER) {
-        node->bake_normals = parameters["normals"].toDouble() != 0.0;
+        node->bake_params.bake_normals = parameters["normals"].toDouble() != 0.0;
     }
 
     if (parameters["orm"].type() == Value::Type::BOOL) {
-        node->bake_orm = parameters["orm"].toBool();
+        node->bake_params.bake_orm = parameters["orm"].toBool();
     } else if (parameters["orm"].type() == Value::Type::NUMBER) {
-        node->bake_orm = parameters["orm"].toDouble() != 0.0;
+        node->bake_params.bake_orm = parameters["orm"].toDouble() != 0.0;
     }
 
     if (parameters["distance"].type() == Value::Type::NUMBER) {
-        node->distance = parameters["distance"].toDouble();
+        node->bake_params.distance = parameters["distance"].toDouble();
     }
     if (parameters["bias"].type() == Value::Type::NUMBER) {
-        node->bias = parameters["bias"].toDouble();
+        node->bake_params.bias = parameters["bias"].toDouble();
     }
     if (parameters["dilation"].type() == Value::Type::NUMBER) {
-        node->dilation = static_cast<int>(parameters["dilation"].toDouble());
+        node->bake_params.dilation = static_cast<int>(parameters["dilation"].toDouble());
     }
     if (parameters["resolution"].type() == Value::Type::NUMBER) {
-        node->resolution = static_cast<int>(parameters["resolution"].toDouble());
+        node->bake_params.resolution = static_cast<int>(parameters["resolution"].toDouble());
     }
     if (parameters["msaa"].type() == Value::Type::NUMBER) {
-        node->msaa = static_cast<int>(parameters["msaa"].toDouble());
+        node->bake_params.msaa = static_cast<int>(parameters["msaa"].toDouble());
     }
     if (parameters["index"].type() == Value::Type::NUMBER) {
-        node->index = static_cast<int>(parameters["index"].toDouble());
+        node->bake_params.index = static_cast<int>(parameters["index"].toDouble());
     }
 
     return children.instantiate(node);

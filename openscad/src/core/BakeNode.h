@@ -1,6 +1,7 @@
 #pragma once
 #include "core/node.h"
 #include "core/ModuleInstantiation.h"
+#include "geometry/Geometry.h"
 
 class BakeNode : public AbstractNode {
 public:
@@ -8,15 +9,7 @@ public:
     BakeNode(const ModuleInstantiation *mi) : AbstractNode(mi) {}
     std::string name() const override { return "bake"; }
 
-    bool bake_colors = false;
-    bool bake_normals = false;
-    bool bake_orm = false;
-    double distance = 2.0;
-    double bias = 1e-4;
-    int dilation = 2;
-    int resolution = 512;
-    int msaa = 2;
-    int index = 0;
+    BakeParameters bake_params;
 };
 
 void register_builtin_bake();
