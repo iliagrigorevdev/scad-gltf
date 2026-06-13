@@ -41,7 +41,6 @@
 #include "core/ModuleInstantiation.h"
 #include "core/Parameters.h"
 #include "core/module.h"
-#include "core/Value.h"
 #include "geometry/linalg.h"
 #include "utils/printutils.h"
 
@@ -63,7 +62,7 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   node->material.emissive = defaultBlack;
   node->material.specularColor = defaultWhite;
 
-  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness", "attenuationColor", "attenuationDistance", "ior", "emissive", "emissiveIntensity", "specularColor", "specularIntensity", "iridescence", "iridescenceIOR", "colormap", "normalmap"});
+  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"c", "alpha", "roughness", "metalness", "clearcoat", "clearcoatRoughness", "sheen", "sheenColor", "sheenRoughness", "transmission", "thickness", "attenuationColor", "attenuationDistance", "ior", "emissive", "emissiveIntensity", "specularColor", "specularIntensity", "iridescence", "iridescenceIOR"});
   if (parameters["c"].type() == Value::Type::VECTOR) {
     const auto& vec = parameters["c"].toVector();
     Vector4f color;
@@ -169,12 +168,6 @@ static std::shared_ptr<AbstractNode> builtin_color(const ModuleInstantiation *in
   if (parameters["$asa"].type() == Value::Type::NUMBER) {
     node->material.autoSmoothAngle = parameters["$asa"].toDouble();
   }
-  if (parameters["colormap"].type() != Value::Type::UNDEFINED) {
-    node->material.colormap = std::make_shared<const Value>(parameters["colormap"].clone());
-  }
-  if (parameters["normalmap"].type() != Value::Type::UNDEFINED) {
-    node->material.normalmap = std::make_shared<const Value>(parameters["normalmap"].clone());
-  }
 
   return children.instantiate(node);
 }
@@ -190,9 +183,7 @@ std::string ColorNode::toString() const
              ", emissive=[", this->material.emissive.r(), ", ", this->material.emissive.g(), ", ", this->material.emissive.b(), "], emissiveIntensity=", this->material.emissiveIntensity,
              ", specularColor=[", this->material.specularColor.r(), ", ", this->material.specularColor.g(), ", ", this->material.specularColor.b(), "], specularIntensity=", this->material.specularIntensity,
              ", iridescence=", this->material.iridescence, ", iridescenceIOR=", this->material.iridescenceIOR,
-             ", $asa=", this->material.autoSmoothAngle,
-             ", colormap=", (this->material.colormap && this->material.colormap->type() != Value::Type::UNDEFINED ? "function" : "undef"),
-             ", normalmap=", (this->material.normalmap && this->material.normalmap->type() != Value::Type::UNDEFINED ? "function" : "undef"), ")");
+             ", $asa=", this->material.autoSmoothAngle, ")");
 }
 
 std::string ColorNode::name() const
