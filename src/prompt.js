@@ -22,6 +22,7 @@ export function generatePrompt(description, options = {}) {
     bakeColors: options.bakeColors ?? false,
     bakeNormals: options.bakeNormals ?? false,
     bakeOrm: options.bakeOrm ?? false,
+    bakeUvs: options.bakeUvs ?? false,
     autoSmoothAngle: options.autoSmoothAngle ?? true,
     animation: options.animation ?? true,
     lazyUnion: options.lazyUnion ?? false,
@@ -169,7 +170,7 @@ armature(animations=anim_data) {
 }`;
   }
 
-  if (opts.bakeColors || opts.bakeNormals || opts.bakeOrm) {
+  if (opts.bakeColors || opts.bakeNormals || opts.bakeOrm || opts.bakeUvs) {
     const flags = [];
     const explanations = [];
     if (opts.bakeColors) {
@@ -190,6 +191,12 @@ armature(animations=anim_data) {
         "- Set 'orm=true' (default false) to project and bake the high-poly's Roughness, and Metallic values onto the low-poly mesh.",
       );
     }
+    if (opts.bakeUvs) {
+      flags.push("uvs=true");
+      explanations.push(
+        "- Set 'uvs=true' (default false) when you only want to generate UV coordinates and Tangent vectors without baking any image textures. Note that UVs and Tangents are automatically generated whenever 'colors', 'normals', or 'orm' are enabled, so 'uvs=true' is only explicitly needed for textureless UV-only exports.",
+      );
+    }
     explanations.push(
       "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 2), 'resolution' (texture dimensions, default: 512), 'msaa' (super-sampling anti-aliasing level, default: 2), and 'index' (atlas group identifier, default: 0).",
     );
@@ -203,7 +210,7 @@ armature(animations=anim_data) {
     const explanationText =
       explanations.length > 0
         ? explanations.join("\n")
-        : "- You can toggle what gets baked using the 'colors', 'normals', and 'orm' boolean parameters (all default to false).";
+        : "- You can toggle what gets baked using the 'colors', 'normals', 'orm', and 'uvs' boolean parameters (all default to false).";
 
     prompt += `\n\nImportant Texture Baking rules:
 - Baking: Use the 'bake()' module to project details from a high-resolution mesh onto a low-resolution mesh.
@@ -216,6 +223,11 @@ Example Baking Usage:
 ${bakeSig} {
   color("white") sphere(r=10, $fn=100); // Child 1: High Poly
   color("white", roughness=0.5, $asa=45) sphere(r=10, $fn=20); // Child 2: Low Poly
+}
+
+// Alternatively, generate UVs/Tangents for a mesh WITHOUT a high-poly source by providing only 1 child
+bake(uvs=true) {
+  color("white") cube([10, 10, 10]);
 }`;
   }
 

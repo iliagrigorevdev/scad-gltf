@@ -313,11 +313,10 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             if (Feature::ExperimentalPredictibleOutput.is_enabled()) ps = createSortedPolySet(*ps);
 
             std::shared_ptr<SimpleBVH> high_poly_bvh;
-            BakeParameters bake_params;
+            BakeParameters bake_params = ps->bake_params;
             if (ps->high_poly_bake) {
                 auto high_tri = ps->high_poly_bake->isTriangular() ? std::make_shared<PolySet>(*ps->high_poly_bake) : PolySetUtils::tessellate_faces(*ps->high_poly_bake);
                 high_poly_bvh = std::make_shared<SimpleBVH>(*high_tri, C * M_accum);
-                bake_params = ps->bake_params;
             }
 
             MeshInfo minfo;
@@ -551,7 +550,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         auto& minfo = meshes_info[m_idx];
         for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
             auto& prim = minfo.primitives[p_idx];
-            if (prim.high_poly_bvh && (prim.bake_params.bake_colors || prim.bake_params.bake_normals || prim.bake_params.bake_orm)) {
+            bool bake_maps = prim.bake_params.bake_colors || prim.bake_params.bake_normals || prim.bake_params.bake_orm;
+            if (prim.bake_params.bake_uvs || bake_maps) {
                 int t_idx = prim.bake_params.index;
                 auto& group = atlas_groups[t_idx];
                 int a_idx = group.prims.size();
@@ -886,22 +886,43 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                             } else {
                                 if (u_c >= -1e-4f && v_c >= -1e-4f && w_c >= -1e-4f) {
                                     if (group.has_colormap) {
-                                        pixels[pixel_idx + 0] = 255;
-                                        pixels[pixel_idx + 1] = 255;
-                                        pixels[pixel_idx + 2] = 255;
-                                        pixels[pixel_idx + 3] = 255;
+                                        if (prim.bake_params.bake_colors) {
+                                            pixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.r() * 255.0f)));
+                                            pixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.g() * 255.0f)));
+                                            pixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.b() * 255.0f)));
+                                            pixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_color.a() * 255.0f)));
+                                        } else {
+                                            pixels[pixel_idx + 0] = 255;
+                                            pixels[pixel_idx + 1] = 255;
+                                            pixels[pixel_idx + 2] = 255;
+                                            pixels[pixel_idx + 3] = 255;
+                                        }
                                     }
                                     if (group.has_normalmap) {
-                                        npixels[pixel_idx + 0] = 128;
-                                        npixels[pixel_idx + 1] = 128;
-                                        npixels[pixel_idx + 2] = 255;
-                                        npixels[pixel_idx + 3] = 255;
+                                        if (prim.bake_params.bake_normals) {
+                                            npixels[pixel_idx + 0] = 128;
+                                            npixels[pixel_idx + 1] = 128;
+                                            npixels[pixel_idx + 2] = 255;
+                                            npixels[pixel_idx + 3] = 0; // alpha 0 to allow dilation
+                                        } else {
+                                            npixels[pixel_idx + 0] = 128;
+                                            npixels[pixel_idx + 1] = 128;
+                                            npixels[pixel_idx + 2] = 255;
+                                            npixels[pixel_idx + 3] = 255;
+                                        }
                                     }
                                     if (group.has_ormmap) {
-                                        opixels[pixel_idx + 0] = 255;
-                                        opixels[pixel_idx + 1] = 255;
-                                        opixels[pixel_idx + 2] = 0;
-                                        opixels[pixel_idx + 3] = 255;
+                                        if (prim.bake_params.bake_orm) {
+                                            opixels[pixel_idx + 0] = 255;
+                                            opixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_roughness * 255.0f)));
+                                            opixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)(low_poly_metalness * 255.0f)));
+                                            opixels[pixel_idx + 3] = 0; // alpha 0 to allow dilation
+                                        } else {
+                                            opixels[pixel_idx + 0] = 255;
+                                            opixels[pixel_idx + 1] = 255;
+                                            opixels[pixel_idx + 2] = 0;
+                                            opixels[pixel_idx + 3] = 255;
+                                        }
                                     }
                                 }
                             }

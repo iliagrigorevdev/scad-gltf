@@ -702,7 +702,7 @@ Response GeometryEvaluator::visit(State& state, const BakeNode& node)
 
         if (low_ps && high_ps && !low_ps->isEmpty() && !high_ps->isEmpty()) {
             auto baked_ps = std::make_shared<PolySet>(*low_ps);
-            if (node.bake_params.bake_colors || node.bake_params.bake_normals || node.bake_params.bake_orm) {
+            if (node.bake_params.bake_colors || node.bake_params.bake_normals || node.bake_params.bake_orm || node.bake_params.bake_uvs) {
                 baked_ps->high_poly_bake = high_ps;
                 baked_ps->bake_params = node.bake_params;
             }
@@ -711,7 +711,15 @@ Response GeometryEvaluator::visit(State& state, const BakeNode& node)
             geom = low_geom;
         }
       } else if (children.size() == 1) {
-          geom = children.front().second;
+          auto low_geom = children.front().second;
+          auto low_ps = PolySetUtils::getGeometryAsPolySet(low_geom);
+          if (low_ps && !low_ps->isEmpty() && (node.bake_params.bake_colors || node.bake_params.bake_normals || node.bake_params.bake_orm || node.bake_params.bake_uvs)) {
+              auto baked_ps = std::make_shared<PolySet>(*low_ps);
+              baked_ps->bake_params = node.bake_params;
+              geom = baked_ps;
+          } else {
+              geom = low_geom;
+          }
       } else {
           geom = PolySet::createEmpty();
       }
