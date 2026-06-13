@@ -635,7 +635,8 @@ Response GeometryEvaluator::visit(State& state, const ArmatureNode& node)
 
       auto armatureGeom = std::make_shared<ArmatureGeometry>(node.animations.clone(), state.matrix());
       if (unioned_children) {
-          if (auto gl = std::dynamic_pointer_cast<const GeometryList>(unioned_children)) {
+          if (typeid(*unioned_children) == typeid(GeometryList)) {
+              auto gl = std::static_pointer_cast<const GeometryList>(unioned_children);
               armatureGeom->children = gl->children;
           } else {
               armatureGeom->children.push_back({node.shared_from_this(), unioned_children});
@@ -665,7 +666,8 @@ Response GeometryEvaluator::visit(State& state, const BoneNode& node)
 
       auto boneGeom = std::make_shared<BoneGeometry>(node.bone_name, node.matrix, state.matrix());
       if (unioned_children) {
-          if (auto gl = std::dynamic_pointer_cast<const GeometryList>(unioned_children)) {
+          if (typeid(*unioned_children) == typeid(GeometryList)) {
+              auto gl = std::static_pointer_cast<const GeometryList>(unioned_children);
               boneGeom->children = gl->children;
           } else {
               boneGeom->children.push_back({node.shared_from_this(), unioned_children});
