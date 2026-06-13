@@ -61,9 +61,9 @@ struct BakeParameters {
   bool bake_orm = false;
   double distance = 2.0;
   double bias = 1e-4;
-  int dilation = 2;
-  int resolution = 512;
-  int msaa = 2;
+  int dilation = -1;
+  int resolution = -1;
+  int msaa = -1;
   int index = 0;
 };
 

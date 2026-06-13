@@ -532,9 +532,9 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     };
     struct AtlasGroup {
         xatlas::Atlas* atlas = nullptr;
-        int resolution = 512;
-        int msaa = 2;
-        int max_dilation = 0;
+        int resolution = -1;
+        int msaa = -1;
+        int max_dilation = -1;
         bool has_colormap = false;
         bool has_normalmap = false;
         bool has_ormmap = false;
@@ -556,14 +556,15 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 auto& group = atlas_groups[t_idx];
                 int a_idx = group.prims.size();
                 group.prims.push_back({(int)m_idx, (int)p_idx, a_idx});
-                if (group.prims.size() == 1) {
-                    group.resolution = prim.bake_params.resolution;
-                    group.msaa = std::max(1, prim.bake_params.msaa);
-                } else {
+                if (prim.bake_params.resolution >= 0) {
                     group.resolution = std::max(group.resolution, prim.bake_params.resolution);
-                    group.msaa = std::max(group.msaa, std::max(1, prim.bake_params.msaa));
                 }
-                group.max_dilation = std::max(group.max_dilation, prim.bake_params.dilation);
+                if (prim.bake_params.msaa >= 0) {
+                    group.msaa = std::max(group.msaa, prim.bake_params.msaa);
+                }
+                if (prim.bake_params.dilation >= 0) {
+                    group.max_dilation = std::max(group.max_dilation, prim.bake_params.dilation);
+                }
                 if (prim.bake_params.bake_colors) group.has_colormap = true;
                 if (prim.bake_params.bake_normals) group.has_normalmap = true;
                 if (prim.bake_params.bake_orm) group.has_ormmap = true;
@@ -573,6 +574,11 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
     for (auto& kv : atlas_groups) {
         auto& group = kv.second;
+        if (group.resolution < 0) group.resolution = 512;
+        if (group.msaa < 0) group.msaa = 2;
+        if (group.msaa < 1) group.msaa = 1;
+        if (group.max_dilation < 0) group.max_dilation = 2;
+
         group.atlas = xatlas::Create();
 
         for (auto& prim_info : group.prims) {
