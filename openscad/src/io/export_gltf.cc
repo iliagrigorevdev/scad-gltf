@@ -574,7 +574,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
     for (auto& kv : atlas_groups) {
         auto& group = kv.second;
-        if (group.resolution < 0) group.resolution = 512;
+        if (group.resolution <= 0) group.resolution = 512;
         if (group.msaa < 0) group.msaa = 2;
         if (group.msaa < 1) group.msaa = 1;
         if (group.max_dilation < 0) group.max_dilation = 2;
@@ -598,10 +598,15 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         packOptions.padding = std::max(group.max_dilation, 2);
         xatlas::Generate(group.atlas, xatlas::ChartOptions(), packOptions);
 
-        uint32_t width = group.atlas->width;
-        uint32_t height = group.atlas->height;
+        uint32_t orig_width = group.atlas->width;
+        uint32_t orig_height = group.atlas->height;
 
-        if (width > 0 && height > 0 && group.atlas->atlasCount > 0) {
+        if (orig_width > 0 && orig_height > 0 && group.atlas->atlasCount > 0) {
+            uint32_t width = group.resolution;
+            uint32_t height = group.resolution;
+            float scale_x = (float)width / orig_width;
+            float scale_y = (float)height / orig_height;
+
             std::vector<uint8_t> pixels;
             std::vector<uint8_t> npixels;
             std::vector<uint8_t> opixels;
@@ -646,9 +651,9 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     Vector3d gltf_p1 = get_gltf_pos(v1.xref);
                     Vector3d gltf_p2 = get_gltf_pos(v2.xref);
                     // Invert V coordinate for MikkTSpace tangent calculation as per glTF specification
-                    float nuv0x = v0.uv[0] / (float)width, nuv0y = 1.0f - (v0.uv[1] / (float)height);
-                    float nuv1x = v1.uv[0] / (float)width, nuv1y = 1.0f - (v1.uv[1] / (float)height);
-                    float nuv2x = v2.uv[0] / (float)width, nuv2y = 1.0f - (v2.uv[1] / (float)height);
+                    float nuv0x = v0.uv[0] / (float)orig_width, nuv0y = 1.0f - (v0.uv[1] / (float)orig_height);
+                    float nuv1x = v1.uv[0] / (float)orig_width, nuv1y = 1.0f - (v1.uv[1] / (float)orig_height);
+                    float nuv2x = v2.uv[0] / (float)orig_width, nuv2y = 1.0f - (v2.uv[1] / (float)orig_height);
 
                     Vector3d dp1 = gltf_p1 - gltf_p0;
                     Vector3d dp2 = gltf_p2 - gltf_p0;
@@ -702,9 +707,9 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     Vector4d t1 = group.a_idx_to_tangents[a_idx][i1];
                     Vector4d t2 = group.a_idx_to_tangents[a_idx][i2];
 
-                    float uv0x = v0.uv[0], uv0y = v0.uv[1];
-                    float uv1x = v1.uv[0], uv1y = v1.uv[1];
-                    float uv2x = v2.uv[0], uv2y = v2.uv[1];
+                    float uv0x = v0.uv[0] * scale_x, uv0y = v0.uv[1] * scale_y;
+                    float uv1x = v1.uv[0] * scale_x, uv1y = v1.uv[1] * scale_y;
+                    float uv2x = v2.uv[0] * scale_x, uv2y = v2.uv[1] * scale_y;
 
                     int min_x = std::max(0, (int)std::floor(std::min({uv0x, uv1x, uv2x})));
                     int max_x = std::min((int)width - 1, (int)std::ceil(std::max({uv0x, uv1x, uv2x})));
@@ -992,8 +997,8 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 new_norm.push_back(prim.normals[v.xref * 3 + 0]);
                 new_norm.push_back(prim.normals[v.xref * 3 + 1]);
                 new_norm.push_back(prim.normals[v.xref * 3 + 2]);
-                uvs.push_back(v.uv[0] / (float)group.atlas->width);
-                uvs.push_back(v.uv[1] / (float)group.atlas->height);
+                uvs.push_back(v.uv[0] / (float)orig_width);
+                uvs.push_back(v.uv[1] / (float)orig_height);
 
                 if (group.a_idx_to_tangents.count(prim_info.a_idx)) {
                     Vector4d t = group.a_idx_to_tangents[prim_info.a_idx][i];
