@@ -225,7 +225,6 @@ struct MeshInfo {
     std::vector<PrimitiveInfo> primitives;
     std::shared_ptr<const PolySet> ps;
     int target_node = -1;
-    int joint_idx = -1;
 };
 
 // Map Z-Up (OpenSCAD) to Y-Up (glTF)
@@ -241,8 +240,7 @@ Transform3d get_z_to_y_up_matrix() {
 int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_idx,
                   tinygltf::Model& model, std::vector<MeshInfo>& meshes_info,
                   std::map<std::string, int>& bone_to_node, Value& global_anims,
-                  Transform3d C, Transform3d M_accum, int current_joint_idx,
-                  std::vector<int>& gltf_joints, std::vector<Transform3d>& inverse_bind_matrices,
+                  Transform3d C, Transform3d M_accum,
                   std::vector<int>& scene_nodes)
 {
     if (auto armature = std::dynamic_pointer_cast<const ArmatureGeometry>(geom)) {
@@ -257,7 +255,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         if (parent_node_idx < 0) scene_nodes.push_back(node_idx);
 
         for (const auto& item : armature->getChildren()) {
-            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, current_joint_idx, gltf_joints, inverse_bind_matrices, scene_nodes);
+            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes);
             if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
         }
         return node_idx;
@@ -286,21 +284,16 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         if (parent_node_idx < 0) scene_nodes.push_back(node_idx);
 
         Transform3d next_M_accum = M_accum * bone->local_matrix;
-        Transform3d inv_bind = C * next_M_accum.inverse() * C.inverse();
-
-        int joint_idx = gltf_joints.size();
-        gltf_joints.push_back(node_idx);
-        inverse_bind_matrices.push_back(inv_bind);
 
         for (const auto& item : bone->getChildren()) {
-            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, next_M_accum, joint_idx, gltf_joints, inverse_bind_matrices, scene_nodes);
+            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, next_M_accum, scene_nodes);
             if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
         }
         return node_idx;
     }
     else if (auto geomList = std::dynamic_pointer_cast<const GeometryList>(geom)) {
         for (const auto& item : geomList->getChildren()) {
-            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, current_joint_idx, gltf_joints, inverse_bind_matrices, scene_nodes);
+            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes);
             if (child_idx >= 0 && parent_node_idx >= 0) {
                 model.nodes[parent_node_idx].children.push_back(child_idx);
             }
@@ -316,7 +309,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             BakeParameters bake_params = ps->bake_params;
             if (ps->high_poly_bake) {
                 auto high_tri = ps->high_poly_bake->isTriangular() ? std::make_shared<PolySet>(*ps->high_poly_bake) : PolySetUtils::tessellate_faces(*ps->high_poly_bake);
-                high_poly_bvh = std::make_shared<SimpleBVH>(*high_tri, C * M_accum);
+                high_poly_bvh = std::make_shared<SimpleBVH>(*high_tri, C);
             }
 
             MeshInfo minfo;
@@ -326,7 +319,6 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             }
             minfo.ps = ps;
             minfo.target_node = parent_node_idx;
-            minfo.joint_idx = current_joint_idx;
 
             std::map<int, std::vector<int>> prim_faces;
             for (size_t i = 0; i < ps->indices.size(); ++i) {
@@ -353,7 +345,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
 
                 std::vector<Vector3d> gltf_vertices(ps->vertices.size());
                 for (size_t i = 0; i < ps->vertices.size(); ++i) {
-                    gltf_vertices[i] = C * M_accum * ps->vertices[i];
+                    gltf_vertices[i] = C * ps->vertices[i];
                 }
 
                 MeshNormalCalculator normal_calc(*ps, gltf_vertices, face_indices);
@@ -464,11 +456,9 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     std::map<std::string, int> bone_to_node;
     Value global_anims = Value::undefined.clone();
     Transform3d C = get_z_to_y_up_matrix();
-    std::vector<int> gltf_joints;
-    std::vector<Transform3d> inverse_bind_matrices;
     std::vector<int> scene_nodes;
 
-    traverse_gltf(geom, -1, model, meshes_info, bone_to_node, global_anims, C, Transform3d::Identity(), -1, gltf_joints, inverse_bind_matrices, scene_nodes);
+    traverse_gltf(geom, -1, model, meshes_info, bone_to_node, global_anims, C, Transform3d::Identity(), scene_nodes);
 
     if (meshes_info.empty() && model.nodes.empty()) return;
 
@@ -478,26 +468,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     bool use_ior = false, use_emissive_strength = false, use_specular = false, use_iridescence = false;
 
     model.buffers.emplace_back();
-
-    if (!gltf_joints.empty()) {
-        std::vector<float> inv_bind_floats;
-        inv_bind_floats.reserve(inverse_bind_matrices.size() * 16);
-        for (const auto& mat : inverse_bind_matrices) {
-            for (int c = 0; c < 4; ++c) {
-                for (int r = 0; r < 4; ++r) {
-                    inv_bind_floats.push_back((float)mat.matrix()(r, c));
-                }
-            }
-        }
-        int inv_bind_acc = append_to_bin(bin_data, inv_bind_floats, model, 0, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_MAT4);
-
-        tinygltf::Skin skin;
-        skin.name = "ArmatureSkin";
-        skin.joints = gltf_joints;
-        skin.inverseBindMatrices = inv_bind_acc;
-        if (!gltf_joints.empty()) skin.skeleton = gltf_joints[0];
-        model.skins.push_back(skin);
-    }
 
     struct MaterialKey {
         Color4f color;
@@ -1064,21 +1034,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             int norm_accessor_idx = append_to_bin(bin_data, prim.normals, model,
                 TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3);
 
-            int joints_acc = -1;
-            int weights_acc = -1;
-
-            if (minfo.joint_idx != -1) {
-                size_t vertex_count = prim.positions.size() / 3;
-                std::vector<uint16_t> joints_data(vertex_count * 4, 0);
-                std::vector<float> weights_data(vertex_count * 4, 0.0f);
-                for (size_t i = 0; i < vertex_count; ++i) {
-                    joints_data[i * 4 + 0] = minfo.joint_idx;
-                    weights_data[i * 4 + 0] = 1.0f;
-                }
-                joints_acc = append_to_bin(bin_data, joints_data, model, TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4);
-                weights_acc = append_to_bin(bin_data, weights_data, model, TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4);
-            }
-
             int uv_accessor_idx = -1;
             if (!prim.uvs.empty()) {
                 uv_accessor_idx = append_to_bin(bin_data, prim.uvs, model,
@@ -1305,8 +1260,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             tinygltf::Primitive gltf_prim;
             gltf_prim.attributes["POSITION"] = pos_accessor_idx;
             gltf_prim.attributes["NORMAL"] = norm_accessor_idx;
-            if (joints_acc != -1) gltf_prim.attributes["JOINTS_0"] = joints_acc;
-            if (weights_acc != -1) gltf_prim.attributes["WEIGHTS_0"] = weights_acc;
             if (uv_accessor_idx != -1) gltf_prim.attributes["TEXCOORD_0"] = uv_accessor_idx;
             if (tangent_accessor_idx != -1) gltf_prim.attributes["TANGENT"] = tangent_accessor_idx;
             gltf_prim.indices = idx_accessor_idx;
@@ -1318,7 +1271,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         int mesh_idx = model.meshes.size();
         model.meshes.push_back(mesh);
 
-        if (minfo.target_node >= 0 && minfo.joint_idx == -1) {
+        if (minfo.target_node >= 0) {
             if (model.nodes[minfo.target_node].mesh == -1) {
                 model.nodes[minfo.target_node].mesh = mesh_idx;
             } else {
@@ -1334,14 +1287,10 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             tinygltf::Node node;
             if (!minfo.name.empty()) node.name = minfo.name;
             node.mesh = mesh_idx;
-            if (minfo.joint_idx != -1) {
-                node.skin = 0;
-            }
             model.nodes.push_back(node);
             scene_nodes.push_back(new_node_idx);
         }
     }
-
     if (global_anims.type() == Value::Type::VECTOR) {
         for (const auto& anim_val : global_anims.toVector()) {
             if (anim_val.type() != Value::Type::VECTOR) continue;
