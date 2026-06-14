@@ -553,23 +553,44 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             auto& prim = minfo.primitives[p_idx];
             bool bake_maps = prim.bake_params.bake_colors || prim.bake_params.bake_normals || prim.bake_params.bake_orm;
             if (prim.bake_params.bake_uvs || bake_maps) {
-                int t_idx = prim.bake_params.index;
-                auto& group = atlas_groups[t_idx];
-                int a_idx = group.prims.size();
-                group.prims.push_back({(int)m_idx, (int)p_idx, a_idx});
-                if (prim.bake_params.resolution >= 0) {
-                    group.resolution = std::max(group.resolution, prim.bake_params.resolution);
+                if (!prim.bake_params.axis.empty() && prim.bake_params.bake_uvs && !bake_maps) {
+                    for (size_t i = 0; i < prim.positions.size() / 3; ++i) {
+                        int orig_v = prim.orig_v_idx[i];
+                        auto local_p = prim.ps->vertices[orig_v];
+                        float lx = local_p.x();
+                        float ly = local_p.y();
+                        float lz = local_p.z();
+                        float u = 0, v = 0;
+                        std::string axis = prim.bake_params.axis;
+                        if (axis == "x" || axis == "+x") { u = ly; v = -lz; }
+                        else if (axis == "-x") { u = -ly; v = -lz; }
+                        else if (axis == "y" || axis == "+y") { u = -lx; v = -lz; }
+                        else if (axis == "-y") { u = lx; v = -lz; }
+                        else if (axis == "z" || axis == "+z") { u = lx; v = ly; }
+                        else if (axis == "-z") { u = -lx; v = ly; }
+                        else { u = lx; v = ly; }
+                        prim.uvs.push_back(u);
+                        prim.uvs.push_back(v);
+                    }
+                } else {
+                    int t_idx = prim.bake_params.index;
+                    auto& group = atlas_groups[t_idx];
+                    int a_idx = group.prims.size();
+                    group.prims.push_back({(int)m_idx, (int)p_idx, a_idx});
+                    if (prim.bake_params.resolution >= 0) {
+                        group.resolution = std::max(group.resolution, prim.bake_params.resolution);
+                    }
+                    if (prim.bake_params.msaa >= 0) {
+                        group.msaa = std::max(group.msaa, prim.bake_params.msaa);
+                    }
+                    if (prim.bake_params.dilation >= 0) {
+                        group.max_dilation = std::max(group.max_dilation, prim.bake_params.dilation);
+                    }
+                    if (!prim.bake_params.rotate_uvs) group.rotate_uvs = false;
+                    if (prim.bake_params.bake_colors) group.has_colormap = true;
+                    if (prim.bake_params.bake_normals) group.has_normalmap = true;
+                    if (prim.bake_params.bake_orm) group.has_ormmap = true;
                 }
-                if (prim.bake_params.msaa >= 0) {
-                    group.msaa = std::max(group.msaa, prim.bake_params.msaa);
-                }
-                if (prim.bake_params.dilation >= 0) {
-                    group.max_dilation = std::max(group.max_dilation, prim.bake_params.dilation);
-                }
-                if (!prim.bake_params.rotate_uvs) group.rotate_uvs = false;
-                if (prim.bake_params.bake_colors) group.has_colormap = true;
-                if (prim.bake_params.bake_normals) group.has_normalmap = true;
-                if (prim.bake_params.bake_orm) group.has_ormmap = true;
             }
         }
     }
