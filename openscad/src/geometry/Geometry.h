@@ -67,7 +67,6 @@ struct BakeParameters {
   int msaa = -1;
   int index = 0;
   bool rotate_uvs = true;
-  std::string unwrap_axis = "";
 };
 
 class AbstractNode;

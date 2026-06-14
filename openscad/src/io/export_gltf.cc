@@ -212,7 +212,6 @@ struct PrimitiveInfo {
     std::vector<int> orig_v_idx;
     std::shared_ptr<SimpleBVH> high_poly_bvh;
     BakeParameters bake_params;
-    std::vector<float> temp_uvs;
     std::string base_color_uri;
     std::string normal_texture_uri;
     std::string orm_texture_uri;
@@ -546,7 +545,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         std::map<int, std::vector<Vector4d>> a_idx_to_tangents;
     };
 
-    std::map<std::pair<int, bool>, AtlasGroup> atlas_groups;
+    std::map<int, AtlasGroup> atlas_groups;
 
     for (size_t m_idx = 0; m_idx < meshes_info.size(); ++m_idx) {
         auto& minfo = meshes_info[m_idx];
@@ -555,8 +554,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             bool bake_maps = prim.bake_params.bake_colors || prim.bake_params.bake_normals || prim.bake_params.bake_orm;
             if (prim.bake_params.bake_uvs || bake_maps) {
                 int t_idx = prim.bake_params.index;
-                bool is_uv = !prim.bake_params.unwrap_axis.empty();
-                auto& group = atlas_groups[{t_idx, is_uv}];
+                auto& group = atlas_groups[t_idx];
                 int a_idx = group.prims.size();
                 group.prims.push_back({(int)m_idx, (int)p_idx, a_idx});
                 if (prim.bake_params.resolution >= 0) {
@@ -578,7 +576,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
     for (auto& kv : atlas_groups) {
         auto& group = kv.second;
-        bool is_uv_group = kv.first.second;
         if (group.resolution <= 0) group.resolution = 512;
         if (group.msaa < 0) group.msaa = 2;
         if (group.msaa < 1) group.msaa = 1;
@@ -588,42 +585,14 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
         for (auto& prim_info : group.prims) {
             auto& prim = meshes_info[prim_info.m_idx].primitives[prim_info.p_idx];
-            if (is_uv_group) {
-                prim.temp_uvs.resize((prim.positions.size() / 3) * 2);
-                std::string axis = prim.bake_params.unwrap_axis;
-                for (size_t i = 0; i < prim.positions.size() / 3; i++) {
-                    float x = prim.positions[i * 3 + 0];
-                    float y = prim.positions[i * 3 + 1];
-                    float z = prim.positions[i * 3 + 2];
-                    if (axis == "x" || axis == "X") {
-                        prim.temp_uvs[i * 2 + 0] = y;
-                        prim.temp_uvs[i * 2 + 1] = z;
-                    } else if (axis == "y" || axis == "Y") {
-                        prim.temp_uvs[i * 2 + 0] = x;
-                        prim.temp_uvs[i * 2 + 1] = z;
-                    } else { // default to z
-                        prim.temp_uvs[i * 2 + 0] = x;
-                        prim.temp_uvs[i * 2 + 1] = y;
-                    }
-                }
-                xatlas::UvMeshDecl uvMeshDecl;
-                uvMeshDecl.vertexCount = prim.positions.size() / 3;
-                uvMeshDecl.vertexUvData = prim.temp_uvs.data();
-                uvMeshDecl.vertexStride = 2 * sizeof(float);
-                uvMeshDecl.indexCount = prim.indices.size();
-                uvMeshDecl.indexData = prim.indices.data();
-                uvMeshDecl.indexFormat = xatlas::IndexFormat::UInt32;
-                xatlas::AddUvMesh(group.atlas, uvMeshDecl);
-            } else {
-                xatlas::MeshDecl meshDecl;
-                meshDecl.vertexCount = prim.positions.size() / 3;
-                meshDecl.vertexPositionData = prim.positions.data();
-                meshDecl.vertexPositionStride = 3 * sizeof(float);
-                meshDecl.indexCount = prim.indices.size();
-                meshDecl.indexData = prim.indices.data();
-                meshDecl.indexFormat = xatlas::IndexFormat::UInt32;
-                xatlas::AddMesh(group.atlas, meshDecl, prim_info.a_idx);
-            }
+            xatlas::MeshDecl meshDecl;
+            meshDecl.vertexCount = prim.positions.size() / 3;
+            meshDecl.vertexPositionData = prim.positions.data();
+            meshDecl.vertexPositionStride = 3 * sizeof(float);
+            meshDecl.indexCount = prim.indices.size();
+            meshDecl.indexData = prim.indices.data();
+            meshDecl.indexFormat = xatlas::IndexFormat::UInt32;
+            xatlas::AddMesh(group.atlas, meshDecl, prim_info.a_idx);
         }
 
         xatlas::PackOptions packOptions;

@@ -58,13 +58,9 @@ std::shared_ptr<AbstractNode> builtin_bake(const ModuleInstantiation *inst, Argu
         node->bake_params.rotate_uvs = parameters["rotate_uvs"].toDouble() != 0.0;
     }
 
-    if (parameters["unwrap_axis"].type() == Value::Type::STRING) {
-        node->bake_params.unwrap_axis = parameters["unwrap_axis"].toString();
-    }
-
     return children.instantiate(node);
 }
 
 void register_builtin_bake() {
-    Builtins::init("bake", new BuiltinModule(builtin_bake), {"bake(colors=false, normals=false, orm=false, uvs=false, distance=2.0, bias=0.0001, dilation=undef, resolution=undef, msaa=undef, index=0, rotate_uvs=true, unwrap_axis=\"\")"});
+    Builtins::init("bake", new BuiltinModule(builtin_bake), {"bake(colors=false, normals=false, orm=false, uvs=false, distance=2.0, bias=0.0001, dilation=undef, resolution=undef, msaa=undef, index=0, rotate_uvs=true)"});
 }
