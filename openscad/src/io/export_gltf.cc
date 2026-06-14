@@ -212,8 +212,6 @@ struct PrimitiveInfo {
     std::vector<int> orig_v_idx;
     std::shared_ptr<SimpleBVH> high_poly_bvh;
     BakeParameters bake_params;
-    std::vector<float> temp_uvs;
-    std::vector<uint32_t> temp_indices;
     std::string base_color_uri;
     std::string normal_texture_uri;
     std::string orm_texture_uri;
@@ -547,7 +545,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         std::map<int, std::vector<Vector4d>> a_idx_to_tangents;
     };
 
-    std::map<std::pair<int, bool>, AtlasGroup> atlas_groups;
+    std::map<int, AtlasGroup> atlas_groups;
 
     for (size_t m_idx = 0; m_idx < meshes_info.size(); ++m_idx) {
         auto& minfo = meshes_info[m_idx];
@@ -556,8 +554,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             bool bake_maps = prim.bake_params.bake_colors || prim.bake_params.bake_normals || prim.bake_params.bake_orm;
             if (prim.bake_params.bake_uvs || bake_maps) {
                 int t_idx = prim.bake_params.index;
-                bool is_uv = !prim.bake_params.unwrap_axis.empty();
-                auto& group = atlas_groups[{t_idx, is_uv}];
+                auto& group = atlas_groups[t_idx];
                 int a_idx = group.prims.size();
                 group.prims.push_back({(int)m_idx, (int)p_idx, a_idx});
                 if (prim.bake_params.resolution >= 0) {
@@ -579,7 +576,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
     for (auto& kv : atlas_groups) {
         auto& group = kv.second;
-        bool is_uv_group = kv.first.second;
         if (group.resolution <= 0) group.resolution = 512;
         if (group.msaa < 0) group.msaa = 2;
         if (group.msaa < 1) group.msaa = 1;
@@ -589,71 +585,14 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
         for (auto& prim_info : group.prims) {
             auto& prim = meshes_info[prim_info.m_idx].primitives[prim_info.p_idx];
-            if (is_uv_group) {
-                prim.temp_uvs.resize(prim.indices.size() * 2);
-                prim.temp_indices.resize(prim.indices.size());
-
-                Vector3d A(0, 0, 1);
-                std::string axis_str = prim.bake_params.unwrap_axis;
-                if (axis_str == "x" || axis_str == "+x") A = Vector3d(1, 0, 0);
-                else if (axis_str == "-x") A = Vector3d(-1, 0, 0);
-                else if (axis_str == "y" || axis_str == "+y") A = Vector3d(0, 1, 0);
-                else if (axis_str == "-y") A = Vector3d(0, -1, 0);
-                else if (axis_str == "z" || axis_str == "+z") A = Vector3d(0, 0, 1);
-                else if (axis_str == "-z") A = Vector3d(0, 0, -1);
-
-                for (size_t f = 0; f < prim.indices.size() / 3; f++) {
-                    uint32_t i0 = prim.indices[f * 3 + 0];
-                    uint32_t i1 = prim.indices[f * 3 + 1];
-                    uint32_t i2 = prim.indices[f * 3 + 2];
-                    Vector3d P0(prim.positions[i0*3], prim.positions[i0*3+1], prim.positions[i0*3+2]);
-                    Vector3d P1(prim.positions[i1*3], prim.positions[i1*3+1], prim.positions[i1*3+2]);
-                    Vector3d P2(prim.positions[i2*3], prim.positions[i2*3+1], prim.positions[i2*3+2]);
-
-                    Vector3d N = (P1 - P0).cross(P2 - P0);
-                    if (N.norm() > 1e-8) N.normalize(); else N = Vector3d(0, 0, 1);
-
-                    N.x() = std::round(N.x() * 1000.0) / 1000.0;
-                    N.y() = std::round(N.y() * 1000.0) / 1000.0;
-                    N.z() = std::round(N.z() * 1000.0) / 1000.0;
-                    if (N.norm() > 1e-8) N.normalize();
-
-                    Vector3d V_dir = A - A.dot(N) * N;
-                    if (V_dir.norm() < 1e-3) {
-                        Vector3d fallback(0, 1, 0);
-                        if (std::abs(A.dot(fallback)) > 0.9) fallback = Vector3d(1, 0, 0);
-                        V_dir = fallback - fallback.dot(N) * N;
-                    }
-                    V_dir.normalize();
-                    Vector3d U_dir = N.cross(V_dir).normalized();
-
-                    for (int k = 0; k < 3; k++) {
-                        uint32_t idx = prim.indices[f * 3 + k];
-                        Vector3d P(prim.positions[idx*3], prim.positions[idx*3+1], prim.positions[idx*3+2]);
-                        prim.temp_uvs[(f * 3 + k) * 2 + 0] = P.dot(U_dir);
-                        prim.temp_uvs[(f * 3 + k) * 2 + 1] = P.dot(V_dir);
-                        prim.temp_indices[f * 3 + k] = f * 3 + k;
-                    }
-                }
-
-                xatlas::UvMeshDecl uvMeshDecl;
-                uvMeshDecl.vertexCount = prim.indices.size();
-                uvMeshDecl.vertexUvData = prim.temp_uvs.data();
-                uvMeshDecl.vertexStride = 2 * sizeof(float);
-                uvMeshDecl.indexCount = prim.indices.size();
-                uvMeshDecl.indexData = prim.temp_indices.data();
-                uvMeshDecl.indexFormat = xatlas::IndexFormat::UInt32;
-                xatlas::AddUvMesh(group.atlas, uvMeshDecl);
-            } else {
-                xatlas::MeshDecl meshDecl;
-                meshDecl.vertexCount = prim.positions.size() / 3;
-                meshDecl.vertexPositionData = prim.positions.data();
-                meshDecl.vertexPositionStride = 3 * sizeof(float);
-                meshDecl.indexCount = prim.indices.size();
-                meshDecl.indexData = prim.indices.data();
-                meshDecl.indexFormat = xatlas::IndexFormat::UInt32;
-                xatlas::AddMesh(group.atlas, meshDecl, prim_info.a_idx);
-            }
+            xatlas::MeshDecl meshDecl;
+            meshDecl.vertexCount = prim.positions.size() / 3;
+            meshDecl.vertexPositionData = prim.positions.data();
+            meshDecl.vertexPositionStride = 3 * sizeof(float);
+            meshDecl.indexCount = prim.indices.size();
+            meshDecl.indexData = prim.indices.data();
+            meshDecl.indexFormat = xatlas::IndexFormat::UInt32;
+            xatlas::AddMesh(group.atlas, meshDecl, prim_info.a_idx);
         }
 
         xatlas::PackOptions packOptions;
@@ -695,16 +634,10 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     low_poly_metalness = prim.ps->materials[prim.color_idx].metalness;
                 }
 
-                auto get_orig_idx = [&](uint32_t xref) -> uint32_t {
-                    return is_uv_group ? prim.indices[xref] : xref;
-                };
-
-                auto get_gltf_pos = [&](uint32_t xref) -> Vector3d {
-                    uint32_t orig_idx = get_orig_idx(xref);
+                auto get_gltf_pos = [&](uint32_t orig_idx) -> Vector3d {
                     return Vector3d(prim.positions[orig_idx*3+0], prim.positions[orig_idx*3+1], prim.positions[orig_idx*3+2]);
                 };
-                auto get_gltf_norm = [&](uint32_t xref) -> Vector3d {
-                    uint32_t orig_idx = get_orig_idx(xref);
+                auto get_gltf_norm = [&](uint32_t orig_idx) -> Vector3d {
                     return Vector3d(prim.normals[orig_idx*3+0], prim.normals[orig_idx*3+1], prim.normals[orig_idx*3+2]);
                 };
 
@@ -1083,13 +1016,12 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
             for (uint32_t i = 0; i < xmesh.vertexCount; ++i) {
                 const xatlas::Vertex& v = xmesh.vertexArray[i];
-                uint32_t orig_idx = is_uv_group ? prim.indices[v.xref] : v.xref;
-                new_pos.push_back(prim.positions[orig_idx * 3 + 0]);
-                new_pos.push_back(prim.positions[orig_idx * 3 + 1]);
-                new_pos.push_back(prim.positions[orig_idx * 3 + 2]);
-                new_norm.push_back(prim.normals[orig_idx * 3 + 0]);
-                new_norm.push_back(prim.normals[orig_idx * 3 + 1]);
-                new_norm.push_back(prim.normals[orig_idx * 3 + 2]);
+                new_pos.push_back(prim.positions[v.xref * 3 + 0]);
+                new_pos.push_back(prim.positions[v.xref * 3 + 1]);
+                new_pos.push_back(prim.positions[v.xref * 3 + 2]);
+                new_norm.push_back(prim.normals[v.xref * 3 + 0]);
+                new_norm.push_back(prim.normals[v.xref * 3 + 1]);
+                new_norm.push_back(prim.normals[v.xref * 3 + 2]);
                 uvs.push_back(v.uv[0] / (float)orig_width);
                 uvs.push_back(v.uv[1] / (float)orig_height);
 
