@@ -196,12 +196,9 @@ armature(animations=anim_data) {
       explanations.push(
         "- Set 'uvs=true' (default false) when you only want to generate UV coordinates and Tangent vectors without baking any image textures. Note that UVs and Tangents are automatically generated whenever 'colors', 'normals', or 'orm' are enabled, so 'uvs=true' is only explicitly needed for textureless UV-only exports.",
       );
-      explanations.push(
-        "- You can use the 'axis' parameter (e.g., axis=\"z\", axis=\"x\", axis=\"-y\") in combination with 'uvs=true' to apply a basic planar UV projection. This bypasses the default unwrapping and mathematically projects the coordinates along the specified local object axis. This projection occurs in local space and is not affected by armature transforms. It only works if 'colors', 'normals', and 'orm' are all false.",
-      );
     }
     explanations.push(
-      "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 2), 'resolution' (texture dimensions, default: 512), 'msaa' (super-sampling anti-aliasing level, default: 2), 'index' (atlas group identifier, default: 0), 'rotate_uvs' (allow UV islands to be rotated for better packing, default: true), and 'axis' (e.g., \"z\" for planar UV projection).",
+      "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 2), 'resolution' (texture dimensions, default: 512), 'msaa' (super-sampling anti-aliasing level, default: 2), 'index' (atlas group identifier, default: 0), and 'rotate_uvs' (allow UV islands to be rotated for better packing, default: true).",
     );
     explanations.push(
       "- The 'index' parameter enables multi-atlas texture baking. Low-poly meshes configured with the same 'index' will be packed together into a shared texture atlas, while meshes with distinct indices will be split into separate output image maps.",
