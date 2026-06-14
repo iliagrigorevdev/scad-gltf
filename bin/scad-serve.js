@@ -3,12 +3,15 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { execSync } from "child_process";
 import { convertScadToGltf } from "../src/convert.js";
 
-// Resolve the local WASM file path
+// Resolve the local paths
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const wasmPath = path.resolve(__dirname, "../src/ext/openscad.wasm");
+const editorDir = path.resolve(__dirname, "../editor");
+const editorDistDir = path.join(editorDir, "dist");
 
 // Polyfill fetch so the WASM loader works natively in Node.js
 const originalFetch = global.fetch;
@@ -41,6 +44,26 @@ for (let i = 0; i < args.length; i++) {
 
 // Target directory is the current working directory where the script is run
 const workDir = process.cwd();
+
+// ========================
+// Editor Build Step
+// ========================
+console.log("⚙️  Checking editor build...");
+try {
+  // Check if editor dependencies are installed, if not, install them
+  if (!fs.existsSync(path.join(editorDir, "node_modules"))) {
+    console.log("📦 Installing editor dependencies...");
+    execSync("npm install", { cwd: editorDir, stdio: "inherit" });
+  }
+
+  // Build the editor
+  console.log("🛠️  Building editor...");
+  execSync("npm run build", { cwd: editorDir, stdio: "inherit" });
+  console.log("✅ Editor built successfully.\n");
+} catch (err) {
+  console.error("❌ Error building editor:", err.message);
+  console.log("⚠️  Continuing without a fresh editor build...\n");
+}
 
 const app = express();
 // Increase payload limit in case of very large SCAD files
@@ -179,8 +202,23 @@ app.post("/api/convert", async (req, res) => {
   }
 });
 
+// ========================
+// Serve Built Editor UI
+// ========================
+if (fs.existsSync(editorDistDir)) {
+  // Serve the static files exactly how Vite bundled them
+  app.use(express.static(editorDistDir));
+} else {
+  console.warn(
+    "⚠️  Editor dist directory not found. Editor UI will not be available.",
+  );
+}
+
 // Start Server
 app.listen(port, () => {
-  console.log(`🚀 scad-serve listening on port ${port}`);
+  console.log(`🚀 scad-serve listening on http://localhost:${port}`);
+  if (fs.existsSync(editorDistDir)) {
+    console.log(`🌐 Editor available at: http://localhost:${port}/`);
+  }
   console.log(`📁 Managing .scad files in directory: ${workDir}`);
 });
