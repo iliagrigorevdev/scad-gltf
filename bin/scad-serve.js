@@ -190,6 +190,7 @@ app.post("/api/convert", async (req, res) => {
     const glbData = await convertScadToGltf(content, {
       wasmUrl: `file://${wasmPath}`,
       additionalFiles,
+      variables: (options && options.variables) || undefined,
     });
 
     res.setHeader("Content-Type", "model/gltf-binary");

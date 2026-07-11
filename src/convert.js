@@ -80,6 +80,12 @@ export async function convertScadToGltf(scadCode, options = {}) {
     args.push("--enable=lazy-union");
   }
 
+  if (options.variables) {
+    for (const [key, value] of Object.entries(options.variables)) {
+      args.push("-D", `${key}=${value}`);
+    }
+  }
+
   instance.callMain(args);
 
   // Read the resulting byte array back from the virtual file system
