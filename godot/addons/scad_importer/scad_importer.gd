@@ -12,13 +12,24 @@ func _import_scene(path: String, flags: int, options: Dictionary) -> Object:
 	var unique_id = str(hash(path))
 	var temp_glb_path = ProjectSettings.globalize_path("user://scad_cache_" + unique_id + ".glb")
 
+	var npx_command = "npx"
 	var args = PackedStringArray()
+
+	if OS.get_name() == "Windows":
+		npx_command = "cmd.exe"
+		args.append("/c")
+		args.append("npx")
+
+	args.append("--yes")
+	args.append("-p")
+	args.append("github:iliagrigorevdev/scad-gltf")
+	args.append("scad-convert")
 	args.append(global_source)
 	args.append(temp_glb_path)
 
 	var output = []
 	print("Importing %s via scad-convert... (This might take a few seconds on the first run)" % path.get_file())
-	var exit_code = OS.execute("scad-convert", args, output, true)
+	var exit_code = OS.execute(npx_command, args, output, true)
 
 	if exit_code != 0:
 		print("scad-convert conversion failed for %s. Attempting fallback to local scad-serve..." % path.get_file())
