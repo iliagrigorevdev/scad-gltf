@@ -23,6 +23,7 @@ const renderBtn = document.getElementById("render-btn");
 const loadScadBtn = document.getElementById("load-scad-btn");
 const downloadScadBtn = document.getElementById("download-scad-btn");
 const exportGltfBtn = document.getElementById("export-gltf-btn");
+const captureImageBtn = document.getElementById("capture-image-btn");
 const shareBtn = document.getElementById("share-btn");
 const autoRenderCb = document.getElementById("auto-render-cb");
 
@@ -49,6 +50,7 @@ let currentAnimations = [];
 let isCompiling = false;
 let pendingCode = null;
 let mixer = null;
+let captureNextFrame = false;
 
 // Track connection and state
 let isServerConnected = false;
@@ -251,6 +253,10 @@ exportGltfBtn.onclick = () => {
     new Blob([currentGltfData], { type: "application/octet-stream" }),
     `${getDownloadName()}.glb`,
   );
+};
+
+captureImageBtn.onclick = () => {
+  captureNextFrame = true;
 };
 
 // --- Share Logic ---
@@ -1051,6 +1057,13 @@ function animate() {
   } else {
     if (typeof lightGroup !== "undefined") lightGroup.visible = true;
     renderer.render(scene, camera);
+  }
+
+  if (captureNextFrame) {
+    captureNextFrame = false;
+    renderer.domElement.toBlob((blob) => {
+      if (blob) downloadBlob(blob, `${getDownloadName()}.png`);
+    }, "image/png");
   }
 }
 animate();
