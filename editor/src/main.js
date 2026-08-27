@@ -23,6 +23,7 @@ const renderBtn = document.getElementById("render-btn");
 const loadScadBtn = document.getElementById("load-scad-btn");
 const downloadScadBtn = document.getElementById("download-scad-btn");
 const exportGltfBtn = document.getElementById("export-gltf-btn");
+const shareBtn = document.getElementById("share-btn");
 const autoRenderCb = document.getElementById("auto-render-cb");
 
 const statusEl = document.getElementById("status");
@@ -64,9 +65,6 @@ let isDraggingSlider = false;
 
 // Helper to determine what to render
 function getEditorContent() {
-  if (isServerConnected) {
-    return editorEl.value;
-  }
   return editorEl.value || defaultScad;
 }
 
@@ -253,6 +251,126 @@ exportGltfBtn.onclick = () => {
     new Blob([currentGltfData], { type: "application/octet-stream" }),
     `${getDownloadName()}.glb`,
   );
+};
+
+// --- Share Logic ---
+function padBase64(str) {
+  const mod = str.length % 4;
+  if (mod === 2) return str + "==";
+  if (mod === 3) return str + "=";
+  return str;
+}
+
+async function encodeCode(code) {
+  try {
+    if (typeof CompressionStream !== "undefined") {
+      const stream = new Blob([code])
+        .stream()
+        .pipeThrough(new CompressionStream("deflate-raw"));
+      const buffer = await new Response(stream).arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++)
+        binary += String.fromCharCode(bytes[i]);
+      return (
+        "c" +
+        btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+      );
+    }
+  } catch (e) {
+    console.warn("CompressionStream failed, falling back", e);
+  }
+  return (
+    "u" +
+    btoa(unescape(encodeURIComponent(code)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "")
+  );
+}
+
+async function decodeCode(hash) {
+  if (!hash) return null;
+  const type = hash.charAt(0);
+  let data = hash.substring(1);
+  data = padBase64(data.replace(/-/g, "+").replace(/_/g, "/"));
+
+  if (type === "c") {
+    try {
+      const binary = atob(data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const stream = new Blob([bytes])
+        .stream()
+        .pipeThrough(new DecompressionStream("deflate-raw"));
+      const buffer = await new Response(stream).arrayBuffer();
+      return new TextDecoder().decode(buffer);
+    } catch (e) {
+      console.warn("DecompressionStream failed", e);
+    }
+  } else if (type === "u") {
+    try {
+      return decodeURIComponent(escape(atob(data)));
+    } catch (e) {
+      console.warn("Unescape failed", e);
+    }
+  } else {
+    try {
+      return decodeURIComponent(
+        escape(atob(padBase64(hash.replace(/-/g, "+").replace(/_/g, "/")))),
+      );
+    } catch {
+      return decodeURIComponent(hash);
+    }
+  }
+  return null;
+}
+
+shareBtn.onclick = async () => {
+  const code = editorEl.value.trim();
+  const url = new URL(window.location.href);
+  let finalUrl = "";
+
+  if (!code || (!isServerConnected && code === defaultScad.trim())) {
+    finalUrl = url.origin + url.pathname + url.search;
+  } else {
+    try {
+      const hash = await encodeCode(editorEl.value);
+      url.hash = hash;
+      finalUrl = url.toString();
+    } catch (err) {
+      finalUrl = url.origin + url.pathname + url.search;
+    }
+  }
+
+  window.history.replaceState(null, "", finalUrl);
+
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: "OpenSCAD GLTF Editor",
+        url: finalUrl,
+      });
+      const originalText = shareBtn.innerText;
+      shareBtn.innerText = "✅ Shared!";
+      setTimeout(() => (shareBtn.innerText = originalText), 2000);
+    } else {
+      await navigator.clipboard.writeText(finalUrl);
+      const originalText = shareBtn.innerText;
+      shareBtn.innerText = "✅ Copied Link!";
+      setTimeout(() => (shareBtn.innerText = originalText), 2000);
+    }
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      try {
+        await navigator.clipboard.writeText(finalUrl);
+        shareBtn.innerText = "✅ Copied Link!";
+        setTimeout(() => (shareBtn.innerText = "🔗 Share"), 2000);
+      } catch (fallbackErr) {
+        alert("Failed to share or copy link.");
+      }
+    }
+  }
 };
 
 // --- Drag and Drop SCAD ---
@@ -949,40 +1067,6 @@ setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
 
 editorEl.placeholder = defaultScad;
 
-async function decodeCode(hash) {
-  if (!hash) return null;
-  const type = hash.charAt(0);
-  const data = hash.substring(1);
-  let b64 = data.replace(/-/g, "+").replace(/_/g, "/");
-  while (b64.length % 4) b64 += "=";
-
-  if (type === "c") {
-    try {
-      if (typeof DecompressionStream !== "undefined") {
-        const binaryString = atob(b64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        const stream = new Blob([bytes])
-          .stream()
-          .pipeThrough(new DecompressionStream("deflate-raw"));
-        const buffer = await new Response(stream).arrayBuffer();
-        return new TextDecoder().decode(buffer);
-      }
-    } catch (e) {
-      console.warn("DecompressionStream failed", e);
-    }
-  } else if (type === "u") {
-    try {
-      return decodeURIComponent(escape(atob(b64)));
-    } catch (e) {
-      console.warn("Unescape failed", e);
-    }
-  }
-  return null;
-}
-
 (async function init() {
   const isLocal = ["localhost", "127.0.0.1", ""].includes(
     window.location.hostname,
@@ -992,14 +1076,13 @@ async function decodeCode(hash) {
     await connectToServer(url, true);
   }
 
-  if (window.location.hash) {
+  if (window.location.hash && window.location.hash.length > 1) {
     try {
       const hash = window.location.hash.substring(1);
       const code = await decodeCode(hash);
       if (code) {
         editorEl.value = code;
       }
-      window.history.replaceState(null, "", window.location.pathname);
     } catch (e) {
       console.error("Failed to decode hash", e);
     }
