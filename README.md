@@ -8,6 +8,8 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 
 **🌐 Live Demo:** Try the online web editor and viewer here: [https://iliagrigorevdev.github.io/scad-gltf/](https://iliagrigorevdev.github.io/scad-gltf/)
 
+![Editor Screenshot](screenshot.png)
+
 ## Features
 
 - **Direct SCAD to GLB conversion:** Compile geometry directly to web-ready binary glTF.

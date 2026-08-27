@@ -10,13 +10,7 @@ import {
   setupPromptToggles,
   getPromptOptions,
 } from "./prompt-ui.js";
-
-const defaultScad = `// Test your SCAD code here!
-$fn=50;
-difference() {
-    cube([20, 20, 20], center=true);
-    sphere(r=12);
-}`;
+import defaultScad from "./default.scad?raw";
 
 // --- UI Elements ---
 const promptDescEl = document.getElementById("prompt-desc");
