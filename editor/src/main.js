@@ -2,6 +2,8 @@ import { generatePrompt } from "openscad-gltf-wasm/prompt";
 import wasmUrl from "openscad-gltf-wasm/openscad.wasm?url";
 import { convertScadToGltf } from "openscad-gltf-wasm/convert";
 import * as THREE from "three";
+import { WebGLPathTracer } from "three-gpu-pathtracer";
+import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -602,7 +604,39 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 viewerEl.appendChild(renderer.domElement);
 
+const pathTracer = new WebGLPathTracer(renderer);
+pathTracer.bounces = 10;
+pathTracer.transmissiveBounces = 10;
+pathTracer.multipleImportanceSampling = true;
+
 const controls = new OrbitControls(camera, renderer.domElement);
+controls.addEventListener("change", () => {
+  if (typeof pathTracer !== "undefined") pathTracer.updateCamera();
+});
+
+new HDRLoader().load(
+  "./aristea_wreck_puresky_2k.hdr",
+  (texture) => {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    scene.background = texture;
+    scene.environment = texture;
+    if (typeof pathTracer !== "undefined") {
+      pathTracer.setScene(scene, camera);
+      pathTracer.updateCamera();
+    }
+  },
+  undefined,
+  (err) => console.warn("Error loading HDR:", err),
+);
+
+const pathTracingCb = document.getElementById("path-tracing-cb");
+if (pathTracingCb) {
+  pathTracingCb.addEventListener("change", () => {
+    if (pathTracingCb.checked && typeof pathTracer !== "undefined") {
+      pathTracer.setScene(scene, camera);
+    }
+  });
+}
 controls.enableDamping = true;
 controls.dampingFactor = 0.1;
 controls.maxDistance = 2000;
@@ -689,6 +723,14 @@ animSlider.addEventListener("input", (e) => {
     currentAction.time = parseFloat(e.target.value) * duration;
     if (mixer) {
       mixer.update(0);
+      const pathTracingCb = document.getElementById("path-tracing-cb");
+      if (
+        pathTracingCb &&
+        pathTracingCb.checked &&
+        typeof pathTracer !== "undefined"
+      ) {
+        pathTracer.setScene(scene, camera);
+      }
     }
   }
 });
@@ -724,6 +766,14 @@ function rebuildSceneFromGLTF(gltfData) {
       if (mixer && currentAction) {
         currentAction.time = 0;
         mixer.update(0);
+        const pathTracingCb = document.getElementById("path-tracing-cb");
+        if (
+          pathTracingCb &&
+          pathTracingCb.checked &&
+          typeof pathTracer !== "undefined"
+        ) {
+          pathTracer.setScene(scene, camera);
+        }
       }
       oldBox = new THREE.Box3().setFromObject(currentMesh);
     }
@@ -786,9 +836,12 @@ function rebuildSceneFromGLTF(gltfData) {
         }
 
         if (geometryChanged) {
-          fitCamera();
+          if (typeof fitCamera === "function") fitCamera();
+        } else {
+          if (typeof pathTracer !== "undefined") {
+            pathTracer.setScene(scene, camera);
+          }
         }
-
         resolve();
       },
       reject,
@@ -838,6 +891,14 @@ function fitCamera() {
   dirLight.shadow.camera.near = 0.1;
   dirLight.shadow.camera.far = maxDim * 5;
   dirLight.shadow.camera.updateProjectionMatrix();
+
+  const pathTracingCb = document.getElementById("path-tracing-cb");
+  if (typeof lightGroup !== "undefined" && pathTracingCb) {
+    lightGroup.visible = !pathTracingCb.checked;
+  }
+  if (typeof pathTracer !== "undefined") {
+    pathTracer.setScene(scene, camera);
+  }
 }
 
 // Animation loop
@@ -849,7 +910,10 @@ function animate() {
   lastTime = now;
 
   if (mixer) {
-    mixer.update(delta);
+    const pathTracingCb = document.getElementById("path-tracing-cb");
+    if (!(pathTracingCb && pathTracingCb.checked)) {
+      mixer.update(delta);
+    }
 
     if (currentAction && isPlaying && !isDraggingSlider) {
       const duration = currentAction.getClip().duration;
@@ -862,7 +926,14 @@ function animate() {
   }
 
   controls.update();
-  renderer.render(scene, camera);
+  const pathTracingCb = document.getElementById("path-tracing-cb");
+  if (pathTracingCb && pathTracingCb.checked) {
+    if (typeof lightGroup !== "undefined") lightGroup.visible = false;
+    if (typeof pathTracer !== "undefined") pathTracer.renderSample();
+  } else {
+    if (typeof lightGroup !== "undefined") lightGroup.visible = true;
+    renderer.render(scene, camera);
+  }
 }
 animate();
 
