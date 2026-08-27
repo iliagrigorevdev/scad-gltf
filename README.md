@@ -6,7 +6,7 @@ Unlike standard OpenSCAD, this custom engine supports **Physically Based Renderi
 
 The C++ source code for this custom OpenSCAD version is included directly in this repository within the `openscad/` subfolder.
 
-**🌐 Live Demo:** Try the online viewer based on this WASM package here: [openscad-gltf-viewer](https://iliagrigorevdev.github.io/openscad-gltf-viewer/)
+**🌐 Live Demo:** Try the online web editor and viewer here: [https://iliagrigorevdev.github.io/scad-gltf/](https://iliagrigorevdev.github.io/scad-gltf/)
 
 ## Features
 
