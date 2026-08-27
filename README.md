@@ -24,7 +24,17 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 
 ## Installation
 
-This package is designed to be installed directly from GitHub:
+This package is designed to be installed directly from GitHub.
+
+**Option 1: Global Installation (Recommended for CLI usage)**
+If you plan to use the `scad-convert` or `scad-serve` command-line tools anywhere on your system:
+
+```bash
+npm install -g github:iliagrigorevdev/scad-gltf
+```
+
+**Option 2: Local Installation (For Node.js / Web bundlers)**
+If you are importing the package into a JavaScript project:
 
 ```bash
 npm install github:iliagrigorevdev/scad-gltf
@@ -105,13 +115,17 @@ The package includes a CLI utility to convert `.scad` files to `.glb` directly f
 
 **Run the converter using one of these options:**
 
-- **Option A: Run directly (No installation)**
+- **Option A: If installed globally**
   ```bash
-  npx -p github:iliagrigorevdev/scad-gltf scad-convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]
+  scad-convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]
   ```
-- **Option B: If installed as a dependency**
+- **Option B: If installed as a local dependency**
   ```bash
   npx scad-convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]
+  ```
+- **Option C: Run directly (No installation)**
+  ```bash
+  npx -p github:iliagrigorevdev/scad-gltf scad-convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]
   ```
 
 **Examples:**
@@ -145,13 +159,17 @@ It strictly operates **only** on the `.scad` files in the directory where the co
 
 **Start the server using one of these options:**
 
-- **Option A: Run directly (No installation)**
+- **Option A: If installed globally**
   ```bash
-  npx -p github:iliagrigorevdev/scad-gltf scad-serve
+  scad-serve
   ```
-- **Option B: If installed as a dependency**
+- **Option B: If installed as a local dependency**
   ```bash
   npx scad-serve
+  ```
+- **Option C: Run directly (No installation)**
+  ```bash
+  npx -p github:iliagrigorevdev/scad-gltf scad-serve
   ```
 
 **Optional Arguments:**
