@@ -38,6 +38,7 @@
 #include <QListWidgetItem>
 #include <QTableWidget>
 #include <QHeaderView>
+#include <QTimer>
 #include "json/json.hpp"
 #include <QFile>
 #include <QDir>
@@ -162,7 +163,6 @@ Preferences::Preferences(QWidget *parent) : QMainWindow(parent)
   init();
   AxisConfig->init();
   setupFeaturesPage();
-  setup3DPrintPage();
   updateGUI();
 }
 
@@ -243,7 +243,7 @@ void Preferences::init()
   this->defaultmap["editor/autoCompleteIncludeFunctions"] = true;
   this->defaultmap["editor/characterThreshold"] = 1;
   this->defaultmap["editor/stepSize"] = 1;
-  this->defaultmap["ai/activeProfile"] = "OpenAI GPT-4";
+  this->defaultmap["ai/activeProfile"] = "Ollama Local";
 
   // Toolbar
   auto *group = new QActionGroup(this);
@@ -275,64 +275,69 @@ void Preferences::init()
   this->tableWidgetAIParams->setSelectionBehavior(QAbstractItemView::SelectRows);
   this->tableWidgetAIParams->setSelectionMode(QAbstractItemView::SingleSelection);
 
-  nlohmann::json aiSettings = readAISettings();
-  std::string activeProfile = aiSettings.value("activeProfile", "OpenAI GPT-4");
+  this->inMemoryAISettings = readAISettings();
+  std::string activeProfile = this->inMemoryAISettings.value("activeProfile", "Ollama Local");
   QString activeProfileQS = QString::fromStdString(activeProfile);
 
-  nlohmann::json profilesObj = aiSettings.value("profiles", nlohmann::json::object());
+  nlohmann::json profilesObj = this->inMemoryAISettings.value("profiles", nlohmann::json::object());
   QStringList profiles;
   for (auto it = profilesObj.begin(); it != profilesObj.end(); ++it) {
     profiles.append(QString::fromStdString(it.key()));
   }
 
   if (profiles.isEmpty()) {
-    profiles =
-      QStringList{_("OpenAI GPT-4"), _("Anthropic Claude"), _("Ollama Local"), _("Custom / Local LLM")};
+    profiles = QStringList{_("Ollama Local")};
     for (const auto& p : profiles) {
       nlohmann::json prof = nlohmann::json::object();
       nlohmann::json params = nlohmann::json::object();
       std::string pStr = p.toStdString();
-      if (p == _("OpenAI GPT-4")) {
-        prof["endpoint"] = "https://api.openai.com/v1";
-        params["model"] = "gpt-4o";
-        params["temperature"] = 0.7;
-        params["max_tokens"] = 2048;
-        params["system_prompt"] =
-          "You are an expert OpenSCAD designer. Write clean, elegant, and efficient OpenSCAD code.";
-        params["context_limit"] = 10;
-      } else if (p == _("Anthropic Claude")) {
-        prof["endpoint"] = "https://api.anthropic.com/v1";
-        params["model"] = "claude-3-5-sonnet-latest";
-        params["temperature"] = 0.7;
-        params["max_tokens"] = 2048;
-        params["system_prompt"] =
-          "You are an expert OpenSCAD designer. Write clean, elegant, and efficient OpenSCAD code.";
-        params["context_limit"] = 10;
-        params["anthropic-version"] = "2023-06-01";
-      } else if (p == _("Ollama Local")) {
+      if (p == _("Ollama Local")) {
         prof["endpoint"] = "http://localhost:11434/v1";
         params["model"] = "deepseek-coder";
         params["temperature"] = 0.7;
         params["max_tokens"] = 2048;
         params["system_prompt"] =
-          "You are an expert OpenSCAD designer. Write clean, elegant, and efficient OpenSCAD code.";
+          "You are the OpenSCAD Expert Assistant. You provide high-quality, surgical, and logical "
+          "OpenSCAD code fixes.\n\n"
+          "### YOUR CORE RULES:\n"
+          "1. **Surgical Excellence**: If the user has a minor error (missing semicolon, wrong "
+          "bracket), fix ONLY that specific line. Do NOT rewrite the entire script, do NOT rename "
+          "variables, and do NOT change the overall logic unless explicitly asked.\n"
+          "2. **OpenSCAD Syntax Mastery**:\n"
+          "   - **Modifiers**: `color()`, `rotate()`, `translate()`, etc., are MODIFIERS. They apply to "
+          "the next child or block. NEVER assign them to variables like `c = color(\"red\");`. Instead, "
+          "use `color(\"red\") cube(10);`.\n"
+          "   - **Semicolons**: Every assignment (e.g., `x = 5;`) and every module instantiation (e.g., "
+          "`cube(10);`) MUST end with a semicolon. Semicolons are NOT used after module definitions "
+          "`module name() { ... }` or after blocks `{ ... }`.\n"
+          "3. **Tool Workflow**:\n"
+          "   - YOU MUST USE `set_editor_code` to propose any code changes so they are set for user "
+          "review.\n"
+          "   - You can output code blocks in markdown format in the chat for explanation, but you MUST "
+          "also "
+          "call the `set_editor_code` tool so the changes are set for review and can be applied "
+          "automatically.\n"
+          "   - Use `get_editor_code()` if you need to see the latest script state.\n"
+          "   - Use `trigger_preview()` once after setting the code to validate the result.\n"
+          "4. **Response and Engagement**: Explain the reasoning behind your proposed code changes. "
+          "Output standard text to explain your thoughts and keep the user engaged while proposing code "
+          "changes via tools.\n"
+          "5. **Formatting**: Use ACTUAL NEWLINES in your code output. Never use literal '\\n' "
+          "sequences.\n"
+          "6. **Tone**: Technical, concise, and helpful. Avoid long conversational filler.";
+        params["default_prompt"] = "Create a sphere with radius 10 and detail level $fn=50.";
         params["context_limit"] = 10;
-      } else {
-        prof["endpoint"] = "http://localhost:8080/v1";
-        params["model"] = "custom";
-        params["temperature"] = 0.7;
-        params["max_tokens"] = 2048;
-        params["system_prompt"] =
-          "You are an expert OpenSCAD designer. Write clean, elegant, and efficient OpenSCAD code.";
-        params["context_limit"] = 10;
+        params["payload_limit"] = 50000;
+        params["auto_attach_viewport"] = false;
+        params["max_auto_turns"] = 5;
       }
       prof["params"] = params;
       prof["apiKey"] = "";
       profilesObj[pStr] = prof;
     }
-    aiSettings["profiles"] = profilesObj;
-    aiSettings["activeProfile"] = activeProfile;
-    writeAISettings(aiSettings);
+    this->inMemoryAISettings["profiles"] = profilesObj;
+    this->inMemoryAISettings["activeProfile"] = activeProfile;
+    writeAISettings(this->inMemoryAISettings);
   }
 
   this->comboBoxAIProfile->clear();
@@ -341,6 +346,16 @@ void Preferences::init()
   // Connect table cell changes to slot
   connect(this->tableWidgetAIParams, &QTableWidget::itemChanged, this,
           &Preferences::on_tableWidgetAIParams_itemChanged);
+  connect(this->plainTextEditAISystemPrompt, &QPlainTextEdit::textChanged, this,
+          &Preferences::saveAIParams);
+  connect(this->plainTextEditAIDefaultPrompt, &QPlainTextEdit::textChanged, this,
+          &Preferences::saveAIParams);
+
+  this->aiSaveTimer = new QTimer(this);
+  this->aiSaveTimer->setSingleShot(true);
+  this->aiSaveTimer->setInterval(500);
+  connect(this->aiSaveTimer, &QTimer::timeout, this,
+          [this]() { writeAISettings(this->inMemoryAISettings); });
 
   // Set default active profile index
   int activeIdx = this->comboBoxAIProfile->findText(activeProfileQS);
@@ -445,6 +460,7 @@ void Preferences::init()
 
 Preferences::~Preferences()
 {
+  writeAISettings(this->inMemoryAISettings);
   removeDefaultSettings();
 }
 
@@ -610,6 +626,7 @@ void Preferences::setup3DPrintPage()
   if (it != services.end()) {
     comboBoxDefaultPrintService->setCurrentText(it->second);
   }
+  this->printPageSetupDone = true;
 }
 
 void Preferences::on_colorSchemeChooser_itemSelectionChanged()
@@ -1088,6 +1105,7 @@ void Preferences::on_checkBoxEnableRemotePrintServices_toggled(bool checked)
 {
   S::enableRemotePrintServices.setValue(checked);
   writeSettings();
+  setup3DPrintPage();
 }
 
 void Preferences::on_comboBoxDefaultPrintService_activated(int)
@@ -1424,11 +1442,12 @@ void Preferences::on_checkBoxAlwaysShowPrintServiceDialog_toggled(bool state)
 void Preferences::on_comboBoxAIProfile_currentIndexChanged(int index)
 {
   if (index < 0) return;
-  const QString profileName = this->comboBoxAIProfile->itemText(index);
 
-  nlohmann::json aiSettings = readAISettings();
-  aiSettings["activeProfile"] = profileName.toStdString();
-  writeAISettings(aiSettings);
+  saveAIParams();
+
+  const QString profileName = this->comboBoxAIProfile->itemText(index);
+  this->inMemoryAISettings["activeProfile"] = profileName.toStdString();
+  writeAISettings(this->inMemoryAISettings);
 
   loadAIParams(profileName);
 }
@@ -1448,8 +1467,7 @@ void Preferences::on_pushButtonAINewProfile_clicked()
 
   this->comboBoxAIProfile->addItem(trimmed);
 
-  nlohmann::json aiSettings = readAISettings();
-  nlohmann::json profilesObj = aiSettings.value("profiles", nlohmann::json::object());
+  nlohmann::json profilesObj = this->inMemoryAISettings.value("profiles", nlohmann::json::object());
 
   nlohmann::json newProfile = nlohmann::json::object();
   newProfile["endpoint"] = "http://localhost:8080/v1";
@@ -1460,13 +1478,41 @@ void Preferences::on_pushButtonAINewProfile_clicked()
   params["temperature"] = 0.7;
   params["max_tokens"] = 2048;
   params["system_prompt"] =
-    "You are an expert OpenSCAD designer. Write clean, elegant, and efficient OpenSCAD code.";
+    "You are the OpenSCAD Expert Assistant. You provide high-quality, surgical, and logical OpenSCAD "
+    "code fixes.\n\n"
+    "### YOUR CORE RULES:\n"
+    "1. **Surgical Excellence**: If the user has a minor error (missing semicolon, wrong bracket), fix "
+    "ONLY that specific line. Do NOT rewrite the entire script, do NOT rename variables, and do NOT "
+    "change the overall logic unless explicitly asked.\n"
+    "2. **OpenSCAD Syntax Mastery**:\n"
+    "   - **Modifiers**: `color()`, `rotate()`, `translate()`, etc., are MODIFIERS. They apply to the "
+    "next child or block. NEVER assign them to variables like `c = color(\"red\");`. Instead, use "
+    "`color(\"red\") cube(10);`.\n"
+    "   - **Semicolons**: Every assignment (e.g., `x = 5;`) and every module instantiation (e.g., "
+    "`cube(10);`) MUST end with a semicolon. Semicolons are NOT used after module definitions `module "
+    "name() { ... }` or after blocks `{ ... }`.\n"
+    "3. **Tool Workflow**:\n"
+    "   - YOU MUST USE `set_editor_code` to propose any code changes so they are set for user review.\n"
+    "   - You can output code blocks in markdown format in the chat for explanation, but you MUST also "
+    "call the `set_editor_code` tool so the changes are set for review and can be applied "
+    "automatically.\n"
+    "   - Use `get_editor_code()` if you need to see the latest script state.\n"
+    "   - Use `trigger_preview()` once after setting the code to validate the result.\n"
+    "4. **Response and Engagement**: Explain the reasoning behind your proposed code changes. Output "
+    "standard text to explain your thoughts and keep the user engaged while proposing code changes via "
+    "tools.\n"
+    "5. **Formatting**: Use ACTUAL NEWLINES in your code output. Never use literal '\\n' sequences.\n"
+    "6. **Tone**: Technical, concise, and helpful. Avoid long conversational filler.";
+  params["default_prompt"] = "Create a sphere with radius 10 and detail level $fn=50.";
   params["context_limit"] = 10;
+  params["payload_limit"] = 50000;
+  params["auto_attach_viewport"] = false;
+  params["max_auto_turns"] = 5;
   newProfile["params"] = params;
 
   profilesObj[trimmed.toStdString()] = newProfile;
-  aiSettings["profiles"] = profilesObj;
-  writeAISettings(aiSettings);
+  this->inMemoryAISettings["profiles"] = profilesObj;
+  writeAISettings(this->inMemoryAISettings);
 
   this->comboBoxAIProfile->setCurrentIndex(this->comboBoxAIProfile->count() - 1);
 }
@@ -1482,11 +1528,12 @@ void Preferences::on_pushButtonAIDeleteProfile_clicked()
                                             QMessageBox::Yes | QMessageBox::No);
   if (result != QMessageBox::Yes) return;
 
-  nlohmann::json aiSettings = readAISettings();
-  nlohmann::json profilesObj = aiSettings.value("profiles", nlohmann::json::object());
+  this->currentLoadedProfileName.clear();
+
+  nlohmann::json profilesObj = this->inMemoryAISettings.value("profiles", nlohmann::json::object());
   profilesObj.erase(profileName.toStdString());
-  aiSettings["profiles"] = profilesObj;
-  writeAISettings(aiSettings);
+  this->inMemoryAISettings["profiles"] = profilesObj;
+  writeAISettings(this->inMemoryAISettings);
 
   this->comboBoxAIProfile->removeItem(idx);
 }
@@ -1537,13 +1584,26 @@ void Preferences::on_tableWidgetAIParams_itemChanged(QTableWidgetItem *item)
 
 void Preferences::loadAIParams(const QString& profileName)
 {
-  nlohmann::json aiSettings = readAISettings();
-  nlohmann::json profilesObj = aiSettings.value("profiles", nlohmann::json::object());
+  this->currentLoadedProfileName = profileName;
+  nlohmann::json profilesObj = this->inMemoryAISettings.value("profiles", nlohmann::json::object());
   std::string profileNameStr = profileName.toStdString();
   nlohmann::json profileObj = profilesObj.value(profileNameStr, nlohmann::json::object());
 
   std::string endpoint = profileObj.value("endpoint", "");
   std::string apiKey = profileObj.value("apiKey", "");
+
+  if (endpoint.empty()) {
+    if (profileName.contains("Ollama") || profileName.toLower() == "ollamaprofile") {
+      endpoint = "http://localhost:11434/v1";
+    } else if (profileName.contains("OpenAI") || profileName.toLower() == "openai") {
+      endpoint = "https://api.openai.com/v1";
+    } else if (profileName.contains("Anthropic")) {
+      endpoint = "https://api.anthropic.com/v1";
+    } else {
+      endpoint = "http://localhost:8080/v1";
+    }
+  }
+
   BlockSignals<QLineEdit *>(this->lineEditAIApiEndpoint)->setText(QString::fromStdString(endpoint));
   BlockSignals<QLineEdit *>(this->lineEditAIApiKey)->setText(QString::fromStdString(apiKey));
 
@@ -1551,6 +1611,74 @@ void Preferences::loadAIParams(const QString& profileName)
   this->tableWidgetAIParams->setRowCount(0);
 
   nlohmann::json paramsObj = profileObj.value("params", nlohmann::json::object());
+
+  // Fill in missing default parameters
+  if (!paramsObj.contains("model")) {
+    paramsObj["model"] =
+      (profileName.contains("Ollama") || profileName.toLower() == "ollamaprofile")
+        ? "deepseek-coder"
+        : ((profileName.contains("OpenAI") || profileName.toLower() == "openai") ? "gpt-4o" : "custom");
+  }
+  if (!paramsObj.contains("temperature")) {
+    paramsObj["temperature"] = 0.7;
+  }
+  if (!paramsObj.contains("max_tokens")) {
+    paramsObj["max_tokens"] = 2048;
+  }
+  if (!paramsObj.contains("context_limit")) {
+    paramsObj["context_limit"] = 10;
+  }
+  if (!paramsObj.contains("payload_limit")) {
+    paramsObj["payload_limit"] = 50000;
+  }
+  if (!paramsObj.contains("auto_attach_viewport")) {
+    paramsObj["auto_attach_viewport"] = false;
+  }
+  if (!paramsObj.contains("max_auto_turns")) {
+    paramsObj["max_auto_turns"] = 5;
+  }
+
+  std::string sysPrompt = paramsObj.value("system_prompt", "");
+  if (sysPrompt.empty()) {
+    sysPrompt =
+      "You are the OpenSCAD Expert Assistant. You provide high-quality, surgical, and logical OpenSCAD "
+      "code fixes.\n\n"
+      "### YOUR CORE RULES:\n"
+      "1. **Surgical Excellence**: If the user has a minor error (missing semicolon, wrong bracket), "
+      "fix ONLY that specific line. Do NOT rewrite the entire script, do NOT rename variables, and do "
+      "NOT change the overall logic unless explicitly asked.\n"
+      "2. **OpenSCAD Syntax Mastery**:\n"
+      "   - **Modifiers**: `color()`, `rotate()`, `translate()`, etc., are MODIFIERS. They apply to the "
+      "next child or block. NEVER assign them to variables like `c = color(\"red\");`. Instead, use "
+      "`color(\"red\") cube(10);`.\n"
+      "   - **Semicolons**: Every assignment (e.g., `x = 5;`) and every module instantiation (e.g., "
+      "`cube(10);`) MUST end with a semicolon. Semicolons are NOT used after module definitions `module "
+      "name() { ... }` or after blocks `{ ... }`.\n"
+      "3. **Tool Workflow**:\n"
+      "   - YOU MUST USE `set_editor_code` to propose any code changes so they are set for user "
+      "review.\n"
+      "   - You can output code blocks in markdown format in the chat for explanation, but you MUST "
+      "also "
+      "call the `set_editor_code` tool so the changes are set for review and can be applied "
+      "automatically.\n"
+      "   - Use `get_editor_code()` if you need to see the latest script state.\n"
+      "   - Use `trigger_preview()` once after setting the code to validate the result.\n"
+      "4. **Response and Engagement**: Explain the reasoning behind your proposed code changes. Output "
+      "standard text to explain your thoughts and keep the user engaged while proposing code changes "
+      "via tools.\n"
+      "5. **Formatting**: Use ACTUAL NEWLINES in your code output. Never use literal '\\n' sequences.\n"
+      "6. **Tone**: Technical, concise, and helpful. Avoid long conversational filler.";
+  }
+  BlockSignals<QPlainTextEdit *>(this->plainTextEditAISystemPrompt)
+    ->setPlainText(QString::fromStdString(sysPrompt));
+
+  std::string defPrompt = paramsObj.value("default_prompt", "");
+  if (defPrompt.empty()) {
+    defPrompt = "Create a sphere with radius 10 and detail level $fn=50.";
+  }
+  BlockSignals<QPlainTextEdit *>(this->plainTextEditAIDefaultPrompt)
+    ->setPlainText(QString::fromStdString(defPrompt));
+
   QStringList keys;
   for (auto it = paramsObj.begin(); it != paramsObj.end(); ++it) {
     keys.append(QString::fromStdString(it.key()));
@@ -1558,6 +1686,9 @@ void Preferences::loadAIParams(const QString& profileName)
   keys.sort();
 
   for (const auto& key : keys) {
+    if (key == "system_prompt" || key == "default_prompt") {
+      continue;
+    }
     int row = this->tableWidgetAIParams->rowCount();
     this->tableWidgetAIParams->insertRow(row);
 
@@ -1588,26 +1719,26 @@ void Preferences::loadAIParams(const QString& profileName)
 
 void Preferences::saveAIParams()
 {
-  const int idx = this->comboBoxAIProfile->currentIndex();
-  if (idx < 0) return;
-  const QString profileName = this->comboBoxAIProfile->itemText(idx);
-  std::string profileNameStr = profileName.toStdString();
+  if (this->currentLoadedProfileName.isEmpty()) return;
+  std::string profileNameStr = this->currentLoadedProfileName.toStdString();
 
-  nlohmann::json aiSettings = readAISettings();
-  nlohmann::json profilesObj = aiSettings.value("profiles", nlohmann::json::object());
+  nlohmann::json profilesObj = this->inMemoryAISettings.value("profiles", nlohmann::json::object());
   nlohmann::json profileObj = profilesObj.value(profileNameStr, nlohmann::json::object());
 
   profileObj["endpoint"] = this->lineEditAIApiEndpoint->text().toStdString();
   profileObj["apiKey"] = this->lineEditAIApiKey->text().toStdString();
 
   nlohmann::json paramsObj = nlohmann::json::object();
+  paramsObj["system_prompt"] = this->plainTextEditAISystemPrompt->toPlainText().toStdString();
+  paramsObj["default_prompt"] = this->plainTextEditAIDefaultPrompt->toPlainText().toStdString();
+
   for (int row = 0; row < this->tableWidgetAIParams->rowCount(); ++row) {
     QTableWidgetItem *keyItem = this->tableWidgetAIParams->item(row, 0);
     QTableWidgetItem *valItem = this->tableWidgetAIParams->item(row, 1);
     if (!keyItem) continue;
 
     const QString key = keyItem->text().trimmed();
-    if (key.isEmpty()) continue;
+    if (key.isEmpty() || key == "system_prompt" || key == "default_prompt") continue;
 
     const QString valText = valItem ? valItem->text().trimmed() : "";
     std::string keyStr = key.toStdString();
@@ -1633,8 +1764,11 @@ void Preferences::saveAIParams()
   profileObj["params"] = paramsObj;
 
   profilesObj[profileNameStr] = profileObj;
-  aiSettings["profiles"] = profilesObj;
-  writeAISettings(aiSettings);
+  this->inMemoryAISettings["profiles"] = profilesObj;
+
+  if (this->aiSaveTimer) {
+    this->aiSaveTimer->start();
+  }
 }
 
 void Preferences::writeSettings()
@@ -1651,6 +1785,12 @@ void Preferences::fireEditorConfigChanged() const
 // Make sure Ctrl-W isn't passed up to MainWindow and only affects Preferences
 bool Preferences::event(QEvent *e)
 {
+  if (e->type() == QEvent::WindowDeactivate) {
+    if (this->aiSaveTimer && this->aiSaveTimer->isActive()) {
+      this->aiSaveTimer->stop();
+      writeAISettings(this->inMemoryAISettings);
+    }
+  }
   if (e->type() == QEvent::ShortcutOverride) {
     QKeyEvent *ke = static_cast<QKeyEvent *>(e);
     if (ke->matches(QKeySequence::Close) || ke->key() == Qt::Key_Escape) {
@@ -1684,12 +1824,17 @@ void Preferences::keyPressEvent(QKeyEvent *e)
 
 void Preferences::showEvent(QShowEvent *e)
 {
+  if (!this->printPageSetupDone) {
+    setup3DPrintPage();
+  }
   QMainWindow::showEvent(e);
   hidePasswords();
 }
 
 void Preferences::closeEvent(QCloseEvent *e)
 {
+  saveAIParams();
+  writeAISettings(this->inMemoryAISettings);
   hidePasswords();
   QMainWindow::closeEvent(e);
 }
@@ -1874,15 +2019,14 @@ void Preferences::updateGUI()
                  Settings::Settings::octoPrintSlicerProfile.value());
 
   // AI tab: populate fields from current profile settings
-  nlohmann::json aiSettings = readAISettings();
-  std::string activeProfile = aiSettings.value("activeProfile", "OpenAI GPT-4");
+  std::string activeProfile = this->inMemoryAISettings.value("activeProfile", "Ollama Local");
   QString activeProfileQS = QString::fromStdString(activeProfile);
   int activeIdx = this->comboBoxAIProfile->findText(activeProfileQS);
   if (activeIdx >= 0) {
     BlockSignals<QComboBox *>(this->comboBoxAIProfile)->setCurrentIndex(activeIdx);
     loadAIParams(activeProfileQS);
   } else {
-    loadAIParams("OpenAI GPT-4");
+    loadAIParams("Ollama Local");
   }
   this->prefsActionAI->setVisible(Feature::ExperimentalAiFeatures.is_enabled());
   updateComboBox(this->comboBoxAutoCompletionMode, Settings::SettingsAutoCompletion::autocompleteMode);
