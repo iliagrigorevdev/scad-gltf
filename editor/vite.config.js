@@ -14,9 +14,14 @@ export default defineConfig({
         content: "src/content.js",
       },
       output: {
-        entryFileNames: "[name].js",
-        chunkFileNames: "assets/[name].js",
-        assetFileNames: "assets/[name].[ext]",
+        entryFileNames: (chunkInfo) => {
+          // Keep content.js unhashed for Chrome extension loader compatibility
+          return chunkInfo.name === "content"
+            ? "[name].js"
+            : "assets/[name]-[hash].js";
+        },
+        chunkFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash].[ext]", // ✅ Adds hash to CSS & other assets
       },
     },
   },
@@ -24,10 +29,12 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
-      manifestFilename: "manifest.webmanifest", // CRITICAL: Prevents overwriting the Chrome Extension manifest.json
+      manifestFilename: "manifest.webmanifest",
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,wasm,hdr,scad}"],
-        maximumFileSizeToCacheInBytes: 30 * 1024 * 1024, // 30MB limit to ensure Wasm & HDR get cached for offline use
+        maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
+        skipWaiting: true, // Forces the waiting service worker to become active
+        clientsClaim: true, // Takes control of open clients immediately
       },
       manifest: {
         name: "Scadify",
