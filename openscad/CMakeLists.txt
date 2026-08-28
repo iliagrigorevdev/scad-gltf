@@ -614,6 +614,15 @@ message(STATUS "LibXml2: ${LIBXML2_VERSION_STRING}")
 target_link_libraries(OpenSCADLibInternal PUBLIC LibXml2::LibXml2)
 target_link_libraries(svg PUBLIC LibXml2::LibXml2)
 
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  find_package(OpenSSL REQUIRED)
+  message(STATUS "OpenSSL: ${OPENSSL_VERSION}")
+  target_link_libraries(OpenSCADLibInternal PUBLIC OpenSSL::SSL OpenSSL::Crypto)
+  if(WIN32)
+    target_link_libraries(OpenSCADLibInternal PUBLIC crypt32 ws2_32)
+  endif()
+endif()
+
 if(ENABLE_PYTHON)
   find_package(Python REQUIRED COMPONENTS Interpreter Development)
   find_package(Nettle 3.4 REQUIRED)
@@ -1082,6 +1091,9 @@ set(CORE_SOURCES
   src/core/Value.cc
   src/core/builtin_functions.cc
   src/core/control.cc
+  src/core/HTTPClient.cc
+  src/core/AIClient.cc
+  src/core/AIService.cc
   src/core/customizer/Annotation.cc
   src/core/customizer/CommentParser.cc
   src/core/customizer/ParameterObject.cc
@@ -1390,6 +1402,7 @@ set(GUI_SOURCES
   src/gui/ai/AIDock.cc
   src/gui/ai/ChatWidget.cc
   src/gui/ai/ChatInputEdit.cc
+  src/gui/ai/ViewportGrabber.cc
   ${INPUT_DRIVER_SOURCES}
   )
 
@@ -1462,6 +1475,8 @@ set(GUI_HEADERS
     src/gui/parameter/ParameterWidget.h
     src/gui/ai/AIDock.h
     src/gui/ai/ChatWidget.h
+    src/gui/ai/DiffDialog.h
+    src/gui/ai/CollapsibleBubble.h
     src/gui/ai/ChatInputEdit.h
 )
 
@@ -1604,6 +1619,7 @@ endif()
 
 file(GLOB_RECURSE TEST_SOURCES
   "src/utils/*_test.cc"
+  "src/core/*_test.cc"
 )
 file(GLOB_RECURSE GUI_TEST_SOURCES
   "src/gui/*_test.cc"
