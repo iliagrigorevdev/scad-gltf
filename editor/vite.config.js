@@ -30,14 +30,13 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 30 * 1024 * 1024, // 30MB limit to ensure Wasm & HDR get cached for offline use
       },
       manifest: {
-        name: "SCAD Editor",
-        short_name: "SCAD Editor",
+        name: "Scadify",
+        short_name: "Scadify",
         description:
           "A modern, web-based editor and 3D viewer for OpenSCAD supporting WebAssembly compilation, PBR materials, skeletal animations, and texture baking.",
         theme_color: "#222222",
         background_color: "#222222",
         display: "standalone",
-        // Use "." for relative resolution (safe for generic hosting/extensions),
         id: ".",
         start_url: ".",
         scope: ".",
