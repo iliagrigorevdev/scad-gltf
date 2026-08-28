@@ -24,7 +24,7 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
-      filename: "manifest.webmanifest", // CRITICAL: Prevents overwriting the Chrome Extension manifest.json
+      manifestFilename: "manifest.webmanifest", // CRITICAL: Prevents overwriting the Chrome Extension manifest.json
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,wasm,hdr,scad}"],
         maximumFileSizeToCacheInBytes: 30 * 1024 * 1024, // 30MB limit to ensure Wasm & HDR get cached for offline use
