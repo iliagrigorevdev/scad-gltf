@@ -354,7 +354,7 @@ shareBtn.onclick = async () => {
   try {
     if (navigator.share) {
       await navigator.share({
-        title: "Scadify",
+        title: modelNameInputEl.value.trim() || "Scadify",
         url: finalUrl,
       });
       const originalText = shareBtn.innerText;
