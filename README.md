@@ -325,6 +325,34 @@ Once connected, an AI assistant can use the server to execute the following loop
 
 ---
 
+## Development
+
+### Updating the OpenSCAD Subtree
+
+This repository includes a custom fork of OpenSCAD in the `openscad/` subfolder using Git Subtree. If you need to pull upstream updates from the official OpenSCAD repository and merge them with our custom modifications, follow these steps:
+
+1. **Ensure your working tree is clean:**
+   ```bash
+   git status
+   ```
+2. **Make sure the upstream remote is added** (you can check with `git remote -v`). If not, add it:
+   ```bash
+   git remote add openscad https://github.com/openscad/openscad.git
+   ```
+3. **Pull and merge the upstream changes:**
+   ```bash
+   git subtree pull --prefix=openscad openscad master --squash
+   ```
+   _(Note: `--squash` is highly recommended as it prevents the main repository's history from being flooded with thousands of upstream OpenSCAD commits)._
+4. **Resolve any merge conflicts:**
+   Because we have modified the C++ engine locally within the subfolder, conflicts are expected. Open the conflicting files, resolve the markers, and complete the merge:
+   ```bash
+   git add .
+   git commit
+   ```
+
+---
+
 ## Architecture & Credits
 
 - **Core Engine:** Built on a custom fork of [OpenSCAD](https://openscad.org/) (source included in the `openscad/` directory).
