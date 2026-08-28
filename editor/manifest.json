@@ -16,14 +16,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": [
-        "preview.html",
-        "index.html",
-        "*.js",
-        "*.css",
-        "*.wasm",
-        "assets/*"
-      ],
+      "resources": ["preview.html", "*.js", "*.css", "*.wasm", "assets/*"],
       "matches": ["https://aistudio.google.com/*"]
     }
   ]
