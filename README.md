@@ -327,6 +327,28 @@ Once connected, an AI assistant can use the server to execute the following loop
 
 ## Development
 
+### Building for WebAssembly
+
+If you modify the C++ code inside the `openscad/` directory, you will need to recompile the WebAssembly engine. The OpenSCAD subtree provides a convenient Docker wrapper to handle the Emscripten toolchain automatically. Ensure you have Docker installed and running.
+
+1. **Navigate to the `openscad` directory:**
+   ```bash
+   cd openscad
+   ```
+2. **Configure the build using the Docker script:**
+   ```bash
+   ./scripts/wasm-base-docker-run.sh emcmake cmake -B build-web -DCMAKE_BUILD_TYPE=Release -DEXPERIMENTAL=1
+   ```
+3. **Compile the WASM binaries:**
+   ```bash
+   ./scripts/wasm-base-docker-run.sh cmake --build build-web -j2
+   ```
+4. **Copy the compiled artifacts back to the JavaScript extension:**
+   ```bash
+   cp build-web/openscad.js ../src/ext/
+   cp build-web/openscad.wasm ../src/ext/
+   ```
+
 ### Updating the OpenSCAD Subtree
 
 This repository includes a custom fork of OpenSCAD in the `openscad/` subfolder using Git Subtree. If you need to pull upstream updates from the official OpenSCAD repository and merge them with our custom modifications, follow these steps:
