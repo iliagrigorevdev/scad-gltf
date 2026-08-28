@@ -2,7 +2,7 @@
   "name": "scad-gltf",
   "version": "0.1.0",
   "type": "module",
-  "main": "./src/openscad.js",
+  "main": "./src/ext/openscad.js",
   "bin": {
     "scad-convert": "./bin/scad-convert.js",
     "scad-serve": "./bin/scad-serve.js"

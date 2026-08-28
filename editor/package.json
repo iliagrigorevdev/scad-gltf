@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "openscad-gltf-wasm": "file:../",
+    "scad-gltf": "file:..",
     "three": "^0.185.1",
     "three-gpu-pathtracer": "^0.0.24"
   },

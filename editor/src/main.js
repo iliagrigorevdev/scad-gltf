@@ -1,6 +1,6 @@
-import { generatePrompt } from "openscad-gltf-wasm/prompt";
-import wasmUrl from "openscad-gltf-wasm/openscad.wasm?url";
-import { convertScadToGltf } from "openscad-gltf-wasm/convert";
+import { generatePrompt } from "scad-gltf/prompt";
+import wasmUrl from "scad-gltf/openscad.wasm?url";
+import { convertScadToGltf } from "scad-gltf/convert";
 import * as THREE from "three";
 import { WebGLPathTracer } from "three-gpu-pathtracer";
 import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";

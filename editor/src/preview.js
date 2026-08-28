@@ -1,5 +1,5 @@
-import { convertScadToGltf } from "openscad-gltf-wasm/convert";
-import wasmUrl from "openscad-gltf-wasm/openscad.wasm?url";
+import { convertScadToGltf } from "scad-gltf/convert";
+import wasmUrl from "scad-gltf/openscad.wasm?url";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";

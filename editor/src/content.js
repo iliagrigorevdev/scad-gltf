@@ -1,4 +1,4 @@
-import { generatePrompt } from "openscad-gltf-wasm/prompt";
+import { generatePrompt } from "scad-gltf/prompt";
 import {
   PROMPT_UI_HTML,
   setupPromptToggles,
