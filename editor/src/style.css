@@ -327,3 +327,21 @@ input[type="range"]::-webkit-slider-thumb {
 #drag-overlay.active {
   display: flex;
 }
+
+/* --- Footer Link --- */
+.footer-section {
+  margin-top: auto;
+  padding-top: 5px;
+  align-items: center;
+}
+
+.source-link {
+  color: #888;
+  text-decoration: none;
+  font-size: 12px;
+  transition: color 0.2s;
+}
+
+.source-link:hover {
+  color: #fff;
+}
