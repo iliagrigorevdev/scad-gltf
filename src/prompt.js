@@ -32,17 +32,13 @@ export function generatePrompt(description, options = {}) {
   let prompt = `Generate an OpenSCAD script to design the following: ${description}.`;
 
   prompt += `\n\nImportant Output Rules:
-- Export Target: The script will be compiled and exported as a GLB (glTF) file. This allows for node-based animations and extended PBR materials.
-- Scale & Units: glTF treat 1 OpenSCAD unit as 1 Meter. Design your objects using realistic meter-based scales (e.g., a character should be ~1.8 units tall). DO NOT use millimeter-based scaling.`;
+- Scale & Units: Design your objects using realistic meter-based scales.`;
 
   if (opts.modelName) {
     prompt += `\n- You MUST wrap your code in a standard Markdown code block using the \`\`\`openscad language tag.
 - Inside the code block, on the first line, include a block comment with a concise filename in snake_case (lowercase and underscores).
 - Use this exact format: /* Model Name: your_model_name_here */`;
   }
-
-  prompt += `\n- Coordinate System: Write standard OpenSCAD Z-up code (+Z is UP, XY plane is ground). DO NOT manually rotate or convert coordinates to match glTF's Y-up system; the GLB exporter handles the Z-up to Y-up conversion automatically. Build objects standing upright and facing Front (Positive Y-axis).
-- Left/Right Convention: Always name and position "left" and "right" components (e.g., LeftArm, RightEye) based on the object's anatomical point of view (facing Forward towards +Y), NOT the camera/viewer's screen perspective. Because the object faces +Y, the object's Left side is along the -X axis, and the object's Right side is along the +X axis.`;
 
   let attrs = [];
   if (opts.basic) attrs.push("'roughness'", "'metalness'");
