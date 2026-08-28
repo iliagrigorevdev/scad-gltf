@@ -353,8 +353,14 @@ shareBtn.onclick = async () => {
 
   try {
     if (navigator.share) {
+      const rawName = modelNameInputEl.value.trim();
+      // Convert snake_case or kebab-case to Title Case (e.g., "my_model" -> "My Model")
+      const displayTitle = rawName
+        ? rawName.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+        : "Scadify";
+
       await navigator.share({
-        title: modelNameInputEl.value.trim() || "Scadify",
+        title: displayTitle,
         url: finalUrl,
       });
       const originalText = shareBtn.innerText;
