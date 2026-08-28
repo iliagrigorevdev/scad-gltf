@@ -215,7 +215,7 @@ This repository includes an official **Godot 4.x Importer Addon** located in the
 The addon allows you to drag-and-drop `.scad` files directly into your Godot project. It uses this WASM compiler under the hood to transform scripts into 3D scenes automatically.
 
 - **Features:** Supports PBR Materials and Skeletal Animations inside the Godot Editor.
-- **License:** The Godot Addon is licensed under **MIT** (see the `/godot` folder for details).
+- **License:** The Godot Addon is licensed under **MIT**.
 - **Setup:** Simply copy the `addons/scad_importer` folder to your project and enable it in Project Settings.
 
 ---
