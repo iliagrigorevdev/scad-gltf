@@ -217,7 +217,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             new RoomEnvironment(),
             0.04,
           ).texture;
-          scene.add(new THREE.AmbientLight(0x404040, 0.5));
+
+          // Soft global ambient light
+          const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+          scene.add(ambientLight);
+
+          // Hemisphere light for natural sky/ground illumination
+          const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4);
+          hemiLight.position.set(0, 20, 0);
+          scene.add(hemiLight);
 
           const camera = new THREE.PerspectiveCamera(
             45,
@@ -227,13 +235,28 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           );
           scene.add(camera);
 
-          const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
-          keyLight.position.set(10, 10, 10);
-          scene.add(keyLight);
+          // 3-Point Lighting Rig attached to camera for consistent illumination from all angles
 
+          // Key Light (Main illumination from top-right)
+          const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+          keyLight.position.set(10, 10, 5);
+          camera.add(keyLight);
+          camera.add(keyLight.target);
+          keyLight.target.position.set(0, 0, -5);
+
+          // Fill Light (Softer light from bottom-left to reduce shadows)
           const fillLight = new THREE.DirectionalLight(0xd0e0ff, 0.6);
-          fillLight.position.set(-10, 5, -5);
-          scene.add(fillLight);
+          fillLight.position.set(-10, -2, 5);
+          camera.add(fillLight);
+          camera.add(fillLight.target);
+          fillLight.target.position.set(0, 0, -5);
+
+          // Rim Light (Highlight edges from behind the object)
+          const rimLight = new THREE.DirectionalLight(0xffeedd, 0.8);
+          rimLight.position.set(0, 10, -15);
+          camera.add(rimLight);
+          camera.add(rimLight.target);
+          rimLight.target.position.set(0, 0, -5);
 
           // Load the model from base64
           const loader = new GLTFLoader();
