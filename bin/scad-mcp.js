@@ -198,8 +198,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const { RoomEnvironment } =
             await import("three/addons/environments/RoomEnvironment.js");
 
-          const width = 800;
-          const height = 600;
+          const width = 512;
+          const height = 512;
           const renderer = new THREE.WebGLRenderer({
             antialias: true,
             alpha: false,
