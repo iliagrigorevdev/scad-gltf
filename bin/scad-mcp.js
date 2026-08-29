@@ -38,7 +38,7 @@ global.fetch = async (url, options) => {
 const server = new Server(
   {
     name: "scad-mcp-server",
-    version: "1.0.0",
+    version: "1.1.0",
   },
   {
     capabilities: {
@@ -69,13 +69,30 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "render_scad_model",
         description:
-          "Converts OpenSCAD code to GLTF and uses a 3D renderer to capture images from different camera angles (Front, Top, Isometric). Analyize these returned images to verify your design and make the next move.",
+          "Converts OpenSCAD code to GLTF and uses a 3D renderer to capture images from requested camera angles. Analyize these returned images to verify your design and make the next move.",
         inputSchema: {
           type: "object",
           properties: {
             scad_code: {
               type: "string",
               description: "The raw OpenSCAD code to convert and render.",
+            },
+            camera_angles: {
+              type: "array",
+              items: {
+                type: "string",
+                enum: [
+                  "front",
+                  "back",
+                  "left",
+                  "right",
+                  "top",
+                  "bottom",
+                  "isometric",
+                ],
+              },
+              description:
+                "Array of camera angles to render. Defaults to ['front', 'top', 'isometric']. Use this to inspect specific sides of your model.",
             },
           },
           required: ["scad_code"],
@@ -120,6 +137,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     let browser;
     try {
       const scadCode = args.scad_code;
+      const requestedAngles =
+        args.camera_angles && args.camera_angles.length > 0
+          ? args.camera_angles
+          : ["front", "top", "isometric"];
 
       // 1. Convert SCAD to GLB ArrayBuffer
       const glbDataArray = await convertScadToGltf(scadCode, {
@@ -157,95 +178,115 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       await page.goto(`data:text/html,${encodeURIComponent(html)}`);
 
       // 3. Inject rendering logic and return base64 snapshots
-      const snapshots = await page.evaluate(async (base64Glb) => {
-        const THREE = await import("three");
-        const { GLTFLoader } =
-          await import("three/addons/loaders/GLTFLoader.js");
-        const { RoomEnvironment } =
-          await import("three/addons/environments/RoomEnvironment.js");
+      const snapshots = await page.evaluate(
+        async (base64Glb, angles) => {
+          const THREE = await import("three");
+          const { GLTFLoader } =
+            await import("three/addons/loaders/GLTFLoader.js");
+          const { RoomEnvironment } =
+            await import("three/addons/environments/RoomEnvironment.js");
 
-        const width = 800;
-        const height = 600;
-        const renderer = new THREE.WebGLRenderer({
-          antialias: true,
-          alpha: false,
-          preserveDrawingBuffer: true,
-        });
-        renderer.setSize(width, height);
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        document.body.appendChild(renderer.domElement);
+          const width = 800;
+          const height = 600;
+          const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: false,
+            preserveDrawingBuffer: true,
+          });
+          renderer.setSize(width, height);
+          renderer.toneMapping = THREE.ACESFilmicToneMapping;
+          document.body.appendChild(renderer.domElement);
 
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x222222);
+          const scene = new THREE.Scene();
+          scene.background = new THREE.Color(0x222222);
 
-        const pmremGenerator = new THREE.PMREMGenerator(renderer);
-        scene.environment = pmremGenerator.fromScene(
-          new RoomEnvironment(),
-          0.04,
-        ).texture;
+          const pmremGenerator = new THREE.PMREMGenerator(renderer);
+          scene.environment = pmremGenerator.fromScene(
+            new RoomEnvironment(),
+            0.04,
+          ).texture;
+          scene.add(new THREE.AmbientLight(0x404040, 0.5));
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-        dirLight.position.set(10, 10, 10);
-        scene.add(dirLight);
-        scene.add(new THREE.AmbientLight(0x404040, 0.5));
-
-        const camera = new THREE.PerspectiveCamera(
-          45,
-          width / height,
-          0.1,
-          1000,
-        );
-
-        // Load the model from base64
-        const loader = new GLTFLoader();
-        const dataUrl = "data:application/octet-stream;base64," + base64Glb;
-        const gltf = await loader.loadAsync(dataUrl);
-        scene.add(gltf.scene);
-
-        // Calculate bounding box and fit camera
-        const box = new THREE.Box3().setFromObject(gltf.scene);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z) || 10;
-        const distance = maxDim * 2;
-
-        const angles = [
-          {
-            name: "Front",
-            position: [center.x, center.y, center.z + distance],
-          },
-          {
-            name: "Isometric",
-            position: [
-              center.x + distance,
-              center.y + distance,
-              center.z + distance,
-            ],
-          },
-          { name: "Top", position: [center.x, center.y + distance, center.z] },
-        ];
-
-        const results = [];
-        for (const angle of angles) {
-          camera.position.set(...angle.position);
-          camera.lookAt(center);
-
-          // Move light to roughly match camera for better visibility
-          dirLight.position.set(
-            camera.position.x,
-            camera.position.y + 10,
-            camera.position.z,
+          const camera = new THREE.PerspectiveCamera(
+            45,
+            width / height,
+            0.1,
+            1000,
           );
-          dirLight.lookAt(center);
+          // CRITICAL: Add camera to the scene so children lights move with it
+          scene.add(camera);
 
-          renderer.render(scene, camera);
+          // Light 1: Key light (Strong, placed over the camera's right shoulder)
+          const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+          keyLight.position.set(10, 10, 10);
+          camera.add(keyLight);
 
-          const b64 = renderer.domElement.toDataURL("image/png").split(",")[1];
-          results.push({ name: angle.name, data: b64 });
-        }
+          // Light 2: Fill light (Softer, slight blue tint, placed over the camera's left side)
+          const fillLight = new THREE.DirectionalLight(0xd0e0ff, 0.6);
+          fillLight.position.set(-10, 5, -5);
+          camera.add(fillLight);
 
-        return results;
-      }, glbBase64);
+          // Load the model from base64
+          const loader = new GLTFLoader();
+          const dataUrl = "data:application/octet-stream;base64," + base64Glb;
+          const gltf = await loader.loadAsync(dataUrl);
+          scene.add(gltf.scene);
+
+          // Calculate bounding box and fit camera
+          const box = new THREE.Box3().setFromObject(gltf.scene);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z) || 10;
+          const distance = maxDim * 2.5; // Scale distance dynamically
+
+          const results = [];
+          for (const angle of angles) {
+            let pos;
+            switch (angle.toLowerCase()) {
+              case "front":
+                pos = [center.x, center.y, center.z + distance];
+                break;
+              case "back":
+                pos = [center.x, center.y, center.z - distance];
+                break;
+              case "left":
+                pos = [center.x - distance, center.y, center.z];
+                break;
+              case "right":
+                pos = [center.x + distance, center.y, center.z];
+                break;
+              case "top":
+                pos = [center.x, center.y + distance, center.z];
+                break;
+              case "bottom":
+                pos = [center.x, center.y - distance, center.z];
+                break;
+              case "isometric":
+              default:
+                pos = [
+                  center.x + distance,
+                  center.y + distance,
+                  center.z + distance,
+                ];
+                break;
+            }
+
+            camera.position.set(...pos);
+            camera.lookAt(center);
+
+            renderer.render(scene, camera);
+
+            const b64 = renderer.domElement
+              .toDataURL("image/png")
+              .split(",")[1];
+            results.push({ name: angle, data: b64 });
+          }
+
+          return results;
+        },
+        glbBase64,
+        requestedAngles,
+      );
 
       // 4. Close browser
       await browser.close();
@@ -254,14 +295,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const content = [
         {
           type: "text",
-          text: `Successfully compiled SCAD and rendered ${snapshots.length} camera angles. Please analyze these visual results to determine your next adjustments.`,
+          text: `Successfully compiled SCAD and rendered ${snapshots.length} camera angle(s). Please analyze these visual results to determine your next adjustments.`,
         },
       ];
 
       for (const snap of snapshots) {
+        // Capitalize the first letter for presentation
+        const angleName =
+          snap.name.charAt(0).toUpperCase() + snap.name.slice(1);
         content.push({
           type: "text",
-          text: `${snap.name} View:`,
+          text: `${angleName} View:`,
         });
         content.push({
           type: "image",
