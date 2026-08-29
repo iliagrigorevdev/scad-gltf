@@ -5,7 +5,8 @@
   "main": "./src/ext/openscad.js",
   "bin": {
     "scad-convert": "./bin/scad-convert.js",
-    "scad-serve": "./bin/scad-serve.js"
+    "scad-serve": "./bin/scad-serve.js",
+    "scad-mcp": "./bin/scad-mcp.js"
   },
   "exports": {
     ".": "./src/ext/openscad.js",
@@ -16,7 +17,8 @@
     "./openscad.wasm": "./src/ext/openscad.wasm"
   },
   "scripts": {
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "mcp": "npx @modelcontextprotocol/inspector node ./bin/scad-mcp.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
