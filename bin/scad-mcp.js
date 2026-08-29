@@ -38,7 +38,7 @@ global.fetch = async (url, options) => {
 const server = new Server(
   {
     name: "scad-mcp-server",
-    version: "1.1.0",
+    version: "1.2.0",
   },
   {
     capabilities: {
@@ -69,7 +69,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "render_scad_model",
         description:
-          "Converts OpenSCAD code to GLTF and uses a 3D renderer to capture images from requested camera angles. Analyize these returned images to verify your design and make the next move.",
+          "Converts OpenSCAD code to GLTF and uses a 3D renderer to capture images from requested camera angles. Analyze these returned images to verify your design, including specific frames of your animations.",
         inputSchema: {
           type: "object",
           properties: {
@@ -93,6 +93,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               },
               description:
                 "Array of camera angles to render. Defaults to ['front', 'top', 'isometric']. Use this to inspect specific sides of your model.",
+            },
+            animation_time: {
+              type: "number",
+              description:
+                "The time in seconds to evaluate the animation at (e.g. 1.5). Default is 0.0. Useful for verifying moving parts.",
+            },
+            animation_index: {
+              type: "number",
+              description:
+                "The index of the animation track to play if multiple exist. Default is 0.",
             },
           },
           required: ["scad_code"],
@@ -141,6 +151,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         args.camera_angles && args.camera_angles.length > 0
           ? args.camera_angles
           : ["front", "top", "isometric"];
+      const animTime = args.animation_time || 0.0;
+      const animIndex = args.animation_index || 0;
 
       // 1. Convert SCAD to GLB ArrayBuffer
       const glbDataArray = await convertScadToGltf(scadCode, {
@@ -179,7 +191,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // 3. Inject rendering logic and return base64 snapshots
       const snapshots = await page.evaluate(
-        async (base64Glb, angles) => {
+        async (base64Glb, angles, targetAnimTime, targetAnimIndex) => {
           const THREE = await import("three");
           const { GLTFLoader } =
             await import("three/addons/loaders/GLTFLoader.js");
@@ -213,15 +225,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             0.1,
             1000,
           );
-          // CRITICAL: Add camera to the scene so children lights move with it
           scene.add(camera);
 
-          // Light 1: Key light (Strong, placed over the camera's right shoulder)
           const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
           keyLight.position.set(10, 10, 10);
           camera.add(keyLight);
 
-          // Light 2: Fill light (Softer, slight blue tint, placed over the camera's left side)
           const fillLight = new THREE.DirectionalLight(0xd0e0ff, 0.6);
           fillLight.position.set(-10, 5, -5);
           camera.add(fillLight);
@@ -232,12 +241,41 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const gltf = await loader.loadAsync(dataUrl);
           scene.add(gltf.scene);
 
+          // --- Apply Animation State if requested ---
+          let appliedAnim = false;
+          if (gltf.animations && gltf.animations.length > 0) {
+            const mixer = new THREE.AnimationMixer(gltf.scene);
+            // Clamp index to available animations
+            const clipIndex = Math.min(
+              Math.max(targetAnimIndex, 0),
+              gltf.animations.length - 1,
+            );
+            const clip = gltf.animations[clipIndex];
+
+            if (clip) {
+              const action = mixer.clipAction(clip);
+              action.play();
+              // Advance the mixer exactly to the requested time.
+              // If targetAnimTime > duration, modulo it so it loops naturally like a real animation.
+              const duration = clip.duration;
+              const finalTime = duration > 0 ? targetAnimTime % duration : 0;
+
+              mixer.setTime(finalTime);
+              appliedAnim = true;
+            }
+          }
+
+          // Wait for matrices to update properly after animation applied
+          scene.updateMatrixWorld(true);
+
           // Calculate bounding box and fit camera
+          // Note: Bounding box is calculated AFTER animation is applied,
+          // so it accounts for moved/extended geometry!
           const box = new THREE.Box3().setFromObject(gltf.scene);
           const center = box.getCenter(new THREE.Vector3());
           const size = box.getSize(new THREE.Vector3());
           const maxDim = Math.max(size.x, size.y, size.z) || 10;
-          const distance = maxDim * 2.5; // Scale distance dynamically
+          const distance = maxDim * 2.5;
 
           const results = [];
           for (const angle of angles) {
@@ -279,28 +317,33 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const b64 = renderer.domElement
               .toDataURL("image/png")
               .split(",")[1];
-            results.push({ name: angle, data: b64 });
+            results.push({ name: angle, data: b64, appliedAnim });
           }
 
           return results;
         },
         glbBase64,
         requestedAngles,
+        animTime,
+        animIndex,
       );
 
       // 4. Close browser
       await browser.close();
 
       // 5. Construct the MCP Response
+      const appliedAnimStr = snapshots[0].appliedAnim
+        ? ` at animation time ${animTime}s (Track ${animIndex})`
+        : ` (Static Model)`;
+
       const content = [
         {
           type: "text",
-          text: `Successfully compiled SCAD and rendered ${snapshots.length} camera angle(s). Please analyze these visual results to determine your next adjustments.`,
+          text: `Successfully compiled SCAD and rendered ${snapshots.length} camera angle(s)${appliedAnimStr}. Please analyze these visual results to determine your next adjustments.`,
         },
       ];
 
       for (const snap of snapshots) {
-        // Capitalize the first letter for presentation
         const angleName =
           snap.name.charAt(0).toUpperCase() + snap.name.slice(1);
         content.push({
