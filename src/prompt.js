@@ -31,11 +31,9 @@ export function generatePrompt(description, options = {}) {
 
   let prompt = `Generate an OpenSCAD script to design the following: ${description}.`;
 
-  prompt += `\n\nImportant Output Rules:
-- Scale & Units: Design your objects using realistic meter-based scales.`;
-
   if (opts.modelName) {
-    prompt += `\n- You MUST wrap your code in a standard Markdown code block using the \`\`\`openscad language tag.
+    prompt += `\n\nImportant Output Rules:
+- You MUST wrap your code in a standard Markdown code block using the \`\`\`openscad language tag.
 - Inside the code block, on the first line, include a block comment with a concise filename in snake_case (lowercase and underscores).
 - Use this exact format: /* Model Name: your_model_name_here */`;
   }
