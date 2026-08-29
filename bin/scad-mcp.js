@@ -268,49 +268,138 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           // Wait for matrices to update properly after animation applied
           scene.updateMatrixWorld(true);
 
-          // Calculate bounding box and fit camera
-          // Note: Bounding box is calculated AFTER animation is applied,
-          // so it accounts for moved/extended geometry!
+          // Calculate bounding box to find initial anchor center and scale
           const box = new THREE.Box3().setFromObject(gltf.scene);
+          if (box.isEmpty()) {
+            box.setFromCenterAndSize(
+              new THREE.Vector3(0, 0, 0),
+              new THREE.Vector3(1, 1, 1),
+            );
+          }
           const center = box.getCenter(new THREE.Vector3());
           const size = box.getSize(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z) || 10;
-          const distance = maxDim * 2.5;
+          const initialDim = Math.max(size.x, size.y, size.z) || 10;
+
+          // Extract all world-space vertices
+          const vertices = [];
+          const v3 = new THREE.Vector3();
+          gltf.scene.traverse((child) => {
+            if (
+              child.isMesh &&
+              child.geometry &&
+              child.geometry.attributes.position
+            ) {
+              const pos = child.geometry.attributes.position;
+              const matrix = child.matrixWorld;
+              for (let i = 0; i < pos.count; i++) {
+                v3.fromBufferAttribute(pos, i).applyMatrix4(matrix);
+                vertices.push(v3.x, v3.y, v3.z);
+              }
+            }
+          });
+
+          if (vertices.length === 0) {
+            vertices.push(center.x, center.y, center.z);
+          }
+
+          const fovY = (camera.fov * Math.PI) / 180;
+          const tanY = Math.tan(fovY / 2);
+          const tanX = tanY * camera.aspect;
 
           const results = [];
           for (const angle of angles) {
-            let pos;
+            const dir = new THREE.Vector3();
             switch (angle.toLowerCase()) {
               case "front":
-                pos = [center.x, center.y, center.z + distance];
+                dir.set(0, 0, 1);
                 break;
               case "back":
-                pos = [center.x, center.y, center.z - distance];
+                dir.set(0, 0, -1);
                 break;
               case "left":
-                pos = [center.x - distance, center.y, center.z];
+                dir.set(-1, 0, 0);
                 break;
               case "right":
-                pos = [center.x + distance, center.y, center.z];
+                dir.set(1, 0, 0);
                 break;
               case "top":
-                pos = [center.x, center.y + distance, center.z];
+                dir.set(0, 1, 0);
                 break;
               case "bottom":
-                pos = [center.x, center.y - distance, center.z];
+                dir.set(0, -1, 0);
                 break;
               case "isometric":
               default:
-                pos = [
-                  center.x + distance,
-                  center.y + distance,
-                  center.z + distance,
-                ];
+                dir.set(1, 1, 1).normalize();
                 break;
             }
 
-            camera.position.set(...pos);
-            camera.lookAt(center);
+            let viewCenter = center.clone();
+            let distance = initialDim * 2.5;
+
+            // Iterate to converge perspective NDC screen bounds to exact center and margin
+            for (let iter = 0; iter < 5; iter++) {
+              camera.position
+                .copy(viewCenter)
+                .add(dir.clone().multiplyScalar(distance));
+              camera.lookAt(viewCenter);
+              camera.updateMatrixWorld();
+              camera.matrixWorldInverse.copy(camera.matrixWorld).invert();
+
+              const pvMatrix = new THREE.Matrix4().multiplyMatrices(
+                camera.projectionMatrix,
+                camera.matrixWorldInverse,
+              );
+              const pme = pvMatrix.elements;
+
+              let minNdcX = Infinity,
+                maxNdcX = -Infinity;
+              let minNdcY = Infinity,
+                maxNdcY = -Infinity;
+
+              for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i];
+                const y = vertices[i + 1];
+                const z = vertices[i + 2];
+
+                const nx = x * pme[0] + y * pme[4] + z * pme[8] + pme[12];
+                const ny = x * pme[1] + y * pme[5] + z * pme[9] + pme[13];
+                const nw = x * pme[3] + y * pme[7] + z * pme[11] + pme[15];
+
+                if (nw > 0) {
+                  const ndcX = nx / nw;
+                  const ndcY = ny / nw;
+                  if (ndcX < minNdcX) minNdcX = ndcX;
+                  if (ndcX > maxNdcX) maxNdcX = ndcX;
+                  if (ndcY < minNdcY) minNdcY = ndcY;
+                  if (ndcY > maxNdcY) maxNdcY = ndcY;
+                }
+              }
+
+              if (minNdcX === Infinity) break;
+
+              const midNdcX = (minNdcX + maxNdcX) / 2;
+              const midNdcY = (minNdcY + maxNdcY) / 2;
+              const spanX = (maxNdcX - minNdcX) / 2;
+              const spanY = (maxNdcY - minNdcY) / 2;
+
+              const worldShift = new THREE.Vector3(
+                midNdcX * distance * tanX,
+                midNdcY * distance * tanY,
+                0,
+              ).applyQuaternion(camera.quaternion);
+
+              viewCenter.add(worldShift);
+              const maxSpan = Math.max(spanX, spanY);
+              distance = Math.max(distance * maxSpan * 1.08, camera.near + 0.1);
+            }
+
+            // Final render with converged camera setup
+            camera.position
+              .copy(viewCenter)
+              .add(dir.clone().multiplyScalar(distance));
+            camera.lookAt(viewCenter);
+            camera.updateMatrixWorld();
 
             renderer.render(scene, camera);
 
