@@ -229,11 +229,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
           const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
           keyLight.position.set(10, 10, 10);
-          camera.add(keyLight);
+          scene.add(keyLight);
 
           const fillLight = new THREE.DirectionalLight(0xd0e0ff, 0.6);
           fillLight.position.set(-10, 5, -5);
-          camera.add(fillLight);
+          scene.add(fillLight);
 
           // Load the model from base64
           const loader = new GLTFLoader();
