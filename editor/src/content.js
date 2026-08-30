@@ -24,15 +24,23 @@ const observer = new MutationObserver(() => {
   );
 
   codeBlocks.forEach((block) => {
-    if (block.hasAttribute("data-scad-injected")) return;
-    block.setAttribute("data-scad-injected", "true");
+    if (block.querySelector(".scad-preview-btn")) return;
 
     const btn = document.createElement("button");
-    btn.innerText = "👀 Preview 3D";
     btn.className = "scad-preview-btn";
-    btn.style.margin = "0 0 10px 15px";
+    btn.title = "Preview 3D";
+    btn.setAttribute("aria-label", "Preview 3D");
+    btn.innerHTML = `
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+      </svg>
+      <span>Preview 3D</span>
+    `;
 
     btn.onpointerdown = (e) => e.stopPropagation();
+    btn.onmousedown = (e) => e.stopPropagation();
 
     btn.onclick = (e) => {
       e.preventDefault();
@@ -44,11 +52,33 @@ const observer = new MutationObserver(() => {
       }
     };
 
-    const preElement = block.querySelector("pre");
-    if (preElement) {
-      preElement.parentNode.insertBefore(btn, preElement);
+    // Locate the header actions container near download, copy, and collapse icons
+    const existingActionBtn = block.querySelector(
+      'button[aria-label*="copy" i], button[aria-label*="download" i], button[aria-label*="collapse" i], button[mattooltip*="copy" i], button[mattooltip*="download" i], button[mattooltip*="collapse" i], button[title*="Copy" i], button[title*="Download" i]',
+    );
+
+    const actionsContainer =
+      existingActionBtn?.parentElement ||
+      block.querySelector(".actions") ||
+      block.querySelector(".header-actions") ||
+      block.querySelector(".action-buttons") ||
+      block.querySelector(".buttons") ||
+      block.querySelector(".header") ||
+      block.querySelector(".code-header");
+
+    if (actionsContainer) {
+      if (existingActionBtn) {
+        actionsContainer.insertBefore(btn, existingActionBtn);
+      } else {
+        actionsContainer.prepend(btn);
+      }
     } else {
-      block.appendChild(btn);
+      const preElement = block.querySelector("pre");
+      if (preElement) {
+        preElement.parentNode.insertBefore(btn, preElement);
+      } else {
+        block.appendChild(btn);
+      }
     }
   });
 });
