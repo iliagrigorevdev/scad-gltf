@@ -26,6 +26,7 @@ const exportGltfBtn = document.getElementById("export-gltf-btn");
 const captureImageBtn = document.getElementById("capture-image-btn");
 const shareBtn = document.getElementById("share-btn");
 const autoRenderCb = document.getElementById("auto-render-cb");
+const minifyShareCb = document.getElementById("minify-share-cb");
 
 const statusEl = document.getElementById("status");
 const viewerEl = document.getElementById("viewer");
@@ -333,15 +334,55 @@ async function decodeCode(hash) {
 }
 
 shareBtn.onclick = async () => {
-  const code = editorEl.value.trim();
+  let code = editorEl.value.trim();
+  const originalCode = code;
   const url = new URL(window.location.href);
   let finalUrl = "";
 
-  if (!code || (!isServerConnected && code === defaultScad.trim())) {
+  if (minifyShareCb && minifyShareCb.checked) {
+    let minified = "";
+    let inString = false;
+    let i = 0;
+    while (i < code.length) {
+      if (inString) {
+        minified += code[i];
+        if (code[i] === '"' && code[i - 1] !== "\\") inString = false;
+        i++;
+      } else {
+        if (code[i] === '"') {
+          inString = true;
+          minified += code[i];
+          i++;
+        } else if (code[i] === "/" && code[i + 1] === "/") {
+          i += 2;
+          while (i < code.length && code[i] !== "\n") i++;
+        } else if (code[i] === "/" && code[i + 1] === "*") {
+          i += 2;
+          while (i < code.length && !(code[i] === "*" && code[i + 1] === "/"))
+            i++;
+          i += 2;
+        } else if (/\s/.test(code[i])) {
+          if (
+            minified.length > 0 &&
+            !/\s/.test(minified[minified.length - 1])
+          ) {
+            minified += " ";
+          }
+          i++;
+        } else {
+          minified += code[i];
+          i++;
+        }
+      }
+    }
+    code = minified.trim();
+  }
+
+  if (!code || (!isServerConnected && originalCode === defaultScad.trim())) {
     finalUrl = url.origin + url.pathname + url.search;
   } else {
     try {
-      const hash = await encodeCode(editorEl.value);
+      const hash = await encodeCode(code);
       url.hash = hash;
       finalUrl = url.toString();
     } catch (err) {
