@@ -5,11 +5,16 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
+const viewerContainer = document.getElementById("viewer-container");
 const viewerEl = document.getElementById("viewer");
 const statusEl = document.getElementById("status");
 const filenameInput = document.getElementById("filename-input");
 const saveBtn = document.getElementById("save-btn");
 const openEditorBtn = document.getElementById("open-editor-btn");
+
+const showGridCb = document.getElementById("show-grid-cb");
+const wireframeCb = document.getElementById("wireframe-cb");
+const fullscreenBtn = document.getElementById("fullscreen-btn");
 
 let currentMesh = null;
 let latestScadCode = "";
@@ -54,9 +59,12 @@ scene.environment = pmremGenerator.fromScene(
 scene.environmentIntensity = 0.8;
 
 // Environment Helpers
+const lightGroup = new THREE.Group();
+scene.add(lightGroup);
+
 const floorGeo = new THREE.PlaneGeometry(2000, 2000);
 const floorMat = new THREE.MeshStandardMaterial({
-  color: 0x333333,
+  color: 0x222222,
   roughness: 0.8,
   metalness: 0.1,
 });
@@ -65,13 +73,61 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+const gridHelper = new THREE.GridHelper(2000, 100, 0x555555, 0x333333);
+gridHelper.material.transparent = true;
+gridHelper.material.opacity = 0.5;
+scene.add(gridHelper);
+
+const axesHelper = new THREE.AxesHelper(100);
+scene.add(axesHelper);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.width = 2048;
 dirLight.shadow.mapSize.height = 2048;
 dirLight.shadow.bias = -0.0005;
-scene.add(dirLight);
-scene.add(dirLight.target);
+lightGroup.add(dirLight);
+lightGroup.add(dirLight.target);
+
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+hemiLight.position.set(0, 20, 0);
+lightGroup.add(hemiLight);
+
+// --- Viewer Toggles Logic ---
+if (wireframeCb) {
+  wireframeCb.addEventListener("change", () => {
+    const isWireframe = wireframeCb.checked;
+    if (currentMesh) {
+      currentMesh.traverse((child) => {
+        if (child.isMesh && child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach((m) => {
+              m.wireframe = isWireframe;
+            });
+          } else {
+            child.material.wireframe = isWireframe;
+          }
+        }
+      });
+    }
+  });
+}
+
+if (fullscreenBtn && viewerContainer) {
+  fullscreenBtn.addEventListener("click", () => {
+    if (!document.fullscreenElement) {
+      viewerContainer.requestFullscreen().catch((err) => {
+        console.warn(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  });
+
+  document.addEventListener("fullscreenchange", () => {
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
+  });
+}
 
 let lastTime = performance.now();
 function animate() {
@@ -83,6 +139,10 @@ function animate() {
 
   if (mixer) mixer.update(delta);
   controls.update();
+
+  const showGrid = showGridCb ? showGridCb.checked : true;
+  gridHelper.visible = showGrid;
+  axesHelper.visible = showGrid;
 
   renderer.render(scene, camera);
 }
@@ -128,6 +188,7 @@ function renderGLTF(outputArray) {
       "",
       (gltf) => {
         currentMesh = gltf.scene;
+        const isWireframe = wireframeCb ? wireframeCb.checked : false;
 
         if (gltf.animations && gltf.animations.length > 0) {
           mixer = new THREE.AnimationMixer(currentMesh);
@@ -141,6 +202,16 @@ function renderGLTF(outputArray) {
             child.castShadow = true;
             child.receiveShadow = true;
             child.frustumCulled = false;
+
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach((m) => {
+                  m.wireframe = isWireframe;
+                });
+              } else {
+                child.material.wireframe = isWireframe;
+              }
+            }
           }
         });
 
@@ -166,6 +237,8 @@ function fitCamera() {
   const maxDim = Math.max(size.x, size.y, size.z) || 10;
 
   floor.position.y = worldBox.min.y - 0.01;
+  gridHelper.position.y = floor.position.y + 0.001;
+  axesHelper.position.y = floor.position.y + 0.002;
 
   const fov = camera.fov * (Math.PI / 180);
   let distance = maxDim / (2 * Math.tan(fov / 2));
@@ -198,6 +271,8 @@ function fitCamera() {
   dirLight.shadow.camera.near = 0.1;
   dirLight.shadow.camera.far = maxDim * 5;
   dirLight.shadow.camera.updateProjectionMatrix();
+
+  scene.fog = new THREE.Fog(0x222222, distance * 1.5, distance * 5);
 }
 
 async function fetchDependencies(code) {

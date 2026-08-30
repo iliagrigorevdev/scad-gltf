@@ -22,6 +22,46 @@ body {
   height: 100%;
 }
 
+#viewer-controls {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  display: flex;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 6px 12px;
+  border-radius: 6px;
+  z-index: 10;
+  align-items: center;
+  backdrop-filter: blur(4px);
+}
+#viewer-controls label {
+  color: white;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  margin: 0;
+}
+#fullscreen-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#fullscreen-btn:hover {
+  color: #00aaff;
+  background: transparent;
+}
+
 #status {
   position: absolute;
   bottom: 10px;
@@ -40,8 +80,8 @@ body {
 
 #save-ui {
   position: absolute;
-  top: 10px;
-  left: 10px;
+  top: 15px;
+  left: 15px;
   z-index: 10;
   display: flex;
   gap: 8px;

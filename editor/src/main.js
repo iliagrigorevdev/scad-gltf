@@ -30,6 +30,7 @@ const minifyShareCb = document.getElementById("minify-share-cb");
 
 const statusEl = document.getElementById("status");
 const viewerEl = document.getElementById("viewer");
+const rightPanel = document.getElementById("right-panel");
 
 const backendUrlEl = document.getElementById("backend-url");
 const backendConnectBtn = document.getElementById("backend-connect-btn");
@@ -43,6 +44,10 @@ const animPlayBtn = document.getElementById("anim-play-btn");
 const animSelect = document.getElementById("anim-select");
 const animSlider = document.getElementById("anim-slider");
 const promptUiContainer = document.getElementById("prompt-ui-container");
+
+const showGridCb = document.getElementById("show-grid-cb");
+const wireframeCb = document.getElementById("wireframe-cb");
+const fullscreenBtn = document.getElementById("fullscreen-btn");
 
 let currentSelectedModelIdx = "";
 let currentMesh = null;
@@ -772,7 +777,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 viewerEl.appendChild(renderer.domElement);
 
 const pathTracer = new WebGLPathTracer(renderer);
@@ -789,7 +794,6 @@ new HDRLoader().load(
   "./aristea_wreck_puresky_2k.hdr",
   (texture) => {
     texture.mapping = THREE.EquirectangularReflectionMapping;
-    scene.background = texture;
     scene.environment = texture;
     if (typeof pathTracer !== "undefined") {
       pathTracer.setScene(scene, camera);
@@ -803,11 +807,21 @@ new HDRLoader().load(
 const pathTracingCb = document.getElementById("path-tracing-cb");
 if (pathTracingCb) {
   pathTracingCb.addEventListener("change", () => {
-    if (pathTracingCb.checked && typeof pathTracer !== "undefined") {
+    const isPT = pathTracingCb.checked;
+    const showGrid = showGridCb ? showGridCb.checked : true;
+
+    if (typeof lightGroup !== "undefined") lightGroup.visible = !isPT;
+    if (typeof gridHelper !== "undefined")
+      gridHelper.visible = !isPT && showGrid;
+    if (typeof axesHelper !== "undefined")
+      axesHelper.visible = !isPT && showGrid;
+
+    if (isPT && typeof pathTracer !== "undefined") {
       pathTracer.setScene(scene, camera);
     }
   });
 }
+
 controls.enableDamping = true;
 controls.dampingFactor = 0.1;
 controls.maxDistance = 2000;
@@ -819,13 +833,20 @@ scene.environment = pmremGenerator.fromScene(
 ).texture;
 scene.environmentIntensity = 0.8;
 
+const lightGroup = new THREE.Group();
+scene.add(lightGroup);
+
 const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.width = 2048;
 dirLight.shadow.mapSize.height = 2048;
 dirLight.shadow.bias = -0.0005;
-scene.add(dirLight);
-scene.add(dirLight.target);
+lightGroup.add(dirLight);
+lightGroup.add(dirLight.target);
+
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+hemiLight.position.set(0, 20, 0);
+lightGroup.add(hemiLight);
 
 const floor = new THREE.Mesh(
   new THREE.PlaneGeometry(2000, 2000),
@@ -838,6 +859,51 @@ const floor = new THREE.Mesh(
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
+
+const gridHelper = new THREE.GridHelper(2000, 100, 0x555555, 0x333333);
+gridHelper.material.transparent = true;
+gridHelper.material.opacity = 0.5;
+scene.add(gridHelper);
+
+const axesHelper = new THREE.AxesHelper(100);
+scene.add(axesHelper);
+
+// --- Viewer Toggles Logic ---
+if (wireframeCb) {
+  wireframeCb.addEventListener("change", () => {
+    const isWireframe = wireframeCb.checked;
+    if (currentMesh) {
+      currentMesh.traverse((child) => {
+        if (child.isMesh && child.material) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach((m) => {
+              m.wireframe = isWireframe;
+            });
+          } else {
+            child.material.wireframe = isWireframe;
+          }
+        }
+      });
+    }
+  });
+}
+
+if (fullscreenBtn && rightPanel) {
+  fullscreenBtn.addEventListener("click", () => {
+    if (!document.fullscreenElement) {
+      rightPanel.requestFullscreen().catch((err) => {
+        console.warn(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  });
+
+  document.addEventListener("fullscreenchange", () => {
+    // Trigger resize after a tiny delay to ensure proper canvas layout
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
+  });
+}
 
 // --- Animation Controls ---
 function playAnimation(index) {
@@ -894,7 +960,6 @@ animSlider.addEventListener("input", (e) => {
     currentAction.time = parseFloat(e.target.value) * duration;
     if (mixer) {
       mixer.update(0);
-      const pathTracingCb = document.getElementById("path-tracing-cb");
       if (
         pathTracingCb &&
         pathTracingCb.checked &&
@@ -937,7 +1002,6 @@ function rebuildSceneFromGLTF(gltfData) {
       if (mixer && currentAction) {
         currentAction.time = 0;
         mixer.update(0);
-        const pathTracingCb = document.getElementById("path-tracing-cb");
         if (
           pathTracingCb &&
           pathTracingCb.checked &&
@@ -965,6 +1029,7 @@ function rebuildSceneFromGLTF(gltfData) {
       (gltf) => {
         currentMesh = gltf.scene;
         currentAnimations = gltf.animations || [];
+        const isWireframe = wireframeCb ? wireframeCb.checked : false;
 
         if (currentAnimations.length) {
           mixer = new THREE.AnimationMixer(currentMesh);
@@ -987,6 +1052,16 @@ function rebuildSceneFromGLTF(gltfData) {
             child.castShadow = true;
             child.receiveShadow = true;
             child.frustumCulled = false;
+
+            if (child.material) {
+              if (Array.isArray(child.material)) {
+                child.material.forEach((m) => {
+                  m.wireframe = isWireframe;
+                });
+              } else {
+                child.material.wireframe = isWireframe;
+              }
+            }
           }
         });
 
@@ -1030,6 +1105,8 @@ function fitCamera() {
   const maxDim = Math.max(size.x, size.y, size.z) || 10;
 
   floor.position.y = worldBox.min.y - 0.01;
+  gridHelper.position.y = floor.position.y + 0.001;
+  axesHelper.position.y = floor.position.y + 0.002;
 
   const fov = camera.fov * (Math.PI / 180);
   let distance = maxDim / (2 * Math.tan(fov / 2));
@@ -1063,10 +1140,15 @@ function fitCamera() {
   dirLight.shadow.camera.far = maxDim * 5;
   dirLight.shadow.camera.updateProjectionMatrix();
 
-  const pathTracingCb = document.getElementById("path-tracing-cb");
-  if (typeof lightGroup !== "undefined" && pathTracingCb) {
-    lightGroup.visible = !pathTracingCb.checked;
-  }
+  scene.fog = new THREE.Fog(0x222222, distance * 1.5, distance * 5);
+
+  const isPT = pathTracingCb && pathTracingCb.checked;
+  const showGrid = showGridCb ? showGridCb.checked : true;
+
+  if (typeof lightGroup !== "undefined") lightGroup.visible = !isPT;
+  if (typeof gridHelper !== "undefined") gridHelper.visible = !isPT && showGrid;
+  if (typeof axesHelper !== "undefined") axesHelper.visible = !isPT && showGrid;
+
   if (typeof pathTracer !== "undefined") {
     pathTracer.setScene(scene, camera);
   }
@@ -1081,7 +1163,6 @@ function animate() {
   lastTime = now;
 
   if (mixer) {
-    const pathTracingCb = document.getElementById("path-tracing-cb");
     if (!(pathTracingCb && pathTracingCb.checked)) {
       mixer.update(delta);
     }
@@ -1097,12 +1178,18 @@ function animate() {
   }
 
   controls.update();
-  const pathTracingCb = document.getElementById("path-tracing-cb");
-  if (pathTracingCb && pathTracingCb.checked) {
+  const isPT = pathTracingCb && pathTracingCb.checked;
+  const showGrid = showGridCb ? showGridCb.checked : true;
+
+  if (isPT) {
     if (typeof lightGroup !== "undefined") lightGroup.visible = false;
+    if (typeof gridHelper !== "undefined") gridHelper.visible = false;
+    if (typeof axesHelper !== "undefined") axesHelper.visible = false;
     if (typeof pathTracer !== "undefined") pathTracer.renderSample();
   } else {
     if (typeof lightGroup !== "undefined") lightGroup.visible = true;
+    if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
+    if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
     renderer.render(scene, camera);
   }
 
