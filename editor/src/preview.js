@@ -120,7 +120,9 @@ if (fullscreenBtn && viewerContainer) {
         console.warn(`Error attempting to enable fullscreen: ${err.message}`);
       });
     } else {
-      document.exitFullscreen();
+      document.exitFullscreen().catch((err) => {
+        console.warn(`Error attempting to exit fullscreen: ${err.message}`);
+      });
     }
   });
 
@@ -148,10 +150,13 @@ function animate() {
 }
 animate();
 
+// Ensure renderer resizes to the full container size
 window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const w = viewerContainer ? viewerContainer.clientWidth : window.innerWidth;
+  const h = viewerContainer ? viewerContainer.clientHeight : window.innerHeight;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(w, h);
 });
 
 // --- GLTF Parsing & Rendering Logic ---

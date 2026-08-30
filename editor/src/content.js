@@ -210,6 +210,12 @@ function openPreviewPanel(scadCode) {
   const iframe = document.createElement("iframe");
   iframe.src = chrome.runtime.getURL("preview.html");
 
+  // ✅ Grant fullscreen permissions to the iframe
+  iframe.allow = "fullscreen";
+  iframe.allowFullscreen = true;
+  iframe.setAttribute("allowfullscreen", "true");
+  iframe.setAttribute("allow", "fullscreen");
+
   container.appendChild(closeBtn);
   container.appendChild(iframe);
   document.body.appendChild(container);
