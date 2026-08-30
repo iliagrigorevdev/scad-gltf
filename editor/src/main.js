@@ -28,7 +28,6 @@ const shareBtn = document.getElementById("share-btn");
 const autoRenderCb = document.getElementById("auto-render-cb");
 const minifyShareCb = document.getElementById("minify-share-cb");
 
-const statusEl = document.getElementById("status");
 const viewerEl = document.getElementById("viewer");
 const rightPanel = document.getElementById("right-panel");
 
@@ -151,7 +150,6 @@ async function compileAndRender(scadCode) {
 
   if (scadCode.trim() === "") {
     clearCurrentMesh();
-    statusEl.innerText = "Waiting for code...";
     return;
   }
 
@@ -168,7 +166,6 @@ async function compileAndRender(scadCode) {
   }
 
   isCompiling = true;
-  statusEl.innerText = "Compiling & Processing...";
 
   try {
     const additionalFiles = await fetchDependencies(scadCode);
@@ -179,12 +176,9 @@ async function compileAndRender(scadCode) {
 
     currentGltfData = await convertScadToGltf(scadCode, opts);
 
-    statusEl.innerText = "Building Scene...";
     await rebuildSceneFromGLTF(currentGltfData);
-    statusEl.innerText = "Rendering";
   } catch (e) {
     console.error(e);
-    statusEl.innerText = "Compilation Error";
   } finally {
     isCompiling = false;
     if (pendingCode !== null) {
@@ -202,10 +196,8 @@ editorEl.addEventListener("input", () => {
   checkChanges();
   clearTimeout(renderTimeout);
   if (!autoRenderCb.checked) {
-    statusEl.innerText = "Changes pending (click Render)";
     return;
   }
-  statusEl.innerText = "Waiting to compile...";
   renderTimeout = setTimeout(() => {
     compileAndRender(getEditorContent());
   }, 800);
@@ -621,7 +613,6 @@ backendSelectEl.addEventListener("change", async () => {
     modelNameInputEl.value = filename.replace(/\.scad$/i, "");
 
     try {
-      statusEl.innerText = "Loading from server...";
       const res = await fetch(
         `${currentBackendUrl}/api/scads/${encodeURIComponent(filename)}`,
       );
@@ -918,8 +909,6 @@ function playAnimation(index) {
   currentAction.paused = false;
   animPlayBtn.innerText = "⏸ Pause";
   animSlider.value = 0;
-  if (statusEl)
-    statusEl.innerText = `Playing: ${clip.name || `Animation ${index + 1}`}`;
 }
 
 animSelect.addEventListener("change", (e) => {

@@ -334,19 +334,6 @@ input[type="range"]::-webkit-slider-thumb {
   background: transparent;
 }
 
-#status {
-  position: absolute;
-  bottom: 15px;
-  left: 15px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  pointer-events: none;
-  z-index: 10;
-}
-
 #drag-overlay {
   display: none;
   position: fixed;

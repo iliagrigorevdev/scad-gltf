@@ -7,7 +7,6 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 
 const viewerContainer = document.getElementById("viewer-container");
 const viewerEl = document.getElementById("viewer");
-const statusEl = document.getElementById("status");
 const filenameInput = document.getElementById("filename-input");
 const saveBtn = document.getElementById("save-btn");
 const openEditorBtn = document.getElementById("open-editor-btn");
@@ -333,7 +332,6 @@ async function compileAndRender(scadCode) {
     return;
   }
   isCompiling = true;
-  statusEl.innerText = "Compiling WASM...";
 
   try {
     const additionalFiles = await fetchDependencies(scadCode);
@@ -342,13 +340,9 @@ async function compileAndRender(scadCode) {
       additionalFiles,
     });
 
-    statusEl.innerText = "Loading Scene...";
     await renderGLTF(gltfData);
-
-    statusEl.textContent = "";
   } catch (e) {
     console.error(e);
-    statusEl.innerText = "Compilation Error";
   } finally {
     isCompiling = false;
     if (pendingCode !== null) {
