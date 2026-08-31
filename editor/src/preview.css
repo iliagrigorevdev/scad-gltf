@@ -25,11 +25,11 @@ body {
 #viewer-controls {
   position: absolute;
   top: 15px;
-  right: 15px;
+  right: 40px; /* Leaves clearance for the close button */
   display: flex;
-  gap: 12px;
+  gap: 8px;
   background: rgba(0, 0, 0, 0.6);
-  padding: 6px 12px;
+  padding: 6px;
   border-radius: 6px;
   z-index: 10;
   align-items: center;
@@ -52,11 +52,16 @@ body {
   color: white;
   font-size: 16px;
   cursor: pointer;
-  padding: 0 4px;
   height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+#fullscreen-btn {
+  padding: 0 4px;
+}
+#screenshot-btn {
+  padding: 0 4px 6px;
 }
 #fullscreen-btn:hover,
 #screenshot-btn:hover {
@@ -84,6 +89,7 @@ body {
   border-radius: 4px;
   outline: none;
   font-family: monospace;
+  width: 160px;
 }
 
 #filename-input:focus {
