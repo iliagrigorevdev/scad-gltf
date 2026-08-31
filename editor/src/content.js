@@ -8,11 +8,50 @@ import {
 console.log("🚀 SCAD Preview Extension loaded!");
 
 window.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "CLOSE_PREVIEW") {
-    const container = document.getElementById("scad-preview-iframe");
-    if (container) container.remove();
+  if (event.data) {
+    if (event.data.type === "CLOSE_PREVIEW") {
+      const container = document.getElementById("scad-preview-iframe");
+      if (container) container.remove();
+    } else if (event.data.type === "ADD_IMAGE_TO_CHAT") {
+      addImageToChat(event.data.dataUrl);
+    }
   }
 });
+
+async function addImageToChat(dataUrl) {
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], "preview.png", { type: "image/png" });
+
+    // Target the exact AI Studio text area
+    const chatInput =
+      document.querySelector(
+        'ms-prompt-box textarea[formcontrolname="promptText"]',
+      ) ||
+      document.querySelector("ms-prompt-box textarea") ||
+      document.querySelector("textarea");
+
+    if (chatInput) {
+      chatInput.focus();
+
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+
+      const pasteEvent = new ClipboardEvent("paste", {
+        clipboardData: dataTransfer,
+        bubbles: true,
+        cancelable: true,
+      });
+
+      chatInput.dispatchEvent(pasteEvent);
+    } else {
+      console.warn("Could not find chat input to paste the image.");
+    }
+  } catch (err) {
+    console.error("Error adding image to chat:", err);
+  }
+}
 
 // Watch the DOM for AI-generated code blocks and UI changes
 const observer = new MutationObserver(() => {

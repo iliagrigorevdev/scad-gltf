@@ -14,12 +14,14 @@ const openEditorBtn = document.getElementById("open-editor-btn");
 const showGridCb = document.getElementById("show-grid-cb");
 const wireframeCb = document.getElementById("wireframe-cb");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
+const screenshotBtn = document.getElementById("screenshot-btn");
 
 let currentMesh = null;
 let latestScadCode = "";
 let isCompiling = false;
 let pendingCode = null;
 let mixer = null;
+let captureNextFrame = false;
 
 // --- Setup Three.js Scene ---
 const scene = new THREE.Scene();
@@ -130,6 +132,17 @@ if (fullscreenBtn && viewerContainer) {
   });
 }
 
+if (screenshotBtn) {
+  screenshotBtn.addEventListener("click", () => {
+    captureNextFrame = true;
+    const originalText = screenshotBtn.innerText;
+    screenshotBtn.innerText = "✅";
+    setTimeout(() => {
+      screenshotBtn.innerText = originalText;
+    }, 1000);
+  });
+}
+
 let lastTime = performance.now();
 function animate() {
   requestAnimationFrame(animate);
@@ -146,6 +159,12 @@ function animate() {
   axesHelper.visible = showGrid;
 
   renderer.render(scene, camera);
+
+  if (captureNextFrame) {
+    captureNextFrame = false;
+    const dataUrl = renderer.domElement.toDataURL("image/png");
+    window.parent.postMessage({ type: "ADD_IMAGE_TO_CHAT", dataUrl }, "*");
+  }
 }
 animate();
 

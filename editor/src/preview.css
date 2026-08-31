@@ -45,7 +45,8 @@ body {
   user-select: none;
   margin: 0;
 }
-#fullscreen-btn {
+#fullscreen-btn,
+#screenshot-btn {
   background: transparent;
   border: none;
   color: white;
@@ -57,7 +58,8 @@ body {
   align-items: center;
   justify-content: center;
 }
-#fullscreen-btn:hover {
+#fullscreen-btn:hover,
+#screenshot-btn:hover {
   color: #00aaff;
   background: transparent;
 }
