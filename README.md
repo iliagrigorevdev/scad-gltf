@@ -20,6 +20,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **LLM Friendly:** Includes a built-in prompt generator (`prompt.js`) to help AI models (like Gemini or Claude) write compatible OpenSCAD scripts utilizing the new features.
 - **Local API Server & Editor:** Bundled `scad-serve` CLI utility to manage local `.scad` files remotely via REST API. It also serves a built-in Web Editor UI.
 - **CLI Converter:** Bundled `scad-convert` CLI utility for batch compiling `.scad` files with smart dependency hashing.
+- **MCP Server for AI Agents:** Bundled `scad-mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering.
 - **AI Studio Extension:** Includes a Chrome extension to natively preview, prompt, and locally save AI-generated 3D models directly inside Google AI Studio.
 
 ---
@@ -29,7 +30,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 This package is designed to be installed directly from GitHub.
 
 **Option 1: Global Installation (Recommended for CLI usage)**
-If you plan to use the `scad-convert` or `scad-serve` command-line tools anywhere on your system:
+If you plan to use the `scad-convert`, `scad-serve`, or `scad-mcp` command-line tools anywhere on your system:
 
 ```bash
 npm install -g github:iliagrigorevdev/scad-gltf
@@ -232,6 +233,36 @@ Since this extension is actively being developed alongside the engine, it can be
 1. Open [Google AI Studio](https://aistudio.google.com/).
 2. You will notice a new **"✨ SCAD"** button floating in the bottom-left corner. Click it to configure the engine features you want the AI to use and generate the system prompt context.
 3. Once the AI generates standard OpenSCAD code block formatting, an **"👀 Preview 3D"** button will appear above the code. Click it to render a high-quality GLTF preview window immediately in the browser.
+
+---
+
+## 🤖 Model Context Protocol (MCP) Server
+
+This package includes a native [MCP Server](https://modelcontextprotocol.io/) (`scad-mcp`) designed to give AI assistants **visual feedback** during the 3D modeling process.
+
+Instead of generating code blindly, the AI can compile its script, render the 3D scene in a headless browser (Puppeteer + Three.js), and evaluate multi-angle snapshots to iteratively fix geometric or animation errors.
+
+**Exposed MCP Tools:**
+
+- `get_scad_prompt`: Injects the custom OpenSCAD syntax rules (PBR, animations, baking) into the AI's context.
+- `render_scad_model`: Compiles the generated `.scad` code to GLB and returns base64 images from requested camera angles (front, back, left, right, top, bottom, isometric) and specific animation keyframes.
+
+### Setup
+
+If you installed the package globally, you can configure your MCP client to use the `scad-mcp` command directly.
+
+**Example `config.json`:**
+
+```json
+{
+  "mcpServers": {
+    "scad-mcp": {
+      "command": "scad-mcp",
+      "args": []
+    }
+  }
+}
+```
 
 ---
 
