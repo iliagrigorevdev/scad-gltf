@@ -362,6 +362,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
             // Iterate to converge perspective NDC screen bounds to exact center and margin
             for (let iter = 0; iter < 5; iter++) {
+              camera.near = Math.max(0.01, initialDim * 0.01);
+              camera.far = Math.max(1000, distance * 10);
+              camera.updateProjectionMatrix();
+
               camera.position
                 .copy(viewCenter)
                 .add(dir.clone().multiplyScalar(distance));
@@ -416,6 +420,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
               const maxSpan = Math.max(spanX, spanY);
               distance = Math.max(distance * maxSpan * 1.08, camera.near + 0.1);
             }
+
+            camera.near = Math.max(0.01, initialDim * 0.01);
+            camera.far = Math.max(1000, distance * 10);
+            camera.updateProjectionMatrix();
 
             // Final render with converged camera setup
             camera.position

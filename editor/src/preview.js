@@ -269,6 +269,12 @@ function fitCamera() {
 
   distance *= 1.5;
 
+  camera.near = Math.max(0.01, maxDim * 0.01);
+  camera.far = Math.max(2000, distance * 10);
+  camera.updateProjectionMatrix();
+
+  controls.maxDistance = camera.far;
+
   camera.position.set(
     center.x + distance * 0.8,
     center.y + distance * 0.8,
