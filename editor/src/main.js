@@ -280,9 +280,9 @@ captureImageBtn.onclick = () => {
       currentAction.time = 0;
       if (mixer) mixer.update(0);
 
-      // Fixed 1280x720 HD canvas for recording
-      const targetW = 1280;
-      const targetH = 720;
+      // Fixed 512x512 canvas for recording
+      const targetW = 512;
+      const targetH = 512;
 
       // Force WebGL render at exact target resolution to prevent stretching
       camera.aspect = targetW / targetH;
@@ -329,7 +329,7 @@ captureImageBtn.onclick = () => {
       mediaRecorder = new MediaRecorder(stream, options);
       recordedChunks = [];
 
-      // Continuously draw from the threejs canvas to the recording canvas at fixed 1280x720
+      // Continuously draw from the threejs canvas to the recording canvas at fixed 512x512
       const drawInterval = setInterval(() => {
         if (isRecording) {
           recordCtx.drawImage(srcCanvas, 0, 0, targetW, targetH);
