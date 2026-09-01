@@ -410,6 +410,10 @@ captureImageBtn.onclick = () => {
           if (mixer) {
             mixer.update(0);
           }
+          if (typeof floor !== "undefined") floor.visible = false;
+          if (typeof lightGroup !== "undefined") lightGroup.visible = false;
+          if (typeof gridHelper !== "undefined") gridHelper.visible = false;
+          if (typeof axesHelper !== "undefined") axesHelper.visible = false;
           pathTracer.setScene(scene, camera);
 
           const waitForSamples = () => {
@@ -474,6 +478,7 @@ captureImageBtn.onclick = () => {
 
         // Force render first frame after resize so it's not black
         const showGrid = showGridCb ? showGridCb.checked : true;
+        if (typeof floor !== "undefined") floor.visible = true;
         if (typeof lightGroup !== "undefined") lightGroup.visible = true;
         if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
         if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
@@ -1041,6 +1046,15 @@ new HDRLoader().load(
   (texture) => {
     texture.mapping = THREE.EquirectangularReflectionMapping;
     scene.environment = texture;
+    const isPT = pathTracingCb && pathTracingCb.checked;
+    const showGrid = showGridCb ? showGridCb.checked : true;
+    if (typeof floor !== "undefined") floor.visible = !isPT;
+    if (typeof lightGroup !== "undefined") lightGroup.visible = !isPT;
+    if (typeof gridHelper !== "undefined")
+      gridHelper.visible = !isPT && showGrid;
+    if (typeof axesHelper !== "undefined")
+      axesHelper.visible = !isPT && showGrid;
+
     if (typeof pathTracer !== "undefined") {
       pathTracer.setScene(scene, camera);
       pathTracer.updateCamera();
@@ -1056,6 +1070,7 @@ if (pathTracingCb) {
     const isPT = pathTracingCb.checked;
     const showGrid = showGridCb ? showGridCb.checked : true;
 
+    if (typeof floor !== "undefined") floor.visible = !isPT;
     if (typeof lightGroup !== "undefined") lightGroup.visible = !isPT;
     if (typeof gridHelper !== "undefined")
       gridHelper.visible = !isPT && showGrid;
@@ -1222,6 +1237,10 @@ animSlider.addEventListener("input", (e) => {
         pathTracingCb.checked &&
         typeof pathTracer !== "undefined"
       ) {
+        if (typeof floor !== "undefined") floor.visible = false;
+        if (typeof lightGroup !== "undefined") lightGroup.visible = false;
+        if (typeof gridHelper !== "undefined") gridHelper.visible = false;
+        if (typeof axesHelper !== "undefined") axesHelper.visible = false;
         pathTracer.setScene(scene, camera);
       }
     }
@@ -1269,6 +1288,10 @@ function rebuildSceneFromGLTF(gltfData) {
           pathTracingCb.checked &&
           typeof pathTracer !== "undefined"
         ) {
+          if (typeof floor !== "undefined") floor.visible = false;
+          if (typeof lightGroup !== "undefined") lightGroup.visible = false;
+          if (typeof gridHelper !== "undefined") gridHelper.visible = false;
+          if (typeof axesHelper !== "undefined") axesHelper.visible = false;
           pathTracer.setScene(scene, camera);
         }
       }
@@ -1347,6 +1370,15 @@ function rebuildSceneFromGLTF(gltfData) {
         if (geometryChanged) {
           if (typeof fitCamera === "function") fitCamera();
         } else {
+          const isPT = pathTracingCb && pathTracingCb.checked;
+          const showGrid = showGridCb ? showGridCb.checked : true;
+          if (typeof floor !== "undefined") floor.visible = !isPT;
+          if (typeof lightGroup !== "undefined") lightGroup.visible = !isPT;
+          if (typeof gridHelper !== "undefined")
+            gridHelper.visible = !isPT && showGrid;
+          if (typeof axesHelper !== "undefined")
+            axesHelper.visible = !isPT && showGrid;
+
           if (typeof pathTracer !== "undefined") {
             pathTracer.setScene(scene, camera);
           }
@@ -1414,6 +1446,7 @@ function fitCamera() {
   const isPT = pathTracingCb && pathTracingCb.checked;
   const showGrid = showGridCb ? showGridCb.checked : true;
 
+  if (typeof floor !== "undefined") floor.visible = !isPT;
   if (typeof lightGroup !== "undefined") lightGroup.visible = !isPT;
   if (typeof gridHelper !== "undefined") gridHelper.visible = !isPT && showGrid;
   if (typeof axesHelper !== "undefined") axesHelper.visible = !isPT && showGrid;
@@ -1451,6 +1484,7 @@ function animate() {
   const showGrid = showGridCb ? showGridCb.checked : true;
 
   if (isPT) {
+    if (typeof floor !== "undefined") floor.visible = false;
     if (typeof lightGroup !== "undefined") lightGroup.visible = false;
     if (typeof gridHelper !== "undefined") gridHelper.visible = false;
     if (typeof axesHelper !== "undefined") axesHelper.visible = false;
@@ -1458,6 +1492,7 @@ function animate() {
     if (typeof pathTracer !== "undefined" && !isRecording)
       pathTracer.renderSample();
   } else {
+    if (typeof floor !== "undefined") floor.visible = true;
     if (typeof lightGroup !== "undefined") lightGroup.visible = true;
     if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
     if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
