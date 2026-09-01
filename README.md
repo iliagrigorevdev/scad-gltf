@@ -17,11 +17,30 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **Skeletal Animation:** Define animated armatures and bones directly within your `.scad` files.
 - **True Skeletal Skinning:** Exports absolute world transforms and properly bound animation tracks.
 - **Texture Baking:** Automatically generate UVs and bake high-poly details (colors, normals, ORM) onto low-poly meshes using the new `bake()` module.
-- **LLM Friendly:** Includes a built-in prompt generator (`prompt.js`) to help AI models (like Gemini or Claude) write compatible OpenSCAD scripts utilizing the new features.
-- **Local API Server & Editor:** Bundled `scad-serve` CLI utility to manage local `.scad` files remotely via REST API. It also serves a built-in Web Editor UI.
+- **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, video/image export, URL sharing, and drag-and-drop.
+- **LLM Friendly:** Includes a built-in prompt generator (`prompt.js` and Web UI) to help AI models (like Gemini, Claude, or ChatGPT) write compatible OpenSCAD scripts utilizing the new features.
+- **Local API Server & Editor:** Bundled `scad-serve` CLI utility to manage local `.scad` files remotely via REST API with automatic `include`/`use` dependency resolution.
 - **CLI Converter:** Bundled `scad-convert` CLI utility for batch compiling `.scad` files with smart dependency hashing.
 - **MCP Server for AI Agents:** Bundled `scad-mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering.
 - **AI Studio Extension:** Includes a Chrome extension to natively preview, prompt, and locally save AI-generated 3D models directly inside Google AI Studio.
+
+---
+
+## ✨ Scadify Web Editor
+
+The built-in web editor (**Scadify**) provides a full-featured development environment running entirely in the browser via WebAssembly:
+
+- **Real-Time 3D Viewport:** Instant WebAssembly compilation with auto-rendering, camera auto-framing, wireframe view, grid/axes toggles, and full-screen mode.
+- **Photorealistic GPU Path Tracing:** Built-in hardware-accelerated path tracer with HDR environment lighting for realistic reflections, shadows, and glass refraction.
+- **Interactive Animation Controls:** Full animation clip playback, pause, and smooth timeline scrubbing for skeletal rigs.
+- **Image & Video Capture:**
+  - **📷 PNG Snapshots:** Export high-resolution renders with a single click.
+  - **🎥 Video Recording:** Record animation loops directly to MP4/WebM. When Path Tracing is enabled, frames are rendered deterministically for jitter-free, ultra-high-quality animated video captures.
+- **Compressed URL Sharing:** Share your designs instantly via URL hash using client-side raw Deflate compression with an optional **Minify Share** toggle to strip comments and whitespace. Integrates with the Web Share API on supported devices.
+- **Drag and Drop:** Drop any `.scad` file directly onto the viewer to load and render immediately.
+- **Automatic Model Naming:** Extracts model names automatically from `/* Model Name: ... */` header comments for file downloads and exports.
+- **Local Workspace Sync:** Connect to `scad-serve` on localhost to load, edit, save, and delete `.scad` files with change detection and recursive dependency resolution (`include` / `use`).
+- **PWA Support:** Installable as a Progressive Web App for desktop and mobile.
 
 ---
 
@@ -69,7 +88,7 @@ global.fetch = async (url) => {
   const buffer = fs.readFileSync(normalizedPath);
   return new Response(buffer, {
     status: 200,
-    headers: { "Content-Type": "application/wasm" }
+    headers: { "Content-Type": "application/wasm" },
   });
 };
 
@@ -82,7 +101,7 @@ async function buildModel() {
   try {
     // 3. Compile SCAD to a GLB Uint8Array
     const glbData = await convertScadToGltf(scadCode, {
-      wasmUrl: \`file://\${wasmPath}\`
+      wasmUrl: `file://${wasmPath}`,
     });
 
     // Save to disk (or send to a client, load into Three.js, etc.)
