@@ -338,7 +338,7 @@ captureImageBtn.onclick = () => {
         isRecording = true;
         updateCaptureButtonState();
 
-        const ptSamplesTarget = 20; // minimal samples amount
+        const ptSamplesTarget = 30; // Increased slightly for better quality and stability
         const fps = 30;
         const duration = currentAction.getClip().duration;
         const totalFrames = Math.ceil(duration * fps);
@@ -417,6 +417,18 @@ captureImageBtn.onclick = () => {
               renderNextFrame(); // break loop and proceed to encode what we have
               return;
             }
+
+            // Advance the path tracer deterministically instead of via animate()
+            let samplesThisFrame = 0;
+            const maxSamplesPerFrame = 5; // Keeps UI somewhat responsive
+            while (
+              pathTracer.samples < ptSamplesTarget &&
+              samplesThisFrame < maxSamplesPerFrame
+            ) {
+              pathTracer.renderSample();
+              samplesThisFrame++;
+            }
+
             if (pathTracer.samples >= ptSamplesTarget) {
               const frameCanvas = document.createElement("canvas");
               frameCanvas.width = targetW;
@@ -1442,7 +1454,9 @@ function animate() {
     if (typeof lightGroup !== "undefined") lightGroup.visible = false;
     if (typeof gridHelper !== "undefined") gridHelper.visible = false;
     if (typeof axesHelper !== "undefined") axesHelper.visible = false;
-    if (typeof pathTracer !== "undefined") pathTracer.renderSample();
+    // Prevent random sampling from main loop during strict capture to fix camera jitter
+    if (typeof pathTracer !== "undefined" && !isRecording)
+      pathTracer.renderSample();
   } else {
     if (typeof lightGroup !== "undefined") lightGroup.visible = true;
     if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
