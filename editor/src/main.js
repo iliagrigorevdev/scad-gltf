@@ -1133,6 +1133,14 @@ if (fullscreenBtn && rightPanel) {
 }
 
 // --- Animation Controls ---
+function pauseAnimation() {
+  if (!currentAction) return;
+  isPlaying = false;
+  currentAction.paused = true;
+  animPlayBtn.innerText = "▶ Play";
+  updateCaptureButtonState();
+}
+
 function playAnimation(index) {
   if (!mixer || !currentAnimations[index]) return;
   if (currentAction) {
@@ -1162,6 +1170,7 @@ animPlayBtn.addEventListener("click", () => {
 
 animSlider.addEventListener("mousedown", () => {
   isDraggingSlider = true;
+  pauseAnimation();
 });
 animSlider.addEventListener("mouseup", () => {
   isDraggingSlider = false;
@@ -1170,6 +1179,7 @@ animSlider.addEventListener(
   "touchstart",
   () => {
     isDraggingSlider = true;
+    pauseAnimation();
   },
   { passive: true },
 );
@@ -1182,6 +1192,7 @@ animSlider.addEventListener(
 );
 
 animSlider.addEventListener("input", (e) => {
+  pauseAnimation();
   if (currentAction) {
     const duration = currentAction.getClip().duration;
     currentAction.time = parseFloat(e.target.value) * duration;
