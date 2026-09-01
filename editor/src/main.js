@@ -57,6 +57,11 @@ let pendingCode = null;
 let mixer = null;
 let captureNextFrame = false;
 
+// Video Capture State
+let isRecording = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+
 // Track connection and state
 let isServerConnected = false;
 let currentModelOriginalState = {
@@ -253,8 +258,71 @@ exportGltfBtn.onclick = () => {
   );
 };
 
+function updateCaptureButtonState() {
+  if (isRecording) {
+    captureImageBtn.innerText = "🔴 Rec...";
+    captureImageBtn.disabled = true;
+  } else if (currentAction && isPlaying) {
+    captureImageBtn.innerText = "🎥 Video";
+    captureImageBtn.disabled = false;
+  } else {
+    captureImageBtn.innerText = "📷 Image";
+    captureImageBtn.disabled = false;
+  }
+}
+
 captureImageBtn.onclick = () => {
-  captureNextFrame = true;
+  if (isRecording) return;
+
+  if (currentAction && isPlaying) {
+    if (typeof MediaRecorder !== "undefined") {
+      // Reset animation to the beginning
+      currentAction.time = 0;
+      if (mixer) mixer.update(0);
+
+      const stream = renderer.domElement.captureStream(30);
+      let options = { mimeType: "video/webm;codecs=vp9" };
+
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options = { mimeType: "video/webm;codecs=vp8" };
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          options = { mimeType: "video/webm" };
+        }
+      }
+
+      mediaRecorder = new MediaRecorder(stream, options);
+      recordedChunks = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, {
+          type: options.mimeType.split(";")[0],
+        });
+        downloadBlob(blob, `${getDownloadName()}.webm`);
+        isRecording = false;
+        updateCaptureButtonState();
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      updateCaptureButtonState();
+
+      // Automatically stop after one full cycle of animation
+      const durationMs = currentAction.getClip().duration * 1000;
+      setTimeout(() => {
+        if (isRecording && mediaRecorder.state !== "inactive") {
+          mediaRecorder.stop();
+        }
+      }, durationMs);
+    } else {
+      alert("Video recording is not supported in this browser.");
+    }
+  } else {
+    captureNextFrame = true;
+  }
 };
 
 // --- Share Logic ---
@@ -762,7 +830,10 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.set(50, 50, -50);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  preserveDrawingBuffer: true,
+});
 renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -909,6 +980,7 @@ function playAnimation(index) {
   currentAction.paused = false;
   animPlayBtn.innerText = "⏸ Pause";
   animSlider.value = 0;
+  updateCaptureButtonState();
 }
 
 animSelect.addEventListener("change", (e) => {
@@ -920,6 +992,7 @@ animPlayBtn.addEventListener("click", () => {
   isPlaying = !isPlaying;
   currentAction.paused = !isPlaying;
   animPlayBtn.innerText = isPlaying ? "⏸ Pause" : "▶ Play";
+  updateCaptureButtonState();
 });
 
 animSlider.addEventListener("mousedown", () => {
@@ -962,6 +1035,10 @@ animSlider.addEventListener("input", (e) => {
 
 // --- GLTF Parsing & Rendering Logic ---
 function clearCurrentMesh() {
+  if (isRecording && mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+    isRecording = false;
+  }
   if (currentMesh) {
     if (mixer) {
       mixer.stopAllAction();
@@ -982,6 +1059,7 @@ function clearCurrentMesh() {
     });
     currentMesh = null;
   }
+  updateCaptureButtonState();
 }
 
 function rebuildSceneFromGLTF(gltfData) {
@@ -1034,6 +1112,7 @@ function rebuildSceneFromGLTF(gltfData) {
         } else {
           animControlsSection.style.display = "none";
           currentAction = null;
+          updateCaptureButtonState();
         }
 
         currentMesh.traverse((child) => {
