@@ -261,18 +261,20 @@ exportGltfBtn.onclick = () => {
 function updateCaptureButtonState() {
   if (isRecording) {
     captureImageBtn.innerText = "🔴 Rec...";
-    captureImageBtn.disabled = true;
   } else if (currentAction && isPlaying) {
     captureImageBtn.innerText = "🎥 Video";
-    captureImageBtn.disabled = false;
   } else {
     captureImageBtn.innerText = "📷 Image";
-    captureImageBtn.disabled = false;
   }
 }
 
 captureImageBtn.onclick = () => {
-  if (isRecording) return;
+  if (isRecording) {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+    }
+    return;
+  }
 
   if (currentAction && isPlaying) {
     if (typeof MediaRecorder !== "undefined") {
