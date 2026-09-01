@@ -280,24 +280,55 @@ captureImageBtn.onclick = () => {
       currentAction.time = 0;
       if (mixer) mixer.update(0);
 
-      const stream = renderer.domElement.captureStream(30);
-      let options = { mimeType: "video/webm;codecs=vp9" };
+      // Fixed 1280x720 HD canvas for recording
+      const targetW = 1280;
+      const targetH = 720;
+      const srcCanvas = renderer.domElement;
+
+      const recordCanvas = document.createElement("canvas");
+      recordCanvas.width = targetW;
+      recordCanvas.height = targetH;
+      const recordCtx = recordCanvas.getContext("2d");
+
+      const stream = recordCanvas.captureStream(30);
+
+      // Limit Bitrate for optimal file sizes
+      const targetBitrate = 2_500_000; // 2.5 Mbps
+
+      let options = {
+        mimeType: "video/webm;codecs=vp9",
+        videoBitsPerSecond: targetBitrate,
+      };
 
       if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = { mimeType: "video/webm;codecs=vp8" };
+        options = {
+          mimeType: "video/webm;codecs=vp8",
+          videoBitsPerSecond: targetBitrate,
+        };
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-          options = { mimeType: "video/webm" };
+          options = {
+            mimeType: "video/webm",
+            videoBitsPerSecond: targetBitrate,
+          };
         }
       }
 
       mediaRecorder = new MediaRecorder(stream, options);
       recordedChunks = [];
 
+      // Continuously draw from the threejs canvas to the recording canvas at fixed 1280x720
+      const drawInterval = setInterval(() => {
+        if (isRecording) {
+          recordCtx.drawImage(srcCanvas, 0, 0, targetW, targetH);
+        }
+      }, 1000 / 30);
+
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) recordedChunks.push(e.data);
       };
 
       mediaRecorder.onstop = () => {
+        clearInterval(drawInterval);
         const blob = new Blob(recordedChunks, {
           type: options.mimeType.split(";")[0],
         });
