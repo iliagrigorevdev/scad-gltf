@@ -61,6 +61,7 @@ let captureNextFrame = false;
 let isRecording = false;
 let mediaRecorder = null;
 let recordedChunks = [];
+let stopRecordingRequested = false;
 
 // Track connection and state
 let isServerConnected = false;
@@ -270,6 +271,7 @@ function updateCaptureButtonState() {
 
 captureImageBtn.onclick = () => {
   if (isRecording) {
+    stopRecordingRequested = true;
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
       mediaRecorder.stop();
     }
@@ -278,6 +280,11 @@ captureImageBtn.onclick = () => {
 
   if (currentAction && isPlaying) {
     if (typeof MediaRecorder !== "undefined") {
+      const isPT =
+        typeof pathTracer !== "undefined" &&
+        pathTracingCb &&
+        pathTracingCb.checked;
+
       // Reset animation to the beginning
       currentAction.time = 0;
       if (mixer) mixer.update(0);
@@ -290,11 +297,7 @@ captureImageBtn.onclick = () => {
       camera.aspect = targetW / targetH;
       camera.updateProjectionMatrix();
       renderer.setSize(targetW, targetH, false);
-      if (
-        typeof pathTracer !== "undefined" &&
-        pathTracingCb &&
-        pathTracingCb.checked
-      ) {
+      if (isPT) {
         pathTracer.updateCamera();
       }
 
@@ -328,54 +331,157 @@ captureImageBtn.onclick = () => {
         }
       }
 
-      mediaRecorder = new MediaRecorder(stream, options);
-      recordedChunks = [];
+      let drawInterval = null;
+      stopRecordingRequested = false;
 
-      // Continuously draw from the threejs canvas to the recording canvas at fixed 512x512
-      const drawInterval = setInterval(() => {
-        if (isRecording) {
-          recordCtx.drawImage(srcCanvas, 0, 0, targetW, targetH);
-        }
-      }, 1000 / 30);
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordedChunks.push(e.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        clearInterval(drawInterval);
-        const blob = new Blob(recordedChunks, {
-          type: options.mimeType.split(";")[0],
-        });
-        downloadBlob(blob, `${getDownloadName()}.webm`);
-        isRecording = false;
-
-        // Restore original render resolution
-        camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
-        if (
-          typeof pathTracer !== "undefined" &&
-          pathTracingCb &&
-          pathTracingCb.checked
-        ) {
-          pathTracer.updateCamera();
-        }
-
+      if (isPT) {
+        isRecording = true;
         updateCaptureButtonState();
-      };
 
-      mediaRecorder.start();
-      isRecording = true;
-      updateCaptureButtonState();
+        const ptSamplesTarget = 20; // minimal samples amount
+        const fps = 30;
+        const duration = currentAction.getClip().duration;
+        const totalFrames = Math.ceil(duration * fps);
+        let currentFrame = 0;
+        const renderedFrames = [];
 
-      // Automatically stop after one full cycle of animation
-      const durationMs = currentAction.getClip().duration * 1000;
-      setTimeout(() => {
-        if (isRecording && mediaRecorder.state !== "inactive") {
-          mediaRecorder.stop();
-        }
-      }, durationMs);
+        const renderNextFrame = () => {
+          if (stopRecordingRequested || currentFrame > totalFrames) {
+            if (renderedFrames.length === 0) {
+              isRecording = false;
+              camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
+              camera.updateProjectionMatrix();
+              renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+              pathTracer.updateCamera();
+              updateCaptureButtonState();
+              return;
+            }
+
+            stopRecordingRequested = false;
+
+            mediaRecorder = new MediaRecorder(stream, options);
+            recordedChunks = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+              if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+              if (drawInterval) clearInterval(drawInterval);
+              const blob = new Blob(recordedChunks, {
+                type: options.mimeType.split(";")[0],
+              });
+              downloadBlob(blob, `${getDownloadName()}.webm`);
+              isRecording = false;
+
+              camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
+              camera.updateProjectionMatrix();
+              renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+              pathTracer.updateCamera();
+              updateCaptureButtonState();
+            };
+
+            recordCtx.drawImage(renderedFrames[0], 0, 0, targetW, targetH);
+            mediaRecorder.start();
+
+            let playbackFrame = 0;
+            drawInterval = setInterval(() => {
+              if (stopRecordingRequested) {
+                mediaRecorder.stop();
+                return;
+              }
+              if (playbackFrame < renderedFrames.length) {
+                recordCtx.drawImage(
+                  renderedFrames[playbackFrame],
+                  0,
+                  0,
+                  targetW,
+                  targetH,
+                );
+                playbackFrame++;
+              } else {
+                mediaRecorder.stop();
+              }
+            }, 1000 / 30);
+            return;
+          }
+
+          currentAction.time = currentFrame / fps;
+          if (mixer) {
+            mixer.update(0);
+          }
+          pathTracer.setScene(scene, camera);
+
+          const waitForSamples = () => {
+            if (stopRecordingRequested) {
+              renderNextFrame(); // break loop and proceed to encode what we have
+              return;
+            }
+            if (pathTracer.samples >= ptSamplesTarget) {
+              const frameCanvas = document.createElement("canvas");
+              frameCanvas.width = targetW;
+              frameCanvas.height = targetH;
+              frameCanvas
+                .getContext("2d")
+                .drawImage(srcCanvas, 0, 0, targetW, targetH);
+              renderedFrames.push(frameCanvas);
+
+              currentFrame++;
+              setTimeout(renderNextFrame, 0);
+            } else {
+              requestAnimationFrame(waitForSamples);
+            }
+          };
+          waitForSamples();
+        };
+
+        renderNextFrame();
+      } else {
+        mediaRecorder = new MediaRecorder(stream, options);
+        recordedChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          stopRecordingRequested = false;
+          if (drawInterval) clearInterval(drawInterval);
+          const blob = new Blob(recordedChunks, {
+            type: options.mimeType.split(";")[0],
+          });
+          downloadBlob(blob, `${getDownloadName()}.webm`);
+          isRecording = false;
+
+          // Restore original render resolution
+          camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+          updateCaptureButtonState();
+        };
+
+        // Draw initial frame just in case captureStream(30) is used so it isn't black
+        recordCtx.drawImage(srcCanvas, 0, 0, targetW, targetH);
+
+        mediaRecorder.start();
+        isRecording = true;
+        updateCaptureButtonState();
+
+        // Continuously draw from the threejs canvas to the recording canvas at fixed 512x512
+        drawInterval = setInterval(() => {
+          if (isRecording) {
+            recordCtx.drawImage(srcCanvas, 0, 0, targetW, targetH);
+          }
+        }, 1000 / 30);
+
+        // Automatically stop after one full cycle of animation
+        const durationMs = currentAction.getClip().duration * 1000;
+        setTimeout(() => {
+          if (isRecording && mediaRecorder.state !== "inactive") {
+            mediaRecorder.stop();
+          }
+        }, durationMs);
+      }
     } else {
       alert("Video recording is not supported in this browser.");
     }
