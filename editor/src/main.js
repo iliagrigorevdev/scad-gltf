@@ -338,7 +338,7 @@ captureImageBtn.onclick = () => {
         isRecording = true;
         updateCaptureButtonState();
 
-        const ptSamplesTarget = 30; // Increased slightly for better quality and stability
+        const ptSamplesTarget = 100; // Increased for better quality and stability
         const fps = 30;
         const duration = currentAction.getClip().duration;
         const totalFrames = Math.ceil(duration * fps);
