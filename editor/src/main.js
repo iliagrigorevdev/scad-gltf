@@ -283,6 +283,19 @@ captureImageBtn.onclick = () => {
       // Fixed 1280x720 HD canvas for recording
       const targetW = 1280;
       const targetH = 720;
+
+      // Force WebGL render at exact target resolution to prevent stretching
+      camera.aspect = targetW / targetH;
+      camera.updateProjectionMatrix();
+      renderer.setSize(targetW, targetH, false);
+      if (
+        typeof pathTracer !== "undefined" &&
+        pathTracingCb &&
+        pathTracingCb.checked
+      ) {
+        pathTracer.updateCamera();
+      }
+
       const srcCanvas = renderer.domElement;
 
       const recordCanvas = document.createElement("canvas");
@@ -334,6 +347,19 @@ captureImageBtn.onclick = () => {
         });
         downloadBlob(blob, `${getDownloadName()}.webm`);
         isRecording = false;
+
+        // Restore original render resolution
+        camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+        if (
+          typeof pathTracer !== "undefined" &&
+          pathTracingCb &&
+          pathTracingCb.checked
+        ) {
+          pathTracer.updateCamera();
+        }
+
         updateCaptureButtonState();
       };
 
@@ -1308,7 +1334,7 @@ function animate() {
 animate();
 
 window.addEventListener("resize", () => {
-  if (!viewerEl) return;
+  if (!viewerEl || isRecording) return;
   const w = viewerEl.clientWidth;
   const h = viewerEl.clientHeight;
   camera.aspect = w / h;
