@@ -313,21 +313,35 @@ captureImageBtn.onclick = () => {
       // Limit Bitrate for optimal file sizes
       const targetBitrate = 2_500_000; // 2.5 Mbps
 
+      let extension = "mp4";
       let options = {
-        mimeType: "video/webm;codecs=vp9",
+        mimeType: "video/mp4;codecs=avc1",
         videoBitsPerSecond: targetBitrate,
       };
 
       if (!MediaRecorder.isTypeSupported(options.mimeType)) {
         options = {
-          mimeType: "video/webm;codecs=vp8",
+          mimeType: "video/mp4",
           videoBitsPerSecond: targetBitrate,
         };
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          extension = "webm";
           options = {
-            mimeType: "video/webm",
+            mimeType: "video/webm;codecs=vp9",
             videoBitsPerSecond: targetBitrate,
           };
+          if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+            options = {
+              mimeType: "video/webm;codecs=vp8",
+              videoBitsPerSecond: targetBitrate,
+            };
+            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+              options = {
+                mimeType: "video/webm",
+                videoBitsPerSecond: targetBitrate,
+              };
+            }
+          }
         }
       }
 
@@ -371,7 +385,7 @@ captureImageBtn.onclick = () => {
               const blob = new Blob(recordedChunks, {
                 type: options.mimeType.split(";")[0],
               });
-              downloadBlob(blob, `${getDownloadName()}.webm`);
+              downloadBlob(blob, `${getDownloadName()}.${extension}`);
               isRecording = false;
 
               camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
@@ -466,7 +480,7 @@ captureImageBtn.onclick = () => {
           const blob = new Blob(recordedChunks, {
             type: options.mimeType.split(";")[0],
           });
-          downloadBlob(blob, `${getDownloadName()}.webm`);
+          downloadBlob(blob, `${getDownloadName()}.${extension}`);
           isRecording = false;
 
           // Restore original render resolution
