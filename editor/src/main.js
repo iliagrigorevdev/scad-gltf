@@ -1035,6 +1035,7 @@ const pathTracer = new WebGLPathTracer(renderer);
 pathTracer.bounces = 10;
 pathTracer.transmissiveBounces = 10;
 pathTracer.multipleImportanceSampling = true;
+pathTracer.filterGlossyFactor = 0.2;
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.addEventListener("change", () => {
