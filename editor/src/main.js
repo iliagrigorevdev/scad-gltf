@@ -460,6 +460,13 @@ captureImageBtn.onclick = () => {
           updateCaptureButtonState();
         };
 
+        // Force render first frame after resize so it's not black
+        const showGrid = showGridCb ? showGridCb.checked : true;
+        if (typeof lightGroup !== "undefined") lightGroup.visible = true;
+        if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
+        if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
+        renderer.render(scene, camera);
+
         // Draw initial frame just in case captureStream(30) is used so it isn't black
         recordCtx.drawImage(srcCanvas, 0, 0, targetW, targetH);
 
