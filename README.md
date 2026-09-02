@@ -13,16 +13,16 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 ## Features
 
 - **Direct SCAD to GLB conversion:** Compile geometry directly to web-ready binary glTF.
-- **Extended PBR Material Support:** Native extensions to the OpenSCAD `color()` module supporting `metalness`, `roughness`, `transmission` (glass), `clearcoat`, `sheen`, `ior`, `emissive`, `specular`, and `iridescence`, plus a `$asa` special variable for auto smooth shading.
+- **Extended PBR Material Support:** Native extensions to the OpenSCAD `color()` module supporting `metalness`, `roughness`, `transmission` (glass), `thickness`, `ior`, `attenuationColor`, `attenuationDistance`, `clearcoat`, `sheen`, `emissive`, `specular`, and `iridescence`, plus a `$asa` special variable for auto smooth shading.
 - **Skeletal Animation:** Define animated armatures and bones directly within your `.scad` files.
 - **True Skeletal Skinning:** Exports absolute world transforms and properly bound animation tracks.
 - **Texture Baking:** Automatically generate UVs and bake high-poly details (colors, normals, ORM) onto low-poly meshes using the new `bake()` module.
 - **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, video/image export, URL sharing, and drag-and-drop.
-- **LLM Friendly:** Includes a built-in prompt generator (`prompt.js` and Web UI) to help AI models (like Gemini, Claude, or ChatGPT) write compatible OpenSCAD scripts utilizing the new features.
+- **LLM Friendly:** Includes a built-in modular prompt generator (`prompt.js` and Web UI) to help AI models (like Gemini, Claude, or ChatGPT) write compatible OpenSCAD scripts utilizing the new features.
 - **Local API Server & Editor:** Bundled `scad-serve` CLI utility to manage local `.scad` files remotely via REST API with automatic `include`/`use` dependency resolution.
-- **CLI Converter:** Bundled `scad-convert` CLI utility for batch compiling `.scad` files with smart dependency hashing.
-- **MCP Server for AI Agents:** Bundled `scad-mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering.
-- **AI Studio Extension:** Includes a Chrome extension to natively preview, prompt, and locally save AI-generated 3D models directly inside Google AI Studio.
+- **CLI Converter:** Bundled `scad-convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
+- **MCP Server for AI Agents:** Bundled `scad-mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering and animation frame evaluation.
+- **AI Studio Extension:** Chrome extension to natively preview, prompt, take chat snapshots, open in Scadify, and locally save AI-generated 3D models directly inside Google AI Studio.
 
 ---
 
@@ -30,14 +30,15 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 
 The built-in web editor (**Scadify**) provides a full-featured development environment running entirely in the browser via WebAssembly:
 
-- **Real-Time 3D Viewport:** Instant WebAssembly compilation with auto-rendering, camera auto-framing, wireframe view, grid/axes toggles, and full-screen mode.
+- **Real-Time 3D Viewport:** Instant WebAssembly compilation with auto-rendering, camera auto-framing, wireframe view, grid/axes toggles, ACES Filmic tone mapping, and full-screen mode.
 - **Photorealistic GPU Path Tracing:** Built-in hardware-accelerated path tracer with HDR environment lighting for realistic reflections, shadows, and glass refraction.
-- **Interactive Animation Controls:** Full animation clip playback, pause, and smooth timeline scrubbing for skeletal rigs.
+- **Interactive Animation Controls:** Multi-animation selector, playback controls (play/pause), and smooth timeline scrubbing for skeletal rigs.
+- **Modular AI Prompt Generator:** Built-in UI with fine-grained feature toggles (Basic PBR, Auto Smooth, Animations, Extended PBR, Texture Baking) and persistent local settings to generate optimized prompts for LLMs.
 - **Image & Video Capture:**
   - **📷 PNG Snapshots:** Export high-resolution renders with a single click.
   - **🎥 Video Recording:** Record animation loops directly to MP4/WebM. When Path Tracing is enabled, frames are rendered deterministically for jitter-free, ultra-high-quality animated video captures.
 - **Compressed URL Sharing:** Share your designs instantly via URL hash using client-side raw Deflate compression with an optional **Minify Share** toggle to strip comments and whitespace. Integrates with the Web Share API on supported devices.
-- **Drag and Drop:** Drop any `.scad` file directly onto the viewer to load and render immediately.
+- **File Management & Drag and Drop:** Load local `.scad` files, drop any `.scad` script directly onto the viewport, download `.scad` source code, or export `.glb` binaries.
 - **Automatic Model Naming:** Extracts model names automatically from `/* Model Name: ... */` header comments for file downloads and exports.
 - **Local Workspace Sync:** Connect to `scad-serve` on localhost to load, edit, save, and delete `.scad` files with change detection and recursive dependency resolution (`include` / `use`).
 - **PWA Support:** Installable as a Progressive Web App for desktop and mobile.
@@ -66,9 +67,9 @@ npm install github:iliagrigorevdev/scad-gltf
 
 ## Usage (JavaScript / Node.js)
 
-The package provides a convenient `convert.js` wrapper to handle the Emscripten WASM lifecycle and virtual file system.
+The package provides a convenient `convert.js` wrapper to handle the Emscripten WASM lifecycle, virtual file system, and dependency resolution.
 
-_Note: Because the underlying WASM loader was compiled for the web, it expects the modern `fetch()` API. In Node.js, we must provide the absolute path to the `.wasm` file and briefly polyfill `fetch` so it can read local files from disk._
+_Note: Because the underlying WASM loader was compiled for the web, it expects the modern `fetch()` API. In Node.js, we provide the path to the `.wasm` file and polyfill `fetch` so it can read local files from disk._
 
 ```javascript
 import { convertScadToGltf } from "scad-gltf/convert";
@@ -93,8 +94,9 @@ global.fetch = async (url) => {
 };
 
 const scadCode = `
+  include <parts/handle.scad>
   color("gold", metalness=1.0, roughness=0.2)
-  sphere(r=10);
+  sphere(r=size);
 `;
 
 async function buildModel() {
@@ -102,6 +104,12 @@ async function buildModel() {
     // 3. Compile SCAD to a GLB Uint8Array
     const glbData = await convertScadToGltf(scadCode, {
       wasmUrl: `file://${wasmPath}`,
+      binary: true, // true for binary .glb, false for .gltf
+      variables: { size: 12 }, // Pass -D key=value parameters
+      additionalFiles: {
+        // Virtual files for include/use resolution
+        "parts/handle.scad": "module handle() { cylinder(h=10, r=2); }",
+      },
     });
 
     // Save to disk (or send to a client, load into Three.js, etc.)
@@ -115,12 +123,20 @@ async function buildModel() {
 buildModel();
 ```
 
+### Compiler Options Reference
+
+| Option            | Type      | Default     | Description                                                                                      |
+| :---------------- | :-------- | :---------- | :----------------------------------------------------------------------------------------------- |
+| `wasmUrl`         | `string`  | `undefined` | Absolute file URL or HTTP URL pointing to `openscad.wasm`.                                       |
+| `binary`          | `boolean` | `true`      | When `true`, outputs binary GLB. When `false`, outputs glTF text/JSON.                           |
+| `variables`       | `Object`  | `undefined` | Key-value pairs passed as `-D <key>=<value>` parameters to OpenSCAD.                             |
+| `additionalFiles` | `Object`  | `{}`        | Map of relative virtual file paths to file contents for resolving `include <...>` / `use <...>`. |
+
 ### Using in Web Bundlers (Webpack / Vite)
 
-If you are using this in a browser, you don't need to mock `fetch`. You just need to provide the URL to the `.wasm` file so the bundler and Emscripten loader can fetch it over HTTP:
+In a browser or Vite project, you do not need to mock `fetch`. Just provide the bundled URL to the `.wasm` file:
 
 ```javascript
-// Import the WASM file URL (syntax depends on your bundler, e.g., Vite uses ?url)
 import wasmUrl from "scad-gltf/openscad.wasm?url";
 import { convertScadToGltf } from "scad-gltf/convert";
 
@@ -133,70 +149,48 @@ const glbData = await convertScadToGltf(scadCode, { wasmUrl });
 
 ## Command Line Conversion (`scad-convert`)
 
-The package includes a CLI utility to convert `.scad` files to `.glb` directly from your terminal. It supports single files or entire directories, and features a smart caching system to speed up build pipelines.
+The package includes a CLI utility to convert `.scad` files to `.glb` directly from your terminal. It supports single files or entire directories, and features smart caching with dependency resolution to speed up build pipelines.
 
-**Run the converter using one of these options:**
+**Usage:**
 
-- **Option A: If installed globally**
-  ```bash
-  scad-convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]
-  ```
-- **Option B: If installed as a local dependency**
-  ```bash
-  npx scad-convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]
-  ```
-- **Option C: Run directly (No installation)**
-  ```bash
-  npx -p github:iliagrigorevdev/scad-gltf scad-convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]
-  ```
+```bash
+scad-convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]
+```
 
 **Examples:**
 
 - **Single File:**
   ```bash
-  npx scad-convert model.scad model.glb
+  scad-convert model.scad model.glb
   ```
 - **Directory Batch Conversion:**
   ```bash
-  npx scad-convert ./src_models ./out_glbs
+  scad-convert ./src_models ./out_glbs
   ```
 - **With Smart Caching (`--cache`):**
-  Works similarly to Godot's asset pipeline. It generates a `.import` file containing a hash of the `.scad` content (including any resolved `include` or `use` dependencies) and compiler options. Subsequent runs will skip the conversion if no changes are detected.
+  Generates a `.import` file containing a SHA-256 hash of the `.scad` file (including any recursively resolved `include` or `use` files) and compiler options. Subsequent runs skip recompilation if no changes are detected.
   ```bash
-  npx scad-convert ./src_models ./out_glbs --cache
+  scad-convert ./src_models ./out_glbs --cache
   ```
 - **With Options:**
-  Pass custom compiler options as a JSON string (or Base64 encoded JSON).
+  Pass custom compiler options as a JSON string (or Base64 encoded JSON string):
   ```bash
-  npx scad-convert model.scad model.glb '{"binary": false}'
+  scad-convert model.scad model.glb '{"variables": {"size": 20}}'
   ```
 
 ---
 
 ## Local File Management & Web Editor (`scad-serve`)
 
-If you are building a web IDE, a generative UI, or using the **AI Studio Extension**, you can use the `scad-serve` utility. It provides a REST API to manage local files and perform in-memory SCAD-to-GLB conversions. It also serves the built-in Editor UI.
+`scad-serve` provides a local REST API to manage `.scad` files and perform in-memory SCAD-to-GLB conversions. It automatically builds and serves the Scadify Web Editor UI.
 
-It strictly operates **only** on the `.scad` files in the directory where the command is run.
+It operates strictly on the working directory where the command is executed.
 
-**Start the server using one of these options:**
+**Start the server:**
 
-- **Option A: If installed globally**
-  ```bash
-  scad-serve
-  ```
-- **Option B: If installed as a local dependency**
-  ```bash
-  npx scad-serve
-  ```
-- **Option C: Run directly (No installation)**
-  ```bash
-  npx -p github:iliagrigorevdev/scad-gltf scad-serve
-  ```
-
-**Optional Arguments:**
-
-- `--port 3000`: Set a custom port (default is 3000).
+```bash
+scad-serve
+```
 
 **Available Endpoints:**
 
@@ -206,30 +200,29 @@ It strictly operates **only** on the `.scad` files in the directory where the co
   - Retrieves the text content of a specific `.scad` file.
 - `POST /api/scads`
   - Creates or updates a `.scad` file on disk.
-  - **Body Payload:** `{ "filename": "model.scad", "content": "cube(10);" }`
+  - **Body:** `{ "filename": "model.scad", "content": "cube(10);" }`
 - `DELETE /api/scads/:filename`
   - Deletes a `.scad` file.
 - `POST /api/convert`
-  - **In-memory conversion:** Compiles raw SCAD string to GLB data without writing to the file system.
-  - **Body Payload:** `{ "content": "sphere(r=10);" }`
+  - In-memory compilation from SCAD string to GLB binary without touching the filesystem.
+  - **Body:** `{ "content": "sphere(r=10);", "options": { "variables": { "r": 10 } } }`
   - **Response:** Binary GLB data (`model/gltf-binary`).
 
 ---
 
 ## 🧩 Google AI Studio Extension
 
-This repository includes a Chrome/Chromium extension located in the [`/editor`](./editor) directory that brings native 3D rendering to [Google AI Studio](https://aistudio.google.com/).
+This repository includes a Chrome/Chromium extension located in the [`/editor`](./editor) directory that brings native 3D rendering and visual iteration tools to [Google AI Studio](https://aistudio.google.com/).
 
-When asking an LLM (like Gemini) to generate OpenSCAD code, the extension automatically detects the output and injects a **"Preview 3D"** button directly into the chat interface.
+When asking an LLM (like Gemini) to generate OpenSCAD code, the extension automatically detects the output and injects interactive controls directly into the chat interface:
 
-- **Instant Rendering:** Compiles and renders the AI's generated `.scad` code on-the-fly entirely in your browser using this WASM package and Three.js.
-- **Seamless Iteration:** No need to copy-paste code to an external viewer; evaluate PBR materials and geometry generated by the AI instantly.
-- **Smart Prompting:** Injects a "✨ SCAD" button into the AI Studio interface to instantly open the Prompt Generator modal. Configure your desired features (PBR, Animations, Baking) and securely insert the strict syntax rules into the chat.
-- **Local Saving:** Features a built-in UI that seamlessly communicates with the `scad-serve` local backend to save models directly to your machine.
+- **Instant 3D Preview:** Injects a **"Preview 3D"** button on any OpenSCAD code block to compile and render the model in an embedded 3D viewer with grid, wireframe, and full-screen support.
+- **Visual Chat Feedback (📷):** Click the snapshot button inside the 3D preview window to capture a PNG snapshot of the model and **automatically paste it into the AI Studio chat input**, allowing Gemini to visually evaluate and fix geometry.
+- **Smart Prompt Injection:** Click the floating **"✨ SCAD"** button to open the configuration modal. Select your desired engine feature set (PBR, auto-smooth, animations, baking) to automatically generate and inject the prompt rules into your chat input.
+- **Open in Scadify:** Click **"Edit"** in the preview window to immediately transfer the current script into the full standalone Scadify editor via compressed URL hash.
+- **Local Workspace Saving:** Directly save and overwrite models to your local directory when running `scad-serve`.
 
 ### Installation (Chrome / Edge / Brave)
-
-Since this extension is actively being developed alongside the engine, it can be loaded locally using Developer Mode:
 
 1. **Clone the repository** to your machine:
    ```bash
@@ -243,15 +236,16 @@ Since this extension is actively being developed alongside the engine, it can be
    ```
 3. **Load the unpacked extension**:
    - Open your browser and navigate to `chrome://extensions/`
-   - Enable **Developer mode** (usually a toggle in the top right corner).
+   - Enable **Developer mode** (toggle in the top right corner).
    - Click the **Load unpacked** button.
-   - Select the newly generated `dist/` folder located inside the `editor/` directory (e.g., `scad-gltf/editor/dist`).
+   - Select the `dist/` folder located inside the `editor/` directory (`scad-gltf/editor/dist`).
 
 ### Usage
 
 1. Open [Google AI Studio](https://aistudio.google.com/).
-2. You will notice a new **"✨ SCAD"** button floating in the bottom-left corner. Click it to configure the engine features you want the AI to use and generate the system prompt context.
-3. Once the AI generates standard OpenSCAD code block formatting, an **"👀 Preview 3D"** button will appear above the code. Click it to render a high-quality GLTF preview window immediately in the browser.
+2. Click the floating **"✨ SCAD"** button in the bottom-left corner to choose the features you want the AI to use and paste the prompt into the chat.
+3. When the AI returns code, click **"Preview 3D"** above the code block.
+4. Use the 📷 button in the preview window to send renders back to the AI for visual debugging or click **"Edit"** to open it in Scadify.
 
 ---
 
@@ -301,9 +295,9 @@ The addon allows you to drag-and-drop `.scad` files directly into your Godot pro
 
 This custom fork introduces new syntax not found in standard OpenSCAD.
 
-### 1. PBR Materials
+### 1. PBR Materials & Smooth Shading
 
-The standard `color()` module has been extended with standard glTF PBR attributes:
+The standard `color()` module has been extended with standard glTF PBR attributes and auto smooth normals:
 
 ```openscad
 // You can set the default auto smooth angle globally
@@ -311,25 +305,26 @@ $asa = 30.0;
 
 color(
     "white",
-    roughness = 0.0,           // 0.0 (glossy) to 1.0 (matte)
-    metalness = 1.0,           // 1.0 for metals, blocks light transmission
-    transmission = 0.9,        // 0.0 to 1.0 for glass/water transparency (requires alpha=1.0)
-    thickness = 2.0,           // Volume thickness for refraction
-    ior = 1.5,                 // Index of refraction
-    attenuationColor = [1.0, 1.0, 1.0], // Color of light passing through volume
-    attenuationDistance = 0.0, // Distance light travels before fully tinted
-    clearcoat = 1.0,           // Adds a clear reflective top layer (car paint/wet surfaces)
+    roughness = 0.0,                    // 0.0 (glossy) to 1.0 (matte)
+    metalness = 1.0,                    // 1.0 for metals, blocks light transmission
+    transmission = 0.9,                 // 0.0 to 1.0 for glass/water transparency (requires alpha=1.0)
+    thickness = 2.0,                    // Volume thickness for refraction
+    ior = 1.5,                          // Index of refraction (Water: ~1.33, Glass: ~1.5, Diamond: ~2.4)
+    attenuationColor = [1.0, 1.0, 1.0], // Tint of light passing through volume
+    attenuationDistance = 0.0,          // Distance light travels before fully tinted
+    clearcoat = 1.0,                    // Reflective top clearcoat layer (car paint/varnish)
     clearcoatRoughness = 0.1,
-    sheen = 1.0,               // Velvet/fabric rim lighting
+    sheen = 1.0,                        // Microfiber backscattering (cloth/velvet rim light)
     sheenColor = [1.0, 0.5, 0.5],
     sheenRoughness = 0.2,
-    emissive = [0.0, 0.0, 0.0], // Glowing color
-    emissiveIntensity = 1.0,    // Strength of the glow
-    specularColor = [1.0, 1.0, 1.0], // Tint for specular highlights
-    specularIntensity = 1.0,    // Strength of specular highlights
-    iridescence = 0.0,          // Thin-film interference effect (soap bubble)
+    emissive = [0.0, 0.0, 0.0],          // Glowing color (RGB vector)
+    emissiveIntensity = 1.0,             // Multiplier for emissive glow
+    specularColor = [1.0, 1.0, 1.0],     // Tint for specular reflections
+    specularIntensity = 1.0,             // Strength of specular reflections
+    iridescence = 0.0,                   // Thin-film interference (soap bubbles, oil sheen)
     iridescenceIOR = 1.3,
-    $asa = 45.0                 // Generates smooth vertex normals below this angle threshold (overrides global $asa). Applies to surface shading only, not geometry polygon count. Do not pass $asa to geometry modules.
+    $asa = 45.0                          // Generates smooth vertex normals below this angle threshold.
+                                         // Surface shading only; does NOT alter polygon count.
 ) {
     cylinder(h=10, r=5);
 }
@@ -337,20 +332,22 @@ color(
 
 ### 2. Skeletal Animations
 
-You can now define hierarchical animated parts. Use the `armature` root module to define keyframes, and the `bone` module to define the physical moving parts.
+Define hierarchical armatures, resting positions, and keyframe animations:
 
 ```openscad
-armature(animations = [
+anim_data = [
   ["Swing", [
     // Format: ["BoneName", [ [time_in_sec, [rot_x, y, z], [trans_x, y, z]], ... ]]
     ["Pendulum", [
-      [0.0, [0, 0, 0], [0, 0, 0]],
-      [1.0, [0, 45, 0], [0, 0, 0]],
-      [2.0, [0, -45, 0], [0, 0, 0]],
-      [3.0, [0, 0, 0], [0, 0, 0]]
+      [0.0, [0, 0, 0],   [0, 0, 10]],
+      [1.0, [0, 45, 0],  [0, 0, 10]],
+      [2.0, [0, -45, 0], [0, 0, 10]],
+      [3.0, [0, 0, 0],   [0, 0, 10]]
     ]]
   ]]
-]) {
+];
+
+armature(animations = anim_data) {
     bone(name="Pendulum", t=[0, 0, 10], r=[0, 0, 0]) {
         color("silver", metalness=0.9, roughness=0.1)
         cylinder(h=10, r=1, center=false);
@@ -363,10 +360,26 @@ armature(animations = [
 Project details from a high-resolution mesh onto a low-resolution mesh using the `bake()` module. This auto-generates UVs and can output solid colors, tangent-space normals, and ORM (Occlusion/Roughness/Metallic) textures.
 
 ```openscad
-// Syntax: bake(colors=false, normals=false, orm=false, uvs=false, distance=2.0, bias=1e-4, dilation=2, resolution=512, msaa=2, index=0, rotate_uvs=true)
-bake(colors=true, normals=true, resolution=1024) {
-    color("white") sphere(r=10, $fn=100); // Child 1: High Poly (Source)
-    color("white", roughness=0.5, $asa=45) sphere(r=10, $fn=20); // Child 2: Low Poly (Target)
+// Two-child syntax: projects Child 1 (High Poly) onto Child 2 (Low Poly)
+bake(
+    colors = true,       // Project and bake base color
+    normals = true,      // Bake tangent-space normal map
+    orm = false,         // Bake Occlusion/Roughness/Metallic map
+    resolution = 1024,   // Output texture resolution
+    distance = 2.0,      // Max raycast distance
+    bias = 1e-4,         // Raycast origin offset
+    dilation = 2,        // Pixel padding around UV islands
+    msaa = 2,            // Anti-aliasing level (supersampling)
+    index = 0,           // Atlas group index (meshes sharing an index share the same atlas)
+    rotate_uvs = true    // Allow UV island rotation for optimal packing
+) {
+    color("white") sphere(r=10, $fn=100);                         // Child 1: High Poly Source
+    color("white", roughness=0.5, $asa=45) sphere(r=10, $fn=20);  // Child 2: Low Poly Target
+}
+
+// Single-child syntax: Generate UV coordinates & tangents for a mesh without a high-poly source
+bake(uvs=true) {
+    color("gold", metalness=1.0) cube([10, 10, 10]);
 }
 ```
 
@@ -383,7 +396,21 @@ import { generatePrompt } from "scad-gltf/prompt";
 
 const description =
   "a futuristic glass sword with a glowing metallic handle, animated to spin 360 degrees";
-const promptContext = generatePrompt(description);
+const promptContext = generatePrompt(description, {
+  basic: true, // Metalness and roughness
+  transmission: true, // Glass, transmission, ior, thickness
+  clearcoat: true, // Clearcoat layers
+  sheen: true, // Fabric sheen
+  emissive: true, // Glow parameters
+  specular: true, // Specular overrides
+  iridescence: true, // Thin-film interference
+  autoSmoothAngle: true, // $asa rules
+  animation: true, // Armature & bone syntax
+  bakeColors: false, // Texture baking flags
+  bakeNormals: false,
+  bakeOrm: false,
+  bakeUvs: false,
+});
 
 // You can now pass this context string directly to an AI API
 // or print it to the console to paste into Gemini.
@@ -396,9 +423,9 @@ console.log(promptContext);
 
 Once connected, an AI assistant can use the server to execute the following loop:
 
-1. **Retrieve Syntax Rules:** The assistant calls the `generate_prompt` tool to get the extended syntax rules for PBR materials, skeletal animations, and texture baking.
-2. **Generate Code:** The assistant writes the `.scad` script to a local file based on your design request.
-3. **Compile to 3D File:** The assistant calls the `convert_scad_to_glb` tool providing the input file path to compile it and save the resulting `.glb` model directly to your specified local directory.
+1. **Retrieve Syntax Rules:** The assistant calls the `get_scad_prompt` tool to get the extended syntax rules for PBR materials, skeletal animations, and texture baking.
+2. **Generate Code:** The assistant writes the `.scad` script based on your design request.
+3. **Compile & Visually Inspect:** The assistant calls the `render_scad_model` tool to inspect rendered multi-angle frames and keyframes, fixing any errors before final export.
 
 ---
 
