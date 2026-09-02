@@ -694,7 +694,7 @@ shareBtn.onclick = async () => {
   }
 };
 
-// --- Drag and Drop SCAD ---
+// --- Drag and Drop SCAD / HDR ---
 const dragOverlay = document.getElementById("drag-overlay");
 window.addEventListener("dragenter", (e) => {
   e.preventDefault();
@@ -715,8 +715,40 @@ window.addEventListener("drop", async (e) => {
 
   if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
     const file = e.dataTransfer.files[0];
-    if (
-      file.name.toLowerCase().endsWith(".scad") ||
+    const fileName = file.name.toLowerCase();
+
+    if (fileName.endsWith(".hdr")) {
+      const url = URL.createObjectURL(file);
+      new HDRLoader().load(
+        url,
+        (texture) => {
+          texture.mapping = THREE.EquirectangularReflectionMapping;
+          scene.environment = texture;
+          environmentTexture = texture;
+
+          const isPT = pathTracingCb && pathTracingCb.checked;
+
+          if (isPT) {
+            scene.background = texture;
+            scene.backgroundBlurriness = 0.5;
+          } else {
+            scene.background = new THREE.Color(0x222222);
+            scene.backgroundBlurriness = 0;
+          }
+
+          if (typeof pathTracer !== "undefined") {
+            pathTracer.setScene(scene, camera);
+            pathTracer.updateCamera();
+          }
+        },
+        undefined,
+        (err) => {
+          console.warn("Error loading HDR:", err);
+          alert("Failed to load HDR file.");
+        },
+      );
+    } else if (
+      fileName.endsWith(".scad") ||
       !file.type ||
       file.type.includes("text")
     ) {
@@ -729,7 +761,7 @@ window.addEventListener("drop", async (e) => {
         alert("Failed to read file: " + err.message);
       }
     } else {
-      alert("Please drop a valid .scad file.");
+      alert("Please drop a valid .scad or .hdr file.");
     }
   }
 });
