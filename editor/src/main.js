@@ -731,9 +731,11 @@ window.addEventListener("drop", async (e) => {
           if (isPT) {
             scene.background = texture;
             scene.backgroundBlurriness = 0.5;
+            scene.backgroundIntensity = 0.3;
           } else {
             scene.background = new THREE.Color(0x222222);
             scene.backgroundBlurriness = 0;
+            scene.backgroundIntensity = 1.0;
           }
 
           if (typeof pathTracer !== "undefined") {
@@ -1109,9 +1111,11 @@ new HDRLoader().load(
     if (isPT) {
       scene.background = texture;
       scene.backgroundBlurriness = 0.5;
+      scene.backgroundIntensity = 0.3;
     } else {
       scene.background = new THREE.Color(0x222222);
       scene.backgroundBlurriness = 0;
+      scene.backgroundIntensity = 1.0;
     }
 
     if (typeof pathTracer !== "undefined") {
@@ -1140,10 +1144,12 @@ if (pathTracingCb) {
       if (environmentTexture) {
         scene.background = environmentTexture;
         scene.backgroundBlurriness = 0.5;
+        scene.backgroundIntensity = 0.3;
       }
     } else {
       scene.background = new THREE.Color(0x222222);
       scene.backgroundBlurriness = 0;
+      scene.backgroundIntensity = 1.0;
     }
 
     if (isPT && typeof pathTracer !== "undefined") {
