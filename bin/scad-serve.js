@@ -2,7 +2,7 @@
 import express from "express";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { execSync } from "child_process";
 import { convertScadToGltf } from "../src/convert.js";
 
@@ -46,23 +46,23 @@ for (let i = 0; i < args.length; i++) {
 const workDir = process.cwd();
 
 // ========================
-// Editor Build Step
+// Editor Build Step (Only if dist is missing)
 // ========================
-console.log("⚙️  Checking editor build...");
-try {
-  // Check if editor dependencies are installed, if not, install them
-  if (!fs.existsSync(path.join(editorDir, "node_modules"))) {
-    console.log("📦 Installing editor dependencies...");
-    execSync("npm install", { cwd: editorDir, stdio: "inherit" });
-  }
+if (!fs.existsSync(editorDistDir) && fs.existsSync(editorDir)) {
+  console.log("⚙️  Editor build missing. Attempting to build...");
+  try {
+    if (!fs.existsSync(path.join(editorDir, "node_modules"))) {
+      console.log("📦 Installing editor dependencies...");
+      execSync("npm install", { cwd: editorDir, stdio: "inherit" });
+    }
 
-  // Build the editor
-  console.log("🛠️  Building editor...");
-  execSync("npm run build", { cwd: editorDir, stdio: "inherit" });
-  console.log("✅ Editor built successfully.\n");
-} catch (err) {
-  console.error("❌ Error building editor:", err.message);
-  console.log("⚠️  Continuing without a fresh editor build...\n");
+    console.log("🛠️  Building editor...");
+    execSync("npm run build", { cwd: editorDir, stdio: "inherit" });
+    console.log("✅ Editor built successfully.\n");
+  } catch (err) {
+    console.error("❌ Error building editor:", err.message);
+    console.log("⚠️  Continuing without an editor build...\n");
+  }
 }
 
 const app = express();
@@ -188,7 +188,7 @@ app.post("/api/convert", async (req, res) => {
   try {
     // Pass the raw SCAD directly to the WASM converter entirely in-memory
     const glbData = await convertScadToGltf(content, {
-      wasmUrl: `file://${wasmPath}`,
+      wasmUrl: pathToFileURL(wasmPath).href,
       additionalFiles,
       variables: (options && options.variables) || undefined,
     });

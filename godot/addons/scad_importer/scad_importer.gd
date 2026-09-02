@@ -18,7 +18,14 @@ func _import_scene(path: String, flags: int, options: Dictionary) -> Object:
 
 	var output = []
 	print("Importing %s via scad-convert... (This might take a few seconds on the first run)" % path.get_file())
-	var exit_code = OS.execute("scad-convert", args, output, true)
+
+	var exit_code = -1
+	if OS.get_name() == "Windows":
+		var win_args = PackedStringArray(["/c", "scad-convert"])
+		win_args.append_array(args)
+		exit_code = OS.execute("cmd.exe", win_args, output, true)
+	else:
+		exit_code = OS.execute("scad-convert", args, output, true)
 
 	if exit_code != 0:
 		print("scad-convert conversion failed for %s. Attempting fallback to local scad-serve..." % path.get_file())
@@ -52,10 +59,17 @@ func _get_relative_path(base: String, target: String) -> String:
 	var base_parts = base.replace("\\", "/").split("/", false)
 	var target_parts = target.replace("\\", "/").split("/", false)
 
+	# If on Windows and drive letters are different, relative paths cannot be resolved
+	if OS.get_name() == "Windows":
+		if base_parts.size() > 0 and target_parts.size() > 0:
+			if base_parts[0].nocasecmp_to(target_parts[0]) != 0:
+				return target
+
 	var common_count = 0
 	var min_len = min(base_parts.size(), target_parts.size())
 	for i in range(min_len):
-		if base_parts[i] == target_parts[i]:
+		# Case-insensitive comparison for cross-platform compatibility
+		if base_parts[i].nocasecmp_to(target_parts[i]) == 0:
 			common_count += 1
 		else:
 			break

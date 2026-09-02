@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import crypto from "crypto";
 import { convertScadToGltf } from "../src/convert.js";
 
@@ -183,7 +183,7 @@ async function run() {
 
     try {
       const glbData = await convertScadToGltf(scadCode, {
-        wasmUrl: `file://${wasmPath}`,
+        wasmUrl: pathToFileURL(wasmPath).href,
         additionalFiles,
         ...options,
       });
