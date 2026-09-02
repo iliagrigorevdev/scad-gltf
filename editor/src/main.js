@@ -1056,11 +1056,15 @@ controls.addEventListener("change", () => {
   if (typeof pathTracer !== "undefined") pathTracer.updateCamera();
 });
 
+let environmentTexture = null;
+
 new HDRLoader().load(
   "./aristea_wreck_puresky_2k.hdr",
   (texture) => {
     texture.mapping = THREE.EquirectangularReflectionMapping;
     scene.environment = texture;
+    environmentTexture = texture;
+
     const isPT = pathTracingCb && pathTracingCb.checked;
     const showGrid = showGridCb ? showGridCb.checked : true;
     if (typeof floor !== "undefined") floor.visible = !isPT;
@@ -1069,6 +1073,14 @@ new HDRLoader().load(
       gridHelper.visible = !isPT && showGrid;
     if (typeof axesHelper !== "undefined")
       axesHelper.visible = !isPT && showGrid;
+
+    if (isPT) {
+      scene.background = texture;
+      scene.backgroundBlurriness = 0.5;
+    } else {
+      scene.background = new THREE.Color(0x222222);
+      scene.backgroundBlurriness = 0;
+    }
 
     if (typeof pathTracer !== "undefined") {
       pathTracer.setScene(scene, camera);
@@ -1091,6 +1103,16 @@ if (pathTracingCb) {
       gridHelper.visible = !isPT && showGrid;
     if (typeof axesHelper !== "undefined")
       axesHelper.visible = !isPT && showGrid;
+
+    if (isPT) {
+      if (environmentTexture) {
+        scene.background = environmentTexture;
+        scene.backgroundBlurriness = 0.5;
+      }
+    } else {
+      scene.background = new THREE.Color(0x222222);
+      scene.backgroundBlurriness = 0;
+    }
 
     if (isPT && typeof pathTracer !== "undefined") {
       pathTracer.setScene(scene, camera);
