@@ -6,7 +6,8 @@
   "bin": {
     "scad-convert": "./bin/scad-convert.js",
     "scad-serve": "./bin/scad-serve.js",
-    "scad-mcp": "./bin/scad-mcp.js"
+    "scad-mcp": "./bin/scad-mcp.js",
+    "scad-godot": "./bin/scad-godot.sh"
   },
   "exports": {
     ".": "./src/ext/openscad.js",
