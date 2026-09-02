@@ -17,7 +17,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **Skeletal Animation:** Define animated armatures and bones directly within your `.scad` files.
 - **True Skeletal Skinning:** Exports absolute world transforms and properly bound animation tracks.
 - **Texture Baking:** Automatically generate UVs and bake high-poly details (colors, normals, ORM) onto low-poly meshes using the new `bake()` module.
-- **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, video/image export, URL sharing, and drag-and-drop.
+- **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, video/image export, URL sharing, and `.scad` / `.hdr` drag-and-drop.
 - **LLM Friendly:** Includes a built-in modular prompt generator (`prompt.js` and Web UI) to help AI models (like Gemini, Claude, or ChatGPT) write compatible OpenSCAD scripts utilizing the new features.
 - **Local API Server & Editor:** Bundled `scad-serve` CLI utility to manage local `.scad` files remotely via REST API with automatic `include`/`use` dependency resolution.
 - **CLI Converter:** Bundled `scad-convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
@@ -31,14 +31,14 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 The built-in web editor (**Scadify**) provides a full-featured development environment running entirely in the browser via WebAssembly:
 
 - **Real-Time 3D Viewport:** Instant WebAssembly compilation with auto-rendering, camera auto-framing, wireframe view, grid/axes toggles, ACES Filmic tone mapping, and full-screen mode.
-- **Photorealistic GPU Path Tracing:** Built-in hardware-accelerated path tracer with HDR environment lighting for realistic reflections, shadows, and glass refraction.
+- **Photorealistic GPU Path Tracing:** Built-in hardware-accelerated path tracer with HDR environment lighting for realistic reflections, shadows, and glass refraction. Supports custom `.hdr` environment maps via drag-and-drop.
 - **Interactive Animation Controls:** Multi-animation selector, playback controls (play/pause), and smooth timeline scrubbing for skeletal rigs.
 - **Modular AI Prompt Generator:** Built-in UI with fine-grained feature toggles (Basic PBR, Auto Smooth, Animations, Extended PBR, Texture Baking) and persistent local settings to generate optimized prompts for LLMs.
 - **Image & Video Capture:**
   - **📷 PNG Snapshots:** Export high-resolution renders with a single click.
   - **🎥 Video Recording:** Record animation loops directly to MP4/WebM. When Path Tracing is enabled, frames are rendered deterministically for jitter-free, ultra-high-quality animated video captures.
 - **Compressed URL Sharing:** Share your designs instantly via URL hash using client-side raw Deflate compression with an optional **Minify Share** toggle to strip comments and whitespace. Integrates with the Web Share API on supported devices.
-- **File Management & Drag and Drop:** Load local `.scad` files, drop any `.scad` script directly onto the viewport, download `.scad` source code, or export `.glb` binaries.
+- **File Management & Drag and Drop:** Load local `.scad` files, drop any `.scad` script or `.hdr` environment map directly onto the viewport, download `.scad` source code, or export `.glb` binaries.
 - **Automatic Model Naming:** Extracts model names automatically from `/* Model Name: ... */` header comments for file downloads and exports.
 - **Local Workspace Sync:** Connect to `scad-serve` on localhost to load, edit, save, and delete `.scad` files with change detection and recursive dependency resolution (`include` / `use`).
 - **PWA Support:** Installable as a Progressive Web App for desktop and mobile.
@@ -484,6 +484,6 @@ This repository includes a custom fork of OpenSCAD in the `openscad/` subfolder 
 - **Core Engine:** Built on a custom fork of [OpenSCAD](https://openscad.org/) (source included in the `openscad/` directory).
 - **glTF Export:** Export mechanics utilize the [tinygltf](https://github.com/syoyo/tinygltf) library.
 - **UV Unwrapping:** Texture baking utilizes the [xatlas](https://github.com/jpcy/xatlas) library for automatic UV parameterization.
-- **Path Tracing:** The web editor utilizes [three-gpu-pathtracer](https://github.com/gkjohnson/three-gpu-pathtracer) for high-quality real-time rendering.
+- **Path Tracing:** The web editor utilizes [three-gpu-pathtracer](https://github.com/gkjohnson/three-gpu-pathtracer) for high-quality rendering.
 - **Environment Map (HDR)**: [Aristea Wreck Puresky](https://polyhaven.com/a/aristea_wreck_puresky) by **Jarod Guest** via [Poly Haven](https://polyhaven.com/). Licensed under [CC0](https://polyhaven.com/license).
 - **License:** See the `LICENSE` file (GPL-2.0 or later, inheriting from standard OpenSCAD).
