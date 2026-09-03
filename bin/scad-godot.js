@@ -155,83 +155,16 @@ ${promptRules}
 
   clipboardOutput = clipboardOutput.trimEnd() + "\n";
 
-  // 7. Discover and Execute System Clipboard Command
-  const hasCommand = (cmd) => {
-    try {
-      if (process.platform === "win32") {
-        execSync(`where ${cmd}`, { stdio: "ignore" });
-      } else {
-        execSync(`command -v ${cmd}`, { stdio: "ignore" });
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const getClipboardCommand = () => {
-    if (process.platform === "darwin" && hasCommand("pbcopy")) {
-      return { cmd: "pbcopy", args: [] };
-    } else if (process.platform === "win32") {
-      if (hasCommand("powershell")) {
-        return {
-          cmd: "powershell",
-          args: ["-NoProfile", "-Command", "$input | Set-Clipboard"],
-        };
-      } else if (hasCommand("clip")) {
-        return { cmd: "clip", args: [] };
-      }
-    } else if (hasCommand("xclip")) {
-      return { cmd: "xclip", args: ["-selection", "clipboard"] };
-    } else if (hasCommand("xsel")) {
-      return { cmd: "xsel", args: ["--clipboard", "--input"] };
-    } else if (hasCommand("wl-copy")) {
-      // Wayland (Linux)
-      return { cmd: "wl-copy", args: [] };
-    } else if (hasCommand("termux-clipboard-set")) {
-      // Termux (Android)
-      return { cmd: "termux-clipboard-set", args: [] };
-    }
-    return null;
-  };
-
-  const clipboardCmd = getClipboardCommand();
-
-  if (!clipboardCmd) {
-    console.error(
-      "Error: No clipboard command found. Please install pbcopy, clip, xclip, xsel, wl-copy, or termux-clipboard-set.",
-    );
+  // 7. Write to System Clipboard
+  try {
+    const clipboardy = (await import("clipboardy")).default;
+    await clipboardy.write(clipboardOutput);
+    console.log("Content from specified sources has been copied to the clipboard.");
+  } catch (err) {
+    console.error("Error: Failed to copy content to the clipboard.");
+    console.error(err.message);
     process.exit(1);
   }
-
-  // Ignore stdout and stderr to prevent buffer blocking, just pipe into stdin
-  const clipProc = spawn(clipboardCmd.cmd, clipboardCmd.args, {
-    stdio: ["pipe", "ignore", "ignore"],
-  });
-
-  clipProc.stdin.write(clipboardOutput);
-  clipProc.stdin.end();
-
-  // Use process.exit() explicitly so that if the clipboard command forks
-  // into the background (common with xclip/wl-copy), Node doesn't wait indefinitely.
-  clipProc.on("close", (code) => {
-    if (code === 0) {
-      console.log(
-        "Content from specified sources has been copied to the clipboard.",
-      );
-      process.exit(0);
-    } else {
-      console.error(
-        `Error: Failed to copy content to the clipboard (exit code ${code}).`,
-      );
-      process.exit(1);
-    }
-  });
-
-  clipProc.on("error", (err) => {
-    console.error(`Error executing clipboard command: ${err.message}`);
-    process.exit(1);
-  });
 }
 
 // Execute and handle unhandled runtime errors
