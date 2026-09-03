@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import url from "node:url";
+import readline from "node:readline";
 import { spawn, execSync } from "node:child_process";
 
 // Safely resolve symlinks to find the actual package directory
@@ -102,6 +103,42 @@ function writeToClipboard(text) {
   });
 }
 
+function waitForEnter(message) {
+  return new Promise((resolve) => {
+    // If standard input was piped/redirected, we need to bypass it and read from the actual terminal
+    if (!process.stdin.isTTY) {
+      try {
+        const tty = process.platform === "win32" ? "CONIN$" : "/dev/tty";
+        const fd = fs.openSync(tty, "rs");
+        process.stdout.write(message);
+        const buf = Buffer.alloc(1);
+        fs.readSync(fd, buf, 0, 1, null);
+        fs.closeSync(fd);
+        console.log();
+        resolve();
+        return;
+      } catch (e) {
+        console.log(
+          message +
+            " (Auto-continuing due to non-interactive terminal environment)",
+        );
+        resolve();
+        return;
+      }
+    }
+
+    // For standard TTY terminals
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    rl.question(message, () => {
+      rl.close();
+      resolve();
+    });
+  });
+}
+
 async function main() {
   let task = "";
   let optionsStr = "{}";
@@ -168,11 +205,8 @@ async function main() {
     process.exit(1);
   }
 
-  // 4. Construct the Main Godot Prompt System Text
+  // 4. Construct the Main Godot Prompt System Text (System Instructions)
   const systemPrompt = `You are an expert Godot 4 game developer and procedural 3D technical artist.
-
-Input Task:
-Design and implement a Godot 4 project for the following game concept: "${task}"
 
 What to generate:
 1. 3D Game Assets (.scad):
@@ -218,32 +252,52 @@ ${promptRules}
     console.error("Warning: Could not read addon directory.", e);
   }
 
-  // 6. Format the unified clipboard output
-  let clipboardOutput = "";
+  // 6. Format the unified system instructions clipboard output
+  let systemClipboardOutput = "";
 
-  clipboardOutput += `### SYSTEM_PROMPT\n---\n\`\`\`\n${systemPrompt}\n\`\`\`\n\n`;
+  systemClipboardOutput += `### SYSTEM_PROMPT\n---\n\`\`\`\n${systemPrompt}\n\`\`\`\n\n`;
 
   for (const file of addonFiles) {
     try {
       const content = fs.readFileSync(file, "utf-8");
       // Format to use relative paths and force forward slashes for LLM clarity
       const relativePath = path.relative(DIR, file).replace(/\\/g, "/");
-      clipboardOutput += `### ${relativePath}\n---\n\`\`\`\n${content}\n\`\`\`\n\n`;
+      systemClipboardOutput += `### ${relativePath}\n---\n\`\`\`\n${content}\n\`\`\`\n\n`;
     } catch (e) {
       console.error(`Warning: Skipping '${file}'. It is not a readable file.`);
     }
   }
 
-  clipboardOutput = clipboardOutput.trimEnd() + "\n";
+  systemClipboardOutput = systemClipboardOutput.trimEnd() + "\n";
 
-  // 7. Write to System Clipboard
+  // 7. Format the input request output
+  const inputRequestOutput = `Input Task:\nDesign and implement a Godot 4 project for the following game concept: "${task}"`;
+
+  // 8. Write to System Clipboard (Part 1: System Instructions)
   try {
-    await writeToClipboard(clipboardOutput);
+    await writeToClipboard(systemClipboardOutput);
+    console.log("✔️  System instructions have been copied to the clipboard.");
+  } catch (err) {
+    console.error(
+      "Error: Failed to copy system instructions to the clipboard.",
+    );
+    console.error(err.message);
+    process.exit(1);
+  }
+
+  // 9. Await user confirmation
+  await waitForEnter(
+    "Please paste the system instructions into your LLM, then press ENTER to copy your input request...",
+  );
+
+  // 10. Write to System Clipboard (Part 2: Input Request)
+  try {
+    await writeToClipboard(inputRequestOutput);
     console.log(
-      "Content from specified sources has been copied to the clipboard.",
+      "✔️  Input request has been copied to the clipboard. You can now paste it into your LLM.",
     );
   } catch (err) {
-    console.error("Error: Failed to copy content to the clipboard.");
+    console.error("Error: Failed to copy input request to the clipboard.");
     console.error(err.message);
     process.exit(1);
   }
