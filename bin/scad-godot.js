@@ -155,36 +155,15 @@ ${promptRules}
 
   clipboardOutput = clipboardOutput.trimEnd() + "\n";
 
-  // 7. Write to System Clipboard or File
-  const byteLength = Buffer.byteLength(clipboardOutput, "utf-8");
-  const MAX_WIN_CLIPBOARD_BYTES = 14000; // ~14 KB safe threshold to avoid Windows truncation
-
-  // Check if we are on Windows and exceed the safe clipboard capacity
-  if (process.platform === "win32" && byteLength > MAX_WIN_CLIPBOARD_BYTES) {
-    const outputPath = path.resolve(process.cwd(), "scad-godot-prompt.txt");
-    fs.writeFileSync(outputPath, clipboardOutput, "utf-8");
-    console.log(
-      `Output is too large for the Windows clipboard (${(byteLength / 1024).toFixed(1)} KB).`,
-    );
-    console.log(
-      `Content has been safely written to file instead: ${outputPath}`,
-    );
-  } else {
-    try {
-      const clipboardy = (await import("clipboardy")).default;
-      await clipboardy.write(clipboardOutput);
-      console.log(
-        "Content from specified sources has been copied to the clipboard.",
-      );
-    } catch (err) {
-      // General fallback if clipboardy fails for any reason (even on Mac/Linux)
-      console.warn(
-        "Warning: Failed to copy to clipboard. Writing to file instead...",
-      );
-      const outputPath = path.resolve(process.cwd(), "scad-godot-prompt.txt");
-      fs.writeFileSync(outputPath, clipboardOutput, "utf-8");
-      console.log(`Content has been safely written to file: ${outputPath}`);
-    }
+  // 7. Write to System Clipboard
+  try {
+    const clipboardy = (await import("clipboardy")).default;
+    await clipboardy.write(clipboardOutput);
+    console.log("Content from specified sources has been copied to the clipboard.");
+  } catch (err) {
+    console.error("Error: Failed to copy content to the clipboard.");
+    console.error(err.message);
+    process.exit(1);
   }
 }
 
