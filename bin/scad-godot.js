@@ -172,8 +172,15 @@ ${promptRules}
   const getClipboardCommand = () => {
     if (process.platform === "darwin" && hasCommand("pbcopy")) {
       return { cmd: "pbcopy", args: [] };
-    } else if (process.platform === "win32" && hasCommand("clip")) {
-      return { cmd: "clip", args: [] };
+    } else if (process.platform === "win32") {
+      if (hasCommand("powershell")) {
+        return {
+          cmd: "powershell",
+          args: ["-NoProfile", "-Command", "$input | Set-Clipboard"],
+        };
+      } else if (hasCommand("clip")) {
+        return { cmd: "clip", args: [] };
+      }
     } else if (hasCommand("xclip")) {
       return { cmd: "xclip", args: ["-selection", "clipboard"] };
     } else if (hasCommand("xsel")) {
