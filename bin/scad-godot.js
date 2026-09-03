@@ -177,6 +177,7 @@ Design and implement a Godot 4 project for the following game concept: "${task}"
 What to generate:
 1. 3D Game Assets (.scad):
    - Generate procedural 3D models for the game using OpenSCAD.
+   - CRITICAL: The SCAD to glTF converter used by the Godot importer automatically converts OpenSCAD's Z-up coordinate system to Godot's Y-up coordinate system. Design your models naturally in OpenSCAD with Z as the vertical up-axis. DO NOT manually apply root rotations (e.g., \`rotate([90, 0, 0])\`) to compensate for Godot.
    - CRITICAL: You must use the custom OpenSCAD glTF extensions for PBR materials (e.g., \`roughness\`, \`metalness\`, \`emissive\`) and Skeletal Animations (\`armature()\`, \`bone()\`). The rules and syntax for these features are provided below:
 
 === OPENSCAD SYNTAX RULES ===
