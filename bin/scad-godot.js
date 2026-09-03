@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import url from "node:url";
 import { spawn, execSync } from "node:child_process";
@@ -20,6 +21,85 @@ function hasStdinData() {
   } catch (e) {
     return false;
   }
+}
+
+// Writes text to system clipboard without truncation or pipe buffer limits
+function writeToClipboard(text) {
+  return new Promise((resolve, reject) => {
+    // WINDOWS: Use a temp file to bypass Windows 14.5 KB console pipe limits and encoding issues
+    if (process.platform === "win32") {
+      const tmpFile = path.join(
+        os.tmpdir(),
+        `scad-godot-clip-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`,
+      );
+      try {
+        fs.writeFileSync(tmpFile, text, "utf8");
+        const psCmd = `Get-Content -LiteralPath '${tmpFile}' -Raw -Encoding utf8 | Set-Clipboard`;
+        execSync(`powershell -NoProfile -Command "${psCmd}"`, {
+          stdio: "ignore",
+        });
+        try {
+          fs.unlinkSync(tmpFile);
+        } catch {}
+        resolve();
+      } catch (err) {
+        try {
+          fs.unlinkSync(tmpFile);
+        } catch {}
+        reject(err);
+      }
+      return;
+    }
+
+    // UNIX (macOS, Linux, Termux): Pipes handle arbitrary large sizes without issues
+    const hasCommand = (cmd) => {
+      try {
+        execSync(`command -v ${cmd}`, { stdio: "ignore" });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const getClipboardTarget = () => {
+      if (process.platform === "darwin" && hasCommand("pbcopy")) {
+        return { cmd: "pbcopy", args: [] };
+      }
+      if (hasCommand("xclip")) {
+        return { cmd: "xclip", args: ["-selection", "clipboard"] };
+      }
+      if (hasCommand("xsel")) {
+        return { cmd: "xsel", args: ["--clipboard", "--input"] };
+      }
+      if (hasCommand("termux-clipboard-set")) {
+        return { cmd: "termux-clipboard-set", args: [] };
+      }
+      return null;
+    };
+
+    const target = getClipboardTarget();
+    if (!target) {
+      reject(
+        new Error(
+          "No clipboard utility found (please install pbcopy, xclip, or xsel).",
+        ),
+      );
+      return;
+    }
+
+    const proc = spawn(target.cmd, target.args, {
+      stdio: ["pipe", "ignore", "ignore"],
+    });
+
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Clipboard utility exited with code ${code}`));
+    });
+
+    proc.stdin.write(text, "utf8");
+    proc.stdin.end();
+  });
 }
 
 async function main() {
@@ -157,9 +237,10 @@ ${promptRules}
 
   // 7. Write to System Clipboard
   try {
-    const clipboardy = (await import("clipboardy")).default;
-    await clipboardy.write(clipboardOutput);
-    console.log("Content from specified sources has been copied to the clipboard.");
+    await writeToClipboard(clipboardOutput);
+    console.log(
+      "Content from specified sources has been copied to the clipboard.",
+    );
   } catch (err) {
     console.error("Error: Failed to copy content to the clipboard.");
     console.error(err.message);
