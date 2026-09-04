@@ -1821,6 +1821,9 @@ runnerRunBtn.addEventListener("click", async () => {
       html = html.replaceAll(`"#${id}"`, `"${blobUrl}"`);
     }
 
+    // Completely remove all <scad> tags from the final HTML
+    html = html.replace(/<scad\b[^>]*>[\s\S]*?<\/scad>/gi, "");
+
     runnerIframe.srcdoc = html;
   } catch (err) {
     console.error(err);
