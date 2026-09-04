@@ -14,7 +14,13 @@ import {
 } from "./prompt-ui.js";
 import defaultScad from "./default.scad?raw";
 
-// --- UI Elements ---
+// --- Tabs UI Elements ---
+const tabEditorBtn = document.getElementById("tab-editor");
+const tabRunnerBtn = document.getElementById("tab-runner");
+const viewEditor = document.getElementById("view-editor");
+const viewRunner = document.getElementById("view-runner");
+
+// --- Editor UI Elements ---
 const promptDescEl = document.getElementById("prompt-desc");
 const copyPromptBtn = document.getElementById("copy-prompt-btn");
 const modelNameInputEl = document.getElementById("model-name-input");
@@ -48,6 +54,12 @@ const showGridCb = document.getElementById("show-grid-cb");
 const wireframeCb = document.getElementById("wireframe-cb");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 
+// --- HTML Runner UI Elements ---
+const runnerEditorEl = document.getElementById("runner-editor");
+const runnerRunBtn = document.getElementById("runner-run-btn");
+const runnerIframe = document.getElementById("runner-iframe");
+
+// --- Editor State ---
 let currentSelectedModelIdx = "";
 let currentMesh = null;
 let currentGltfData = null;
@@ -75,6 +87,23 @@ let currentModelOriginalState = {
 let currentAction = null;
 let isPlaying = true;
 let isDraggingSlider = false;
+
+// --- Tabs Logic ---
+tabEditorBtn.addEventListener("click", () => {
+  tabEditorBtn.classList.add("active");
+  tabRunnerBtn.classList.remove("active");
+  viewEditor.classList.add("active");
+  viewRunner.classList.remove("active");
+  // Trigger resize for Three.js in Editor
+  setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+});
+
+tabRunnerBtn.addEventListener("click", () => {
+  tabRunnerBtn.classList.add("active");
+  tabEditorBtn.classList.remove("active");
+  viewRunner.classList.add("active");
+  viewEditor.classList.remove("active");
+});
 
 // Helper to determine what to render
 function getEditorContent() {
@@ -1675,6 +1704,132 @@ window.addEventListener("resize", () => {
 setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
 
 editorEl.placeholder = defaultScad;
+
+// --- HTML Runner Logic ---
+const defaultRunnerHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body style="margin:0; overflow:hidden; background:#111;">
+
+  <scad id="ship">
+    color("cyan", roughness=0.1)
+    union() {
+      cylinder(h=3, r1=1, r2=0, $fn=32);
+      translate([0,0,-0.5]) cube([3, 0.2, 1], center=true);
+    }
+  </scad>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const light = new THREE.DirectionalLight(0xffffff, 2);
+    light.position.set(5, 5, 5);
+    scene.add(light);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+    
+    camera.position.z = 5;
+    camera.position.y = 2;
+    camera.lookAt(0, 0, 0);
+
+    const loader = new GLTFLoader();
+    let mesh;
+    loader.load('#ship', (gltf) => {
+      mesh = gltf.scene;
+      scene.add(mesh);
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (mesh) {
+        mesh.rotation.y += 0.01;
+      }
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>`;
+
+runnerEditorEl.value = defaultRunnerHtml;
+
+async function hashString(str) {
+  const buf = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(str),
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+runnerRunBtn.addEventListener("click", async () => {
+  let html = runnerEditorEl.value.trim();
+  if (!html) return;
+
+  const originalBtnText = runnerRunBtn.innerText;
+  runnerRunBtn.innerText = "⏳ Compiling...";
+  runnerRunBtn.disabled = true;
+
+  try {
+    const cache = await caches.open("scad-simple-cache");
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const scadElements = doc.querySelectorAll("scad");
+
+    for (const el of scadElements) {
+      const id = el.getAttribute("id");
+      if (!id) continue;
+
+      const scadCode = el.textContent.trim();
+      const hash = await hashString(scadCode);
+
+      let glbBlob;
+      const cachedRes = await cache.match(hash);
+
+      if (cachedRes) {
+        glbBlob = await cachedRes.blob();
+      } else {
+        const additionalFiles = await fetchDependencies(scadCode);
+        const glbData = await convertScadToGltf(scadCode, {
+          wasmUrl: wasmUrl,
+          additionalFiles: additionalFiles,
+        });
+        glbBlob = new Blob([glbData], { type: "model/gltf-binary" });
+        await cache.put(hash, new Response(glbBlob));
+      }
+
+      const blobUrl = URL.createObjectURL(glbBlob);
+
+      html = html.replaceAll(`'#${id}'`, `'${blobUrl}'`);
+      html = html.replaceAll(`"#${id}"`, `"${blobUrl}"`);
+    }
+
+    runnerIframe.srcdoc = html;
+  } catch (err) {
+    console.error(err);
+    alert("Compilation failed: " + err.message);
+  } finally {
+    runnerRunBtn.innerText = originalBtnText;
+    runnerRunBtn.disabled = false;
+  }
+});
 
 (async function init() {
   const isLocal = ["localhost", "127.0.0.1", ""].includes(
