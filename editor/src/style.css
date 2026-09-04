@@ -352,7 +352,8 @@ input[type="range"]::-webkit-slider-thumb {
   display: block;
 }
 
-#viewer-controls {
+#viewer-controls,
+#runner-viewer-controls {
   position: absolute;
   top: 15px;
   right: 15px;
@@ -375,7 +376,8 @@ input[type="range"]::-webkit-slider-thumb {
   user-select: none;
   margin: 0;
 }
-#fullscreen-btn {
+#fullscreen-btn,
+#runner-fullscreen-btn {
   background: transparent;
   border: none;
   color: white;
@@ -387,7 +389,8 @@ input[type="range"]::-webkit-slider-thumb {
   align-items: center;
   justify-content: center;
 }
-#fullscreen-btn:hover {
+#fullscreen-btn:hover,
+#runner-fullscreen-btn:hover {
   color: #00aaff;
   background: transparent;
 }

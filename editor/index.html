@@ -191,20 +191,19 @@
           <div class="panel-section flex-grow">
             <h2>Self-Contained HTML Game</h2>
             <p class="help-text">
-              Write standard Three.js code. Use
-              <code>&lt;scad id="my_model"&gt;...&lt;/scad&gt;</code> tags for
-              OpenSCAD models, and load them natively via
-              <code>loader.load('#my_model', ...)</code>.
+              Embed SCAD models using
+              <code>&lt;scad id="my_model"&gt;...&lt;/scad&gt;</code> tags, then
+              load them natively as glTF via '#my_model'.
             </p>
             <textarea id="runner-editor" spellcheck="false"></textarea>
-            <div class="controls-row">
-              <button id="runner-run-btn" class="primary">
-                ▶ Compile & Run
-              </button>
-            </div>
           </div>
         </div>
         <div id="runner-right-panel">
+          <div id="runner-viewer-controls">
+            <button id="runner-fullscreen-btn" title="Toggle Full Screen">
+              ⛶
+            </button>
+          </div>
           <iframe id="runner-iframe" allow="fullscreen"></iframe>
         </div>
       </div>

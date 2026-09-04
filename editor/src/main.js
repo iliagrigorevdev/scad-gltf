@@ -56,8 +56,9 @@ const fullscreenBtn = document.getElementById("fullscreen-btn");
 
 // --- HTML Runner UI Elements ---
 const runnerEditorEl = document.getElementById("runner-editor");
-const runnerRunBtn = document.getElementById("runner-run-btn");
 const runnerIframe = document.getElementById("runner-iframe");
+const runnerRightPanel = document.getElementById("runner-right-panel");
+const runnerFullscreenBtn = document.getElementById("runner-fullscreen-btn");
 
 // --- Editor State ---
 let currentSelectedModelIdx = "";
@@ -103,6 +104,9 @@ tabRunnerBtn.addEventListener("click", () => {
   tabEditorBtn.classList.remove("active");
   viewRunner.classList.add("active");
   viewEditor.classList.remove("active");
+  if (runnerIframe.contentWindow) {
+    runnerIframe.contentWindow.dispatchEvent(new Event("resize"));
+  }
 });
 
 // Helper to determine what to render
@@ -1732,10 +1736,13 @@ const defaultRunnerHtml = `<!DOCTYPE html>
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+    const getW = () => window.innerWidth || 1;
+    const getH = () => window.innerHeight || 1;
+
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(75, getW() / getH(), 0.1, 100);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(getW(), getH());
     document.body.appendChild(renderer.domElement);
 
     const light = new THREE.DirectionalLight(0xffffff, 2);
@@ -1752,6 +1759,12 @@ const defaultRunnerHtml = `<!DOCTYPE html>
     loader.load('#ship', (gltf) => {
       mesh = gltf.scene;
       scene.add(mesh);
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = getW() / getH();
+      camera.updateProjectionMatrix();
+      renderer.setSize(getW(), getH());
     });
 
     function animate() {
@@ -1778,16 +1791,25 @@ async function hashString(str) {
     .join("");
 }
 
-runnerRunBtn.addEventListener("click", async () => {
+let runnerTimeout;
+runnerEditorEl.addEventListener("input", () => {
+  clearTimeout(runnerTimeout);
+  runnerTimeout = setTimeout(() => {
+    compileRunnerHtml();
+  }, 800);
+});
+
+async function compileRunnerHtml() {
   let html = runnerEditorEl.value.trim();
   if (!html) return;
 
-  const originalBtnText = runnerRunBtn.innerText;
-  runnerRunBtn.innerText = "⏳ Compiling...";
-  runnerRunBtn.disabled = true;
-
   try {
-    const cache = await caches.open("scad-simple-cache");
+    let cache = null;
+    try {
+      cache = await caches.open("scad-simple-cache");
+    } catch (e) {
+      console.warn("Cache API not available, skipping cache");
+    }
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
@@ -1801,7 +1823,11 @@ runnerRunBtn.addEventListener("click", async () => {
       const hash = await hashString(scadCode);
 
       let glbBlob;
-      const cachedRes = await cache.match(hash);
+      let cachedRes = null;
+
+      if (cache) {
+        cachedRes = await cache.match(hash);
+      }
 
       if (cachedRes) {
         glbBlob = await cachedRes.blob();
@@ -1812,7 +1838,9 @@ runnerRunBtn.addEventListener("click", async () => {
           additionalFiles: additionalFiles,
         });
         glbBlob = new Blob([glbData], { type: "model/gltf-binary" });
-        await cache.put(hash, new Response(glbBlob));
+        if (cache) {
+          await cache.put(hash, new Response(glbBlob));
+        }
       }
 
       const blobUrl = URL.createObjectURL(glbBlob);
@@ -1827,12 +1855,20 @@ runnerRunBtn.addEventListener("click", async () => {
     runnerIframe.srcdoc = html;
   } catch (err) {
     console.error(err);
-    alert("Compilation failed: " + err.message);
-  } finally {
-    runnerRunBtn.innerText = originalBtnText;
-    runnerRunBtn.disabled = false;
   }
-});
+}
+
+if (runnerFullscreenBtn && runnerRightPanel) {
+  runnerFullscreenBtn.addEventListener("click", () => {
+    if (!document.fullscreenElement) {
+      runnerRightPanel.requestFullscreen().catch((err) => {
+        console.warn(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  });
+}
 
 (async function init() {
   const isLocal = ["localhost", "127.0.0.1", ""].includes(
@@ -1857,5 +1893,8 @@ runnerRunBtn.addEventListener("click", async () => {
 
   checkChanges();
 
-  setTimeout(() => compileAndRender(getEditorContent()), 500);
+  setTimeout(() => {
+    compileAndRender(getEditorContent());
+    compileRunnerHtml();
+  }, 500);
 })();
