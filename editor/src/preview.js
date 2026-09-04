@@ -17,6 +17,7 @@ const fullscreenBtn = document.getElementById("fullscreen-btn");
 const screenshotBtn = document.getElementById("screenshot-btn");
 
 let currentMesh = null;
+let currentAnimations = [];
 let latestScadCode = "";
 let isCompiling = false;
 let pendingCode = null;
@@ -177,6 +178,82 @@ window.addEventListener("resize", () => {
   renderer.setSize(w, h);
 });
 
+// Computes the comprehensive bounding box of an object across rest pose and all animation frames
+function computeModelBounds(root, animations) {
+  if (!root) return new THREE.Box3();
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(root);
+
+  if (!animations || animations.length === 0) {
+    return box;
+  }
+
+  const savedTransforms = new Map();
+  root.traverse((obj) => {
+    savedTransforms.set(obj, {
+      position: obj.position.clone(),
+      quaternion: obj.quaternion.clone(),
+      scale: obj.scale.clone(),
+    });
+  });
+
+  const tempMixer = new THREE.AnimationMixer(root);
+
+  for (const clip of animations) {
+    const action = tempMixer.clipAction(clip);
+    action.play();
+
+    const sampleTimes = new Set([0, clip.duration]);
+    if (clip.tracks) {
+      for (const track of clip.tracks) {
+        if (track.times) {
+          for (let i = 0; i < track.times.length; i++) {
+            sampleTimes.add(track.times[i]);
+          }
+        }
+      }
+    }
+
+    const numSteps = 20;
+    if (clip.duration > 0) {
+      for (let i = 0; i <= numSteps; i++) {
+        sampleTimes.add((i / numSteps) * clip.duration);
+      }
+    }
+
+    let times = Array.from(sampleTimes).sort((a, b) => a - b);
+    if (times.length > 60) {
+      const sampled = [];
+      const stride = (times.length - 1) / 59;
+      for (let i = 0; i < 60; i++) {
+        sampled.push(times[Math.round(i * stride)]);
+      }
+      times = sampled;
+    }
+
+    for (const time of times) {
+      action.time = time;
+      tempMixer.update(0);
+      root.updateMatrixWorld(true);
+      box.expandByObject(root);
+    }
+
+    action.stop();
+  }
+
+  tempMixer.stopAllAction();
+  tempMixer.uncacheRoot(root);
+
+  savedTransforms.forEach((t, obj) => {
+    obj.position.copy(t.position);
+    obj.quaternion.copy(t.quaternion);
+    obj.scale.copy(t.scale);
+  });
+  root.updateMatrixWorld(true);
+
+  return box;
+}
+
 // --- GLTF Parsing & Rendering Logic ---
 function renderGLTF(outputArray) {
   return new Promise((resolve, reject) => {
@@ -186,6 +263,7 @@ function renderGLTF(outputArray) {
         mixer.uncacheRoot(mixer.getRoot());
         mixer = null;
       }
+      currentAnimations = [];
       scene.remove(currentMesh);
       currentMesh.traverse((child) => {
         if (child.isMesh) {
@@ -211,13 +289,17 @@ function renderGLTF(outputArray) {
       "",
       (gltf) => {
         currentMesh = gltf.scene;
+        currentAnimations = gltf.animations || [];
         const isWireframe = wireframeCb ? wireframeCb.checked : false;
 
-        if (gltf.animations && gltf.animations.length > 0) {
+        if (currentAnimations.length > 0) {
           mixer = new THREE.AnimationMixer(currentMesh);
-          gltf.animations.forEach((clip) => {
-            mixer.clipAction(clip).play();
+          currentAnimations.forEach((clip) => {
+            const action = mixer.clipAction(clip);
+            action.play();
+            action.time = 0;
           });
+          mixer.update(0);
         }
 
         currentMesh.traverse((child) => {
@@ -252,7 +334,7 @@ function renderGLTF(outputArray) {
 
 function fitCamera() {
   if (!currentMesh) return;
-  const worldBox = new THREE.Box3().setFromObject(currentMesh);
+  const worldBox = computeModelBounds(currentMesh, currentAnimations);
   if (worldBox.isEmpty()) return;
 
   const center = worldBox.getCenter(new THREE.Vector3());
