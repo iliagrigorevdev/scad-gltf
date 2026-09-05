@@ -8,6 +8,7 @@
     "scad-serve": "./bin/scad-serve.js",
     "scad-mcp": "./bin/scad-mcp.js",
     "scad-serve": "bin/scad-serve.js",
+    "scad-godot": "./bin/scad-godot.js",
     "scad-web": "bin/scad-web.js"
   },
   "exports": {
