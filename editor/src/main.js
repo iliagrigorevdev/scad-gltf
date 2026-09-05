@@ -78,6 +78,9 @@ let isDraggingSlider = false;
 
 // Helper to determine what to render
 function getEditorContent() {
+  if (isServerConnected) {
+    return editorEl.value;
+  }
   return editorEl.value || defaultScad;
 }
 
@@ -1674,12 +1677,12 @@ window.addEventListener("resize", () => {
 });
 setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
 
-editorEl.placeholder = defaultScad;
+const isLocal = ["localhost", "127.0.0.1", ""].includes(
+  window.location.hostname,
+);
+editorEl.placeholder = isLocal ? "Enter OpenSCAD code here..." : defaultScad;
 
 (async function init() {
-  const isLocal = ["localhost", "127.0.0.1", ""].includes(
-    window.location.hostname,
-  );
   if (isLocal) {
     const url = backendUrlEl.value.trim();
     await connectToServer(url, true);
