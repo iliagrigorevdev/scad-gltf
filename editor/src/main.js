@@ -7,6 +7,10 @@ import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   PROMPT_UI_HTML,
   setupPromptToggles,
@@ -300,6 +304,7 @@ captureImageBtn.onclick = () => {
       camera.aspect = targetW / targetH;
       camera.updateProjectionMatrix();
       renderer.setSize(targetW, targetH, false);
+      composer.setSize(targetW, targetH);
       if (isPT) {
         pathTracer.updateCamera();
       }
@@ -369,6 +374,7 @@ captureImageBtn.onclick = () => {
               camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
               camera.updateProjectionMatrix();
               renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+              composer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
               pathTracer.updateCamera();
               updateCaptureButtonState();
               return;
@@ -394,6 +400,7 @@ captureImageBtn.onclick = () => {
               camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
               camera.updateProjectionMatrix();
               renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+              composer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
               pathTracer.updateCamera();
               updateCaptureButtonState();
             };
@@ -490,6 +497,7 @@ captureImageBtn.onclick = () => {
           camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
           camera.updateProjectionMatrix();
           renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+          composer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
           updateCaptureButtonState();
         };
 
@@ -499,7 +507,7 @@ captureImageBtn.onclick = () => {
         if (typeof lightGroup !== "undefined") lightGroup.visible = true;
         if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
         if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
-        renderer.render(scene, camera);
+        composer.render();
 
         // Draw initial frame just in case captureStream(30) is used so it isn't black
         recordCtx.drawImage(srcCanvas, 0, 0, targetW, targetH);
@@ -1082,6 +1090,22 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 viewerEl.appendChild(renderer.domElement);
 
+// --- Post-processing: Bloom for Emissive Glow ---
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(viewerEl.clientWidth, viewerEl.clientHeight),
+  0.8, // strength
+  0.4, // radius
+  0.8, // threshold
+);
+composer.addPass(bloomPass);
+
+const outputPass = new OutputPass();
+composer.addPass(outputPass);
+
 const pathTracer = new WebGLPathTracer(renderer);
 pathTracer.bounces = 10;
 pathTracer.transmissiveBounces = 10;
@@ -1655,7 +1679,7 @@ function animate() {
     if (typeof lightGroup !== "undefined") lightGroup.visible = true;
     if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
     if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
-    renderer.render(scene, camera);
+    composer.render();
   }
 
   if (captureNextFrame) {
@@ -1674,6 +1698,7 @@ window.addEventListener("resize", () => {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
+  composer.setSize(w, h);
 });
 setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
 

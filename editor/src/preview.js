@@ -4,6 +4,10 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 
 const viewerContainer = document.getElementById("viewer-container");
 const viewerEl = document.getElementById("viewer");
@@ -47,6 +51,22 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 viewerEl.appendChild(renderer.domElement);
+
+// --- Post-processing: Bloom for Emissive Glow ---
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.8, // strength
+  0.4, // radius
+  0.8, // threshold
+);
+composer.addPass(bloomPass);
+
+const outputPass = new OutputPass();
+composer.addPass(outputPass);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -159,7 +179,7 @@ function animate() {
   gridHelper.visible = showGrid;
   axesHelper.visible = showGrid;
 
-  renderer.render(scene, camera);
+  composer.render();
 
   if (captureNextFrame) {
     captureNextFrame = false;
@@ -176,6 +196,7 @@ window.addEventListener("resize", () => {
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
+  composer.setSize(w, h);
 });
 
 // Computes the comprehensive bounding box of an object across rest pose and all animation frames
