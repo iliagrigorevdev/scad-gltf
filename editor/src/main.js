@@ -356,84 +356,100 @@ captureImageBtn.onclick = () => {
       let drawInterval = null;
       stopRecordingRequested = false;
 
-      if (isPT) {
-        isRecording = true;
-        updateCaptureButtonState();
+      isRecording = true;
+      updateCaptureButtonState();
 
-        const ptSamplesTarget = 100; // Increased for better quality and stability
-        const fps = 30;
-        const duration = currentAction.getClip().duration;
-        const totalFrames = Math.ceil(duration * fps);
-        let currentFrame = 0;
-        const renderedFrames = [];
+      const ptSamplesTarget = 100; // Increased for better quality and stability
+      const fps = 30;
+      const duration = currentAction.getClip().duration;
+      const totalFrames = Math.round(duration * fps);
+      let currentFrame = 0;
+      const renderedFrames = [];
 
-        const renderNextFrame = () => {
-          if (stopRecordingRequested || currentFrame > totalFrames) {
-            if (renderedFrames.length === 0) {
-              isRecording = false;
-              camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
-              camera.updateProjectionMatrix();
-              renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
-              composer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+      const renderNextFrame = () => {
+        if (stopRecordingRequested || currentFrame >= totalFrames) {
+          if (renderedFrames.length === 0) {
+            isRecording = false;
+            camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+            composer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+            if (isPT && typeof pathTracer !== "undefined") {
               pathTracer.updateCamera();
-              updateCaptureButtonState();
-              return;
             }
-
-            stopRecordingRequested = false;
-
-            mediaRecorder = new MediaRecorder(stream, options);
-            recordedChunks = [];
-
-            mediaRecorder.ondataavailable = (e) => {
-              if (e.data.size > 0) recordedChunks.push(e.data);
-            };
-
-            mediaRecorder.onstop = () => {
-              if (drawInterval) clearInterval(drawInterval);
-              const blob = new Blob(recordedChunks, {
-                type: options.mimeType.split(";")[0],
-              });
-              downloadBlob(blob, `${getDownloadName()}.${extension}`);
-              isRecording = false;
-
-              camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
-              camera.updateProjectionMatrix();
-              renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
-              composer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
-              pathTracer.updateCamera();
-              updateCaptureButtonState();
-            };
-
-            recordCtx.drawImage(renderedFrames[0], 0, 0, targetW, targetH);
-            mediaRecorder.start();
-
-            let playbackFrame = 0;
-            drawInterval = setInterval(() => {
-              if (stopRecordingRequested) {
-                mediaRecorder.stop();
-                return;
-              }
-              if (playbackFrame < renderedFrames.length) {
-                recordCtx.drawImage(
-                  renderedFrames[playbackFrame],
-                  0,
-                  0,
-                  targetW,
-                  targetH,
-                );
-                playbackFrame++;
-              } else {
-                mediaRecorder.stop();
-              }
-            }, 1000 / 30);
+            updateCaptureButtonState();
             return;
           }
 
-          currentAction.time = currentFrame / fps;
-          if (mixer) {
-            mixer.update(0);
-          }
+          stopRecordingRequested = false;
+
+          mediaRecorder = new MediaRecorder(stream, options);
+          recordedChunks = [];
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            if (drawInterval) clearTimeout(drawInterval);
+            const blob = new Blob(recordedChunks, {
+              type: options.mimeType.split(";")[0],
+            });
+            downloadBlob(blob, `${getDownloadName()}.${extension}`);
+            isRecording = false;
+
+            camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+            composer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
+            if (isPT && typeof pathTracer !== "undefined") {
+              pathTracer.updateCamera();
+            }
+            updateCaptureButtonState();
+          };
+
+          recordCtx.drawImage(renderedFrames[0], 0, 0, targetW, targetH);
+          mediaRecorder.start();
+
+          let frameIndex = 0;
+          let startTime = performance.now();
+
+          const playLoop = () => {
+            if (stopRecordingRequested) {
+              mediaRecorder.stop();
+              return;
+            }
+
+            if (frameIndex < renderedFrames.length) {
+              recordCtx.drawImage(
+                renderedFrames[frameIndex],
+                0,
+                0,
+                targetW,
+                targetH,
+              );
+              frameIndex++;
+
+              // Calculate exactly when the next frame should be drawn
+              const nextTime = startTime + frameIndex * (1000 / fps);
+              const delay = Math.max(0, nextTime - performance.now());
+              drawInterval = setTimeout(playLoop, delay);
+            } else {
+              // Wait briefly to ensure MediaRecorder catches the final frame
+              drawInterval = setTimeout(() => mediaRecorder.stop(), 50);
+            }
+          };
+
+          drawInterval = setTimeout(playLoop, 0);
+          return;
+        }
+
+        currentAction.time = currentFrame / fps;
+        if (mixer) {
+          mixer.update(0);
+        }
+
+        if (isPT) {
           if (typeof floor !== "undefined") floor.visible = false;
           if (typeof lightGroup !== "undefined") lightGroup.visible = false;
           if (typeof gridHelper !== "undefined") gridHelper.visible = false;
@@ -473,64 +489,29 @@ captureImageBtn.onclick = () => {
             }
           };
           waitForSamples();
-        };
+        } else {
+          const showGrid = showGridCb ? showGridCb.checked : true;
+          if (typeof floor !== "undefined") floor.visible = true;
+          if (typeof lightGroup !== "undefined") lightGroup.visible = true;
+          if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
+          if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
 
-        renderNextFrame();
-      } else {
-        mediaRecorder = new MediaRecorder(stream, options);
-        recordedChunks = [];
+          composer.render();
 
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) recordedChunks.push(e.data);
-        };
+          const frameCanvas = document.createElement("canvas");
+          frameCanvas.width = targetW;
+          frameCanvas.height = targetH;
+          frameCanvas
+            .getContext("2d")
+            .drawImage(srcCanvas, 0, 0, targetW, targetH);
+          renderedFrames.push(frameCanvas);
 
-        mediaRecorder.onstop = () => {
-          stopRecordingRequested = false;
-          if (drawInterval) clearInterval(drawInterval);
-          const blob = new Blob(recordedChunks, {
-            type: options.mimeType.split(";")[0],
-          });
-          downloadBlob(blob, `${getDownloadName()}.${extension}`);
-          isRecording = false;
+          currentFrame++;
+          setTimeout(renderNextFrame, 0);
+        }
+      };
 
-          // Restore original render resolution
-          camera.aspect = viewerEl.clientWidth / viewerEl.clientHeight;
-          camera.updateProjectionMatrix();
-          renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
-          composer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
-          updateCaptureButtonState();
-        };
-
-        // Force render first frame after resize so it's not black
-        const showGrid = showGridCb ? showGridCb.checked : true;
-        if (typeof floor !== "undefined") floor.visible = true;
-        if (typeof lightGroup !== "undefined") lightGroup.visible = true;
-        if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
-        if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
-        composer.render();
-
-        // Draw initial frame just in case captureStream(30) is used so it isn't black
-        recordCtx.drawImage(srcCanvas, 0, 0, targetW, targetH);
-
-        mediaRecorder.start();
-        isRecording = true;
-        updateCaptureButtonState();
-
-        // Continuously draw from the threejs canvas to the recording canvas at fixed 512x512
-        drawInterval = setInterval(() => {
-          if (isRecording) {
-            recordCtx.drawImage(srcCanvas, 0, 0, targetW, targetH);
-          }
-        }, 1000 / 30);
-
-        // Automatically stop after one full cycle of animation
-        const durationMs = currentAction.getClip().duration * 1000;
-        setTimeout(() => {
-          if (isRecording && mediaRecorder.state !== "inactive") {
-            mediaRecorder.stop();
-          }
-        }, durationMs);
-      }
+      renderNextFrame();
     } else {
       alert("Video recording is not supported in this browser.");
     }
@@ -1648,7 +1629,7 @@ function animate() {
   lastTime = now;
 
   if (mixer) {
-    if (!(pathTracingCb && pathTracingCb.checked)) {
+    if (!(pathTracingCb && pathTracingCb.checked) && !isRecording) {
       mixer.update(delta);
     }
 
@@ -1679,7 +1660,9 @@ function animate() {
     if (typeof lightGroup !== "undefined") lightGroup.visible = true;
     if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
     if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
-    composer.render();
+    if (!isRecording) {
+      composer.render();
+    }
   }
 
   if (captureNextFrame) {
