@@ -90,16 +90,24 @@ async function main() {
     console.error("");
     console.error("Example with JSON options:");
     console.error(
-      '  scad-godot "Game description" \'{"animation": false, "transmission": false}\'',
+      '  scad-godot "Game description" \'{"animation": false, "bakeColors": true}\'',
     );
     process.exit(1);
   }
 
   // 2. Parse Options JSON
-  let options = {};
+  // Disable heavy PBR features by default
+  let options = {
+    transmission: false,
+    clearcoat: false,
+    sheen: false,
+    iridescence: false,
+  };
+
   if (optionsStr) {
     try {
-      options = JSON.parse(optionsStr);
+      const parsed = JSON.parse(optionsStr);
+      options = { ...options, ...parsed }; // User provided options override defaults
     } catch (e) {
       console.error(`Invalid JSON options: ${optionsStr}`);
       process.exit(1);

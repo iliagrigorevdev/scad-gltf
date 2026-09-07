@@ -263,7 +263,7 @@ box_h = 16.0;
 wall_t = 0.2;
 
 // Left, Right & Back Transparent Glass (alpha=0.15 triggers glTF BLEND transparency mode)
-color([0.80, 0.93, 1.0], alpha=0.15, transmission=0.92, roughness=0.04, ior=1.52, thickness=0.2, $asa=45) {
+color([0.80, 0.93, 1.0], alpha=0.15, roughness=0.04, $asa=45) {
     // Back glass plate
     translate([0, box_d/2 + wall_t/2, box_h/2])
         cube([box_w, wall_t, box_h], center=true);
@@ -278,7 +278,7 @@ color([0.80, 0.93, 1.0], alpha=0.15, transmission=0.92, roughness=0.04, ior=1.52
 }
 
 // Sturdy Polished Wooden Base
-color([0.55, 0.32, 0.16], roughness=0.75, clearcoat=0.3) {
+color([0.55, 0.32, 0.16], roughness=0.75) {
     translate([0, 0, -0.4])
         cube([box_w + 1.6, box_d + 1.6, 0.8], center=true);
 }
@@ -304,7 +304,7 @@ writeFile(
   `$fn = 24;
 $asa = 45;
 
-color([0.98, 0.98, 1.0], roughness=0.4, clearcoat=0.5) {
+color([0.98, 0.98, 1.0], roughness=0.4) {
     translate([0, 0, 0]) sphere(r=0.9);
     translate([-0.8, 0, -0.15]) sphere(r=0.65);
     translate([0.8, 0, -0.15]) sphere(r=0.65);
@@ -331,7 +331,7 @@ writeFile(
 $asa = 45;
 r = 0.55;
 
-color([0.85, 0.05, 0.15], roughness=0.15, clearcoat=0.8, clearcoatRoughness=0.1) {
+color([0.85, 0.05, 0.15], roughness=0.15) {
     sphere(r=r);
 }
 
@@ -354,7 +354,7 @@ writeFile(
   `$fn = 26;
 $asa = 45;
 
-color([0.95, 0.12, 0.28], roughness=0.3, clearcoat=0.4) {
+color([0.95, 0.12, 0.28], roughness=0.3) {
     scale([1.0, 1.0, 1.25])
         sphere(r=0.72);
 }
@@ -390,7 +390,7 @@ writeFile(
 $asa = 45;
 r = 0.98;
 
-color([0.48, 0.12, 0.68], roughness=0.2, clearcoat=0.6, sheen=0.8, sheenColor=[0.8, 0.4, 0.9]) {
+color([0.48, 0.12, 0.68], roughness=0.2) {
     sphere(r=r);
 }
 
@@ -411,7 +411,7 @@ writeFile(
 $asa = 45;
 r = 1.3;
 
-color([1.0, 0.48, 0.02], roughness=0.45, clearcoat=0.3) {
+color([1.0, 0.48, 0.02], roughness=0.45) {
     scale([1.0, 1.0, 0.92])
         sphere(r=r);
 }
@@ -434,7 +434,7 @@ $asa = 45;
 r = 1.65;
 
 difference() {
-    color([0.9, 0.08, 0.12], roughness=0.15, clearcoat=0.9, clearcoatRoughness=0.05) {
+    color([0.9, 0.08, 0.12], roughness=0.15) {
         scale([1.0, 1.0, 0.95])
             sphere(r=r);
     }
@@ -465,7 +465,7 @@ writeFile(
 $asa = 45;
 r = 2.05;
 
-color([1.0, 0.42, 0.45], roughness=0.6, sheen=1.0, sheenColor=[1.0, 0.7, 0.5]) {
+color([1.0, 0.42, 0.45], roughness=0.6) {
     translate([-0.18, 0, 0])
         scale([1.0, 0.96, 1.05])
         sphere(r=r * 0.94);
@@ -491,7 +491,7 @@ writeFile(
 $asa = 45;
 r = 2.5;
 
-color([0.52, 0.88, 0.42], roughness=0.35, clearcoat=0.3) {
+color([0.52, 0.88, 0.42], roughness=0.35) {
     sphere(r=r);
 }
 
@@ -520,7 +520,7 @@ writeFile(
 $asa = 45;
 r = 3.0;
 
-color([0.22, 0.72, 0.28], roughness=0.2, clearcoat=0.6) {
+color([0.22, 0.72, 0.28], roughness=0.2) {
     sphere(r=r);
 }
 
@@ -550,7 +550,7 @@ writeFile(
 $asa = 45;
 r = 3.6;
 
-color([1.0, 0.78, 0.15], emissive=[0.9, 0.55, 0.05], emissiveIntensity=1.5, metalness=0.4, roughness=0.2, clearcoat=1.0) {
+color([1.0, 0.78, 0.15], emissive=[0.9, 0.55, 0.05], emissiveIntensity=1.5, metalness=0.4, roughness=0.2) {
     sphere(r=r);
 }
 
@@ -905,7 +905,7 @@ func _enforce_glass_transparency(root_node: Node):
 				for s in range(mesh.get_surface_count()):
 					var mat = child.get_active_material(s)
 					if mat is BaseMaterial3D:
-						# If it is a glass material (light tint or transmission/alpha flag)
+						# If it is a glass material (light tint or alpha transparency)
 						if mat.albedo_color.a < 0.95 or mat.albedo_color.b > 0.85:
 							var glass = mat.duplicate()
 							glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -913,8 +913,6 @@ func _enforce_glass_transparency(root_node: Node):
 							glass.albedo_color = Color(0.85, 0.95, 1.0, 0.12)
 							glass.roughness = 0.05
 							glass.metallic = 0.1
-							glass.clearcoat_enabled = true
-							glass.clearcoat = 1.0
 							child.set_surface_override_material(s, glass)
 		_enforce_glass_transparency(child)
 
@@ -926,8 +924,6 @@ func _build_procedural_glass_box():
 	glass_mat.albedo_color = Color(0.85, 0.95, 1.0, 0.12)
 	glass_mat.roughness = 0.05
 	glass_mat.metallic = 0.05
-	glass_mat.clearcoat_enabled = true
-	glass_mat.clearcoat = 1.0
 
 	var frame_mat = StandardMaterial3D.new()
 	frame_mat.albedo_color = Color(0.8, 0.85, 0.9, 1.0)
