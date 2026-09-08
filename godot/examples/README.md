@@ -37,7 +37,7 @@ If you are on a standard Windows, macOS, or Linux desktop, the easiest way is to
 
 1. Install the tool globally:
    ```bash
-   npm install -g github:iliagrigorevdev/scad-gltf
+   npm install -g scad-gltf
    ```
 2. Launch **Godot 4**.
 3. Click **Import** in the Project Manager, browse to the generated folder, and select the `project.godot` file.
@@ -53,7 +53,7 @@ In some environments (like running Godot directly on an Android device via Termu
    ```
 2. Start the local server:
    ```bash
-   npx -p github:iliagrigorevdev/scad-gltf scad-serve
+   npx -p scad-gltf scad-serve
    ```
    _(This starts a local backend server on port 3000)._
 3. Leave the server running in the background.

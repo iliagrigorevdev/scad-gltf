@@ -21,7 +21,7 @@ Because OpenSCAD compilation is handled by our WebAssembly engine running in Nod
 1. **Install Node.js** on your system.
 2. **Install the compiler tools globally:**
    ```bash
-   npm install -g github:iliagrigorevdev/scad-gltf
+   npm install -g scad-gltf
    ```
 
 ---
@@ -53,7 +53,7 @@ It will look for a local backend server running on `127.0.0.1:3000`. To use this
 1. Open your terminal in your project directory.
 2. Run the server using `npx`:
    ```bash
-   npx -p github:iliagrigorevdev/scad-gltf scad-serve
+   npx -p scad-gltf scad-serve
    ```
 3. Leave the server running in the background. Godot will now send your `.scad` code to this local server, compile it in memory, and import the resulting 3D mesh.
 

@@ -53,14 +53,14 @@ This package is designed to be installed directly from GitHub.
 If you plan to use the `scad-convert`, `scad-serve`, or `scad-mcp` command-line tools anywhere on your system:
 
 ```bash
-npm install -g github:iliagrigorevdev/scad-gltf
+npm install -g scad-gltf
 ```
 
 **Option 2: Local Installation (For Node.js / Web bundlers)**
 If you are importing the package into a JavaScript project:
 
 ```bash
-npm install github:iliagrigorevdev/scad-gltf
+npm install scad-gltf
 ```
 
 ---
