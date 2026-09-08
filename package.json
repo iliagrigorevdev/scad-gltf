@@ -1,15 +1,42 @@
 {
   "name": "scad-gltf",
   "version": "0.1.0",
+  "description": "WASM build of a custom OpenSCAD fork that compiles .scad scripts directly to glTF/GLB with PBR and animation support",
   "type": "module",
   "main": "./src/ext/openscad.js",
+  "author": "Ilia Grigorev",
+  "license": "GPL-2.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iliagrigorevdev/scad-gltf.git"
+  },
+  "bugs": {
+    "url": "https://github.com/iliagrigorevdev/scad-gltf/issues"
+  },
+  "homepage": "https://iliagrigorevdev.github.io/scad-gltf/",
+  "keywords": [
+    "openscad",
+    "gltf",
+    "glb",
+    "wasm",
+    "3d",
+    "cad",
+    "godot",
+    "mcp",
+    "ai"
+  ],
+  "files": [
+    "bin",
+    "src",
+    "godot",
+    "editor/dist"
+  ],
   "bin": {
     "scad-convert": "./bin/scad-convert.js",
     "scad-serve": "./bin/scad-serve.js",
     "scad-mcp": "./bin/scad-mcp.js",
-    "scad-serve": "bin/scad-serve.js",
     "scad-godot": "./bin/scad-godot.js",
-    "scad-web": "bin/scad-web.js"
+    "scad-web": "./bin/scad-web.js"
   },
   "exports": {
     ".": "./src/ext/openscad.js",
@@ -21,7 +48,8 @@
   },
   "scripts": {
     "format": "prettier --write .",
-    "mcp": "npx @modelcontextprotocol/inspector node ./bin/scad-mcp.js"
+    "mcp": "npx @modelcontextprotocol/inspector node ./bin/scad-mcp.js",
+    "prepublishOnly": "npm install --prefix editor && npm run build --prefix editor"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

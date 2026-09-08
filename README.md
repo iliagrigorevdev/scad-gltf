@@ -8,7 +8,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 
 **✨ Launch Scadify:** Open the web editor and real-time 3D viewer: [https://iliagrigorevdev.github.io/scad-gltf/](https://iliagrigorevdev.github.io/scad-gltf/)
 
-![Editor Screenshot](screenshot.png)
+![Editor Screenshot](https://raw.githubusercontent.com/iliagrigorevdev/scad-gltf/main/screenshot.png)
 
 ## Features
 
