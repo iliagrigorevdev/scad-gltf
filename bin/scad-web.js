@@ -163,15 +163,12 @@ ${promptRules}
      - Your generated Vite web project files.
    - Ensure all string file contents inside the Node.js script are properly escaped.`;
 
-  // 5. Format the unified system instructions clipboard output
-  let systemClipboardOutput = `### SYSTEM_PROMPT\n---\n\`\`\`\n${systemPrompt}\n\`\`\`\n\n`;
+  // 5. Format the input request output
+  const inputRequestOutput = `Design and implement a web-based 3D glTF app using Vite for the following concept: "${task}"`;
 
-  // 6. Format the input request output
-  const inputRequestOutput = `Input Task:\nDesign and implement a web-based 3D glTF app using Vite for the following concept: "${task}"`;
-
-  // 7. Write to System Clipboard (Part 1: System Instructions)
+  // 6. Write to System Clipboard (Part 1: System Instructions)
   try {
-    await writeToClipboard(systemClipboardOutput);
+    await writeToClipboard(systemPrompt);
     console.log("✔️  System instructions have been copied to the clipboard.");
   } catch (err) {
     console.error(
@@ -181,12 +178,12 @@ ${promptRules}
     process.exit(1);
   }
 
-  // 8. Await user confirmation
+  // 7. Await user confirmation
   await waitForEnter(
     "Please paste the system instructions into your LLM, then press ENTER to copy your input request...",
   );
 
-  // 9. Write to System Clipboard (Part 2: Input Request)
+  // 8. Write to System Clipboard (Part 2: Input Request)
   try {
     await writeToClipboard(inputRequestOutput);
     console.log(

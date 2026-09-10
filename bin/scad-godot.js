@@ -180,7 +180,12 @@ ${promptRules}
       const files = fs.readdirSync(addonDir);
       for (const file of files) {
         const fullPath = path.join(addonDir, file);
-        if (fs.statSync(fullPath).isFile()) {
+        // Ensure we only read text files to prevent binary/hidden files
+        // from introducing control characters that crash browser UIs.
+        if (
+          fs.statSync(fullPath).isFile() &&
+          (file.endsWith(".gd") || file.endsWith(".cfg"))
+        ) {
           addonFiles.push(fullPath);
         }
       }
@@ -190,16 +195,19 @@ ${promptRules}
   }
 
   // 6. Format the unified system instructions clipboard output
-  let systemClipboardOutput = "";
-
-  systemClipboardOutput += `### SYSTEM_PROMPT\n---\n\`\`\`\n${systemPrompt}\n\`\`\`\n\n`;
+  let systemClipboardOutput = `${systemPrompt}\n\n`;
 
   for (const file of addonFiles) {
     try {
-      const content = fs.readFileSync(file, "utf-8");
+      // Normalize line endings to avoid mixed line-ending layout loops in web editors
+      const content = fs.readFileSync(file, "utf-8").replace(/\r\n/g, "\n");
       // Format to use relative paths and force forward slashes for LLM clarity
       const relativePath = path.relative(DIR, file).replace(/\\/g, "/");
-      systemClipboardOutput += `### ${relativePath}\n---\n\`\`\`\n${content}\n\`\`\`\n\n`;
+
+      // Add explicit language tags to prevent catastrophic regex backtracking
+      // during the Markdown parser's language auto-detection step.
+      const lang = file.endsWith(".gd") ? "gdscript" : "text";
+      systemClipboardOutput += `### ${relativePath}\n---\n\`\`\`${lang}\n${content}\n\`\`\`\n\n`;
     } catch (e) {
       console.error(`Warning: Skipping '${file}'. It is not a readable file.`);
     }
@@ -208,7 +216,7 @@ ${promptRules}
   systemClipboardOutput = systemClipboardOutput.trimEnd() + "\n";
 
   // 7. Format the input request output
-  const inputRequestOutput = `Input Task:\nDesign and implement a Godot 4 project for the following game concept: "${task}"`;
+  const inputRequestOutput = `Design and implement a Godot 4 project for the following game concept: "${task}"`;
 
   // 8. Write to System Clipboard (Part 1: System Instructions)
   try {
