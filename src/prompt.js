@@ -106,7 +106,7 @@ export function generatePrompt(description, options = {}) {
     let exampleStr =
       exampleParams.length > 0 ? ", " + exampleParams.join(", ") : "";
 
-    prompt += `\n\nExample Material Usage:\n// Syntax: color(c=color_value, alpha=1.0, [named PBR parameters...])\ncolor([0.2, 0.2, 0.2], alpha=1.0${exampleStr})\n  cube([10, 10, 10]);`;
+    prompt += `\n\nExample Material Usage:\n\`\`\`openscad\n// Syntax: color(c=color_value, alpha=1.0, [named PBR parameters...])\ncolor([0.2, 0.2, 0.2], alpha=1.0${exampleStr})\n  cube([10, 10, 10]);\n\`\`\``;
   }
 
   if (opts.lazyUnion) {
@@ -132,6 +132,7 @@ export function generatePrompt(description, options = {}) {
 - Translational & Rotational Keyframes: Keyframe translations and rotations are ABSOLUTE in local space. They completely replace the bone's resting 't' and 'r' attributes during the animation. If a bone's resting translation is [0, 0, 2] and it needs to move 10 units up, the keyframe translation must be [0, 0, 12]. If translation is omitted, it defaults to the resting position.
 
 Example Animation Usage:
+\`\`\`openscad
 anim_data = [
   ["Action 1", [
     ["BaseSpinner", [
@@ -161,7 +162,8 @@ armature(animations=anim_data) {
       color([0.8, 0.2, 0.2]) cylinder(h=5, r=2);
     }
   }
-}`;
+}
+\`\`\``;
   }
 
   if (opts.bakeColors || opts.bakeNormals || opts.bakeOrm || opts.bakeUvs) {
@@ -213,6 +215,7 @@ armature(animations=anim_data) {
 ${explanationText}
 
 Example Baking Usage:
+\`\`\`openscad
 // Bake the selected details of a high-resolution sphere onto a low-resolution one
 ${bakeSig} {
   color("white") sphere(r=10, $fn=100); // Child 1: High Poly
@@ -222,7 +225,8 @@ ${bakeSig} {
 // Alternatively, generate UVs/Tangents for a mesh WITHOUT a high-poly source by providing only 1 child
 bake(uvs=true) {
   color("white") cube([10, 10, 10]);
-}`;
+}
+\`\`\``;
   }
 
   return prompt;
