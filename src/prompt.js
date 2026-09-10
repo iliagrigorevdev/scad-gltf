@@ -89,7 +89,7 @@ export function generatePrompt(description, options = {}) {
       prompt += `\n- Iridescence & Iridescence IOR: Simulates thin-film interference like soap bubbles, oil spills, or pearlescent surfaces. (Defaults: 0.0 and 1.3)`;
     }
     if (opts.autoSmoothAngle) {
-      prompt += `\n- Auto Smooth Angle: Generates smooth vertex normals for adjoining faces with an angle difference less than this value (in degrees). Use > 0 (e.g., 30 or 45) for curved/smooth surfaces, 0.0 for flat shading. Can be set globally using the special variable $asa (e.g., $asa=30;), or overridden per-material via the $asa parameter INSIDE the color() module. IMPORTANT: $asa ONLY affects surface shading (normals). It DOES NOT alter the actual geometry or polygon count. You must still use standard variables like $fn to increase geometric resolution. DO NOT pass $asa directly to geometry modules like sphere() or cylinder(). (Default: 0.0)`;
+      prompt += `\n- Auto Smooth Angle: Generates smooth vertex normals for adjoining faces with an angle difference less than this value (in degrees). Use > 0 (e.g., 30 or 45) for curved/smooth surfaces, 0.0 for flat shading. Can be set globally using the special variable \`$asa\` (e.g., \`$asa=30;\`), or overridden per-material via the \`$asa\` parameter INSIDE the color() module. IMPORTANT: \`$asa\` ONLY affects surface shading (normals). It DOES NOT alter the actual geometry or polygon count. You must still use standard variables like \`$fn\` to increase geometric resolution. DO NOT pass \`$asa\` directly to geometry modules like sphere() or cylinder(). (Default: 0.0)`;
     }
 
     let exampleParams = [];
