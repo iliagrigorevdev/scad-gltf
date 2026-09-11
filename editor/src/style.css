@@ -317,19 +317,26 @@ input[type="range"]::-webkit-slider-thumb {
   user-select: none;
   margin: 0;
 }
-#fullscreen-btn {
+#fullscreen-btn,
+#screenshot-btn {
   background: transparent;
   border: none;
   color: white;
   font-size: 16px;
   cursor: pointer;
-  padding: 0 4px;
   height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-#fullscreen-btn:hover {
+#fullscreen-btn {
+  padding: 0 4px;
+}
+#screenshot-btn {
+  padding: 0 4px 5px;
+}
+#fullscreen-btn:hover,
+#screenshot-btn:hover {
   color: #00aaff;
   background: transparent;
 }

@@ -51,6 +51,7 @@ const promptUiContainer = document.getElementById("prompt-ui-container");
 const showGridCb = document.getElementById("show-grid-cb");
 const wireframeCb = document.getElementById("wireframe-cb");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
+const screenshotBtn = document.getElementById("screenshot-btn");
 
 let currentSelectedModelIdx = "";
 let currentMesh = null;
@@ -1246,6 +1247,19 @@ if (fullscreenBtn && rightPanel) {
   document.addEventListener("fullscreenchange", () => {
     // Trigger resize after a tiny delay to ensure proper canvas layout
     setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
+  });
+}
+
+if (screenshotBtn) {
+  screenshotBtn.addEventListener("click", () => {
+    captureNextFrame = true;
+
+    // Provide brief visual feedback on the button
+    const originalText = screenshotBtn.innerText;
+    screenshotBtn.innerText = "✅";
+    setTimeout(() => {
+      screenshotBtn.innerText = originalText;
+    }, 1000);
   });
 }
 
