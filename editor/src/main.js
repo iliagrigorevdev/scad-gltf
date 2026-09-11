@@ -1682,6 +1682,10 @@ window.addEventListener("resize", () => {
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   composer.setSize(w, h);
+
+  if (typeof pathTracer !== "undefined") {
+    pathTracer.updateCamera();
+  }
 });
 setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
 
