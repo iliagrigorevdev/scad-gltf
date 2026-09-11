@@ -97,12 +97,27 @@ armature(animations=anim_data) {
 
                 // Deep Volumetric Sapphire
                 // Showcasing: $asa=0.0 (Preserves faceted "cut" look of the crystal)
-                color([1.0, 1.0, 1.0, 1.0], transmission=1.0, roughness=0.0, thickness=8.0, ior=1.76, attenuationColor=[0.1, 0.3, 0.9], attenuationDistance=3.0) {
+                color([1.0, 1.0, 1.0, 1.0], transmission=1.0, roughness=0.0, thickness=8.0, ior=1.76, attenuationColor=[0.1, 0.3, 0.9], attenuationDistance=6.0, $asa=30) {
 
-                    // Octagonal faceted crystal shape
-                    union() {
-                        cylinder(h=5, r1=4, r2=0, $fn=8);
-                        translate([0,0,-5]) cylinder(h=5, r1=0, r2=4, $fn=8);
+                    // Use difference() to carve out an inner cavity so the shell is hollow,
+                    // allowing physically correct index-of-refraction depth sorting.
+                    difference() {
+                        // Octagonal faceted crystal shape
+                        union() {
+                            cylinder(h=5, r1=4, r2=0, $fn=8);
+                            translate([0,0,-5]) cylinder(h=5, r1=0, r2=4, $fn=8);
+                        }
+
+                        // Hollow cavity
+                        sphere(r=0.9, $fn=32);
+                    }
+                }
+
+                // 4. Glowing Core (Child of Gem Shell)
+                // Placed inside its own bone to prevent auto-unioning with the transparent gem
+                bone(name="Core", t=[0,0,0]) {
+                    color([0.0, 0.0, 0.0, 1.0], emissive=[0.5, 0.8, 1.0], emissiveIntensity=20.0, $asa=45) {
+                        sphere(r=0.6, $fn=32);
                     }
                 }
             }
