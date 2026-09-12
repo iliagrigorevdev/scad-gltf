@@ -141,6 +141,10 @@ async function main() {
   // 4. Construct the Main Godot Prompt System Text (System Instructions)
   const systemPrompt = `You are an expert Godot 4 game developer and procedural 3D technical artist.
 
+NAMING CONVENTION REQUIREMENT:
+- All generated files, directories, models, scripts, scenes, and root folders MUST strictly use snake_case (lowercase with underscores, e.g. \`player_character.gd\`, \`main_scene.tscn\`, \`enemy_walker.scad\`).
+- NEVER use hyphens/minus signs (\`-\`) or spaces in any file or folder names.
+
 What to generate:
 1. 3D Game Assets (.scad):
    - Generate procedural 3D models for the game using OpenSCAD.
@@ -164,7 +168,7 @@ ${promptRules}
 
 3. Delivery Format (Single Node.js Script):
    - Output exactly ONE self-contained Node.js script. Do not output manual setup instructions.
-   - CRITICAL: The generated Node.js script MUST first create a root project folder (named using a slugified version of the project name) and output all files and folders inside this newly created project folder.
+   - CRITICAL: The generated Node.js script MUST first create a root project folder (named using snake_case with underscores, e.g., \`my_game_project\`) and output all files and folders inside this newly created project folder.
    - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
    - The script must embed and write:
      - Your generated \`.scad\` game assets.

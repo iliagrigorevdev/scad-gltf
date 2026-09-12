@@ -1,7 +1,7 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs");
+const path = require("path");
 
-const ROOT_DIR = path.join(process.cwd(), 'horde-survivor-3d');
+const ROOT_DIR = path.join(process.cwd(), "horde_survivor_3d");
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) {
@@ -12,7 +12,7 @@ function ensureDir(dirPath) {
 function writeFile(relPath, content) {
   const fullPath = path.join(ROOT_DIR, relPath);
   ensureDir(path.dirname(fullPath));
-  fs.writeFileSync(fullPath, content.trimStart(), 'utf-8');
+  fs.writeFileSync(fullPath, content.trimStart(), "utf-8");
   console.log(`[Created] ${relPath}`);
 }
 
@@ -25,7 +25,9 @@ ensureDir(ROOT_DIR);
 // =========================================================================
 
 // assets/player.scad (Stylized Paladin Knight)
-writeFile('assets/player.scad', `
+writeFile(
+  "assets/player.scad",
+  `
 $fn = 24;
 $asa = 35.0;
 
@@ -199,10 +201,13 @@ armature(animations=anim_data) {
     }
   }
 }
-`);
+`,
+);
 
 // assets/enemy_walker.scad (Terrifying Zombie with sunken eye sockets and ragged clothes)
-writeFile('assets/enemy_walker.scad', `
+writeFile(
+  "assets/enemy_walker.scad",
+  `
 $fn = 20;
 $asa = 30.0;
 
@@ -309,10 +314,13 @@ armature(animations=anim_data) {
         cube([0.48, 0.55, 1.4], center=true);
   }
 }
-`);
+`,
+);
 
 // assets/enemy_swarmer.scad (Vampiric Bat with swept organic wings)
-writeFile('assets/enemy_swarmer.scad', `
+writeFile(
+  "assets/enemy_swarmer.scad",
+  `
 $fn = 18;
 $asa = 30.0;
 
@@ -449,10 +457,13 @@ armature(animations=anim_data) {
     bat_wing();
   }
 }
-`);
+`,
+);
 
 // assets/enemy_brute.scad (Heavy Armored Boss with FORWARD spikes and Spiked War Maul)
-writeFile('assets/enemy_brute.scad', `
+writeFile(
+  "assets/enemy_brute.scad",
+  `
 $fn = 24;
 $asa = 35.0;
 
@@ -571,10 +582,13 @@ armature(animations=anim_data) {
     }
   }
 }
-`);
+`,
+);
 
 // assets/gem_xp.scad (Brilliant Faceted Octahedron Crystal)
-writeFile('assets/gem_xp.scad', `
+writeFile(
+  "assets/gem_xp.scad",
+  `
 $fn = 8;
 $asa = 0.0;
 
@@ -603,10 +617,13 @@ armature(animations=anim_data) {
       sphere(r=0.25, $fn=12);
   }
 }
-`);
+`,
+);
 
 // assets/orb.scad (Holy Aegis Orbiting Shield Orb)
-writeFile('assets/orb.scad', `
+writeFile(
+  "assets/orb.scad",
+  `
 $fn = 20;
 $asa = 45.0;
 
@@ -646,10 +663,13 @@ armature(animations=anim_data) {
     }
   }
 }
-`);
+`,
+);
 
 // assets/projectile.scad
-writeFile('assets/projectile.scad', `
+writeFile(
+  "assets/projectile.scad",
+  `
 $fn = 16;
 $asa = 35.0;
 
@@ -670,10 +690,13 @@ union() {
       cube([0.05, 0.3, 0.6], center=true);
     }
 }
-`);
+`,
+);
 
 // assets/chest.scad
-writeFile('assets/chest.scad', `
+writeFile(
+  "assets/chest.scad",
+  `
 $fn = 18;
 $asa = 30.0;
 
@@ -696,13 +719,16 @@ translate([0, 0, 0.5]) {
     color([1.0, 0.85, 0.2], metalness=0.2, roughness=0.1, emissive=[1.0, 0.85, 0.2], emissiveIntensity=3.0)
       cube([0.6, 0.6, 0.08], center=true);
 }
-`);
+`,
+);
 
 // =========================================================================
 // 2. GODOT ADDON: SCAD IMPORTER
 // =========================================================================
 
-writeFile('addons/scad_importer/plugin.cfg', `
+writeFile(
+  "addons/scad_importer/plugin.cfg",
+  `
 [plugin]
 
 name="OpenSCAD GLTF Importer"
@@ -710,9 +736,12 @@ description="Imports .scad files directly as 3D scenes using scad-gltf"
 author="Ilia Grigorev"
 version="0.1"
 script="scad_plugin.gd"
-`);
+`,
+);
 
-writeFile('addons/scad_importer/scad_plugin.gd', `
+writeFile(
+  "addons/scad_importer/scad_plugin.gd",
+  `
 @tool
 extends EditorPlugin
 
@@ -725,9 +754,12 @@ func _enter_tree():
 func _exit_tree():
 	remove_scene_format_importer_plugin(import_plugin)
 	import_plugin = null
-`);
+`,
+);
 
-writeFile('addons/scad_importer/scad_importer.gd', `
+writeFile(
+  "addons/scad_importer/scad_importer.gd",
+  `
 @tool
 extends EditorSceneFormatImporter
 
@@ -926,14 +958,17 @@ func _try_scad_serve_fallback(source_path: String, out_glb_path: String) -> bool
 		return true
 
 	return false
-`);
+`,
+);
 
 // =========================================================================
 // 3. GDSCRIPT FILES
 // =========================================================================
 
 // scripts/sound_manager.gd
-writeFile('scripts/sound_manager.gd', `
+writeFile(
+  "scripts/sound_manager.gd",
+  `
 extends Node
 
 var players: Array[AudioStreamPlayer] = []
@@ -1033,10 +1068,13 @@ func _play_arpeggio(freqs: Array, note_duration: float, volume: float):
 	var player = _get_free_player()
 	player.stream = stream
 	player.play()
-`);
+`,
+);
 
 // scripts/damage_number.gd
-writeFile('scripts/damage_number.gd', `
+writeFile(
+  "scripts/damage_number.gd",
+  `
 extends Node3D
 
 @onready var label: Label3D = $Label3D
@@ -1064,10 +1102,13 @@ func _process(delta: float):
 	label.modulate.a = alpha
 	if lifetime <= 0:
 		queue_free()
-`);
+`,
+);
 
 // scenes/damage_number.tscn
-writeFile('scenes/damage_number.tscn', `
+writeFile(
+  "scenes/damage_number.tscn",
+  `
 [gd_scene load_steps=2 format=3 uid="uid://dmgnum001"]
 
 [ext_resource type="Script" path="res://scripts/damage_number.gd" id="1_dnum"]
@@ -1082,10 +1123,13 @@ font_size = 32
 outline_size = 8
 outline_modulate = Color(0, 0, 0, 1)
 text = "10"
-`);
+`,
+);
 
 // scripts/xp_gem.gd
-writeFile('scripts/xp_gem.gd', `
+writeFile(
+  "scripts/xp_gem.gd",
+  `
 extends Area3D
 
 @export var xp_value: int = 10
@@ -1134,10 +1178,13 @@ func _collect():
 	if player and player.has_method("add_xp"):
 		player.add_xp(xp_value)
 	queue_free()
-`);
+`,
+);
 
 // scenes/xp_gem.tscn
-writeFile('scenes/xp_gem.tscn', `
+writeFile(
+  "scenes/xp_gem.tscn",
+  `
 [gd_scene load_steps=4 format=3 uid="uid://gem0001"]
 
 [ext_resource type="Script" path="res://scripts/xp_gem.gd" id="1_gem"]
@@ -1157,10 +1204,13 @@ transform = Transform3D(0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 0, 0, 0)
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
 shape = SubResource("SphereShape3D_1")
-`);
+`,
+);
 
 // scripts/projectile.gd
-writeFile('scripts/projectile.gd', `
+writeFile(
+  "scripts/projectile.gd",
+  `
 extends Area3D
 
 var direction: Vector3 = Vector3.FORWARD
@@ -1189,10 +1239,13 @@ func _on_body_entered(body: Node3D):
 		pierce -= 1
 		if pierce <= 0:
 			queue_free()
-`);
+`,
+);
 
 // scenes/projectile.tscn
-writeFile('scenes/projectile.tscn', `
+writeFile(
+  "scenes/projectile.tscn",
+  `
 [gd_scene load_steps=4 format=3 uid="uid://proj0001"]
 
 [ext_resource type="Script" path="res://scripts/projectile.gd" id="1_proj"]
@@ -1213,10 +1266,13 @@ transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 0, 0, 0)
 shape = SubResource("SphereShape3D_1")
 
 [connection signal="body_entered" from="." to="." method="_on_body_entered"]
-`);
+`,
+);
 
 // scripts/orbit_shield.gd
-writeFile('scripts/orbit_shield.gd', `
+writeFile(
+  "scripts/orbit_shield.gd",
+  `
 extends Node3D
 
 @export var damage: int = 30
@@ -1252,10 +1308,13 @@ func _process(delta: float):
 		var angle = current_angle + (TAU / orbs.size()) * i
 		var pos = Vector3(cos(angle) * radius, 1.2, sin(angle) * radius)
 		orbs[i].position = pos
-`);
+`,
+);
 
 // scripts/orbit_orb.gd
-writeFile('scripts/orbit_orb.gd', `
+writeFile(
+  "scripts/orbit_orb.gd",
+  `
 extends Area3D
 
 var damage: int = 30
@@ -1291,10 +1350,13 @@ func _on_body_entered(body: Node3D):
 			hit_cooldowns[body] = 0.35
 			body.take_damage(damage, global_position)
 			SoundManager.play_hit()
-`);
+`,
+);
 
 // scenes/orbit_orb.tscn
-writeFile('scenes/orbit_orb.tscn', `
+writeFile(
+  "scenes/orbit_orb.tscn",
+  `
 [gd_scene load_steps=4 format=3 uid="uid://orb0001"]
 
 [ext_resource type="Script" path="res://scripts/orbit_orb.gd" id="1_orb"]
@@ -1315,10 +1377,13 @@ transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0, 0, 0)
 shape = SubResource("SphereShape3D_1")
 
 [connection signal="body_entered" from="." to="." method="_on_body_entered"]
-`);
+`,
+);
 
 // scripts/lightning_strike.gd
-writeFile('scripts/lightning_strike.gd', `
+writeFile(
+  "scripts/lightning_strike.gd",
+  `
 extends Node3D
 
 @onready var mesh: MeshInstance3D = $MeshInstance3D
@@ -1334,10 +1399,13 @@ func _process(delta: float):
 	scale.z = a
 	if lifetime <= 0:
 		queue_free()
-`);
+`,
+);
 
 // scenes/lightning_strike.tscn
-writeFile('scenes/lightning_strike.tscn', `
+writeFile(
+  "scenes/lightning_strike.tscn",
+  `
 [gd_scene load_steps=4 format=3 uid="uid://lightn001"]
 
 [ext_resource type="Script" path="res://scripts/lightning_strike.gd" id="1_light"]
@@ -1361,10 +1429,13 @@ script = ExtResource("1_light")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 0)
 mesh = SubResource("CylinderMesh_1")
 surface_material_override/0 = SubResource("StandardMaterial3D_1")
-`);
+`,
+);
 
 // scripts/enemy_base.gd
-writeFile('scripts/enemy_base.gd', `
+writeFile(
+  "scripts/enemy_base.gd",
+  `
 extends CharacterBody3D
 
 @export var max_health: int = 40
@@ -1532,10 +1603,13 @@ func _die():
 		main.register_kill()
 
 	queue_free()
-`);
+`,
+);
 
 // scenes/enemy_walker.tscn
-writeFile('scenes/enemy_walker.tscn', `
+writeFile(
+  "scenes/enemy_walker.tscn",
+  `
 [gd_scene load_steps=4 format=3 uid="uid://enmwalker01"]
 
 [ext_resource type="Script" path="res://scripts/enemy_base.gd" id="1_ebase"]
@@ -1565,10 +1639,13 @@ transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 0, 0, 0)
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
 shape = SubResource("CapsuleShape3D_1")
-`);
+`,
+);
 
 // scenes/enemy_swarmer.tscn
-writeFile('scenes/enemy_swarmer.tscn', `
+writeFile(
+  "scenes/enemy_swarmer.tscn",
+  `
 [gd_scene load_steps=4 format=3 uid="uid://enmswarm01"]
 
 [ext_resource type="Script" path="res://scripts/enemy_base.gd" id="1_ebase"]
@@ -1597,10 +1674,13 @@ transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, 0, 0, 0)
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
 shape = SubResource("SphereShape3D_1")
-`);
+`,
+);
 
 // scenes/enemy_brute.tscn
-writeFile('scenes/enemy_brute.tscn', `
+writeFile(
+  "scenes/enemy_brute.tscn",
+  `
 [gd_scene load_steps=4 format=3 uid="uid://enmbrute01"]
 
 [ext_resource type="Script" path="res://scripts/enemy_base.gd" id="1_ebase"]
@@ -1631,10 +1711,13 @@ transform = Transform3D(1.1, 0, 0, 0, 1.1, 0, 0, 0, 1.1, 0, 0, 0)
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 0)
 shape = SubResource("CapsuleShape3D_1")
-`);
+`,
+);
 
 // scripts/player.gd
-writeFile('scripts/player.gd', `
+writeFile(
+  "scripts/player.gd",
+  `
 extends CharacterBody3D
 
 signal health_changed(current, max_hp)
@@ -1864,10 +1947,13 @@ func apply_upgrade(upgrade_id: String):
 		"magnet":
 			magnet_radius += 2.5
 			_update_magnet_shape()
-`);
+`,
+);
 
 // scenes/player.tscn
-writeFile('scenes/player.tscn', `
+writeFile(
+  "scenes/player.tscn",
+  `
 [gd_scene load_steps=6 format=3 uid="uid://player0001"]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_play"]
@@ -1904,10 +1990,13 @@ shape = SubResource("SphereShape3D_mag")
 
 [node name="OrbitShield" type="Node3D" parent="."]
 script = ExtResource("3_shield")
-`);
+`,
+);
 
 // scripts/ui.gd
-writeFile('scripts/ui.gd', `
+writeFile(
+  "scripts/ui.gd",
+  `
 extends CanvasLayer
 
 @onready var hp_bar: ProgressBar = $HUD/HPBar
@@ -1996,10 +2085,13 @@ func show_victory():
 func _on_restart_pressed():
 	get_tree().paused = false
 	get_tree().reload_current_scene()
-`);
+`,
+);
 
 // scenes/ui.tscn
-writeFile('scenes/ui.tscn', `
+writeFile(
+  "scenes/ui.tscn",
+  `
 [gd_scene load_steps=2 format=3 uid="uid://ui00000001"]
 
 [ext_resource type="Script" path="res://scripts/ui.gd" id="1_ui"]
@@ -2259,10 +2351,13 @@ text = "Play Again"
 
 [connection signal="pressed" from="GameOverPanel/RestartBtn" to="." method="_on_restart_pressed"]
 [connection signal="pressed" from="VictoryPanel/RestartBtn" to="." method="_on_restart_pressed"]
-`);
+`,
+);
 
 // scripts/main.gd
-writeFile('scripts/main.gd', `
+writeFile(
+  "scripts/main.gd",
+  `
 extends Node3D
 
 @export var win_time: float = 300.0
@@ -2349,10 +2444,13 @@ func _spawn_brute():
 func register_kill():
 	total_kills += 1
 	ui.update_kills(total_kills)
-`);
+`,
+);
 
 // scenes/main.tscn
-writeFile('scenes/main.tscn', `
+writeFile(
+  "scenes/main.tscn",
+  `
 [gd_scene load_steps=9 format=3 uid="uid://main0000001"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
@@ -2412,13 +2510,16 @@ current = true
 fov = 55.0
 
 [node name="UI" parent="." instance=ExtResource("3_ui")]
-`);
+`,
+);
 
 // =========================================================================
 // 4. CONFIGURATION & METADATA
 // =========================================================================
 
-writeFile('project.godot', `
+writeFile(
+  "project.godot",
+  `
 config_version=5
 
 [application]
@@ -2482,15 +2583,21 @@ window/stretch/aspect="expand"
 
 anti_aliasing/quality/msaa_3d=2
 glow/enabled=true
-`);
+`,
+);
 
-writeFile('.gitignore', `
+writeFile(
+  ".gitignore",
+  `
 .godot/
 *.translation
 user/
-`);
+`,
+);
 
-writeFile('README.md', `
+writeFile(
+  "README.md",
+  `
 # Horde Survivor 3D
 
 A 3D auto-shooter / horde survival game inspired by *Vampire Survivors*.
@@ -2500,9 +2607,10 @@ A 3D auto-shooter / horde survival game inspired by *Vampire Survivors*.
 - **The Bat (Swarmer)**: Redesigned with organic swept wings, an arched elbow spar, wing claws, skeletal ribs, and smooth flapping animations.
 - **The Zombie (Walker)**: Detailed with sunken eye sockets, glowing red pupils, a decaying jaw with teeth, exposed ribs, and clawed reaching hands.
 - **The Hero (Knight)**: Wields an angled runic broadsword with pommel, grip, crossguard, and fuller in the right hand and an emblazoned heater kite shield on the left forearm.
-`);
+`,
+);
 
-console.log('\n======================================================');
+console.log("\n======================================================");
 console.log('Project "Horde Survivor 3D" updated with refined models!');
 console.log(`Directory: ${ROOT_DIR}`);
-console.log('======================================================\n');
+console.log("======================================================\n");
