@@ -270,8 +270,7 @@ If you installed the package globally, you can configure your MCP client to use 
 {
   "mcpServers": {
     "scad-mcp": {
-      "command": "scad-mcp",
-      "args": []
+      "command": "scad-mcp"
     }
   }
 }
