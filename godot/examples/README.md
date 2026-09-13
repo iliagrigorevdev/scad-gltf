@@ -80,3 +80,7 @@ scad-godot "A simple 3D platformer where you control a rolling ball collecting c
 ```
 
 _(See the main repository documentation for full details on generating your own AI projects)._
+
+## 📜 License
+
+These examples and their generated Godot project assets are licensed under the [MIT License](LICENSE).
