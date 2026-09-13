@@ -972,7 +972,11 @@ writeFile(
 extends Node
 
 var players: Array[AudioStreamPlayer] = []
-const POOL_SIZE = 8
+const POOL_SIZE = 16
+
+# CRITICAL FIX: Caching the generated AudioStreamWAV streams so we don't
+# calculate loops of thousands of iterations of math per-frame on large hits!
+var cached_streams: Dictionary = {}
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -988,24 +992,40 @@ func _get_free_player() -> AudioStreamPlayer:
 	return players[0]
 
 func play_shoot():
-	_play_tone(580.0, 220.0, 0.12, 0.15, "saw")
+	_play_cached_tone("shoot", 580.0, 220.0, 0.12, 0.15, "saw")
 
 func play_hit():
-	_play_tone(180.0, 60.0, 0.08, 0.2, "noise")
+	_play_cached_tone("hit", 180.0, 60.0, 0.08, 0.2, "noise")
 
 func play_gem():
-	_play_tone(650.0, 980.0, 0.1, 0.12, "sine")
+	_play_cached_tone("gem", 650.0, 980.0, 0.1, 0.12, "sine")
 
 func play_level_up():
-	_play_arpeggio([523.25, 659.25, 783.99, 1046.5], 0.08, 0.25)
+	_play_cached_arpeggio("levelup", [523.25, 659.25, 783.99, 1046.5], 0.08, 0.25)
 
 func play_lightning():
-	_play_tone(300.0, 70.0, 0.25, 0.35, "noise")
+	_play_cached_tone("lightning", 300.0, 70.0, 0.25, 0.35, "noise")
 
 func play_hurt():
-	_play_tone(150.0, 50.0, 0.2, 0.3, "square")
+	_play_cached_tone("hurt", 150.0, 50.0, 0.2, 0.3, "square")
 
-func _play_tone(freq_start: float, freq_end: float, duration: float, volume: float, waveform: String):
+func _play_cached_tone(id: String, freq_start: float, freq_end: float, duration: float, volume: float, waveform: String):
+	if not cached_streams.has(id):
+		cached_streams[id] = _generate_tone(freq_start, freq_end, duration, volume, waveform)
+
+	var player = _get_free_player()
+	player.stream = cached_streams[id]
+	player.play()
+
+func _play_cached_arpeggio(id: String, freqs: Array, note_duration: float, volume: float):
+	if not cached_streams.has(id):
+		cached_streams[id] = _generate_arpeggio(freqs, note_duration, volume)
+
+	var player = _get_free_player()
+	player.stream = cached_streams[id]
+	player.play()
+
+func _generate_tone(freq_start: float, freq_end: float, duration: float, volume: float, waveform: String) -> AudioStreamWAV:
 	var sample_rate = 22050
 	var total_samples = int(duration * sample_rate)
 	var buffer = PackedByteArray()
@@ -1036,12 +1056,9 @@ func _play_tone(freq_start: float, freq_end: float, duration: float, volume: flo
 	stream.mix_rate = sample_rate
 	stream.stereo = false
 	stream.data = buffer
+	return stream
 
-	var player = _get_free_player()
-	player.stream = stream
-	player.play()
-
-func _play_arpeggio(freqs: Array, note_duration: float, volume: float):
+func _generate_arpeggio(freqs: Array, note_duration: float, volume: float) -> AudioStreamWAV:
 	var sample_rate = 22050
 	var note_samples = int(note_duration * sample_rate)
 	var total_samples = note_samples * freqs.size()
@@ -1064,10 +1081,7 @@ func _play_arpeggio(freqs: Array, note_duration: float, volume: float):
 	stream.mix_rate = sample_rate
 	stream.stereo = false
 	stream.data = buffer
-
-	var player = _get_free_player()
-	player.stream = stream
-	player.play()
+	return stream
 `,
 );
 
@@ -1455,6 +1469,10 @@ var dmg_num_scene = preload("res://scenes/damage_number.tscn")
 var anim_player: AnimationPlayer = null
 var active_anim_name: String = ""
 
+# CRITICAL FIX: Caching the StandardMaterial3D per enemy instance prevents standard material
+# re-instantiation spam every time damage is taken (which chokes up garbage collection)
+var flash_mat: StandardMaterial3D
+
 func _ready():
 	health = max_health
 	add_to_group("enemies")
@@ -1463,6 +1481,12 @@ func _ready():
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	axis_lock_linear_y = true
 	global_position.y = target_height
+
+	flash_mat = StandardMaterial3D.new()
+	flash_mat.albedo_color = Color(1.0, 0.2, 0.2)
+	flash_mat.emission_enabled = true
+	flash_mat.emission = Color(1.0, 0.1, 0.1)
+	flash_mat.emission_energy_multiplier = 3.0
 
 	_setup_looping_animations(self)
 
@@ -1567,12 +1591,7 @@ func _flash_red():
 
 func _apply_flash(node: Node):
 	if node is MeshInstance3D:
-		var mat = StandardMaterial3D.new()
-		mat.albedo_color = Color(1.0, 0.2, 0.2)
-		mat.emission_enabled = true
-		mat.emission = Color(1.0, 0.1, 0.1)
-		mat.emission_energy_multiplier = 3.0
-		node.material_override = mat
+		node.material_override = flash_mat
 	for child in node.get_children():
 		_apply_flash(child)
 
