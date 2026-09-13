@@ -114,6 +114,9 @@ async function main() {
     }
   }
 
+  // Disable the modelName instructions specifically for the Godot wrapper context
+  options.modelName = false;
+
   // 3. Dynamically import and generate prompt rules from src/prompt.js
   let generatePrompt;
   try {
