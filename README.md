@@ -23,6 +23,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **CLI Converter:** Bundled `scad-convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
 - **MCP Server for AI Agents:** Bundled `scad-mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering and animation frame evaluation.
 - **AI Studio Extension:** Chrome extension to natively preview, prompt, take chat snapshots, open in Scadify, and locally save AI-generated 3D models directly inside Google AI Studio.
+- **Godot 4 Integration & Web Demos:** Native Godot 4 importer addon for procedural `.scad` assets and prebuilt AI-generated [web game examples](https://iliagrigorevdev.github.io/scad-godot/).
 
 ---
 
@@ -284,7 +285,11 @@ This repository includes an official **Godot 4.x Importer Addon** located in the
 
 The addon allows you to drag-and-drop `.scad` files directly into your Godot project. It uses this WASM compiler under the hood to transform scripts into 3D scenes automatically.
 
+**🕹️ Play Web Demos (No Installation Required):**
+Try prebuilt AI-generated Godot games directly in your browser: [https://iliagrigorevdev.github.io/scad-godot/](https://iliagrigorevdev.github.io/scad-godot/)
+
 - **Features:** Supports PBR Materials and Skeletal Animations inside the Godot Editor.
+- **Examples:** Check out AI-generated game templates in the [`godot/examples`](./godot/examples) directory.
 - **License:** The Godot Addon is licensed under **MIT**.
 - **Setup:** Simply copy the `addons/scad_importer` folder to your project and enable it in Project Settings.
 
