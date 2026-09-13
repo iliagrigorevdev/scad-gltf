@@ -33,7 +33,8 @@ export function generatePrompt(description, options = {}) {
 
   if (opts.modelName) {
     prompt += `\n\nImportant Output Rules:
-- On the very first line of the OpenSCAD code, include a block comment with a concise filename in snake_case (lowercase and underscores).
+- You MUST wrap your code in a standard Markdown code block using the \`\`\`openscad language tag.
+- Inside the code block, on the first line, include a block comment with a concise filename in snake_case (lowercase and underscores).
 - Use this exact format: /* Model Name: your_model_name_here */`;
   }
 
