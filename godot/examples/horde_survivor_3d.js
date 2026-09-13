@@ -16,7 +16,9 @@ function writeFile(relPath, content) {
   console.log(`[Created] ${relPath}`);
 }
 
-console.log(`Generating Horde Survivor 3D (Refined Models) in: ${ROOT_DIR}`);
+console.log(
+  `Generating Horde Survivor 3D (Refined Models & Fast Grid Physics) in: ${ROOT_DIR}`,
+);
 ensureDir(ROOT_DIR);
 
 // =========================================================================
@@ -693,35 +695,6 @@ union() {
 `,
 );
 
-// assets/chest.scad
-writeFile(
-  "assets/chest.scad",
-  `
-$fn = 18;
-$asa = 30.0;
-
-color([0.45, 0.28, 0.15], metalness=0.1, roughness=0.7)
-  cube([1.8, 1.2, 0.9], center=true);
-
-color([0.9, 0.75, 0.1], metalness=0.9, roughness=0.2, emissive=[0.4, 0.3, 0.0], emissiveIntensity=1.5) {
-  translate([0, 0.61, 0.0])
-    cube([0.3, 0.08, 0.4], center=true);
-  translate([0, 0, 0.46])
-    cube([1.82, 1.22, 0.08], center=true);
-}
-
-translate([0, 0, 0.5]) {
-  color([0.5, 0.3, 0.18], metalness=0.1, roughness=0.7)
-    rotate([0, 90, 0])
-      cylinder(h=1.78, r=0.6, center=true);
-
-  translate([0, 0, 0.62])
-    color([1.0, 0.85, 0.2], metalness=0.2, roughness=0.1, emissive=[1.0, 0.85, 0.2], emissiveIntensity=3.0)
-      cube([0.6, 0.6, 0.08], center=true);
-}
-`,
-);
-
 // =========================================================================
 // 2. GODOT ADDON: SCAD IMPORTER
 // =========================================================================
@@ -964,6 +937,52 @@ func _try_scad_serve_fallback(source_path: String, out_glb_path: String) -> bool
 // =========================================================================
 // 3. GDSCRIPT FILES
 // =========================================================================
+
+// scripts/spatial_grid.gd - FAST 2D COLLISION/SEPARATION CHECK
+writeFile(
+  "scripts/spatial_grid.gd",
+  `
+extends Node
+
+const CELL_SIZE: float = 2.5
+var grid: Dictionary = {}
+var active_cells: Array[Vector2i] = []
+
+func update_grid(enemies: Array):
+	# Clear only previously active cells to prevent garbage generation in GDScript
+	for c in active_cells:
+		grid[c].clear()
+	active_cells.clear()
+
+	for e in enemies:
+		if is_instance_valid(e):
+			var cx = int(floor(e.global_position.x / CELL_SIZE))
+			var cz = int(floor(e.global_position.z / CELL_SIZE))
+			var cell = Vector2i(cx, cz)
+
+			if not grid.has(cell):
+				grid[cell] = []
+
+			# If the list is empty, we register it to active_cells for clearing next frame
+			if grid[cell].is_empty():
+				active_cells.append(cell)
+
+			grid[cell].append(e)
+
+func get_nearby(pos: Vector3) -> Array:
+	var cx = int(floor(pos.x / CELL_SIZE))
+	var cz = int(floor(pos.z / CELL_SIZE))
+	var neighbors = []
+
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			var cell = Vector2i(cx + dx, cz + dz)
+			if grid.has(cell):
+				neighbors.append_array(grid[cell])
+
+	return neighbors
+`,
+);
 
 // scripts/sound_manager.gd
 writeFile(
@@ -1458,6 +1477,7 @@ extends CharacterBody3D
 @export var xp_amount: int = 15
 @export var is_boss: bool = false
 @export var target_height: float = 0.0
+@export var separation_radius: float = 1.5
 
 var health: int
 var player: CharacterBody3D = null
@@ -1548,6 +1568,31 @@ func _physics_process(delta: float):
 	diff.y = 0
 	var dir = diff.normalized()
 
+	# --- 2D GRID FAST CHECK SEPARATION ---
+	var separation := Vector3.ZERO
+	var neighbors = SpatialGrid.get_nearby(global_position)
+	var overlap_count = 0
+
+	for n in neighbors:
+		if n != self and is_instance_valid(n):
+			var dist = global_position.distance_to(n.global_position)
+			if dist < separation_radius:
+				var push: Vector3
+				if dist < 0.001:
+					push = Vector3(randf_range(-1.0, 1.0), 0, randf_range(-1.0, 1.0)).normalized()
+					dist = 0.01
+				else:
+					push = (global_position - n.global_position).normalized()
+					push.y = 0
+
+				separation += push * (separation_radius - dist)
+				overlap_count += 1
+
+	if overlap_count > 0:
+		separation /= float(overlap_count)
+		dir = (dir + separation * 3.0).normalized()
+	# -------------------------------------
+
 	velocity.x = dir.x * speed
 	velocity.z = dir.z * speed
 	move_and_slide()
@@ -1626,6 +1671,7 @@ func _die():
 );
 
 // scenes/enemy_walker.tscn
+// Physics Engine collision_mask 3 (World + Player) to ignore Godot rigid separation.
 writeFile(
   "scenes/enemy_walker.tscn",
   `
@@ -1640,7 +1686,7 @@ height = 2.4
 
 [node name="EnemyWalker" type="CharacterBody3D"]
 collision_layer = 4
-collision_mask = 7
+collision_mask = 3
 axis_lock_linear_y = true
 motion_mode = 1
 script = ExtResource("1_ebase")
@@ -1649,6 +1695,7 @@ speed = 3.2
 damage = 10
 xp_amount = 12
 target_height = 0.0
+separation_radius = 1.3
 
 [node name="ModelContainer" type="Node3D" parent="."]
 
@@ -1675,7 +1722,7 @@ radius = 0.8
 
 [node name="EnemySwarmer" type="CharacterBody3D"]
 collision_layer = 4
-collision_mask = 7
+collision_mask = 3
 axis_lock_linear_y = true
 motion_mode = 1
 script = ExtResource("1_ebase")
@@ -1684,6 +1731,7 @@ speed = 5.6
 damage = 6
 xp_amount = 8
 target_height = 0.8
+separation_radius = 1.2
 
 [node name="ModelContainer" type="Node3D" parent="."]
 
@@ -1711,7 +1759,7 @@ height = 3.6
 
 [node name="EnemyBrute" type="CharacterBody3D"]
 collision_layer = 4
-collision_mask = 7
+collision_mask = 3
 axis_lock_linear_y = true
 motion_mode = 1
 script = ExtResource("1_ebase")
@@ -1721,6 +1769,7 @@ damage = 25
 xp_amount = 80
 is_boss = true
 target_height = 0.0
+separation_radius = 3.0
 
 [node name="ModelContainer" type="Node3D" parent="."]
 
@@ -2414,6 +2463,11 @@ func _process(delta: float):
 	if game_time >= win_time:
 		ui.show_victory()
 
+func _physics_process(_delta: float):
+	# Fast Grid physics tracking for custom enemy separation avoiding Godot engine bottlenecks
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	SpatialGrid.update_grid(enemies)
+
 func _process_spawning(delta: float):
 	next_spawn_time -= delta
 	var current_spawn_interval = max(0.2, 1.2 - (game_time / 180.0) * 0.9)
@@ -2551,6 +2605,7 @@ config/features=PackedStringArray("4.3", "Forward Plus")
 [autoload]
 
 SoundManager="*res://scripts/sound_manager.gd"
+SpatialGrid="*res://scripts/spatial_grid.gd"
 
 [editor_plugins]
 
@@ -2621,6 +2676,10 @@ writeFile(
 
 A 3D auto-shooter / horde survival game inspired by *Vampire Survivors*.
 
+## Physics Optimization
+- Replaced the CPU-heavy Physics Engine character body repulsion with an ultra-fast **Spatial Grid Hashing** setup.
+- Enemies manually separate and flock using 2D grid neighbor lookups, keeping thousands of CharacterBody3D nodes running at high frame rates.
+
 ## Model & Asset Polish:
 - **The Brute**: Chest spikes now project forward (+Y) out of the armor plate instead of pointing up. Added spiked pauldrons, curved horns, and a two-handed obsidian war maul with a molten glowing core.
 - **The Bat (Swarmer)**: Redesigned with organic swept wings, an arched elbow spar, wing claws, skeletal ribs, and smooth flapping animations.
@@ -2630,6 +2689,6 @@ A 3D auto-shooter / horde survival game inspired by *Vampire Survivors*.
 );
 
 console.log("\n======================================================");
-console.log('Project "Horde Survivor 3D" updated with refined models!');
+console.log('Project "Horde Survivor 3D" updated with Fast Grid Physics!');
 console.log(`Directory: ${ROOT_DIR}`);
 console.log("======================================================\n");
