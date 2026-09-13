@@ -1826,6 +1826,13 @@ var proj_scene = preload("res://scenes/projectile.tscn")
 var lightning_scene = preload("res://scenes/lightning_strike.tscn")
 var invulnerable_timer: float = 0.0
 
+# --- INVISIBLE TOUCH CONTROLS ---
+var touch_index: int = -1
+var touch_start_pos: Vector2 = Vector2.ZERO
+var touch_input_vec: Vector2 = Vector2.ZERO
+const TOUCH_DEADZONE: float = 8.0
+const TOUCH_MAX_DIST: float = 65.0
+
 func _ready():
 	add_to_group("player")
 	current_health = max_health
@@ -1839,6 +1846,32 @@ func _ready():
 	_update_magnet_shape()
 	orbit_shield.set_orb_count(orbit_count)
 	_setup_player_animations(model)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			if touch_index == -1:
+				touch_index = event.index
+				touch_start_pos = event.position
+				touch_input_vec = Vector2.ZERO
+		elif event.index == touch_index or event.is_canceled():
+			_reset_touch()
+	elif event is InputEventScreenDrag:
+		if event.index == touch_index:
+			var diff = event.position - touch_start_pos
+			var dist = diff.length()
+			if dist > TOUCH_DEADZONE:
+				var move_dist = min(dist - TOUCH_DEADZONE, TOUCH_MAX_DIST)
+				touch_input_vec = diff.normalized() * (move_dist / TOUCH_MAX_DIST)
+				# Follow the finger smoothly if dragged past max threshold
+				if dist > TOUCH_MAX_DIST + TOUCH_DEADZONE:
+					touch_start_pos = event.position - diff.normalized() * (TOUCH_MAX_DIST + TOUCH_DEADZONE)
+			else:
+				touch_input_vec = Vector2.ZERO
+
+func _reset_touch():
+	touch_index = -1
+	touch_input_vec = Vector2.ZERO
 
 func _setup_player_animations(node: Node):
 	if node is AnimationPlayer:
@@ -1868,7 +1901,14 @@ func _physics_process(delta: float):
 	input_vec.x = Input.get_axis("move_left", "move_right")
 	input_vec.y = Input.get_axis("move_up", "move_down")
 
-	var move_dir = Vector3(input_vec.x, 0, input_vec.y).normalized()
+	# Blend or apply touch screen input
+	if touch_input_vec != Vector2.ZERO:
+		input_vec += touch_input_vec
+
+	if input_vec.length() > 1.0:
+		input_vec = input_vec.normalized()
+
+	var move_dir = Vector3(input_vec.x, 0, input_vec.y)
 	velocity.x = move_dir.x * move_speed
 	velocity.z = move_dir.z * move_speed
 	move_and_slide()
@@ -1973,6 +2013,7 @@ func take_damage(amount: int):
 
 	if current_health <= 0:
 		current_health = 0
+		_reset_touch()
 		emit_signal("died")
 
 func heal(amount: int):
@@ -1986,6 +2027,7 @@ func add_xp(amount: int):
 		level += 1
 		required_xp = int(required_xp * 1.4)
 		SoundManager.play_level_up()
+		_reset_touch()
 		emit_signal("leveled_up", level)
 	emit_signal("xp_changed", current_xp, required_xp, level)
 
@@ -2157,6 +2199,7 @@ func _on_restart_pressed():
 );
 
 // scenes/ui.tscn
+// HUD controls set to mouse_filter = 2 (IGNORE) so touch events flow directly to player input
 writeFile(
   "scenes/ui.tscn",
   `
@@ -2183,6 +2226,7 @@ anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 24.0
 grow_horizontal = 2
+mouse_filter = 2
 value = 30.0
 show_percentage = false
 
@@ -2196,6 +2240,7 @@ offset_top = 28.0
 offset_right = 60.0
 offset_bottom = 54.0
 grow_horizontal = 2
+mouse_filter = 2
 theme_override_font_sizes/font_size = 22
 text = "LVL 1"
 horizontal_alignment = 1
@@ -2210,6 +2255,7 @@ offset_top = 58.0
 offset_right = 60.0
 offset_bottom = 90.0
 grow_horizontal = 2
+mouse_filter = 2
 theme_override_font_sizes/font_size = 28
 text = "00:00"
 horizontal_alignment = 1
@@ -2220,6 +2266,7 @@ offset_left = 24.0
 offset_top = 36.0
 offset_right = 180.0
 offset_bottom = 68.0
+mouse_filter = 2
 theme_override_font_sizes/font_size = 20
 text = "Kills: 0"
 
@@ -2236,6 +2283,7 @@ offset_right = 200.0
 offset_bottom = -28.0
 grow_horizontal = 2
 grow_vertical = 0
+mouse_filter = 2
 value = 100.0
 show_percentage = false
 
@@ -2246,6 +2294,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 text = "HP: 100 / 100"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -2611,6 +2660,11 @@ SpatialGrid="*res://scripts/spatial_grid.gd"
 
 enabled=PackedStringArray("res://addons/scad_importer/plugin.cfg")
 
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+pointing/emulate_mouse_from_touch=true
+
 [layer_names]
 
 3d_physics/layer_1="World"
@@ -2676,19 +2730,24 @@ writeFile(
 
 A 3D auto-shooter / horde survival game inspired by *Vampire Survivors*.
 
+## Touch Screen Controls
+- Touch and drag anywhere on the display to smoothly guide the hero with an invisible, dynamic virtual joystick.
+- Does not clutter the screen with visible on-screen buttons or virtual pads.
+- Upgrades and menu buttons respond immediately to direct taps.
+
 ## Physics Optimization
 - Replaced the CPU-heavy Physics Engine character body repulsion with an ultra-fast **Spatial Grid Hashing** setup.
-- Enemies manually separate and flock using 2D grid neighbor lookups, keeping thousands of CharacterBody3D nodes running at high frame rates.
+- Enemies manually separate and flock using 2D grid neighbor lookups, keeping CharacterBody3D nodes running at high frame rates.
 
 ## Model & Asset Polish:
-- **The Brute**: Chest spikes now project forward (+Y) out of the armor plate instead of pointing up. Added spiked pauldrons, curved horns, and a two-handed obsidian war maul with a molten glowing core.
-- **The Bat (Swarmer)**: Redesigned with organic swept wings, an arched elbow spar, wing claws, skeletal ribs, and smooth flapping animations.
+- **The Brute**: Spikes project forward (+Y) out of chest armor. Features spiked pauldrons, curved horns, and a two-handed war maul with a molten glowing core.
+- **The Bat (Swarmer)**: Designed with organic swept wings, elbow spars, wing claws, skeletal ribs, and flapping animations.
 - **The Zombie (Walker)**: Detailed with sunken eye sockets, glowing red pupils, a decaying jaw with teeth, exposed ribs, and clawed reaching hands.
-- **The Hero (Knight)**: Wields an angled runic broadsword with pommel, grip, crossguard, and fuller in the right hand and an emblazoned heater kite shield on the left forearm.
+- **The Hero (Knight)**: Wields an angled runic broadsword in the right hand and an emblazoned heater kite shield on the left forearm.
 `,
 );
 
 console.log("\n======================================================");
-console.log('Project "Horde Survivor 3D" updated with Fast Grid Physics!');
+console.log('Project "Horde Survivor 3D" updated with Touch Controls!');
 console.log(`Directory: ${ROOT_DIR}`);
 console.log("======================================================\n");
