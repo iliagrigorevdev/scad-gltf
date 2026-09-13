@@ -1,2 +1,5 @@
 node_modules
 dist
+.godot-bin
+.godot-build
+.godot-dist

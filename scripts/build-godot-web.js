@@ -1,0 +1,252 @@
+import fs from "fs";
+import path from "path";
+import os from "os";
+import { execSync } from "child_process";
+
+const ROOT_DIR = process.cwd();
+const EXAMPLES_DIR = path.resolve(ROOT_DIR, "godot/examples");
+const DIST_DIR = path.resolve(ROOT_DIR, ".godot-dist");
+const ENGINE_DIR = path.resolve(DIST_DIR, "engine");
+const BUILD_DIR = path.resolve(ROOT_DIR, ".godot-build");
+const BIN_DIR = path.resolve(ROOT_DIR, ".godot-bin");
+const SCAD_CONVERT_JS = path.resolve(ROOT_DIR, "bin/scad-convert.js");
+const COI_SCRIPT = path.resolve(
+  ROOT_DIR,
+  "node_modules/coi-serviceworker/coi-serviceworker.min.js",
+);
+
+const GODOT_VERSION = "4.7.2-stable";
+const GODOT_SHORT_VERSION = "4.7.2.stable";
+
+// ==========================================
+// 1. ENSURE GODOT & SCAD-CONVERT IN $PATH
+// ==========================================
+fs.mkdirSync(BIN_DIR, { recursive: true });
+
+// Create local executable shim for `scad-convert`
+const shimPath = path.join(BIN_DIR, "scad-convert");
+fs.writeFileSync(shimPath, `#!/bin/sh\nnode "${SCAD_CONVERT_JS}" "$@"\n`, {
+  mode: 0o755,
+});
+
+// Prepend .godot-bin to PATH
+process.env.PATH = `${BIN_DIR}${path.delimiter}${process.env.PATH}`;
+
+// Find or download Godot
+let godotBin = "";
+try {
+  execSync("godot --version", { stdio: "ignore" });
+  godotBin = "godot";
+} catch {
+  const localGodot = path.join(BIN_DIR, "godot");
+  if (!fs.existsSync(localGodot)) {
+    console.log(`\n⬇️  Downloading Godot ${GODOT_VERSION} Linux headless...`);
+    const zipPath = path.join(BIN_DIR, "godot.zip");
+    execSync(
+      `curl -fL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o "${zipPath}"`,
+      { stdio: "inherit" },
+    );
+    execSync(`unzip -q -o "${zipPath}" -d "${BIN_DIR}"`, { stdio: "inherit" });
+    fs.renameSync(
+      path.join(BIN_DIR, `Godot_v${GODOT_VERSION}_linux.x86_64`),
+      localGodot,
+    );
+    fs.chmodSync(localGodot, 0o755);
+    fs.unlinkSync(zipPath);
+
+    console.log(`⬇️  Downloading Web export templates...`);
+    const templateDir = path.join(
+      os.homedir(),
+      `.local/share/godot/export_templates/${GODOT_SHORT_VERSION}`,
+    );
+    fs.mkdirSync(templateDir, { recursive: true });
+
+    const tpzPath = path.join(BIN_DIR, "templates.tpz");
+    execSync(
+      `curl -fL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_export_templates.tpz" -o "${tpzPath}"`,
+      { stdio: "inherit" },
+    );
+    const extractTemp = path.join(BIN_DIR, "templates_temp");
+    execSync(`unzip -q -o "${tpzPath}" -d "${extractTemp}"`, {
+      stdio: "inherit",
+    });
+    execSync(`cp -r "${extractTemp}/templates/"* "${templateDir}/"`, {
+      stdio: "inherit",
+    });
+    fs.rmSync(extractTemp, { recursive: true, force: true });
+    fs.unlinkSync(tpzPath);
+  }
+  godotBin = localGodot;
+}
+
+// Flags to prevent headless Linux crashes (disables Vulkan and ALSA/Pulse audio servers)
+const HEADLESS_FLAGS =
+  "--headless --audio-driver Dummy --rendering-driver opengl3";
+
+// ==========================================
+// 2. RESET OUTPUT DIRS & COPY SHARED ASSETS
+// ==========================================
+fs.rmSync(DIST_DIR, { recursive: true, force: true });
+fs.rmSync(BUILD_DIR, { recursive: true, force: true });
+fs.mkdirSync(DIST_DIR, { recursive: true });
+fs.mkdirSync(ENGINE_DIR, { recursive: true });
+fs.mkdirSync(BUILD_DIR, { recursive: true });
+
+// Copy single root coi-serviceworker so its scope covers all child directories
+if (fs.existsSync(COI_SCRIPT)) {
+  fs.copyFileSync(COI_SCRIPT, path.join(DIST_DIR, "coi-serviceworker.min.js"));
+  console.log(
+    `✓ Placed single shared coi-serviceworker at dist-godot/coi-serviceworker.min.js`,
+  );
+}
+
+const exampleFiles = fs
+  .readdirSync(EXAMPLES_DIR)
+  .filter((f) => f.endsWith(".js"));
+const builtDemos = [];
+
+// ==========================================
+// 3. BUILD PROJECTS
+// ==========================================
+for (const file of exampleFiles) {
+  const demoName = path.basename(file, ".js");
+  const jsScriptPath = path.join(EXAMPLES_DIR, file);
+  const projectDir = path.join(BUILD_DIR, demoName);
+
+  console.log(`\n========================================`);
+  console.log(`📦 Unpacking: ${demoName}`);
+  console.log(`========================================`);
+  execSync(`node "${jsScriptPath}"`, { cwd: BUILD_DIR, stdio: "inherit" });
+
+  if (!fs.existsSync(projectDir)) {
+    console.warn(`Skipping ${demoName}: directory not found.`);
+    continue;
+  }
+
+  // Ensure GL Compatibility renderer and stream playback mode for Web
+  const projectGodotPath = path.join(projectDir, "project.godot");
+  let projectGodot = fs.readFileSync(projectGodotPath, "utf8");
+  projectGodot = projectGodot.replace(/"Forward Plus"/g, '"GL Compatibility"');
+  if (!projectGodot.includes('rendering_method="gl_compatibility"')) {
+    projectGodot += `\n[rendering]\nrenderer/rendering_method="gl_compatibility"\nrenderer/rendering_method.web="gl_compatibility"\n`;
+  }
+  if (!projectGodot.includes("default_playback_type.web")) {
+    projectGodot += `\n[audio]\ngeneral/default_playback_type.web=0\n`;
+  }
+  fs.writeFileSync(projectGodotPath, projectGodot, "utf8");
+
+  // Copy Web export presets
+  fs.copyFileSync(
+    path.resolve(ROOT_DIR, "godot/export_presets.cfg"),
+    path.join(projectDir, "export_presets.cfg"),
+  );
+
+  // Export to Web (Godot automatically runs scad-convert and scene imports here)
+  const outDir = path.join(DIST_DIR, demoName);
+  fs.mkdirSync(outDir, { recursive: true });
+
+  console.log(`\n🚀 Exporting Web build to: ${outDir}`);
+  execSync(
+    `"${godotBin}" ${HEADLESS_FLAGS} --export-release "Web" "${path.join(outDir, "index.html")}" --path "${projectDir}"`,
+    { stdio: "inherit", env: process.env },
+  );
+
+  // ==========================================
+  // 4. DEDUPLICATE ENGINE RUNTIME FILES
+  // ==========================================
+  console.log(`⚡ Decoupling WASM engine files to shared directory...`);
+
+  const engineFiles = [
+    { from: "index.js", to: "godot.js" },
+    { from: "index.wasm", to: "godot.wasm" },
+    { from: "index.audio.worklet.js", to: "godot.audio.worklet.js" },
+    {
+      from: "index.audio.position.worklet.js",
+      to: "godot.audio.position.worklet.js",
+    },
+    { from: "index.side.wasm", to: "godot.side.wasm" },
+  ];
+
+  for (const { from, to } of engineFiles) {
+    const src = path.join(outDir, from);
+    const dest = path.join(ENGINE_DIR, to);
+
+    if (fs.existsSync(src)) {
+      if (!fs.existsSync(dest)) {
+        fs.copyFileSync(src, dest);
+        console.log(`  ✓ Cached shared engine file: engine/${to}`);
+      }
+      fs.unlinkSync(src);
+    }
+  }
+
+  // Patch index.html to use shared engine and shared root coi-serviceworker
+  const htmlPath = path.join(outDir, "index.html");
+  let html = fs.readFileSync(htmlPath, "utf8");
+
+  // 1. Point script tag to shared engine script
+  html = html.replace(
+    /<script\s+src="index\.js"><\/script>/,
+    '<script src="../engine/godot.js"></script>',
+  );
+
+  // 2. Configure Godot engine to use shared executable while loading local index.pck
+  html = html.replace(
+    /"executable"\s*:\s*"index"/,
+    '"executable":"../engine/godot","mainPack":"index.pck"',
+  );
+
+  // 3. Update fileSizes key for progress bar
+  html = html.replace(/"index\.wasm"/g, '"../engine/godot.wasm"');
+
+  // 4. Reference the single root service worker
+  html = html.replace(
+    "<head>",
+    '<head><script src="../coi-serviceworker.min.js"></script>',
+  );
+
+  fs.writeFileSync(htmlPath, html, "utf8");
+  builtDemos.push(demoName);
+}
+
+// ==========================================
+// 5. GENERATE HUB LAUNCHER INDEX.HTML
+// ==========================================
+console.log(`\n📑 Generating launcher index.html...`);
+const hubHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="coi-serviceworker.min.js"></script>
+  <title>SCAD Godot Web Demos</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1117; color: #e1e4ea; margin: 0; padding: 2rem; }
+    h1 { color: #478cbf; border-bottom: 2px solid #232733; padding-bottom: 0.5rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
+    .card { background: #1a1d27; border: 1px solid #282c3c; border-radius: 8px; padding: 1.5rem; text-decoration: none; color: inherit; display: block; transition: transform 0.15s ease, border-color 0.15s ease; }
+    .card:hover { transform: translateY(-3px); border-color: #478cbf; }
+    .card h2 { margin: 0 0 0.5rem 0; font-size: 1.25rem; color: #00d2ff; }
+    .card p { margin: 0; font-size: 0.875rem; color: #8c93a8; }
+  </style>
+</head>
+<body>
+  <h1>🎮 SCAD Godot Examples</h1>
+  <p>Procedurally generated OpenSCAD games compiled to WebAssembly.</p>
+  <div class="grid">
+    ${builtDemos
+      .map(
+        (name) => `
+    <a class="card" href="./${name}/">
+      <h2>${name}</h2>
+      <p>Play in browser</p>
+    </a>`,
+      )
+      .join("")}
+  </div>
+</body>
+</html>`;
+
+fs.writeFileSync(path.join(DIST_DIR, "index.html"), hubHtml, "utf-8");
+
+console.log(`\n🎉 Success! All projects built by Godot into .godot-dist/`);

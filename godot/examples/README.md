@@ -4,6 +4,11 @@ This folder contains a collection of **all-in-one Node.js scripts**, each repres
 
 Instead of committing messy project folders, each example is bundled into a single, self-extracting JavaScript file. These scripts contain the generated OpenSCAD (`.scad`) 3D assets, Godot scripts (`.gd`), Godot scenes (`.tscn`), and the required `scad_importer` addon needed to parse the SCAD files directly in the engine.
 
+**🕹️ Play Online in Your Browser (No Installation Required):**
+👉 **[https://iliagrigorevdev.github.io/scad-godot/](https://iliagrigorevdev.github.io/scad-godot/)**
+
+---
+
 ## 🚀 How to Play the Examples
 
 To test out an example, you need to extract it and open it in Godot 4. The Godot importer relies on the `scad-gltf` tools to compile the 3D OpenSCAD scripts into binary meshes.

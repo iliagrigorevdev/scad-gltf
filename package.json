@@ -49,7 +49,9 @@
   "scripts": {
     "format": "prettier --write .",
     "mcp": "npx @modelcontextprotocol/inspector node ./bin/scad-mcp.js",
-    "prepublishOnly": "npm install --prefix editor && npm run build --prefix editor"
+    "prepublishOnly": "npm install --prefix editor && npm run build --prefix editor",
+    "build:godot": "node scripts/build-godot-web.js",
+    "deploy:godot": "gh-pages -d .godot-dist --repo git@github.com:iliagrigorevdev/scad-godot.git -b gh-pages"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
@@ -58,6 +60,8 @@
     "puppeteer": "^25.9.0"
   },
   "devDependencies": {
+    "coi-serviceworker": "^0.1.7",
+    "gh-pages": "^6.3.0",
     "prettier": "3.9.6"
   }
 }
