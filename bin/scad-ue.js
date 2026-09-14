@@ -171,7 +171,10 @@ ${promptRules}
      * Forward is +X: \`FVector::ForwardVector\` or \`GetActorForwardVector()\`.
      * Right is +Y: \`FVector::RightVector\` or \`GetActorRightVector()\`.
      * Up is +Z: \`FVector::UpVector\` or \`GetActorUpVector()\`.
-   - Asset loading: The \`.scad\` files will be automatically imported as \`UStaticMesh\` (or \`USkeletalMesh\` if animated). Set up your C++ classes so they can reference these meshes or expose them as properties (\`UPROPERTY\`) to be assigned in Blueprints.
+   - Asset loading: The ScadImporter plugin will automatically compile and import the .scad files into .uasset files (UStaticMesh / USkeletalMesh) on the FIRST launch of the editor.
+     - CRITICAL C++ ASSET LOADING RULE: Because the .scad files are compiled to .uasset dynamically during the editor's initial startup, the .uasset files DO NOT EXIST when C++ Class Default Objects (CDO) are constructed.
+       * NEVER use \`ConstructorHelpers::FObjectFinder\` or \`FClassFinder\` to reference your generated meshes in C++ constructors! This will crash or fail initialization.
+       * INSTEAD, expose the meshes as \`UPROPERTY(EditAnywhere)\` and tell the user to assign them in a derived Blueprint, OR load them dynamically at runtime in \`BeginPlay()\` using \`LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Models/YourModel.YourModel"))\`.
    - Generate a \`.gitignore\` file tailored for Unreal Engine projects.
    - Generate a \`README.md\` file that documents the project.
 
