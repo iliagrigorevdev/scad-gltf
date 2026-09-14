@@ -36,7 +36,8 @@
     "scad-serve": "./bin/scad-serve.js",
     "scad-mcp": "./bin/scad-mcp.js",
     "scad-godot": "./bin/scad-godot.js",
-    "scad-web": "./bin/scad-web.js"
+    "scad-web": "./bin/scad-web.js",
+    "scad-ue": "./bin/scad-ue.js"
   },
   "exports": {
     ".": "./src/ext/openscad.js",
