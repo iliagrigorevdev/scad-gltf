@@ -848,6 +848,8 @@ signal game_over_triggered
 @onready var aim_line: MeshInstance3D = $AimLine
 @onready var container_visual: Node3D = $ContainerVisual
 
+# Dimensions of the 3D glass box container (box_w = 12.0, walls at +/- 6.0)
+const CONTAINER_HALF_WIDTH: float = 6.0
 const BOX_HALF_WIDTH: float = 4.8
 const DROP_HEIGHT: float = 14.8
 
@@ -862,6 +864,10 @@ var drop_cooldown: float = 0.55
 var is_game_over: bool = false
 var danger_timer: float = 0.0
 const DANGER_THRESHOLD: float = 2.8
+
+# Touch / Mouse Drag Controls
+var is_pointer_dragging: bool = false
+var active_touch_index: int = -1
 
 var high_score_file = "user://fusion_highscore.save"
 
@@ -879,6 +885,18 @@ func _ready():
 
 	_spawn_preview_fruit()
 	_update_aim_line()
+
+func _notification(what):
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		is_pointer_dragging = false
+		active_touch_index = -1
+
+func _get_dropper_max_x() -> float:
+	var fruit_r: float = 0.55
+	if active_preview_tier >= 1 and active_preview_tier <= FruitData.FRUIT_RADII.size():
+		fruit_r = FruitData.FRUIT_RADII[active_preview_tier - 1]
+	# Keep the preview fruit completely within the glass container walls with safety clearance
+	return max(0.5, CONTAINER_HALF_WIDTH - fruit_r - 0.08)
 
 func _setup_container_visuals():
 	if not is_instance_valid(container_visual):
@@ -924,11 +942,6 @@ func _build_procedural_glass_box():
 	glass_mat.albedo_color = Color(0.85, 0.95, 1.0, 0.12)
 	glass_mat.roughness = 0.05
 	glass_mat.metallic = 0.05
-
-	var frame_mat = StandardMaterial3D.new()
-	frame_mat.albedo_color = Color(0.8, 0.85, 0.9, 1.0)
-	frame_mat.metallic = 0.85
-	frame_mat.roughness = 0.25
 
 	# Back Glass
 	var back_mesh = MeshInstance3D.new()
@@ -1019,19 +1032,81 @@ func save_high_score():
 		file.store_32(high_score)
 		file.close()
 
+func _update_dropper_x(pos):
+	if not is_instance_valid(dropper):
+		return
+
+	var screen_pos: Vector2
+	if pos is Vector2:
+		screen_pos = pos
+	else:
+		screen_pos = Vector2(float(pos), get_viewport().get_visible_rect().size.y * 0.5)
+
+	var max_x = _get_dropper_max_x()
+
+	# Raycast onto the glass container's central plane (Z = 0) where the fruits reside.
+	# This ensures picking maps directly along the physical glass container's width.
+	var camera = get_viewport().get_camera_3d()
+	if camera:
+		var ray_from = camera.project_ray_origin(screen_pos)
+		var ray_dir = camera.project_ray_normal(screen_pos)
+		var drop_plane = Plane(Vector3(0, 0, 1), 0.0)
+		var hit = drop_plane.intersects_ray(ray_from, ray_dir)
+		if hit != null:
+			dropper.position.x = clamp(hit.x, -max_x, max_x)
+			_update_aim_line()
+			return
+
+	var vp_size = get_viewport().get_visible_rect().size
+	if vp_size.x > 0.0:
+		var norm_x = (screen_pos.x / vp_size.x) * 2.0 - 1.0
+		dropper.position.x = clamp(norm_x * max_x, -max_x, max_x)
+		_update_aim_line()
+
 func _unhandled_input(event: InputEvent):
 	if is_game_over or not is_instance_valid(dropper):
 		return
 
-	if event is InputEventMouseMotion:
-		var vp_size = get_viewport().get_visible_rect().size
-		if vp_size.x > 0.0:
-			var norm_x = (event.position.x / vp_size.x) * 2.0 - 1.0
-			var target_x = clamp(norm_x * (BOX_HALF_WIDTH + 0.5), -BOX_HALF_WIDTH, BOX_HALF_WIDTH)
-			dropper.position.x = target_x
-			_update_aim_line()
+	# Touch input (mobile / touchscreens)
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			if not is_pointer_dragging:
+				is_pointer_dragging = true
+				active_touch_index = event.index
+				_update_dropper_x(event.position)
+		else:
+			if is_pointer_dragging and event.index == active_touch_index:
+				is_pointer_dragging = false
+				active_touch_index = -1
+				_update_dropper_x(event.position)
+				try_drop_fruit()
+		return
 
-	if event.is_action_pressed("ui_accept") or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.is_pressed()):
+	if event is InputEventScreenDrag:
+		if is_pointer_dragging and event.index == active_touch_index:
+			_update_dropper_x(event.position)
+		return
+
+	# Mouse input (desktop & web)
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			if not is_pointer_dragging:
+				is_pointer_dragging = true
+				_update_dropper_x(event.position)
+		else:
+			if is_pointer_dragging and active_touch_index == -1:
+				is_pointer_dragging = false
+				_update_dropper_x(event.position)
+				try_drop_fruit()
+		return
+
+	if event is InputEventMouseMotion:
+		if active_touch_index == -1:
+			_update_dropper_x(event.position)
+		return
+
+	# Keyboard drop
+	if event.is_action_pressed("ui_accept") or event.is_action_pressed("ui_down"):
 		try_drop_fruit()
 
 func _physics_process(delta: float):
@@ -1041,9 +1116,10 @@ func _physics_process(delta: float):
 	if is_game_over:
 		return
 
+	var max_x = _get_dropper_max_x()
 	var move_dir = Input.get_axis("ui_left", "ui_right")
 	if move_dir != 0.0:
-		dropper.position.x = clamp(dropper.position.x + move_dir * 14.0 * delta, -BOX_HALF_WIDTH, BOX_HALF_WIDTH)
+		dropper.position.x = clamp(dropper.position.x + move_dir * 14.0 * delta, -max_x, max_x)
 		_update_aim_line()
 
 	var fruits_in_danger = 0
@@ -1072,6 +1148,10 @@ func _spawn_preview_fruit():
 	if is_instance_valid(preview_fruit_node):
 		preview_fruit_node.queue_free()
 		preview_fruit_node = null
+
+	var max_x = _get_dropper_max_x()
+	dropper.position.x = clamp(dropper.position.x, -max_x, max_x)
+	_update_aim_line()
 
 	var model_path = FruitData.get_model_path(active_preview_tier)
 	if ResourceLoader.exists(model_path):
@@ -1169,6 +1249,8 @@ func trigger_game_over():
 	if is_game_over:
 		return
 	is_game_over = true
+	is_pointer_dragging = false
+	active_touch_index = -1
 	AudioManager.play_game_over_sound()
 	game_over_triggered.emit()
 
@@ -1180,6 +1262,8 @@ func restart_game():
 	danger_timer = 0.0
 	is_game_over = false
 	can_drop = true
+	is_pointer_dragging = false
+	active_touch_index = -1
 	score_updated.emit(current_score, high_score)
 	active_preview_tier = randi_range(1, 3)
 	next_tier = randi_range(1, 3)
@@ -1240,16 +1324,135 @@ func _on_restart_pressed():
 `,
 );
 
+// Procedural 2D Evolution Guide (No missing emojis on Web/Mobile)
+writeFile(
+  "scripts/evolution_guide.gd",
+  `class_name EvolutionGuide
+extends Control
+
+func _ready():
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	resized.connect(queue_redraw)
+
+func _draw():
+	var w = size.x
+	var h = size.y
+	if w <= 0 or h <= 0:
+		return
+
+	# Sleek pill-shaped background
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.06, 0.09, 0.15, 0.75)
+	var cr = int(min(16.0, h * 0.45))
+	bg_style.corner_radius_top_left = cr
+	bg_style.corner_radius_top_right = cr
+	bg_style.corner_radius_bottom_left = cr
+	bg_style.corner_radius_bottom_right = cr
+	bg_style.border_width_left = 1
+	bg_style.border_width_top = 1
+	bg_style.border_width_right = 1
+	bg_style.border_width_bottom = 1
+	bg_style.border_color = Color(1.0, 1.0, 1.0, 0.14)
+	draw_style_box(bg_style, Rect2(Vector2.ZERO, size))
+
+	var fruit_count = 9
+	var slot_width = w / float(fruit_count)
+	var y_center = h * 0.5
+
+	var radii = [7.5, 9.0, 10.5, 12.0, 13.5, 15.0, 16.5, 18.0, 19.5]
+	var max_r_allowed = h * 0.38
+	var scale_factor = 1.0
+	if radii[8] > max_r_allowed:
+		scale_factor = max_r_allowed / radii[8]
+
+	for i in range(fruit_count):
+		var r = radii[i] * scale_factor
+		var cx = slot_width * (i + 0.5)
+		var pos = Vector2(cx, y_center)
+		var col = FruitData.FRUIT_COLORS[i]
+
+		# Shadow
+		draw_circle(pos + Vector2(0, 1.5), r + 0.8, Color(0, 0, 0, 0.35))
+		# Main body
+		draw_circle(pos, r, col)
+		# Specular reflection
+		draw_circle(pos + Vector2(-r * 0.35, -r * 0.35), r * 0.32, Color(1.0, 1.0, 1.0, 0.38))
+
+		# Distinct fruit icon visual elements
+		match i + 1:
+			1: # Cherry: stem and leaf
+				draw_line(pos + Vector2(0, -r), pos + Vector2(r * 0.4, -r - 4.5 * scale_factor), Color(0.3, 0.7, 0.15), 1.4, true)
+				draw_circle(pos + Vector2(r * 0.45, -r - 4.5 * scale_factor), 1.8 * scale_factor, Color(0.3, 0.85, 0.2))
+			2: # Strawberry: green sepal and seeds
+				draw_circle(pos + Vector2(-r * 0.35, -r + 1), 1.8 * scale_factor, Color(0.2, 0.8, 0.25))
+				draw_circle(pos + Vector2(0, -r - 1), 2.0 * scale_factor, Color(0.2, 0.8, 0.25))
+				draw_circle(pos + Vector2(r * 0.35, -r + 1), 1.8 * scale_factor, Color(0.2, 0.8, 0.25))
+				draw_circle(pos + Vector2(-r * 0.2, -r * 0.1), 0.9 * scale_factor, Color(1.0, 0.9, 0.35))
+				draw_circle(pos + Vector2(r * 0.25, -r * 0.15), 0.9 * scale_factor, Color(1.0, 0.9, 0.35))
+				draw_circle(pos + Vector2(0, r * 0.35), 0.9 * scale_factor, Color(1.0, 0.9, 0.35))
+			3: # Grape: stem and cluster spots
+				draw_line(pos + Vector2(0, -r), pos + Vector2(0, -r - 3.5 * scale_factor), Color(0.4, 0.7, 0.2), 1.4, true)
+				draw_circle(pos + Vector2(-r * 0.25, -r * 0.15), r * 0.25, Color(0.4, 0.1, 0.55, 0.7))
+				draw_circle(pos + Vector2(r * 0.25, -r * 0.1), r * 0.25, Color(0.4, 0.1, 0.55, 0.7))
+				draw_circle(pos + Vector2(0, r * 0.3), r * 0.25, Color(0.4, 0.1, 0.55, 0.7))
+			4: # Tangerine: leaf
+				draw_line(pos + Vector2(0, -r), pos + Vector2(r * 0.25, -r - 3.0 * scale_factor), Color(0.3, 0.65, 0.2), 1.4, true)
+				draw_circle(pos + Vector2(r * 0.35, -r - 2.5 * scale_factor), 2.2 * scale_factor, Color(0.25, 0.8, 0.2))
+			5: # Apple: stem and leaf
+				draw_circle(pos + Vector2(0, -r + 1), 2.0 * scale_factor, Color(0.6, 0.05, 0.08))
+				draw_line(pos + Vector2(0, -r + 1), pos + Vector2(r * 0.2, -r - 4.0 * scale_factor), Color(0.45, 0.25, 0.1), 1.5, true)
+				draw_circle(pos + Vector2(r * 0.35, -r - 3.0 * scale_factor), 2.3 * scale_factor, Color(0.25, 0.8, 0.2))
+			6: # Peach: peach cleft
+				draw_line(pos + Vector2(0, -r * 0.7), pos + Vector2(0, r * 0.7), Color(0.85, 0.32, 0.36, 0.85), 1.6, true)
+				draw_circle(pos + Vector2(r * 0.25, -r - 1.5 * scale_factor), 2.2 * scale_factor, Color(0.25, 0.8, 0.2))
+			7: # Melon: netting ribs
+				draw_arc(pos, r * 0.65, -PI * 0.5, PI * 0.5, 10, Color(0.88, 0.98, 0.62, 0.75), 1.4, true)
+				draw_arc(pos, r * 0.65, PI * 0.5, PI * 1.5, 10, Color(0.88, 0.98, 0.62, 0.75), 1.4, true)
+				draw_line(pos + Vector2(0, -r), pos + Vector2(0, -r - 3.5 * scale_factor), Color(0.3, 0.6, 0.2), 1.8, true)
+			8: # Watermelon: dark green wavy stripes
+				var stripe_col = Color(0.06, 0.28, 0.10, 0.9)
+				draw_arc(pos + Vector2(-r * 0.35, 0), r * 0.8, -PI * 0.4, PI * 0.4, 10, stripe_col, 1.8, true)
+				draw_line(pos + Vector2(0, -r * 0.88), pos + Vector2(0, r * 0.88), stripe_col, 1.8, true)
+				draw_arc(pos + Vector2(r * 0.35, 0), r * 0.8, PI * 0.6, PI * 1.4, 10, stripe_col, 1.8, true)
+			9: # King Sun: glowing halo and crown
+				draw_arc(pos, r + 2.5 * scale_factor, 0, TAU, 28, Color(1.0, 0.85, 0.2, 0.6), 1.4, true)
+				var cb = pos + Vector2(0, -r + 2 * scale_factor)
+				var crown_pts = PackedVector2Array([
+					cb + Vector2(-6 * scale_factor, 0),
+					cb + Vector2(-6 * scale_factor, -5 * scale_factor),
+					cb + Vector2(-3 * scale_factor, -2 * scale_factor),
+					cb + Vector2(0, -7 * scale_factor),
+					cb + Vector2(3 * scale_factor, -2 * scale_factor),
+					cb + Vector2(6 * scale_factor, -5 * scale_factor),
+					cb + Vector2(6 * scale_factor, 0)
+				])
+				draw_colored_polygon(crown_pts, Color(1.0, 0.92, 0.3))
+				draw_polyline(crown_pts, Color(0.85, 0.65, 0.1), 1.0, true)
+				draw_circle(cb + Vector2(0, -7 * scale_factor), 1.4 * scale_factor, Color(0.2, 0.9, 1.0))
+
+		# Evolution progression arrow
+		if i < fruit_count - 1:
+			var arrow_x = slot_width * (i + 1)
+			var arrow_pts = PackedVector2Array([
+				Vector2(arrow_x - 3.0, y_center - 4.0),
+				Vector2(arrow_x + 2.0, y_center),
+				Vector2(arrow_x - 3.0, y_center + 4.0)
+			])
+			draw_polyline(arrow_pts, Color(1.0, 1.0, 1.0, 0.45), 1.5, true)
+`,
+);
+
 // ==========================================
 // 4. MAIN SCENE FILE (.tscn)
 // ==========================================
 
 writeFile(
   "scenes/main.tscn",
-  `[gd_scene load_steps=15 format=3 uid="uid://c2suika0main"]
+  `[gd_scene load_steps=16 format=3 uid="uid://c2suika0main"]
 
 [ext_resource type="Script" path="res://scripts/game_manager.gd" id="1_gm"]
 [ext_resource type="Script" path="res://scripts/ui_manager.gd" id="2_ui"]
+[ext_resource type="Script" path="res://scripts/evolution_guide.gd" id="3_evo"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
 sky_top_color = Color(0.2, 0.45, 0.75, 1)
@@ -1440,23 +1643,20 @@ theme_override_colors/font_color = Color(1, 1, 1, 0.9)
 text = "Strawberry"
 horizontal_alignment = 1
 
-[node name="EvolutionGuide" type="HBoxContainer" parent="UI"]
+[node name="EvolutionGuide" type="Control" parent="UI"]
 layout_mode = 1
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -55.0
+offset_left = 20.0
+offset_top = -65.0
+offset_right = -20.0
 offset_bottom = -15.0
 grow_horizontal = 2
 grow_vertical = 0
-alignment = 1
-
-[node name="GuideLabel" type="Label" parent="UI/EvolutionGuide"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 15
-theme_override_colors/font_color = Color(1, 1, 1, 0.75)
-text = "🍒 Cherry → 🍓 Strawberry → 🍇 Grape → 🍊 Orange → 🍎 Apple → 🍑 Peach → 🍈 Melon → 🍉 Watermelon → 👑 Sun"
+mouse_filter = 2
+script = ExtResource("3_evo")
 
 [node name="DangerIndicator" type="ColorRect" parent="UI"]
 visible = false
@@ -1551,12 +1751,12 @@ Drop different fruits into the transparent glass container. When two identical f
 ---
 
 ## Controls
-- **Move Dropper / Aim**:
-  - Mouse Move / Touch Drag
-  - Left / Right Arrow keys
-  - A / D keys
+- **Aim Dropper**:
+  - Touch & Drag along the glass container (Mobile / Web)
+  - Mouse Move / Click & Drag along the glass container (Desktop)
+  - Left / Right Arrow keys / A & D keys
 - **Drop Fruit**:
-  - Left Click
+  - Release Touch / Release Left Click
   - Spacebar
   - Enter
   - Down Arrow
