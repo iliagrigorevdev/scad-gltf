@@ -73,7 +73,7 @@ func _import_scene(path: String, flags: int, options: Dictionary) -> Object:
 	args.append(temp_glb_path)
 
 	var output = []
-	print("Importing %s via scad-convert... (This might take a few seconds on the first run)" % path.get_file())
+	print("Importing %s via scad-convert..." % path.get_file())
 
 	var exit_code = -1
 	if OS.get_name() == "Windows":
