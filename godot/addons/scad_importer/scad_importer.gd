@@ -4,6 +4,8 @@
 @tool
 extends EditorSceneFormatImporter
 
+var _is_prompting_install = false
+
 func _get_extensions():
 	return PackedStringArray(["scad"])
 
@@ -37,6 +39,7 @@ func _import_scene(path: String, flags: int, options: Dictionary) -> Object:
 		if not fallback_success:
 			push_error("Failed to compile SCAD file: %s. Ensure Node.js is installed or scad-serve is running." % path.get_file())
 			push_error("scad-convert output: ", "\n".join(output))
+			call_deferred("_prompt_install", path)
 			return null
 
 	var gltf_doc = GLTFDocument.new()
@@ -198,3 +201,58 @@ func _try_scad_serve_fallback(source_path: String, out_glb_path: String) -> bool
 		return true
 
 	return false
+
+func _prompt_install(res_path: String) -> void:
+	if _is_prompting_install:
+		return
+	_is_prompting_install = true
+
+	var dialog = ConfirmationDialog.new()
+	dialog.title = "scad-gltf Not Found"
+	dialog.dialog_text = "Failed to compile SCAD file.\nNeither scad-convert nor scad-serve could be reached.\n\nWould you like to attempt to install scad-gltf globally via npm?\n(Requires Node.js)"
+
+	dialog.confirmed.connect(func():
+		_is_prompting_install = false
+		dialog.queue_free()
+
+		var wait_dialog = AcceptDialog.new()
+		wait_dialog.title = "Installing..."
+		wait_dialog.dialog_text = "Installing scad-gltf globally.\nThe editor will freeze for a moment. Please wait..."
+		wait_dialog.get_ok_button().hide()
+		EditorInterface.get_base_control().add_child(wait_dialog)
+		wait_dialog.popup_centered()
+
+		# Force a draw of the wait dialog before blocking the thread
+		await EditorInterface.get_base_control().get_tree().process_frame
+		await EditorInterface.get_base_control().get_tree().process_frame
+
+		_execute_install(res_path)
+		wait_dialog.queue_free()
+	)
+
+	var on_cancel = func():
+		_is_prompting_install = false
+		dialog.queue_free()
+
+	dialog.canceled.connect(on_cancel)
+	dialog.close_requested.connect(on_cancel)
+
+	EditorInterface.get_base_control().add_child(dialog)
+	dialog.popup_centered()
+
+func _execute_install(res_path: String) -> void:
+	print("Attempting to install scad-gltf via npm...")
+	var output = []
+	var exit_code = -1
+	if OS.get_name() == "Windows":
+		exit_code = OS.execute("cmd.exe", PackedStringArray(["/c", "npm", "install", "-g", "scad-gltf"]), output, true)
+	else:
+		exit_code = OS.execute("npm", PackedStringArray(["install", "-g", "scad-gltf"]), output, true)
+
+	if exit_code == 0:
+		print("scad-gltf installed successfully. Reimporting...")
+		EditorInterface.get_resource_filesystem().reimport_files(PackedStringArray([res_path]))
+	else:
+		var err_msg = "\n".join(output)
+		push_error("Failed to install scad-gltf. npm output:\n" + err_msg)
+		OS.alert("Failed to install scad-gltf.\nEnsure Node.js and npm are installed and in your PATH.\nAlternatively, run 'npm install -g scad-gltf' manually.", "Installation Failed")
