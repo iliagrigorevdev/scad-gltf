@@ -40,7 +40,7 @@ export default defineConfig({
         name: "Scadify",
         short_name: "Scadify",
         description:
-          "A modern, web-based editor and 3D viewer for OpenSCAD supporting WebAssembly compilation, PBR materials, skeletal animations, and texture baking.",
+          "A modern, web-based editor and 3D viewer for OpenSCAD supporting WebAssembly compilation, PBR materials, hierarchical node animations, and texture baking.",
         theme_color: "#222222",
         background_color: "#222222",
         display: "standalone",

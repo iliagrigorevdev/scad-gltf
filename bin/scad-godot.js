@@ -158,7 +158,7 @@ What to generate:
      * OpenSCAD -Y (Back)    -> Godot +Z (Back)
      * OpenSCAD +Z (Up)      -> Godot +Y (Up)
      DO NOT manually apply root rotations (e.g., \`rotate([90, 0, 0])\`) to compensate for Godot.
-   - CRITICAL: You must use the custom OpenSCAD glTF extensions for PBR materials (e.g., \`roughness\`, \`metalness\`, \`emissive\`) and Skeletal Animations (\`armature()\`, \`bone()\`). The rules and syntax for these features are provided below:
+   - CRITICAL: You must use the custom OpenSCAD glTF extensions for PBR materials (e.g., \`roughness\`, \`metalness\`, \`emissive\`) and Hierarchical Node Animations (\`armature()\`, \`bone()\`). The rules and syntax for these features are provided below:
 
 === OPENSCAD SYNTAX RULES ===
 ${promptRules}

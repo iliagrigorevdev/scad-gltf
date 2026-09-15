@@ -2,7 +2,7 @@
 
 A powerful WebAssembly (WASM) build of a custom OpenSCAD fork that enables direct compilation of OpenSCAD (`.scad`) scripts to **glTF/GLB** formats natively in JavaScript (Node.js and Browser).
 
-Unlike standard OpenSCAD, this custom engine supports **Physically Based Rendering (PBR)** materials, **Hierarchical Skeletal Animations**, and **Texture Baking**, making it a perfect bridge between procedural CAD generation and modern 3D web rendering engines (like Three.js or Babylon.js).
+Unlike standard OpenSCAD, this custom engine supports **Physically Based Rendering (PBR)** materials, **Hierarchical Node Animations**, and **Texture Baking**, making it a perfect bridge between procedural CAD generation and modern 3D web rendering engines (like Three.js or Babylon.js).
 
 The C++ source code for this custom OpenSCAD version is included directly in this repository within the `openscad/` subfolder.
 
@@ -14,8 +14,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 
 - **Direct SCAD to GLB conversion:** Compile geometry directly to web-ready binary glTF.
 - **Extended PBR Material Support:** Native extensions to the OpenSCAD `color()` module supporting `metalness`, `roughness`, `transmission` (glass), `thickness`, `ior`, `attenuationColor`, `attenuationDistance`, `clearcoat`, `sheen`, `emissive`, `specular`, and `iridescence`, plus a `$asa` special variable for auto smooth shading.
-- **Skeletal Animation:** Define animated armatures and bones directly within your `.scad` files.
-- **True Skeletal Skinning:** Exports absolute world transforms and properly bound animation tracks.
+- **Hierarchical Node Animation:** Define articulated, rigid-body hierarchies and keyframe animations using `armature()` and `bone()` modules. Exports proper glTF node transform tracks (rigid parenting rather than vertex-weighted skinning—ideal for robots, mechanical parts, vehicles, and articulated components).
 - **Texture Baking:** Automatically generate UVs and bake high-poly details (colors, normals, ORM) onto low-poly meshes using the new `bake()` module.
 - **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, video/image export, URL sharing, and `.scad` / `.hdr` drag-and-drop.
 - **LLM Friendly:** Includes a built-in modular prompt generator (`prompt.js` and Web UI) to help AI models (like Gemini, Claude, or ChatGPT) write compatible OpenSCAD scripts utilizing the new features.
@@ -33,7 +32,7 @@ The built-in web editor (**Scadify**) provides a full-featured development envir
 
 - **Real-Time 3D Viewport:** Instant WebAssembly compilation with auto-rendering, camera auto-framing, wireframe view, grid/axes toggles, ACES Filmic tone mapping, and full-screen mode.
 - **Photorealistic GPU Path Tracing:** Built-in hardware-accelerated path tracer with HDR environment lighting for realistic reflections, shadows, and glass refraction. Supports custom `.hdr` environment maps via drag-and-drop.
-- **Interactive Animation Controls:** Multi-animation selector, playback controls (play/pause), and smooth timeline scrubbing for skeletal rigs.
+- **Interactive Animation Controls:** Multi-animation selector, playback controls (play/pause), and smooth timeline scrubbing for animated hierarchies.
 - **Modular AI Prompt Generator:** Built-in UI with fine-grained feature toggles (Basic PBR, Auto Smooth, Animations, Extended PBR, Texture Baking) and persistent local settings to generate optimized prompts for LLMs.
 - **Image & Video Capture:**
   - **📷 PNG Snapshots:** Export high-resolution renders with a single click.
@@ -288,7 +287,7 @@ The addon allows you to drag-and-drop `.scad` files directly into your Godot pro
 **🕹️ Play Web Demos (No Installation Required):**
 Try prebuilt AI-generated Godot games directly in your browser: [https://iliagrigorevdev.github.io/scad-godot/](https://iliagrigorevdev.github.io/scad-godot/)
 
-- **Features:** Supports PBR Materials and Skeletal Animations inside the Godot Editor.
+- **Features:** Supports PBR Materials and Hierarchical Node Animations inside the Godot Editor.
 - **Examples:** Check out AI-generated game templates in the [`godot/examples`](./godot/examples) directory.
 - **License:** The Godot Addon is licensed under **MIT**.
 - **Setup:** Simply copy the `addons/scad_importer` folder to your project and enable it in Project Settings.
@@ -334,9 +333,9 @@ color(
 }
 ```
 
-### 2. Skeletal Animations
+### 2. Hierarchical Node Animations (Rigid Parenting)
 
-Define hierarchical armatures, resting positions, and keyframe animations:
+Define hierarchical armatures, resting positions, and keyframe animations for rigid parts:
 
 ```openscad
 anim_data = [
@@ -427,7 +426,7 @@ console.log(promptContext);
 
 Once connected, an AI assistant can use the server to execute the following loop:
 
-1. **Retrieve Syntax Rules:** The assistant calls the `get_scad_prompt` tool to get the extended syntax rules for PBR materials, skeletal animations, and texture baking.
+1. **Retrieve Syntax Rules:** The assistant calls the `get_scad_prompt` tool to get the extended syntax rules for PBR materials, hierarchical node animations, and texture baking.
 2. **Generate Code:** The assistant writes the `.scad` script based on your design request.
 3. **Compile & Visually Inspect:** The assistant calls the `render_scad_model` tool to inspect rendered multi-angle frames and keyframes, fixing any errors before final export.
 
@@ -491,3 +490,7 @@ This repository includes a custom fork of OpenSCAD in the `openscad/` subfolder 
 - **Path Tracing:** The web editor utilizes [three-gpu-pathtracer](https://github.com/gkjohnson/three-gpu-pathtracer) for high-quality rendering.
 - **Environment Map (HDR)**: [Aristea Wreck Puresky](https://polyhaven.com/a/aristea_wreck_puresky) by **Jarod Guest** via [Poly Haven](https://polyhaven.com/). Licensed under [CC0](https://polyhaven.com/license).
 - **License:** See the `LICENSE` file (GPL-2.0 or later, inheriting from standard OpenSCAD).
+
+```
+
+```

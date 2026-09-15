@@ -117,7 +117,7 @@ export function generatePrompt(description, options = {}) {
     prompt += `\n\nImportant Animation rules:
 - Wrapping: Use the 'armature(animations=...)' module at the root to wrap all animated components.
 - Hierarchies: Use the 'bone(name="BoneName", t=[x,y,z], r=[x,y,z])' module to define hierarchical animated parts.
-- Auto-Unioning: Any child meshes (e.g., cube, cylinder, imported objects) placed directly inside an 'armature()' or 'bone()' node are automatically unioned together by the engine. Child bones remain separate nodes in the hierarchy.
+- Auto-Unioning: Any child meshes (e.g., cube, cylinder, imported objects) placed directly inside an 'armature()' or 'bone()' node are automatically unioned together by the engine and rigidly attached to that bone's transform node. Child bones remain separate nodes in the hierarchy.
 - Animation Data: The 'animations' property is an array of named animation sequences. Each sequence contains an array of tracks defining keyframes for each bone. Format:
   animations = [
     ["AnimationName", [

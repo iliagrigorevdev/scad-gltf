@@ -2,7 +2,7 @@
 
 This folder contains the official Godot 4.x Editor plugin for natively importing OpenSCAD (`.scad`) files as 3D scenes.
 
-By leveraging the `scad-gltf` compiler under the hood, this addon allows you to drag and drop procedural CAD files directly into your Godot project. It automatically compiles them into binary glTF (`.glb`) meshes, supporting advanced features like **PBR materials**, **skeletal animations**, and **texture baking**—all natively within the Godot editor.
+By leveraging the `scad-gltf` compiler under the hood, this addon allows you to drag and drop procedural CAD files directly into your Godot project. It automatically compiles them into binary glTF (`.glb`) meshes, supporting advanced features like **PBR materials**, **hierarchical node animations**, and **texture baking**—all natively within the Godot editor.
 
 **🕹️ Play Online in Your Browser (No Installation Required):**
 👉 **[https://iliagrigorevdev.github.io/scad-godot/](https://iliagrigorevdev.github.io/scad-godot/)**
@@ -11,7 +11,7 @@ By leveraging the `scad-gltf` compiler under the hood, this addon allows you to 
 
 - **Seamless Integration**: Drag and drop `.scad` files directly into the Godot FileSystem dock.
 - **Advanced Materials**: Supports standard OpenSCAD plus custom extensions for roughness, metalness, transmission, emission, and more.
-- **Skeletal Animations**: Automatically parses `armature()` and `bone()` modules into Godot `AnimationPlayer` and `Skeleton3D` nodes.
+- **Hierarchical Node Animations**: Automatically parses `armature()` and `bone()` modules into Godot `Node3D` transform hierarchies animated via `AnimationPlayer` (rigid-body hierarchy animation, ideal for mechanical and articulated models).
 - **Dependency Tracking**: Smart resolution of local `include` and `use` OpenSCAD dependencies.
 - **Auto-Fallback Engine**: Attempts to use the high-performance CLI compiler (`scad-convert`) and seamlessly falls back to the HTTP backend (`scad-serve`) if running in a restricted environment.
 
