@@ -284,7 +284,10 @@ const hubHtml = `<!DOCTYPE html>
   <title>SCAD Godot Web Demos</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1117; color: #e1e4ea; margin: 0; padding: 2rem; }
-    h1 { color: #478cbf; border-bottom: 2px solid #232733; padding-bottom: 0.5rem; }
+    header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #232733; padding-bottom: 0.5rem; flex-wrap: wrap; gap: 1rem; }
+    h1 { color: #478cbf; margin: 0; }
+    .repo-link { display: inline-flex; align-items: center; gap: 0.5rem; color: #e1e4ea; text-decoration: none; font-size: 0.9rem; font-weight: 500; background: #1a1d27; border: 1px solid #282c3c; border-radius: 6px; padding: 0.5rem 0.85rem; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+    .repo-link:hover { background: #232738; border-color: #478cbf; color: #00d2ff; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
     .card { background: #1a1d27; border: 1px solid #282c3c; border-radius: 8px; padding: 1.5rem; text-decoration: none; color: inherit; display: block; transition: transform 0.15s ease, border-color 0.15s ease; }
     .card:hover { transform: translateY(-3px); border-color: #478cbf; }
@@ -295,8 +298,15 @@ const hubHtml = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <h1>🎮 SCAD Godot Examples</h1>
-  <p>Procedurally generated OpenSCAD games compiled to WebAssembly.</p>
+  <header>
+    <h1>🎮 SCAD Godot Examples</h1>
+    <a class="repo-link" href="https://github.com/iliagrigorevdev/scad-godot" target="_blank" rel="noopener noreferrer">
+      <svg height="20" width="20" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+      </svg>
+      Source Repository
+    </a>
+  </header>
   <div class="grid">
     ${builtDemos
       .map(
