@@ -146,10 +146,72 @@ for (const file of exampleFiles) {
   fs.mkdirSync(outDir, { recursive: true });
 
   console.log(`\n🚀 Exporting Web build to: ${outDir}`);
+  // We export FIRST so Godot populates the .godot/ cache with global classes and imported resources,
+  // preventing script parse errors during screenshot capture.
   execSync(
     `"${godotBin}" ${HEADLESS_FLAGS} --export-release "Web" "${path.join(outDir, "index.html")}" --path "${projectDir}"`,
     { stdio: "inherit", env: process.env },
   );
+
+  // ==========================================
+  // 3.5 CAPTURE SCREENSHOT
+  // ==========================================
+  console.log(`\n📸 Capturing screenshot for ${demoName}...`);
+  // Temporarily add an Autoload to capture a perfectly square screenshot after 3 seconds.
+  const screenshotScript = `extends Node
+func _ready():
+\tawait get_tree().create_timer(3).timeout
+\tvar img = get_viewport().get_texture().get_image()
+\tif img != null and not img.is_empty():
+\t\tvar w = img.get_width()
+\t\tvar h = img.get_height()
+\t\tvar size = min(w, h)
+\t\tvar x = (w - size) / 2
+\t\tvar y = (h - size) / 2
+\t\tvar cropped = img.get_region(Rect2i(x, y, size, size))
+\t\tcropped.save_png("res://screenshot.png")
+\tget_tree().quit()
+`;
+  fs.writeFileSync(path.join(projectDir, "screenshot.gd"), screenshotScript);
+
+  const currentProjectGodot = fs.readFileSync(projectGodotPath, "utf8");
+  let tempProjectGodot = currentProjectGodot;
+  if (tempProjectGodot.includes("[autoload]")) {
+    tempProjectGodot = tempProjectGodot.replace(
+      "[autoload]",
+      '[autoload]\nScreenshot="*res://screenshot.gd"',
+    );
+  } else {
+    tempProjectGodot += `\n[autoload]\nScreenshot="*res://screenshot.gd"\n`;
+  }
+  fs.writeFileSync(projectGodotPath, tempProjectGodot, "utf8");
+
+  try {
+    // Run windowed with square resolution so the center crop matches the game area perfectly
+    execSync(
+      `"${godotBin}" --windowed --resolution 512x512 --audio-driver Dummy --path "${projectDir}"`,
+      {
+        stdio: "ignore",
+        env: process.env,
+        timeout: 15000,
+      },
+    );
+  } catch (err) {
+    console.warn(
+      `  ⚠️ Screenshot capture for ${demoName} failed or timed out (requires display server).`,
+    );
+  }
+
+  // Restore project.godot without the Autoload
+  fs.writeFileSync(projectGodotPath, currentProjectGodot, "utf8");
+  fs.unlinkSync(path.join(projectDir, "screenshot.gd"));
+
+  const screenshotPath = path.join(projectDir, "screenshot.png");
+  if (fs.existsSync(screenshotPath)) {
+    fs.copyFileSync(screenshotPath, path.join(outDir, "screenshot.png"));
+    fs.unlinkSync(screenshotPath);
+    console.log(`  ✓ Saved squared screenshot.png`);
+  }
 
   // ==========================================
   // 4. DEDUPLICATE ENGINE RUNTIME FILES
@@ -226,6 +288,8 @@ const hubHtml = `<!DOCTYPE html>
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
     .card { background: #1a1d27; border: 1px solid #282c3c; border-radius: 8px; padding: 1.5rem; text-decoration: none; color: inherit; display: block; transition: transform 0.15s ease, border-color 0.15s ease; }
     .card:hover { transform: translateY(-3px); border-color: #478cbf; }
+    .card-img-container { width: 100%; aspect-ratio: 1 / 1; background: #0f1117; border-radius: 4px; margin-bottom: 1rem; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .card-img-container img { width: 100%; height: 100%; object-fit: cover; }
     .card h2 { margin: 0 0 0.5rem 0; font-size: 1.25rem; color: #00d2ff; }
     .card p { margin: 0; font-size: 0.875rem; color: #8c93a8; }
   </style>
@@ -238,8 +302,10 @@ const hubHtml = `<!DOCTYPE html>
       .map(
         (name) => `
     <a class="card" href="./${name}/">
+      <div class="card-img-container">
+        <img src="./${name}/screenshot.png" alt="${name} screenshot" onerror="this.style.display='none'" />
+      </div>
       <h2>${name}</h2>
-      <p>Play in browser</p>
     </a>`,
       )
       .join("")}
