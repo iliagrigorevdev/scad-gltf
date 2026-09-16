@@ -90,7 +90,7 @@ async function main() {
     console.error("");
     console.error("Example with JSON options:");
     console.error(
-      '  scad-godot "Game description" \'{"animation": false, "bakeColors": true}\'',
+      '  scad-godot "Game description" \'{"animation": false, "bakeColors": true, "scadFiles": ["player.scad"]}\'',
     );
     process.exit(1);
   }
@@ -102,6 +102,7 @@ async function main() {
     clearcoat: false,
     sheen: false,
     iridescence: false,
+    scadFiles: [],
   };
 
   if (optionsStr) {
@@ -137,6 +138,9 @@ async function main() {
     console.error(e);
     process.exit(1);
   }
+
+  const hasUserScadFiles =
+    Array.isArray(options.scadFiles) && options.scadFiles.length > 0;
 
   // 4. Construct the Main Godot Prompt System Text (System Instructions)
   const systemPrompt = `You are an expert Godot 4 game developer and procedural 3D technical artist.
@@ -185,7 +189,11 @@ ${promptRules}
    - The script must embed and write:
      - Your generated \`.scad\` game assets.
      - Your generated Godot project files.
-     - The exact source code of the provided \`addons/scad_importer/*\` files, placed in their correct respective paths.
+     - The exact source code of the provided \`addons/scad_importer/*\` files, placed in their correct respective paths.${
+       hasUserScadFiles
+         ? "\n     - The exact source code of the provided user `.scad` files, placed in the appropriate project folders."
+         : ""
+     }
    - Ensure all string file contents inside the Node.js script are properly escaped.`;
 
   // 5. Gather Addon Files content
@@ -226,6 +234,24 @@ ${promptRules}
       systemClipboardOutput += `### ${relativePath}\n---\n\`\`\`${lang}\n${content}\n\`\`\`\n\n`;
     } catch (e) {
       console.error(`Warning: Skipping '${file}'. It is not a readable file.`);
+    }
+  }
+
+  if (hasUserScadFiles) {
+    systemClipboardOutput += `=== USER PROVIDED OPENSCAD FILES ===\n`;
+    systemClipboardOutput += `The following .scad files are provided as reference or base assets. You MUST embed and write them into the generated project, modifying them if necessary to fit the game logic.\n\n`;
+    for (const file of options.scadFiles) {
+      try {
+        const content = fs.readFileSync(file, "utf-8").replace(/\r\n/g, "\n");
+        const relativePath = path.isAbsolute(file)
+          ? path.relative(process.cwd(), file).replace(/\\/g, "/")
+          : file.replace(/\\/g, "/");
+        systemClipboardOutput += `### ${relativePath}\n---\n\`\`\`openscad\n${content}\n\`\`\`\n\n`;
+      } catch (e) {
+        console.error(
+          `Warning: Skipping user SCAD file '${file}'. It is not a readable file.`,
+        );
+      }
     }
   }
 
