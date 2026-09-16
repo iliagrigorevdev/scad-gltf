@@ -132,7 +132,7 @@ function injectPromptButton() {
   btn.innerText = "✨ SCAD";
   btn.className = "scad-prompt-btn";
 
-  btn.onclick = (e) => {
+  btn.onclick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -144,6 +144,7 @@ function injectPromptButton() {
         descInput.value = ""; // Clear text on every open
       }
       modal.style.display = "flex";
+
       if (descInput) {
         descInput.focus();
       }
@@ -169,6 +170,16 @@ function createPromptModal() {
         <button id="scad-prompt-close" class="scad-modal-close">X</button>
       </div>
       <p class="scad-help-text">Describe the object you want to generate. The copied prompt will include advanced PBR and Animation rules based on your selection.</p>
+
+      <div id="scad-prompt-backend-ui" class="scad-prompt-backend-ui">
+        <div class="scad-prompt-backend-ui-header">
+          <div class="scad-prompt-backend-ui-title">Refine Local Model:</div>
+          <button id="scad-prompt-backend-connect" class="scad-prompt-backend-connect-btn">Connect</button>
+        </div>
+        <select id="scad-prompt-model-select">
+          <option value="">-- Select a local model --</option>
+        </select>
+      </div>
 
       <div id="scad-prompt-ui-container"></div>
 
@@ -196,20 +207,87 @@ function createPromptModal() {
     if (e.target === modal) modal.style.display = "none";
   };
 
+  const connectBtn = document.getElementById("scad-prompt-backend-connect");
+  const modelSelect = document.getElementById("scad-prompt-model-select");
+
+  if (connectBtn && modelSelect) {
+    connectBtn.onclick = async () => {
+      try {
+        connectBtn.innerText = "Connecting...";
+        const res = await fetch("http://localhost:3000/api/scads");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.files && data.files.length > 0) {
+            modelSelect.innerHTML =
+              '<option value="">-- Select a local model --</option>';
+            data.files.forEach((f) => {
+              const opt = document.createElement("option");
+              opt.value = f;
+              opt.innerText = f;
+              modelSelect.appendChild(opt);
+            });
+            modelSelect.style.display = "block";
+            connectBtn.style.display = "none";
+          } else {
+            connectBtn.innerText = "No Models";
+            setTimeout(() => {
+              connectBtn.innerText = "Connect";
+            }, 2000);
+          }
+        } else {
+          connectBtn.innerText = "Failed";
+          setTimeout(() => {
+            connectBtn.innerText = "Connect";
+          }, 2000);
+        }
+      } catch (err) {
+        connectBtn.innerText = "Offline";
+        setTimeout(() => {
+          connectBtn.innerText = "Connect";
+        }, 2000);
+      }
+    };
+  }
+
   document.getElementById("scad-prompt-submit").onclick = async () => {
     const description = document
       .getElementById("scad-prompt-desc")
       .value.trim();
-    if (!description) {
-      alert("Please enter a description!");
+    const selectedModel = modelSelect ? modelSelect.value : "";
+
+    if (!description && !selectedModel) {
+      alert("Please enter a description or select a model!");
       return;
     }
 
     const options = getPromptOptions(uiContainer);
+    let promptText = "";
 
     try {
-      // 1. Generate the advanced LLM prompt via prompt.js
-      const promptText = generatePrompt(description, options);
+      if (description) {
+        // 1. Generate the advanced LLM prompt via prompt.js
+        promptText = generatePrompt(description, options);
+      }
+
+      if (selectedModel) {
+        const res = await fetch(
+          "http://localhost:3000/api/scads/" +
+            encodeURIComponent(selectedModel),
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const content = data.content;
+          const codeBlock = "\`\`\`openscad\n" + content + "\n\`\`\`\n\n";
+
+          if (promptText) {
+            promptText += "\n\nReference code:\n" + codeBlock;
+          } else {
+            promptText = codeBlock;
+          }
+        } else {
+          throw new Error("Failed to load local model");
+        }
+      }
 
       // 2. Target the exact AI Studio text area based on your provided HTML
       const chatInput =
@@ -227,11 +305,15 @@ function createPromptModal() {
 
         // Fallback: If execCommand is blocked, use the native prototype setter and dispatch 'input'
         if (!pasted) {
+          const currentVal = chatInput.value;
+          const newVal = currentVal
+            ? currentVal + "\n" + promptText
+            : promptText;
           const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
             window.HTMLTextAreaElement.prototype,
             "value",
           ).set;
-          nativeInputValueSetter.call(chatInput, promptText);
+          nativeInputValueSetter.call(chatInput, newVal);
           chatInput.dispatchEvent(new Event("input", { bubbles: true }));
           chatInput.dispatchEvent(new Event("change", { bubbles: true }));
         }
@@ -242,6 +324,9 @@ function createPromptModal() {
 
       // Close the modal and show temporary success on the main button
       modal.style.display = "none";
+      if (modelSelect) modelSelect.value = "";
+      if (chatInput) chatInput.focus();
+
       const btn = document.getElementById("scad-prompt-btn");
       const originalText = btn.innerText;
       btn.innerText = "✅ Prompt Pasted!";
