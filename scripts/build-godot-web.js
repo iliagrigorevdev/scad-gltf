@@ -10,10 +10,6 @@ const ENGINE_DIR = path.resolve(DIST_DIR, "engine");
 const BUILD_DIR = path.resolve(ROOT_DIR, ".godot-build");
 const BIN_DIR = path.resolve(ROOT_DIR, ".godot-bin");
 const SCAD_CONVERT_JS = path.resolve(ROOT_DIR, "bin/scad-convert.js");
-const COI_SCRIPT = path.resolve(
-  ROOT_DIR,
-  "node_modules/coi-serviceworker/coi-serviceworker.min.js",
-);
 
 const GODOT_VERSION = "4.7.2-stable";
 const GODOT_SHORT_VERSION = "4.7.2.stable";
@@ -91,14 +87,6 @@ fs.rmSync(BUILD_DIR, { recursive: true, force: true });
 fs.mkdirSync(DIST_DIR, { recursive: true });
 fs.mkdirSync(ENGINE_DIR, { recursive: true });
 fs.mkdirSync(BUILD_DIR, { recursive: true });
-
-// Copy single root coi-serviceworker so its scope covers all child directories
-if (fs.existsSync(COI_SCRIPT)) {
-  fs.copyFileSync(COI_SCRIPT, path.join(DIST_DIR, "coi-serviceworker.min.js"));
-  console.log(
-    `✓ Placed single shared coi-serviceworker at .godot-dist/coi-serviceworker.min.js`,
-  );
-}
 
 const exampleFiles = fs
   .readdirSync(EXAMPLES_DIR)
@@ -242,7 +230,7 @@ func _ready():
     }
   }
 
-  // Patch index.html to use shared engine and shared root coi-serviceworker
+  // Patch index.html to use shared engine
   const htmlPath = path.join(outDir, "index.html");
   let html = fs.readFileSync(htmlPath, "utf8");
 
@@ -261,23 +249,6 @@ func _ready():
   // 3. Update fileSizes key for progress bar
   html = html.replace(/"index\.wasm"/g, '"../engine/godot.wasm"');
 
-  // 4. Reference the single root service worker and configure for social in-app browsers & iOS Safari
-  html = html.replace(
-    "<head>",
-    `<head>
-    <script>
-      window.coi = {
-        coepCredentialless: () => true,
-        doReload: () => {
-          const url = new URL(window.location.href);
-          url.searchParams.set('coi-reload', Date.now());
-          window.location.replace(url.href);
-        }
-      };
-    </script>
-    <script src="../coi-serviceworker.min.js"></script>`,
-  );
-
   fs.writeFileSync(htmlPath, html, "utf8");
   builtDemos.push(demoName);
 }
@@ -291,17 +262,6 @@ const hubHtml = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script>
-    window.coi = {
-      coepCredentialless: () => true,
-      doReload: () => {
-        const url = new URL(window.location.href);
-        url.searchParams.set('coi-reload', Date.now());
-        window.location.replace(url.href);
-      }
-    };
-  </script>
-  <script src="coi-serviceworker.min.js"></script>
   <title>SCAD Godot Web Demos</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1117; color: #e1e4ea; margin: 0; padding: 2rem; }
