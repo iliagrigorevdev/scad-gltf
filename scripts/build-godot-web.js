@@ -96,7 +96,7 @@ fs.mkdirSync(BUILD_DIR, { recursive: true });
 if (fs.existsSync(COI_SCRIPT)) {
   fs.copyFileSync(COI_SCRIPT, path.join(DIST_DIR, "coi-serviceworker.min.js"));
   console.log(
-    `✓ Placed single shared coi-serviceworker at dist-godot/coi-serviceworker.min.js`,
+    `✓ Placed single shared coi-serviceworker at .godot-dist/coi-serviceworker.min.js`,
   );
 }
 
@@ -261,10 +261,21 @@ func _ready():
   // 3. Update fileSizes key for progress bar
   html = html.replace(/"index\.wasm"/g, '"../engine/godot.wasm"');
 
-  // 4. Reference the single root service worker
+  // 4. Reference the single root service worker and configure for social in-app browsers & iOS Safari
   html = html.replace(
     "<head>",
-    '<head><script src="../coi-serviceworker.min.js"></script>',
+    `<head>
+    <script>
+      window.coi = {
+        coepCredentialless: () => true,
+        doReload: () => {
+          const url = new URL(window.location.href);
+          url.searchParams.set('coi-reload', Date.now());
+          window.location.replace(url.href);
+        }
+      };
+    </script>
+    <script src="../coi-serviceworker.min.js"></script>`,
   );
 
   fs.writeFileSync(htmlPath, html, "utf8");
@@ -280,6 +291,16 @@ const hubHtml = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    window.coi = {
+      coepCredentialless: () => true,
+      doReload: () => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('coi-reload', Date.now());
+        window.location.replace(url.href);
+      }
+    };
+  </script>
   <script src="coi-serviceworker.min.js"></script>
   <title>SCAD Godot Web Demos</title>
   <style>
