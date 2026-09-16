@@ -219,6 +219,7 @@ When asking an LLM (like Gemini) to generate OpenSCAD code, the extension automa
 - **Instant 3D Preview:** Injects a **"Preview 3D"** button on any OpenSCAD code block to compile and render the model in an embedded 3D viewer with grid, wireframe, and full-screen support.
 - **Visual Chat Feedback (📷):** Click the snapshot button inside the 3D preview window to capture a PNG snapshot of the model and **automatically paste it into the AI Studio chat input**, allowing Gemini to visually evaluate and fix geometry.
 - **Smart Prompt Injection:** Click the floating **"✨ SCAD"** button to open the configuration modal. Select your desired engine feature set (PBR, auto-smooth, animations, baking) to automatically generate and inject the prompt rules into your chat input.
+- **Local Model Refinement:** Connect to your local `scad-serve` workspace directly from the prompt modal. Select an existing `.scad` file to automatically append its source code to your prompt as a reference, enabling seamless AI iteration and refinement of your existing local designs.
 - **Open in Scadify:** Click **"Edit"** in the preview window to immediately transfer the current script into the full standalone Scadify editor via compressed URL hash.
 - **Local Workspace Saving:** Directly save and overwrite models to your local directory when running `scad-serve`.
 
@@ -490,7 +491,3 @@ This repository includes a custom fork of OpenSCAD in the `openscad/` subfolder 
 - **Path Tracing:** The web editor utilizes [three-gpu-pathtracer](https://github.com/gkjohnson/three-gpu-pathtracer) for high-quality rendering.
 - **Environment Map (HDR)**: [Aristea Wreck Puresky](https://polyhaven.com/a/aristea_wreck_puresky) by **Jarod Guest** via [Poly Haven](https://polyhaven.com/). Licensed under [CC0](https://polyhaven.com/license).
 - **License:** See the `LICENSE` file (GPL-2.0 or later, inheriting from standard OpenSCAD).
-
-```
-
-```
