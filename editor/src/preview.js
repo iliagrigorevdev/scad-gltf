@@ -20,7 +20,15 @@ const wireframeCb = document.getElementById("wireframe-cb");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const screenshotBtn = document.getElementById("screenshot-btn");
 
+const animControls = document.getElementById("anim-controls");
+const animPlayBtn = document.getElementById("anim-play-btn");
+const animSelect = document.getElementById("anim-select");
+const animSlider = document.getElementById("anim-slider");
+
 let currentMesh = null;
+let currentAction = null;
+let isPlaying = true;
+let isDraggingSlider = false;
 let currentAnimations = [];
 let latestScadCode = "";
 let isCompiling = false;
@@ -164,6 +172,78 @@ if (screenshotBtn) {
   });
 }
 
+function pauseAnimation() {
+  if (!currentAction) return;
+  isPlaying = false;
+  currentAction.paused = true;
+  if (animPlayBtn) animPlayBtn.innerText = "▶ Play";
+}
+
+function playAnimation(index) {
+  if (!mixer || !currentAnimations[index]) return;
+  if (currentAction) {
+    currentAction.stop();
+  }
+  const clip = currentAnimations[index];
+  currentAction = mixer.clipAction(clip);
+  currentAction.play();
+  currentAction.time = 0;
+  mixer.update(0);
+  isPlaying = true;
+  currentAction.paused = false;
+  if (animPlayBtn) animPlayBtn.innerText = "⏸ Pause";
+  if (animSlider) animSlider.value = 0;
+}
+
+if (animSelect) {
+  animSelect.addEventListener("change", (e) => {
+    playAnimation(parseInt(e.target.value));
+  });
+}
+
+if (animPlayBtn) {
+  animPlayBtn.addEventListener("click", () => {
+    if (!currentAction) return;
+    isPlaying = !isPlaying;
+    currentAction.paused = !isPlaying;
+    animPlayBtn.innerText = isPlaying ? "⏸ Pause" : "▶ Play";
+  });
+}
+
+if (animSlider) {
+  animSlider.addEventListener("mousedown", () => {
+    isDraggingSlider = true;
+    pauseAnimation();
+  });
+  animSlider.addEventListener("mouseup", () => {
+    isDraggingSlider = false;
+  });
+  animSlider.addEventListener(
+    "touchstart",
+    () => {
+      isDraggingSlider = true;
+      pauseAnimation();
+    },
+    { passive: true },
+  );
+  animSlider.addEventListener(
+    "touchend",
+    () => {
+      isDraggingSlider = false;
+    },
+    { passive: true },
+  );
+
+  animSlider.addEventListener("input", (e) => {
+    pauseAnimation();
+    if (currentAction) {
+      const duration = currentAction.getClip().duration;
+      currentAction.time = parseFloat(e.target.value) * duration;
+      if (mixer) mixer.update(0);
+    }
+  });
+}
+
 let lastTime = performance.now();
 function animate() {
   requestAnimationFrame(animate);
@@ -172,7 +252,17 @@ function animate() {
   const delta = (now - lastTime) / 1000.0;
   lastTime = now;
 
-  if (mixer) mixer.update(delta);
+  if (mixer) {
+    mixer.update(delta);
+    if (currentAction && isPlaying && !isDraggingSlider) {
+      const duration = currentAction.getClip().duration;
+      if (duration > 0) {
+        let currentClipTime = currentAction.time % duration;
+        if (currentClipTime < 0) currentClipTime += duration;
+        if (animSlider) animSlider.value = currentClipTime / duration;
+      }
+    }
+  }
   controls.update();
 
   const showGrid = showGridCb ? showGridCb.checked : true;
@@ -284,6 +374,7 @@ function renderGLTF(outputArray) {
         mixer.uncacheRoot(mixer.getRoot());
         mixer = null;
       }
+      currentAction = null;
       currentAnimations = [];
       scene.remove(currentMesh);
       currentMesh.traverse((child) => {
@@ -315,12 +406,27 @@ function renderGLTF(outputArray) {
 
         if (currentAnimations.length > 0) {
           mixer = new THREE.AnimationMixer(currentMesh);
-          currentAnimations.forEach((clip) => {
-            const action = mixer.clipAction(clip);
-            action.play();
-            action.time = 0;
-          });
-          mixer.update(0);
+          if (animControls) {
+            animControls.style.display = "flex";
+            animSelect.innerHTML = "";
+            currentAnimations.forEach((clip, i) => {
+              const opt = document.createElement("option");
+              opt.value = i;
+              opt.innerText = clip.name || `Animation ${i + 1}`;
+              animSelect.appendChild(opt);
+            });
+            playAnimation(0);
+          } else {
+            currentAnimations.forEach((clip) => {
+              const action = mixer.clipAction(clip);
+              action.play();
+              action.time = 0;
+            });
+            mixer.update(0);
+          }
+        } else {
+          if (animControls) animControls.style.display = "none";
+          currentAction = null;
         }
 
         currentMesh.traverse((child) => {

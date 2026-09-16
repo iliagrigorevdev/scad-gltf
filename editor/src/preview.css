@@ -133,3 +133,75 @@ body {
   opacity: 0.7;
   cursor: not-allowed;
 }
+
+#anim-controls {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 8px 16px;
+  border-radius: 8px;
+  z-index: 10;
+  align-items: center;
+  backdrop-filter: blur(4px);
+  width: 80%;
+  max-width: 400px;
+}
+
+#anim-controls select {
+  background: #333;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 4px;
+  border-radius: 4px;
+  outline: none;
+  font-size: 13px;
+}
+
+#anim-controls button {
+  background: #444;
+  color: white;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+#anim-controls button:hover {
+  background: #555;
+}
+
+#anim-slider {
+  flex-grow: 1;
+  cursor: pointer;
+  -webkit-appearance: none;
+  background: transparent;
+  margin: 0;
+}
+
+#anim-slider:focus {
+  outline: none;
+}
+
+#anim-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  cursor: pointer;
+  background: #444;
+  border-radius: 3px;
+}
+
+#anim-slider::-webkit-slider-thumb {
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: #00aaff;
+  cursor: pointer;
+  -webkit-appearance: none;
+  margin-top: -4px;
+}

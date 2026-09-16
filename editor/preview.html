@@ -19,6 +19,18 @@
         <button id="save-btn">Save</button>
         <button id="open-editor-btn">Edit</button>
       </div>
+      <div id="anim-controls" style="display: none">
+        <button id="anim-play-btn">⏸ Pause</button>
+        <select id="anim-select"></select>
+        <input
+          type="range"
+          id="anim-slider"
+          min="0"
+          max="1"
+          step="0.001"
+          value="0"
+        />
+      </div>
       <div id="viewer"></div>
     </div>
     <script type="module" src="/src/preview.js"></script>
