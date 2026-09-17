@@ -3,6 +3,8 @@ import path from "path";
 import os from "os";
 import { execSync } from "child_process";
 
+const targetExample = process.argv[2];
+
 const ROOT_DIR = process.cwd();
 const EXAMPLES_DIR = path.resolve(ROOT_DIR, "godot/examples");
 const DIST_DIR = path.resolve(ROOT_DIR, ".godot-dist");
@@ -82,16 +84,27 @@ const HEADLESS_FLAGS =
 // ==========================================
 // 2. RESET OUTPUT DIRS & COPY SHARED ASSETS
 // ==========================================
-fs.rmSync(DIST_DIR, { recursive: true, force: true });
-fs.rmSync(BUILD_DIR, { recursive: true, force: true });
+if (!targetExample) {
+  fs.rmSync(DIST_DIR, { recursive: true, force: true });
+  fs.rmSync(BUILD_DIR, { recursive: true, force: true });
+}
 fs.mkdirSync(DIST_DIR, { recursive: true });
 fs.mkdirSync(ENGINE_DIR, { recursive: true });
 fs.mkdirSync(BUILD_DIR, { recursive: true });
 
-const exampleFiles = fs
+let exampleFiles = fs
   .readdirSync(EXAMPLES_DIR)
   .filter((f) => f.endsWith(".js"));
-const builtDemos = [];
+
+if (targetExample) {
+  exampleFiles = exampleFiles.filter((f) => f === `${targetExample}.js`);
+  if (exampleFiles.length === 0) {
+    console.error(
+      `\n❌ Error: Example '${targetExample}' not found in ${EXAMPLES_DIR}`,
+    );
+    process.exit(1);
+  }
+}
 
 // ==========================================
 // 3. BUILD PROJECTS
@@ -100,6 +113,10 @@ for (const file of exampleFiles) {
   const demoName = path.basename(file, ".js");
   const jsScriptPath = path.join(EXAMPLES_DIR, file);
   const projectDir = path.join(BUILD_DIR, demoName);
+
+  if (targetExample) {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  }
 
   console.log(`\n========================================`);
   console.log(`📦 Unpacking: ${demoName}`);
@@ -131,6 +148,10 @@ for (const file of exampleFiles) {
 
   // Export to Web (Godot automatically runs scad-convert and scene imports here)
   const outDir = path.join(DIST_DIR, demoName);
+
+  if (targetExample) {
+    fs.rmSync(outDir, { recursive: true, force: true });
+  }
   fs.mkdirSync(outDir, { recursive: true });
 
   console.log(`\n🚀 Exporting Web build to: ${outDir}`);
@@ -250,13 +271,22 @@ func _ready():
   html = html.replace(/"index\.wasm"/g, '"../engine/godot.wasm"');
 
   fs.writeFileSync(htmlPath, html, "utf8");
-  builtDemos.push(demoName);
 }
 
 // ==========================================
 // 5. GENERATE HUB LAUNCHER INDEX.HTML
 // ==========================================
 console.log(`\n📑 Generating launcher index.html...`);
+
+const builtDemos = fs.readdirSync(DIST_DIR).filter((item) => {
+  const itemPath = path.join(DIST_DIR, item);
+  return (
+    fs.statSync(itemPath).isDirectory() &&
+    item !== "engine" &&
+    fs.existsSync(path.join(itemPath, "index.html"))
+  );
+});
+
 const hubHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -306,4 +336,6 @@ const hubHtml = `<!DOCTYPE html>
 
 fs.writeFileSync(path.join(DIST_DIR, "index.html"), hubHtml, "utf-8");
 
-console.log(`\n🎉 Success! All projects built by Godot into .godot-dist/`);
+console.log(
+  `\n🎉 Success! All selected projects built by Godot into .godot-dist/`,
+);
