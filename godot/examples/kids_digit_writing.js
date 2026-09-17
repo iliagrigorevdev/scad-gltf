@@ -3,6 +3,7 @@
 /**
  * Procedural Generator for "kids_digit_writing"
  * Godot 4 Kids Digit Writing Learning App with 3D Teacher Mouse Robot
+ * Calibrated lighting, soft PBR toy materials, and glare-free colors
  */
 
 const fs = require("fs");
@@ -267,48 +268,47 @@ func _exit_tree():
 writeFile(
   "assets/models/mouse_robot.scad",
   `/* Model Name: mouse_robot */
-
 // Note on Units: 1 unit ≈ 10 mm (1 cm). Total robot height is ~28 units (28 cm).
 $fn = 36;
 $asa = 45.0;
 
 // -------------------------------------------------------------
-// PBR Materials
+// PBR Materials (Calibrated Anti-Glare Toy Enamel Shading)
 // -------------------------------------------------------------
 module mat_silver() {
-    color([0.78, 0.82, 0.88], metalness=0.8, roughness=0.25, $asa=45) children();
+    color([0.65, 0.72, 0.80], metalness=0.08, roughness=0.52, $asa=45) children();
 }
 
 module mat_cyan() {
-    color([0.05, 0.72, 0.90], metalness=0.15, roughness=0.35, $asa=45) children();
+    color([0.06, 0.66, 0.82], metalness=0.08, roughness=0.45, $asa=45) children();
 }
 
 module mat_blue_rim() {
-    color([0.10, 0.35, 0.85], metalness=0.3, roughness=0.35, $asa=45) children();
+    color([0.10, 0.32, 0.75], metalness=0.15, roughness=0.45, $asa=45) children();
 }
 
 module mat_magenta() {
-    color([0.90, 0.12, 0.55], metalness=0.05, roughness=0.4, $asa=45) children();
+    color([0.86, 0.16, 0.52], metalness=0.05, roughness=0.45, $asa=45) children();
 }
 
 module mat_purple() {
-    color([0.55, 0.10, 0.65], metalness=0.1, roughness=0.45, $asa=45) children();
+    color([0.50, 0.14, 0.62], metalness=0.08, roughness=0.50, $asa=45) children();
 }
 
 module mat_tan() {
-    color([0.88, 0.70, 0.45], metalness=0.1, roughness=0.6, $asa=45) children();
+    color([0.80, 0.64, 0.44], metalness=0.05, roughness=0.60, $asa=45) children();
 }
 
 module mat_black() {
-    color([0.12, 0.12, 0.15], metalness=0.2, roughness=0.7, $asa=45) children();
+    color([0.12, 0.13, 0.16], metalness=0.10, roughness=0.65, $asa=45) children();
 }
 
 module mat_white() {
-    color([0.96, 0.96, 0.98], metalness=0.0, roughness=0.2, $asa=45) children();
+    color([0.82, 0.84, 0.87], metalness=0.0, roughness=0.45, $asa=45) children();
 }
 
 module mat_dark_blue() {
-    color([0.08, 0.20, 0.50], metalness=0.4, roughness=0.3, $asa=45) children();
+    color([0.08, 0.18, 0.45], metalness=0.15, roughness=0.45, $asa=45) children();
 }
 
 // -------------------------------------------------------------
@@ -619,7 +619,6 @@ armature(animations=robot_anim) {
 `,
 );
 
-// Toy Blocks / Bricks Model
 writeFile(
   "assets/models/toy_blocks.scad",
   `/* Model Name: toy_blocks */
@@ -627,7 +626,7 @@ $fn = 24;
 $asa = 45.0;
 
 module toy_block(col) {
-    color(col, metalness=0.05, roughness=0.4, $asa=45) {
+    color(col, metalness=0.05, roughness=0.50, $asa=45) {
         difference() {
             cube([0.22, 0.22, 0.22], center=true);
             for (rot = [[0,0,0], [90,0,0], [0,90,0], [-90,0,0], [0,-90,0], [180,0,0]]) {
@@ -635,7 +634,7 @@ module toy_block(col) {
             }
         }
     }
-    color([0.98, 0.98, 1.0], metalness=0.0, roughness=0.2, $asa=45) {
+    color([0.90, 0.90, 0.92], metalness=0.0, roughness=0.35, $asa=45) {
         sphere(r=0.06);
     }
 }
@@ -643,19 +642,44 @@ module toy_block(col) {
 module toy_blocks() {
     translate([0, 0, 0.11])
         rotate([0, 0, 12])
-        toy_block([0.92, 0.22, 0.25]);
+        toy_block([0.85, 0.22, 0.25]);
 
     translate([0.24, -0.04, 0.11])
         rotate([0, 0, -15])
-        toy_block([0.15, 0.72, 0.90]);
+        toy_block([0.12, 0.65, 0.85]);
 
     translate([0.10, -0.02, 0.33])
         rotate([0, 0, 6])
-        toy_block([0.98, 0.82, 0.15]);
+        toy_block([0.92, 0.75, 0.15]);
 }
 
 toy_blocks();
 `,
+);
+
+// -------------------------------------------------------------------------
+// 2B. PARTICLE SVG TEXTURES (Stand-alone vector assets)
+// -------------------------------------------------------------------------
+
+writeFile(
+  "assets/particles/confetti_star.svg",
+  `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <polygon points="32,2 41,21 62,24 47,40 50,61 32,51 14,61 17,40 2,24 23,21" fill="#FFFFFF"/>
+</svg>`,
+);
+
+writeFile(
+  "assets/particles/confetti_ribbon.svg",
+  `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="24" viewBox="0 0 48 24">
+  <rect x="2" y="3" width="44" height="18" rx="7" ry="7" fill="#FFFFFF"/>
+</svg>`,
+);
+
+writeFile(
+  "assets/particles/sparkle.svg",
+  `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <path d="M32,0 Q32,32 64,32 Q32,32 32,64 Q32,32 0,32 Q32,32 32,0 Z" fill="#FFFFFF"/>
+</svg>`,
 );
 
 // -------------------------------------------------------------------------
@@ -848,7 +872,7 @@ static func get_digit_info(digit: int) -> Dictionary:
 				"digit": 0,
 				"name": "Zero",
 				"rhyme": "Around and around and around we go,\\nwhen we get home we have a zero!",
-				"tip": "Start at the top star and make a nice big circle!",
+				"tip": "Start at the top and make a nice big circle!",
 				"strokes": [
 					[
 						Vector2(0.50, 0.16),
@@ -870,7 +894,7 @@ static func get_digit_info(digit: int) -> Dictionary:
 				"digit": 1,
 				"name": "One",
 				"rhyme": "Number one is like a stick,\\na straight line down that's very quick!",
-				"tip": "Start at the star and slide straight down!",
+				"tip": "Start at the top and slide straight down!",
 				"strokes": [
 					[
 						Vector2(0.40, 0.28),
@@ -1060,7 +1084,6 @@ signal speech_requested(text: String)
 @export var look_target_node: Node3D
 var anim_player: AnimationPlayer = null
 
-# 215 deg turns the robot to face towards screen-right (+X) where the 2D easel is, while greeting the player (+Z).
 var base_rotation_y: float = deg_to_rad(215.0)
 var target_turn_y: float = 0.0
 var base_position_y: float = 0.08
@@ -1078,7 +1101,6 @@ func _ready() -> void:
 	_ground_to_floor()
 
 func _ground_to_floor() -> void:
-	# Wait for first frame transforms and animation states to settle
 	await get_tree().process_frame
 
 	var min_y = INF
@@ -1094,7 +1116,6 @@ func _ground_to_floor() -> void:
 				var world_corner = trans * corner
 				min_y = minf(min_y, world_corner.y)
 
-	# Shift robot vertically so lowest point rests directly on the floor plane (Y = 0.0)
 	if min_y < INF and absf(min_y) > 0.001:
 		position.y -= min_y
 	elif min_y == INF:
@@ -1123,7 +1144,6 @@ func play_idle() -> void:
 
 func play_praise() -> void:
 	is_praising = true
-	# Turn directly towards the child/camera to celebrate!
 	target_turn_y = deg_to_rad(-15.0)
 	if anim_player and anim_player.has_animation("Praise"):
 		anim_player.play("Praise")
@@ -1143,7 +1163,6 @@ func _on_anim_finished(anim_name: StringName) -> void:
 func _process(delta: float) -> void:
 	idle_timer += delta
 
-	# Keep feet firmly planted on the floor during idle
 	if not is_praising and is_grounded:
 		position.y = lerp(position.y, base_position_y, delta * 8.0)
 
@@ -1152,7 +1171,6 @@ func _process(delta: float) -> void:
 func look_at_canvas(turn: bool) -> void:
 	if is_praising:
 		return
-	# When writing starts, turn an extra +15 deg towards the board to focus closely on the stroke
 	target_turn_y = deg_to_rad(15.0) if turn else 0.0
 `,
 );
@@ -1166,6 +1184,7 @@ signal checkpoint_hit(pos: Vector2, index: int)
 signal digit_completed(stars: int)
 signal stroke_started()
 signal stroke_finished()
+signal demo_finished()
 
 var hit_radius: float = 46.0
 var line_width: float = 18.0
@@ -1372,15 +1391,15 @@ func _process_demo(delta: float) -> void:
 
 		if active_stroke_idx >= strokes_target.size():
 			is_demo_playing = false
-			digit_completed.emit(3)
+			demo_finished.emit()
 
 func _draw() -> void:
 	var canvas_rect = Rect2(Vector2.ZERO, size)
 
-	draw_rect(canvas_rect, Color(0.12, 0.16, 0.20), true)
-	var line_color = Color(1.0, 1.0, 1.0, 0.08)
+	draw_rect(canvas_rect, Color(0.10, 0.14, 0.18), true)
+	var line_color = Color(1.0, 1.0, 1.0, 0.10)
 	draw_line(Vector2(0, size.y * 0.16), Vector2(size.x, size.y * 0.16), line_color, 2.0)
-	draw_dashed_line(Vector2(0, size.y * 0.50), Vector2(size.x, size.y * 0.50), Color(0.3, 0.7, 1.0, 0.18), 3.0, 10.0)
+	draw_dashed_line(Vector2(0, size.y * 0.50), Vector2(size.x, size.y * 0.50), Color(0.3, 0.7, 1.0, 0.20), 3.0, 10.0)
 	draw_line(Vector2(0, size.y * 0.84), Vector2(size.x, size.y * 0.84), line_color, 2.0)
 
 	if guide_visible:
@@ -1391,7 +1410,7 @@ func _draw() -> void:
 				var p2 = pts[i + 1] * size
 				var guide_color = Color(0.9, 0.9, 1.0, 0.25)
 				if s_idx == active_stroke_idx:
-					guide_color = Color(1.0, 0.9, 0.3, 0.45)
+					guide_color = Color(1.0, 0.9, 0.3, 0.50)
 				draw_dashed_line(p1, p2, guide_color, 4.0, 8.0)
 				var mid = p1.lerp(p2, 0.5)
 				var dir = (p2 - p1).normalized()
@@ -1451,17 +1470,32 @@ extends Node3D
 @onready var toy_blocks: Node3D = $World3D/ToyBlocks
 
 @onready var writing_canvas: WritingCanvas = $CanvasLayer/UI/MainHBox/BoardContainer/BoardPanel/WritingCanvas
-@onready var speech_label: Label = $CanvasLayer/UI/SpeechBalloon/BalloonMargin/SpeechText
+@onready var speech_label: Label = $CanvasLayer/UI/SpeechBalloon/BalloonMargin/VBox/SpeechText
 @onready var speech_balloon: Control = $CanvasLayer/UI/SpeechBalloon
 @onready var celebration_modal: Control = $CanvasLayer/CelebrationModal
 @onready var digit_title: Label = $CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/DigitTitle
-@onready var star_count_label: Label = $CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/StarDisplay/StarLabel
+@onready var star_count_label: Label = $CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/StarDisplay/StarMargin/HBox/StarLabel
+@onready var star_icon: Control = $CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/StarDisplay/StarMargin/HBox/StarIcon
+@onready var star_rating_box: Control = $CanvasLayer/CelebrationModal/ModalPanel/VBox/StarRatingBox
 @onready var digit_btn_container: HBoxContainer = $CanvasLayer/UI/BottomBar/DigitScroll/DigitHBox
-@onready var confetti_particles: CPUParticles2D = $CanvasLayer/ConfettiParticles
+@onready var confetti_stars: CPUParticles2D = $CanvasLayer/ConfettiStars
+@onready var confetti_ribbons: CPUParticles2D = $CanvasLayer/ConfettiRibbons
+@onready var checkpoint_sparkles: CPUParticles2D = $CanvasLayer/CheckpointSparkles
+@onready var tools_bar: HBoxContainer = $CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar
 
 var current_digit: int = 0
 var stars_earned_map: Dictionary = {}
 var total_stars: int = 0
+var current_modal_stars: int = 3
+
+var chalk_colors = [
+	{"name": "ColorCyan", "color": Color(0.20, 0.85, 1.00)},
+	{"name": "ColorYellow", "color": Color(1.00, 0.88, 0.20)},
+	{"name": "ColorPink", "color": Color(1.00, 0.45, 0.70)},
+	{"name": "ColorGreen", "color": Color(0.35, 0.95, 0.35)},
+	{"name": "ColorWhite", "color": Color(0.96, 0.96, 0.98)}
+]
+var active_color_index: int = 0
 
 func _ready() -> void:
 	teacher_robot.rotation_degrees.y = 215.0
@@ -1470,15 +1504,34 @@ func _ready() -> void:
 	toy_blocks.rotation_degrees.y = 180.0
 	toy_blocks.position = Vector3(-1.15, 0.0, 0.15)
 
+	if star_icon:
+		star_icon.draw.connect(_on_star_icon_draw)
+	if star_rating_box:
+		star_rating_box.draw.connect(_on_star_rating_box_draw)
+
+	_setup_particle_textures()
 	_init_star_map()
 	_create_digit_buttons()
-	_bind_color_swatches()
+	_setup_color_swatches()
 	_load_digit(0)
 
 	writing_canvas.checkpoint_hit.connect(_on_checkpoint_hit)
 	writing_canvas.digit_completed.connect(_on_digit_completed)
 	writing_canvas.stroke_started.connect(_on_stroke_started)
 	writing_canvas.stroke_finished.connect(_on_stroke_finished)
+	writing_canvas.demo_finished.connect(_on_demo_finished)
+
+func _setup_particle_textures() -> void:
+	var star_tex = _generate_star_texture(36)
+	var ribbon_tex = _generate_ribbon_texture(30, 14)
+	var sparkle_tex = _generate_sparkle_texture(32)
+
+	if confetti_stars:
+		confetti_stars.texture = star_tex
+	if confetti_ribbons:
+		confetti_ribbons.texture = ribbon_tex
+	if checkpoint_sparkles:
+		checkpoint_sparkles.texture = sparkle_tex
 
 func _init_star_map() -> void:
 	for d in range(10):
@@ -1491,19 +1544,56 @@ func _create_digit_buttons() -> void:
 	for d in range(10):
 		var btn = Button.new()
 		btn.text = str(d)
-		btn.custom_minimum_size = Vector2(64, 64)
+		btn.custom_minimum_size = Vector2(64, 60)
 		btn.add_theme_font_size_override("font_size", 28)
 		btn.focus_mode = Control.FOCUS_NONE
 		btn.pressed.connect(func(): _load_digit(d))
 		digit_btn_container.add_child(btn)
 
-func _bind_color_swatches() -> void:
-	var bar = $CanvasLayer/UI/MainHBox/BoardContainer/ToolsBar
-	bar.get_node("ColorCyan").pressed.connect(func(): _on_color_swatch_pressed(Color(0.2, 0.85, 1, 1)))
-	bar.get_node("ColorYellow").pressed.connect(func(): _on_color_swatch_pressed(Color(1, 0.88, 0.2, 1)))
-	bar.get_node("ColorPink").pressed.connect(func(): _on_color_swatch_pressed(Color(1, 0.45, 0.7, 1)))
-	bar.get_node("ColorGreen").pressed.connect(func(): _on_color_swatch_pressed(Color(0.35, 0.95, 0.35, 1)))
-	bar.get_node("ColorWhite").pressed.connect(func(): _on_color_swatch_pressed(Color(0.96, 0.96, 0.98, 1)))
+func _setup_color_swatches() -> void:
+	for i in range(chalk_colors.size()):
+		var info = chalk_colors[i]
+		var btn = tools_bar.get_node_or_null(info.name) as Button
+		if btn:
+			btn.text = ""
+			btn.custom_minimum_size = Vector2(36, 36)
+			var idx = i
+			btn.pressed.connect(func(): _on_color_swatch_selected(idx))
+	_update_color_swatches_ui()
+
+func _on_color_swatch_selected(idx: int) -> void:
+	sound_manager.play_pop()
+	active_color_index = idx
+	writing_canvas.set_brush_color(chalk_colors[idx].color)
+	_update_color_swatches_ui()
+
+func _update_color_swatches_ui() -> void:
+	for i in range(chalk_colors.size()):
+		var info = chalk_colors[i]
+		var btn = tools_bar.get_node_or_null(info.name) as Button
+		if not btn:
+			continue
+		var is_active = (i == active_color_index)
+		var style = StyleBoxFlat.new()
+		style.set_corner_radius_all(18)
+		style.bg_color = info.color
+		if is_active:
+			style.border_width_left = 3
+			style.border_width_top = 3
+			style.border_width_right = 3
+			style.border_width_bottom = 3
+			style.border_color = Color.WHITE
+			style.shadow_size = 4
+			style.shadow_color = Color(1, 1, 1, 0.4)
+		else:
+			style.border_width_left = 1
+			style.border_width_top = 1
+			style.border_width_right = 1
+			style.border_width_bottom = 1
+			style.border_color = Color(1, 1, 1, 0.25)
+		btn.add_theme_stylebox_override("normal", style)
+		btn.add_theme_stylebox_override("hover", style)
+		btn.add_theme_stylebox_override("pressed", style)
 
 func _load_digit(d: int) -> void:
 	current_digit = d
@@ -1520,14 +1610,45 @@ func _update_digit_buttons_ui() -> void:
 	var buttons = digit_btn_container.get_children()
 	for i in range(buttons.size()):
 		var btn = buttons[i] as Button
-		if btn:
-			if i == current_digit:
-				btn.modulate = Color(1.2, 1.2, 0.4)
-			else:
-				btn.modulate = Color.WHITE
+		if not btn:
+			continue
+		var is_active = (i == current_digit)
+		var stars = stars_earned_map.get(i, 0)
+
+		var style = StyleBoxFlat.new()
+		style.set_corner_radius_all(12)
+		if is_active:
+			style.bg_color = Color(0.18, 0.45, 0.75, 0.95)
+			style.border_width_left = 3
+			style.border_width_top = 3
+			style.border_width_right = 3
+			style.border_width_bottom = 3
+			style.border_color = Color(1.0, 0.85, 0.25, 1.0)
+			btn.add_theme_color_override("font_color", Color(1.0, 0.95, 0.35))
+		elif stars > 0:
+			style.bg_color = Color(0.14, 0.24, 0.22, 0.90)
+			style.border_width_left = 2
+			style.border_width_top = 2
+			style.border_width_right = 2
+			style.border_width_bottom = 2
+			style.border_color = Color(0.25, 0.70, 0.45, 0.7)
+			btn.add_theme_color_override("font_color", Color(0.65, 0.95, 0.75))
+		else:
+			style.bg_color = Color(0.16, 0.20, 0.26, 0.90)
+			style.border_width_left = 2
+			style.border_width_top = 2
+			style.border_width_right = 2
+			style.border_width_bottom = 2
+			style.border_color = Color(0.28, 0.34, 0.42, 0.7)
+			btn.add_theme_color_override("font_color", Color(0.85, 0.90, 0.95))
+
+		btn.add_theme_stylebox_override("normal", style)
+		btn.add_theme_stylebox_override("hover", style)
+		btn.add_theme_stylebox_override("pressed", style)
 
 func _set_speech(text: String) -> void:
 	speech_label.text = text
+	speech_balloon.visible = true
 	speech_balloon.scale = Vector2(0.85, 0.85)
 	var tween = create_tween()
 	tween.tween_property(speech_balloon, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -1539,8 +1660,24 @@ func _on_stroke_started() -> void:
 func _on_stroke_finished() -> void:
 	teacher_robot.look_at_canvas(false)
 
-func _on_checkpoint_hit(_pos: Vector2, index: int) -> void:
+func _on_checkpoint_hit(pos: Vector2, index: int) -> void:
 	sound_manager.play_chime(index)
+	_spawn_checkpoint_sparkles(pos)
+
+func _spawn_checkpoint_sparkles(canvas_local_pos: Vector2) -> void:
+	if not checkpoint_sparkles:
+		return
+	checkpoint_sparkles.global_position = writing_canvas.global_position + canvas_local_pos
+	checkpoint_sparkles.restart()
+	checkpoint_sparkles.emitting = true
+
+func _on_demo_finished() -> void:
+	var tween = create_tween()
+	tween.tween_interval(1.5)
+	tween.tween_callback(func():
+		if not writing_canvas.is_demo_playing:
+			writing_canvas.reset_canvas()
+	)
 
 func _on_digit_completed(stars: int) -> void:
 	stars_earned_map[current_digit] = max(stars_earned_map[current_digit], stars)
@@ -1550,26 +1687,33 @@ func _on_digit_completed(stars: int) -> void:
 	sound_manager.play_robot_voice()
 	teacher_robot.play_praise()
 
-	confetti_particles.restart()
-	confetti_particles.emitting = true
+	_trigger_celebration_confetti()
 
 	var data = DigitData.get_digit_info(current_digit)
 	_show_celebration(stars, data.rhyme)
+
+func _trigger_celebration_confetti() -> void:
+	if confetti_stars:
+		confetti_stars.restart()
+		confetti_stars.emitting = true
+	if confetti_ribbons:
+		confetti_ribbons.restart()
+		confetti_ribbons.emitting = true
 
 func _recalculate_stars() -> void:
 	total_stars = 0
 	for d in range(10):
 		total_stars += stars_earned_map[d]
-	star_count_label.text = "⭐ " + str(total_stars) + " / 30"
+	star_count_label.text = str(total_stars) + " / 30"
+	_update_digit_buttons_ui()
 
 func _show_celebration(stars: int, rhyme: String) -> void:
-	var modal_stars_label = $CanvasLayer/CelebrationModal/ModalPanel/VBox/StarRatingLabel
+	current_modal_stars = stars
+	speech_balloon.visible = false
+
 	var modal_rhyme_label = $CanvasLayer/CelebrationModal/ModalPanel/VBox/RhymeText
-	var star_text = ""
-	for i in range(stars):
-		star_text += "⭐ "
-	modal_stars_label.text = star_text.strip_edges()
 	modal_rhyme_label.text = rhyme
+	star_rating_box.queue_redraw()
 
 	celebration_modal.visible = true
 	celebration_modal.scale = Vector2(0.6, 0.6)
@@ -1587,6 +1731,7 @@ func _on_replay_pressed() -> void:
 	celebration_modal.visible = false
 	writing_canvas.reset_canvas()
 	teacher_robot.play_idle()
+	speech_balloon.visible = true
 
 func _on_demo_btn_pressed() -> void:
 	sound_manager.play_pop()
@@ -1603,21 +1748,104 @@ func _on_undo_btn_pressed() -> void:
 	sound_manager.play_pop()
 	writing_canvas.undo_last_stroke()
 
-func _on_color_swatch_pressed(col: Color) -> void:
-	sound_manager.play_pop()
-	writing_canvas.set_brush_color(col)
-
 func _on_audio_toggle_pressed() -> void:
 	var muted = sound_manager.toggle_mute()
 	var btn = $CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/AudioBtn as Button
 	if btn:
-		btn.text = "🔇 Mute" if muted else "🔊 Sound"
+		btn.text = "Sound: OFF" if muted else "Sound: ON"
 
 func _on_guide_toggle_pressed() -> void:
 	var visible_guides = writing_canvas.toggle_guides()
 	var btn = $CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/GuideBtn as Button
 	if btn:
-		btn.text = "🎯 Guides: ON" if visible_guides else "🎯 Guides: OFF"
+		btn.text = "Guides: ON" if visible_guides else "Guides: OFF"
+
+# -------------------------------------------------------------
+# Procedural Vector Particle Textures (No Broken Squares)
+# -------------------------------------------------------------
+func _generate_star_texture(size: int = 36) -> ImageTexture:
+	var img = Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var center = Vector2(size * 0.5, size * 0.5)
+	var r_outer = size * 0.46
+	var r_inner = size * 0.20
+	for y in range(size):
+		for x in range(size):
+			var pt = Vector2(x + 0.5, y + 0.5)
+			var diff = pt - center
+			var dist = diff.length()
+			if dist > r_outer + 1.0:
+				continue
+			var angle = atan2(diff.y, diff.x)
+			var a_norm = fmod(angle + PI * 0.5 + TAU * 2.0, TAU)
+			var arm = fmod(a_norm, TAU / 5.0) / (TAU / 5.0)
+			var factor = absf(arm - 0.5) * 2.0
+			var r_star = lerp(r_inner, r_outer, factor)
+			if dist <= r_star:
+				var alpha = clampf((r_star - dist) * 2.0, 0.0, 1.0)
+				img.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+	return ImageTexture.create_from_image(img)
+
+func _generate_ribbon_texture(width: int = 30, height: int = 14) -> ImageTexture:
+	var img = Image.create(width, height, false, Image.FORMAT_RGBA8)
+	var radius = height * 0.40
+	for y in range(height):
+		for x in range(width):
+			var cx = clampf(x + 0.5, radius, width - radius)
+			var cy = clampf(y + 0.5, radius, height - radius)
+			var dist = Vector2(x + 0.5 - cx, y + 0.5 - cy).length()
+			if dist <= radius:
+				var alpha = clampf((radius - dist) * 2.0, 0.0, 1.0)
+				img.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+	return ImageTexture.create_from_image(img)
+
+func _generate_sparkle_texture(size: int = 32) -> ImageTexture:
+	var img = Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var center = Vector2(size * 0.5, size * 0.5)
+	var half = size * 0.46
+	for y in range(size):
+		for x in range(size):
+			var nx = absf((x + 0.5 - center.x) / half)
+			var ny = absf((y + 0.5 - center.y) / half)
+			var val = sqrt(nx) + sqrt(ny)
+			if val <= 1.0:
+				var alpha = clampf((1.0 - val) * 2.5, 0.0, 1.0)
+				img.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+	return ImageTexture.create_from_image(img)
+
+# -------------------------------------------------------------
+# Procedural Vector 5-Pointed Star UI Drawing
+# -------------------------------------------------------------
+func _on_star_icon_draw() -> void:
+	if not star_icon:
+		return
+	var radius = minf(star_icon.size.x, star_icon.size.y) * 0.44
+	var center = star_icon.size * 0.5
+	_draw_5pt_star(star_icon, center, radius, Color(1.0, 0.85, 0.15), Color(1.0, 0.96, 0.55))
+
+func _on_star_rating_box_draw() -> void:
+	if not star_rating_box:
+		return
+	var star_w = 44.0
+	var spacing = 18.0
+	var total_w = 3.0 * star_w + 2.0 * spacing
+	var start_x = (star_rating_box.size.x - total_w) * 0.5 + star_w * 0.5
+	var cy = star_rating_box.size.y * 0.5
+	for i in range(3):
+		var cx = start_x + float(i) * (star_w + spacing)
+		var is_filled = (i < current_modal_stars)
+		var fill_col = Color(1.0, 0.85, 0.15) if is_filled else Color(0.25, 0.30, 0.38, 0.6)
+		var line_col = Color(1.0, 0.95, 0.50) if is_filled else Color(0.40, 0.45, 0.55, 0.6)
+		_draw_5pt_star(star_rating_box, Vector2(cx, cy), star_w * 0.5, fill_col, line_col)
+
+static func _draw_5pt_star(ci: CanvasItem, center: Vector2, radius: float, fill_col: Color, line_col: Color) -> void:
+	var pts = PackedVector2Array()
+	for k in range(10):
+		var r = radius if (k % 2 == 0) else (radius * 0.42)
+		var angle = (float(k) * PI / 5.0) - (PI * 0.5)
+		pts.append(center + Vector2(cos(angle), sin(angle)) * r)
+	ci.draw_colored_polygon(pts, fill_col)
+	pts.append(pts[0])
+	ci.draw_polyline(pts, line_col, 2.2, true)
 `,
 );
 
@@ -1627,7 +1855,7 @@ func _on_guide_toggle_pressed() -> void:
 
 writeFile(
   "scenes/main_game.tscn",
-  `[gd_scene load_steps=9 format=3 uid="uid://c8yjq01fkl23m"]
+  `[gd_scene format=3 uid="uid://c8yjq01fkl23m"]
 
 [ext_resource type="Script" path="res://scripts/main_game.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/sound_manager.gd" id="2_sound"]
@@ -1637,10 +1865,10 @@ writeFile(
 [ext_resource type="Script" path="res://scripts/writing_canvas.gd" id="6_canvas"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_sky"]
-sky_top_color = Color(0.42, 0.72, 0.98, 1)
-sky_horizon_color = Color(0.85, 0.92, 0.98, 1)
-ground_bottom_color = Color(0.35, 0.28, 0.22, 1)
-ground_horizon_color = Color(0.85, 0.92, 0.98, 1)
+sky_top_color = Color(0.28, 0.50, 0.75, 1)
+sky_horizon_color = Color(0.60, 0.70, 0.80, 1)
+ground_bottom_color = Color(0.18, 0.16, 0.14, 1)
+ground_horizon_color = Color(0.55, 0.60, 0.65, 1)
 
 [sub_resource type="Sky" id="Sky_env"]
 sky_material = SubResource("ProceduralSkyMaterial_sky")
@@ -1648,26 +1876,114 @@ sky_material = SubResource("ProceduralSkyMaterial_sky")
 [sub_resource type="Environment" id="Environment_main"]
 background_mode = 2
 sky = SubResource("Sky_env")
-ambient_light_source = 3
-ambient_light_color = Color(0.9, 0.92, 0.96, 1)
-ambient_light_energy = 0.95
-tonemap_mode = 2
+ambient_light_source = 2
+ambient_light_color = Color(0.55, 0.60, 0.65, 1)
+tonemap_mode = 3
+tonemap_exposure = 0.6
+glow_enabled = true
+glow_bloom = 0.1
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
-albedo_color = Color(0.86, 0.72, 0.52, 1)
-roughness = 0.65
+albedo_color = Color(0.65, 0.52, 0.38, 1)
+roughness = 0.70
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
 material = SubResource("StandardMaterial3D_floor")
 size = Vector2(14, 14)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
-albedo_color = Color(0.92, 0.94, 0.95, 1)
-roughness = 0.8
+albedo_color = Color(0.48, 0.56, 0.64, 1)
+roughness = 0.85
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall"]
 material = SubResource("StandardMaterial3D_wall")
 size = Vector3(14, 5, 0.2)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_header"]
+bg_color = Color(0.12, 0.16, 0.22, 0.95)
+border_width_bottom = 2
+border_color = Color(0.25, 0.35, 0.48, 0.8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_starbox"]
+bg_color = Color(0.18, 0.22, 0.30, 0.9)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.85, 0.25, 0.6)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_board"]
+bg_color = Color(0.10, 0.14, 0.18, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.22, 0.28, 0.38, 0.9)
+shadow_size = 10
+shadow_color = Color(0, 0, 0, 0.4)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tools"]
+bg_color = Color(0.12, 0.16, 0.22, 0.95)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.25, 0.34, 0.46, 0.8)
+shadow_size = 6
+shadow_color = Color(0, 0, 0, 0.3)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_speech"]
+bg_color = Color(0.10, 0.14, 0.20, 0.92)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.20, 0.75, 0.95, 0.60)
+shadow_size = 8
+shadow_color = Color(0, 0, 0, 0.35)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bottom"]
+bg_color = Color(0.10, 0.13, 0.18, 0.95)
+border_width_top = 2
+border_color = Color(0.22, 0.28, 0.38, 0.8)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_modal"]
+bg_color = Color(0.12, 0.16, 0.22, 0.98)
+corner_radius_top_left = 20
+corner_radius_top_right = 20
+corner_radius_bottom_right = 20
+corner_radius_bottom_left = 20
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1.0, 0.82, 0.20, 0.95)
+shadow_size = 16
+shadow_color = Color(0, 0, 0, 0.5)
+
+[sub_resource type="Curve" id="Curve_pop"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.12, 1), 0.0, 0.0, 0, 0, Vector2(0.75, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="Gradient" id="Gradient_fade"]
+offsets = PackedFloat32Array(0, 0.15, 0.7, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
 
 [node name="MainGame" type="Node3D"]
 script = ExtResource("1_main")
@@ -1678,11 +1994,27 @@ script = ExtResource("2_sound")
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_main")
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.883, -0.321, 0.342, 0, 0.728, 0.685, -0.469, -0.605, 0.643, 0, 4.5, 3.5)
-light_color = Color(1, 0.98, 0.94, 1)
-light_energy = 1.15
+[node name="KeyLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, -0.287, 0.409, 0, 0.819, 0.574, -0.5, -0.497, 0.709, 1.2, 4, 3)
+light_color = Color(1, 0.98, 0.92, 1)
+light_energy = 0.5
 shadow_enabled = true
+shadow_opacity = 0.7
+directional_shadow_max_distance = 6.0
+directional_shadow_bias = 0.02
+directional_shadow_normal_bias = 1.0
+
+[node name="FillLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.707, 0, -0.707, -0.353, 0.866, -0.353, 0.612, 0.5, 0.612, -2, 3, 2)
+light_color = Color(0.6, 0.8, 1, 1)
+light_energy = 0.5
+sky_mode = 1
+
+[node name="RimLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.866, 0, -0.5, 0, 1, 0, 0.5, 0, -0.866, -1, 2, -3)
+light_color = Color(1, 0.7, 0.9, 1)
+light_energy = 0.4
+sky_mode = 1
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.985, 0.174, 0, -0.174, 0.985, 0.2, 1.22, 2.3)
@@ -1722,6 +2054,7 @@ anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 68.0
 grow_horizontal = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_header")
 
 [node name="HeaderMargin" type="MarginContainer" parent="CanvasLayer/UI/HeaderBar"]
 layout_mode = 2
@@ -1732,13 +2065,13 @@ theme_override_constants/margin_bottom = 8
 
 [node name="HBox" type="HBoxContainer" parent="CanvasLayer/UI/HeaderBar/HeaderMargin"]
 layout_mode = 2
-theme_override_constants/separation = 18
+theme_override_constants/separation = 16
 
 [node name="AppTitle" type="Label" parent="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.25, 1)
-theme_override_font_sizes/font_size = 24
-text = "🐭 Professor Pip's Digit Lab"
+theme_override_font_sizes/font_size = 22
+text = "Professor Pip's Digit Lab"
 
 [node name="DigitTitle" type="Label" parent="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox"]
 layout_mode = 2
@@ -1750,27 +2083,43 @@ horizontal_alignment = 1
 
 [node name="StarDisplay" type="PanelContainer" parent="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox"]
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_starbox")
 
-[node name="StarLabel" type="Label" parent="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/StarDisplay"]
+[node name="StarMargin" type="MarginContainer" parent="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/StarDisplay"]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.85, 0.1, 1)
-theme_override_font_sizes/font_size = 20
-text = "⭐ 0 / 30"
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 4
+
+[node name="HBox" type="HBoxContainer" parent="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/StarDisplay/StarMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="StarIcon" type="Control" parent="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/StarDisplay/StarMargin/HBox"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+
+[node name="StarLabel" type="Label" parent="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/StarDisplay/StarMargin/HBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.2, 1)
+theme_override_font_sizes/font_size = 18
+text = "0 / 30"
 
 [node name="DemoBtn" type="Button" parent="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "✨ Watch Pip"
+theme_override_font_sizes/font_size = 16
+text = "Watch Pip"
 
 [node name="GuideBtn" type="Button" parent="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "🎯 Guides: ON"
+theme_override_font_sizes/font_size = 16
+text = "Guides: ON"
 
 [node name="AudioBtn" type="Button" parent="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "🔊 Sound"
+theme_override_font_sizes/font_size = 16
+text = "Sound: ON"
 
 [node name="MainHBox" type="HBoxContainer" parent="CanvasLayer/UI"]
 layout_mode = 1
@@ -1796,6 +2145,7 @@ theme_override_constants/separation = 10
 [node name="BoardPanel" type="PanelContainer" parent="CanvasLayer/UI/MainHBox/BoardContainer"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_styles/panel = SubResource("StyleBoxFlat_board")
 
 [node name="WritingCanvas" type="Control" parent="CanvasLayer/UI/MainHBox/BoardContainer/BoardPanel"]
 layout_mode = 2
@@ -1803,57 +2153,64 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 script = ExtResource("6_canvas")
 
-[node name="ToolsBar" type="HBoxContainer" parent="CanvasLayer/UI/MainHBox/BoardContainer"]
+[node name="ToolsContainer" type="PanelContainer" parent="CanvasLayer/UI/MainHBox/BoardContainer"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_tools")
+
+[node name="ToolsMargin" type="MarginContainer" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 6
+
+[node name="ToolsBar" type="HBoxContainer" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin"]
 layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="ClearBtn" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsBar"]
-custom_minimum_size = Vector2(100, 42)
+[node name="ClearBtn" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar"]
+custom_minimum_size = Vector2(85, 38)
 layout_mode = 2
-theme_override_font_sizes/font_size = 17
-text = "🗑️ Clear"
+theme_override_font_sizes/font_size = 16
+text = "Clear"
 
-[node name="UndoBtn" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsBar"]
-custom_minimum_size = Vector2(100, 42)
+[node name="UndoBtn" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar"]
+custom_minimum_size = Vector2(85, 38)
 layout_mode = 2
-theme_override_font_sizes/font_size = 17
-text = "↩️ Undo"
+theme_override_font_sizes/font_size = 16
+text = "Undo"
 
-[node name="ColorLabel" type="Label" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsBar"]
+[node name="ColorLabel" type="Label" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.90, 0.96, 1)
 theme_override_font_sizes/font_size = 16
 text = "Chalk:"
 
-[node name="ColorCyan" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsBar"]
-modulate = Color(0.2, 0.85, 1, 1)
-custom_minimum_size = Vector2(40, 38)
+[node name="ColorCyan" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar"]
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
-text = "●"
+focus_mode = 0
 
-[node name="ColorYellow" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsBar"]
-modulate = Color(1, 0.88, 0.2, 1)
-custom_minimum_size = Vector2(40, 38)
+[node name="ColorYellow" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar"]
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
-text = "●"
+focus_mode = 0
 
-[node name="ColorPink" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsBar"]
-modulate = Color(1, 0.45, 0.7, 1)
-custom_minimum_size = Vector2(40, 38)
+[node name="ColorPink" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar"]
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
-text = "●"
+focus_mode = 0
 
-[node name="ColorGreen" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsBar"]
-modulate = Color(0.35, 0.95, 0.35, 1)
-custom_minimum_size = Vector2(40, 38)
+[node name="ColorGreen" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar"]
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
-text = "●"
+focus_mode = 0
 
-[node name="ColorWhite" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsBar"]
-modulate = Color(0.96, 0.96, 0.98, 1)
-custom_minimum_size = Vector2(40, 38)
+[node name="ColorWhite" type="Button" parent="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar"]
+custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
-text = "●"
+focus_mode = 0
 
 [node name="RightSpacer" type="Control" parent="CanvasLayer/UI/MainHBox"]
 layout_mode = 2
@@ -1866,11 +2223,12 @@ layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_left = 32.0
-offset_top = -285.0
+offset_left = 24.0
+offset_top = -280.0
 offset_right = 380.0
-offset_bottom = -115.0
+offset_bottom = -110.0
 grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_speech")
 
 [node name="BalloonMargin" type="MarginContainer" parent="CanvasLayer/UI/SpeechBalloon"]
 layout_mode = 2
@@ -1879,10 +2237,20 @@ theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 12
 
-[node name="SpeechText" type="Label" parent="CanvasLayer/UI/SpeechBalloon/BalloonMargin"]
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/UI/SpeechBalloon/BalloonMargin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SpeakerLabel" type="Label" parent="CanvasLayer/UI/SpeechBalloon/BalloonMargin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.25, 1)
+theme_override_font_sizes/font_size = 15
+text = "Professor Pip says:"
+
+[node name="SpeechText" type="Label" parent="CanvasLayer/UI/SpeechBalloon/BalloonMargin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.98, 1, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 17
 text = "Around and around and around we go,\\nwhen we get home we have a zero!"
 autowrap_mode = 3
 
@@ -1895,6 +2263,7 @@ anchor_bottom = 1.0
 offset_top = -88.0
 grow_horizontal = 2
 grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_bottom")
 
 [node name="DigitScroll" type="ScrollContainer" parent="CanvasLayer/UI/BottomBar"]
 layout_mode = 2
@@ -1916,6 +2285,15 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
+[node name="Backdrop" type="ColorRect" parent="CanvasLayer/CelebrationModal"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.05, 0.08, 0.12, 0.70)
+
 [node name="ModalPanel" type="PanelContainer" parent="CanvasLayer/CelebrationModal"]
 layout_mode = 1
 anchors_preset = 8
@@ -1923,12 +2301,13 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -260.0
-offset_top = -180.0
-offset_right = 260.0
-offset_bottom = 180.0
+offset_left = -250.0
+offset_top = -170.0
+offset_right = 250.0
+offset_bottom = 170.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_modal")
 
 [node name="VBox" type="VBoxContainer" parent="CanvasLayer/CelebrationModal/ModalPanel"]
 layout_mode = 2
@@ -1938,19 +2317,17 @@ alignment = 1
 [node name="CongratsTitle" type="Label" parent="CanvasLayer/CelebrationModal/ModalPanel/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 0.85, 0.2, 1)
-theme_override_font_sizes/font_size = 32
-text = "🎉 SUPER WRITER! 🎉"
+theme_override_font_sizes/font_size = 30
+text = "SUPER WRITER!"
 horizontal_alignment = 1
 
-[node name="StarRatingLabel" type="Label" parent="CanvasLayer/CelebrationModal/ModalPanel/VBox"]
+[node name="StarRatingBox" type="Control" parent="CanvasLayer/CelebrationModal/ModalPanel/VBox"]
+custom_minimum_size = Vector2(220, 52)
 layout_mode = 2
-theme_override_font_sizes/font_size = 36
-text = "⭐ ⭐ ⭐"
-horizontal_alignment = 1
 
 [node name="RhymeText" type="Label" parent="CanvasLayer/CelebrationModal/ModalPanel/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 19
 text = "Great job writing your digit!"
 horizontal_alignment = 1
 autowrap_mode = 3
@@ -1961,41 +2338,97 @@ theme_override_constants/separation = 20
 alignment = 1
 
 [node name="ReplayBtn" type="Button" parent="CanvasLayer/CelebrationModal/ModalPanel/VBox/BtnHBox"]
-custom_minimum_size = Vector2(140, 48)
+custom_minimum_size = Vector2(130, 46)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "↺ Try Again"
+theme_override_font_sizes/font_size = 17
+text = "Try Again"
 
 [node name="NextBtn" type="Button" parent="CanvasLayer/CelebrationModal/ModalPanel/VBox/BtnHBox"]
-custom_minimum_size = Vector2(160, 48)
+custom_minimum_size = Vector2(160, 46)
 layout_mode = 2
 theme_override_colors/font_color = Color(0.2, 1, 0.4, 1)
-theme_override_font_sizes/font_size = 20
-text = "Next Number ➔"
+theme_override_font_sizes/font_size = 18
+text = "Next Number >"
 
-[node name="ConfettiParticles" type="CPUParticles2D" parent="CanvasLayer"]
+[node name="ConfettiStars" type="CPUParticles2D" parent="CanvasLayer"]
 position = Vector2(640, 360)
 emitting = false
-amount = 64
-lifetime = 1.6
+amount = 45
+lifetime = 1.8
+one_shot = true
+explosiveness = 0.82
+emission_shape = 1
+emission_sphere_radius = 60.0
+direction = Vector2(0, -1)
+spread = 180.0
+gravity = Vector2(0, 340)
+initial_velocity_min = 220.0
+initial_velocity_max = 480.0
+angle_min = 0.0
+angle_max = 360.0
+angular_velocity_min = -240.0
+angular_velocity_max = 240.0
+scale_amount_min = 0.7
+scale_amount_max = 1.3
+scale_amount_curve = SubResource("Curve_pop")
+color = Color(1, 0.88, 0.2, 1)
+color_ramp = SubResource("Gradient_fade")
+hue_variation_min = -1.0
+hue_variation_max = 1.0
+
+[node name="ConfettiRibbons" type="CPUParticles2D" parent="CanvasLayer"]
+position = Vector2(640, 360)
+emitting = false
+amount = 55
+lifetime = 2.2
 one_shot = true
 explosiveness = 0.85
 emission_shape = 1
-emission_sphere_radius = 120.0
+emission_sphere_radius = 80.0
 direction = Vector2(0, -1)
 spread = 180.0
-gravity = Vector2(0, 380)
-initial_velocity_min = 160.0
-initial_velocity_max = 380.0
-scale_amount_min = 6.0
-scale_amount_max = 14.0
-color = Color(1, 0.85, 0.2, 1)
+gravity = Vector2(0, 260)
+initial_velocity_min = 180.0
+initial_velocity_max = 420.0
+angle_min = 0.0
+angle_max = 360.0
+angular_velocity_min = -360.0
+angular_velocity_max = 360.0
+scale_amount_min = 0.8
+scale_amount_max = 1.4
+scale_amount_curve = SubResource("Curve_pop")
+color = Color(0.2, 0.85, 1, 1)
+color_ramp = SubResource("Gradient_fade")
+hue_variation_min = -1.0
+hue_variation_max = 1.0
+
+[node name="CheckpointSparkles" type="CPUParticles2D" parent="CanvasLayer"]
+position = Vector2(0, 0)
+emitting = false
+amount = 14
+lifetime = 0.55
+one_shot = true
+explosiveness = 0.92
+emission_shape = 0
+spread = 180.0
+gravity = Vector2(0, 100)
+initial_velocity_min = 80.0
+initial_velocity_max = 180.0
+angle_min = 0.0
+angle_max = 360.0
+angular_velocity_min = -180.0
+angular_velocity_max = 180.0
+scale_amount_min = 0.5
+scale_amount_max = 1.0
+scale_amount_curve = SubResource("Curve_pop")
+color = Color(1, 0.90, 0.35, 1)
+color_ramp = SubResource("Gradient_fade")
 
 [connection signal="pressed" from="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/DemoBtn" to="." method="_on_demo_btn_pressed"]
 [connection signal="pressed" from="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/GuideBtn" to="." method="_on_guide_toggle_pressed"]
 [connection signal="pressed" from="CanvasLayer/UI/HeaderBar/HeaderMargin/HBox/AudioBtn" to="." method="_on_audio_toggle_pressed"]
-[connection signal="pressed" from="CanvasLayer/UI/MainHBox/BoardContainer/ToolsBar/ClearBtn" to="." method="_on_clear_btn_pressed"]
-[connection signal="pressed" from="CanvasLayer/UI/MainHBox/BoardContainer/ToolsBar/UndoBtn" to="." method="_on_undo_btn_pressed"]
+[connection signal="pressed" from="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar/ClearBtn" to="." method="_on_clear_btn_pressed"]
+[connection signal="pressed" from="CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar/UndoBtn" to="." method="_on_undo_btn_pressed"]
 [connection signal="pressed" from="CanvasLayer/CelebrationModal/ModalPanel/VBox/BtnHBox/ReplayBtn" to="." method="_on_replay_pressed"]
 [connection signal="pressed" from="CanvasLayer/CelebrationModal/ModalPanel/VBox/BtnHBox/NextBtn" to="." method="_on_next_pressed"]
 `,
@@ -2018,7 +2451,7 @@ config_version=5
 config/name="Robot Digit Writing Lab"
 config/description="Interactive 3D Kids Digit Writing App with Teacher Mouse Robot"
 run/main_scene="res://scenes/main_game.tscn"
-config/features=PackedStringArray("4.3", "Forward Plus")
+config/features=PackedStringArray("4.3", "GL Compatibility")
 
 [display]
 
@@ -2034,8 +2467,9 @@ enabled=PackedStringArray("res://addons/scad_importer/plugin.cfg")
 
 [rendering]
 
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.web="gl_compatibility"
 anti_aliasing/quality/msaa_3d=2
-anti_aliasing/quality/screen_space_aa=1
 `,
 );
 
@@ -2059,36 +2493,19 @@ An educational, interactive 3D digit writing learning app for kids created with 
 - **3D Teacher Mouse Robot ("Professor Pip")**:
   - Procedural hierarchical bone armature animation.
   - Idle breathing loop and joyful jumping "Praise" animation when kids complete digits!
-  - Stands grounded directly at floor level and angles naturally towards the 2D blackboard on start.
-  - Reacts dynamically: focuses closely on the writing board while tracing, turns to the child with celebratory praise on completion!
-  - Procedural voice synthesizer and friendly speech bubbles.
+  - Fully calibrated anti-glare toy materials and soft directional contact shadows.
+  - Reacts dynamically: turns towards the board while tracing, faces the child during celebrations!
+
+- **Festive Vector Particle System**:
+  - Procedural anti-aliased Star, Ribbon, and Sparkle textures (no placeholder square quads!).
+  - Rotating, tumbling multi-colored rainbow confetti bursts upon digit completion.
+  - Checkpoint sparkle bursts popping directly under the child's touch with each tracing milestone.
 
 - **Preschool Digit Tracing Curriculum (0 through 9)**:
-  - Guided stroke paths with start stars, numbered directional arrows, and checkpoint beads.
+  - Guided stroke paths with numbered directional arrows and checkpoint beads.
   - Traditional preschool digit rhymes for all digits 0-9.
   - Multi-stroke support for complex digits like 4, 5, and 7.
-  - "Watch Pip" Demo Mode: Professor Pip animates a magic stylus along the strokes to teach proper handwriting flow.
-
-- **Child-Friendly Writing Canvas**:
-  - Smooth antialiased liquid chalk strokes with glowing particles.
-  - Ascending pentatonic chime notes (Do-Re-Mi-Fa-Sol...) played as each checkpoint is hit.
-  - 5 vibrant chalk colors (Cyan, Sunshine Yellow, Bubblegum Pink, Lime Green, Chalk White).
-  - Clear and Undo tools with kid-safe forgiving tolerances.
-
-- **3D Environment on the Left**:
-  - Teacher Mouse Robot standing attentively firmly on the classroom floor.
-  - Colorful wooden building blocks stacked on the floor.
-
-- **100% Procedural Audio Engine**:
-  - All sound effects (chimes, chalk friction, fanfare jingles, robot vocal chirps, and pops) are synthesized mathematically in pure GDScript using \`AudioStreamWAV\`. No external audio files required!
-
-## Controls
-
-- **Mouse / Touch Screen**: Click and drag on the blackboard to trace the digits.
-- **Digit Bar (Bottom)**: Tap any number from 0 to 9 to switch digits.
-- **Watch Pip (Top Bar)**: Demonstrates the stroke order automatically.
-- **Tools**: Clear, Undo, and Color swatches located right beneath the blackboard.
-- **Guides Toggle**: Toggle helper guide paths on/off for practice/test mode.
+  - "Watch Pip" Demo Mode: Professor Pip animates a magic stylus along the strokes.
 `,
 );
 
