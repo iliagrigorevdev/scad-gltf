@@ -872,20 +872,20 @@ static func get_digit_info(digit: int) -> Dictionary:
 				"digit": 0,
 				"name": "Zero",
 				"rhyme": "Around and around and around we go,\\nwhen we get home we have a zero!",
-				"tip": "Start at the top and make a nice big circle!",
+				"tip": "Start at the upper right! Curve up and left all the way around, and join back at the start!",
 				"strokes": [
 					[
-						Vector2(0.50, 0.16),
-						Vector2(0.32, 0.22),
-						Vector2(0.24, 0.40),
-						Vector2(0.24, 0.60),
-						Vector2(0.32, 0.78),
-						Vector2(0.50, 0.84),
-						Vector2(0.68, 0.78),
-						Vector2(0.76, 0.60),
-						Vector2(0.76, 0.40),
-						Vector2(0.68, 0.22),
-						Vector2(0.50, 0.16)
+						Vector2(0.68, 0.26), # Start: upper-right with arrow pointing up-left
+						Vector2(0.50, 0.16), # Top center
+						Vector2(0.32, 0.22), # Upper-left curve
+						Vector2(0.24, 0.40), # Mid-left
+						Vector2(0.24, 0.60), # Lower-left
+						Vector2(0.32, 0.78), # Bottom-left curve
+						Vector2(0.50, 0.84), # Bottom center
+						Vector2(0.68, 0.78), # Bottom-right curve
+						Vector2(0.76, 0.60), # Lower-right
+						Vector2(0.76, 0.40), # Mid-right
+						Vector2(0.68, 0.26)  # Return to upper-right start
 					]
 				]
 			}
@@ -1012,8 +1012,8 @@ static func get_digit_info(digit: int) -> Dictionary:
 			return {
 				"digit": 7,
 				"name": "Seven",
-				"rhyme": "Across the sky and down from heaven,\\nthat's the way we make a seven!",
-				"tip": "Fly across the sky, then slide down to earth!",
+				"rhyme": "Across the sky and down from heaven,\\nadd a belt to make a seven!",
+				"tip": "Two strokes! Slide across, slant down, and draw a belt across the middle!",
 				"strokes": [
 					[
 						Vector2(0.28, 0.18),
@@ -1022,6 +1022,10 @@ static func get_digit_info(digit: int) -> Dictionary:
 						Vector2(0.60, 0.42),
 						Vector2(0.48, 0.64),
 						Vector2(0.38, 0.84)
+					],
+					[
+						Vector2(0.42, 0.52),
+						Vector2(0.66, 0.52)
 					]
 				]
 			}
@@ -1030,22 +1034,21 @@ static func get_digit_info(digit: int) -> Dictionary:
 				"digit": 8,
 				"name": "Eight",
 				"rhyme": "Make an S and do not wait,\\nclimb back up to make an eight!",
-				"tip": "Slither like a snake and climb back home!",
+				"tip": "Start at the upper right! Curve up and left, cross down like an S, loop the bottom, and climb back home!",
 				"strokes": [
 					[
-						Vector2(0.50, 0.16),
-						Vector2(0.34, 0.24),
-						Vector2(0.38, 0.38),
-						Vector2(0.50, 0.48),
-						Vector2(0.66, 0.60),
-						Vector2(0.64, 0.78),
-						Vector2(0.50, 0.84),
-						Vector2(0.34, 0.78),
-						Vector2(0.34, 0.60),
-						Vector2(0.50, 0.48),
-						Vector2(0.64, 0.36),
-						Vector2(0.62, 0.22),
-						Vector2(0.50, 0.16)
+						Vector2(0.64, 0.22), # Start: upper-right with arrow up-left
+						Vector2(0.50, 0.16), # Top center
+						Vector2(0.34, 0.24), # Upper-left curve
+						Vector2(0.36, 0.38), # Mid-left
+						Vector2(0.50, 0.48), # Center crossover
+						Vector2(0.64, 0.60), # Bottom loop upper-right
+						Vector2(0.66, 0.76), # Bottom loop lower-right
+						Vector2(0.50, 0.84), # Bottom center
+						Vector2(0.34, 0.78), # Bottom loop lower-left
+						Vector2(0.34, 0.62), # Bottom loop upper-left
+						Vector2(0.50, 0.48), # Cross center waist again
+						Vector2(0.64, 0.22)  # Return to start point
 					]
 				]
 			}
@@ -1053,19 +1056,22 @@ static func get_digit_info(digit: int) -> Dictionary:
 			return {
 				"digit": 9,
 				"name": "Nine",
-				"rhyme": "A loop and a line\\nmake a nine!",
-				"tip": "Draw a happy balloon and drop a string straight down!",
+				"rhyme": "Make a loop and come back round,\\nslide down and curl along the ground!",
+				"tip": "Start at the upper right! Loop up and around, slide straight down, and curl the tail to the left!",
 				"strokes": [
 					[
-						Vector2(0.68, 0.45),
-						Vector2(0.50, 0.18),
-						Vector2(0.32, 0.30),
-						Vector2(0.34, 0.46),
-						Vector2(0.50, 0.52),
-						Vector2(0.68, 0.45),
-						Vector2(0.66, 0.66),
-						Vector2(0.60, 0.84),
-						Vector2(0.48, 0.84)
+						Vector2(0.66, 0.24), # Start: upper-right with arrow up-left
+						Vector2(0.50, 0.16), # Top crest
+						Vector2(0.34, 0.26), # Upper-left of oval
+						Vector2(0.34, 0.42), # Lower-left of oval
+						Vector2(0.50, 0.50), # Bottom of oval
+						Vector2(0.66, 0.42), # Lower-right of oval
+						Vector2(0.66, 0.24), # Connect back to start
+						Vector2(0.66, 0.52), # Slide down the stem
+						Vector2(0.62, 0.72), # Slant down towards baseline
+						Vector2(0.50, 0.84), # Curve onto bottom line
+						Vector2(0.36, 0.84), # Bottom tail curling left
+						Vector2(0.24, 0.84)  # Tail tip finish
 					]
 				]
 			}
@@ -1483,7 +1489,7 @@ extends Node3D
 @onready var checkpoint_sparkles: CPUParticles2D = $CanvasLayer/CheckpointSparkles
 @onready var tools_bar: HBoxContainer = $CanvasLayer/UI/MainHBox/BoardContainer/ToolsContainer/ToolsMargin/ToolsBar
 
-var current_digit: int = 0
+var current_digit: int = 1
 var stars_earned_map: Dictionary = {}
 var total_stars: int = 0
 var current_modal_stars: int = 3
@@ -1513,7 +1519,7 @@ func _ready() -> void:
 	_init_star_map()
 	_create_digit_buttons()
 	_setup_color_swatches()
-	_load_digit(0)
+	_load_digit(1)
 
 	writing_canvas.checkpoint_hit.connect(_on_checkpoint_hit)
 	writing_canvas.digit_completed.connect(_on_digit_completed)
@@ -1541,7 +1547,9 @@ func _create_digit_buttons() -> void:
 	for child in digit_btn_container.get_children():
 		child.queue_free()
 
-	for d in range(10):
+	# Order: 1 through 9, followed by 0
+	var order = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0]
+	for d in order:
 		var btn = Button.new()
 		btn.text = str(d)
 		btn.custom_minimum_size = Vector2(64, 60)
@@ -1608,12 +1616,12 @@ func _load_digit(d: int) -> void:
 
 func _update_digit_buttons_ui() -> void:
 	var buttons = digit_btn_container.get_children()
-	for i in range(buttons.size()):
-		var btn = buttons[i] as Button
-		if not btn:
+	for btn in buttons:
+		if not btn is Button:
 			continue
-		var is_active = (i == current_digit)
-		var stars = stars_earned_map.get(i, 0)
+		var digit_val = int(btn.text)
+		var is_active = (digit_val == current_digit)
+		var stars = stars_earned_map.get(digit_val, 0)
 
 		var style = StyleBoxFlat.new()
 		style.set_corner_radius_all(12)
