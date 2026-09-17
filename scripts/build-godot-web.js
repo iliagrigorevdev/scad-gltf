@@ -3,7 +3,17 @@ import path from "path";
 import os from "os";
 import { execSync } from "child_process";
 
-const targetExample = process.argv[2];
+const targets = process.argv.slice(2);
+
+if (targets.length === 0) {
+  console.error("❌ Error: Example name(s) or wildcard '*' required.");
+  console.error(
+    "Usage: node scripts/build-godot-web.js <example1> [example2] ... | '*' | 'all'",
+  );
+  process.exit(1);
+}
+
+const buildAll = targets.includes("*") || targets.includes("all");
 
 const ROOT_DIR = process.cwd();
 const EXAMPLES_DIR = path.resolve(ROOT_DIR, "godot/examples");
@@ -84,7 +94,7 @@ const HEADLESS_FLAGS =
 // ==========================================
 // 2. RESET OUTPUT DIRS & COPY SHARED ASSETS
 // ==========================================
-if (!targetExample) {
+if (buildAll) {
   fs.rmSync(DIST_DIR, { recursive: true, force: true });
   fs.rmSync(BUILD_DIR, { recursive: true, force: true });
 }
@@ -96,14 +106,29 @@ let exampleFiles = fs
   .readdirSync(EXAMPLES_DIR)
   .filter((f) => f.endsWith(".js"));
 
-if (targetExample) {
-  exampleFiles = exampleFiles.filter((f) => f === `${targetExample}.js`);
-  if (exampleFiles.length === 0) {
+if (!buildAll) {
+  const requestedFiles = targets.map((t) =>
+    t.endsWith(".js") ? t : `${t}.js`,
+  );
+  const foundFiles = [];
+  const missingFiles = [];
+
+  for (const req of requestedFiles) {
+    if (exampleFiles.includes(req)) {
+      if (!foundFiles.includes(req)) foundFiles.push(req);
+    } else {
+      missingFiles.push(req.replace(/\.js$/, ""));
+    }
+  }
+
+  if (missingFiles.length > 0) {
     console.error(
-      `\n❌ Error: Example '${targetExample}' not found in ${EXAMPLES_DIR}`,
+      `\n❌ Error: Example(s) not found in ${EXAMPLES_DIR}:\n  - ${missingFiles.join("\n  - ")}`,
     );
     process.exit(1);
   }
+
+  exampleFiles = foundFiles;
 }
 
 // ==========================================
@@ -114,7 +139,7 @@ for (const file of exampleFiles) {
   const jsScriptPath = path.join(EXAMPLES_DIR, file);
   const projectDir = path.join(BUILD_DIR, demoName);
 
-  if (targetExample) {
+  if (!buildAll) {
     fs.rmSync(projectDir, { recursive: true, force: true });
   }
 
@@ -149,7 +174,7 @@ for (const file of exampleFiles) {
   // Export to Web (Godot automatically runs scad-convert and scene imports here)
   const outDir = path.join(DIST_DIR, demoName);
 
-  if (targetExample) {
+  if (!buildAll) {
     fs.rmSync(outDir, { recursive: true, force: true });
   }
   fs.mkdirSync(outDir, { recursive: true });
