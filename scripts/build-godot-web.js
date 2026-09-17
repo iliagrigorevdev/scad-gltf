@@ -325,12 +325,15 @@ const hubHtml = `<!DOCTYPE html>
     .repo-link { display: inline-flex; align-items: center; gap: 0.5rem; color: #e1e4ea; text-decoration: none; font-size: 0.9rem; font-weight: 500; background: #1a1d27; border: 1px solid #282c3c; border-radius: 6px; padding: 0.5rem 0.85rem; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
     .repo-link:hover { background: #232738; border-color: #478cbf; color: #00d2ff; }
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
-    .card { background: #1a1d27; border: 1px solid #282c3c; border-radius: 8px; padding: 1.5rem; text-decoration: none; color: inherit; display: block; transition: transform 0.15s ease, border-color 0.15s ease; }
+    .card { background: #1a1d27; border: 1px solid #282c3c; border-radius: 8px; padding: 1.5rem; text-decoration: none; color: inherit; display: block; transition: transform 0.15s ease, border-color 0.15s ease; cursor: pointer; }
     .card:hover { transform: translateY(-3px); border-color: #478cbf; }
-    .card-img-container { width: 100%; aspect-ratio: 1 / 1; background: #0f1117; border-radius: 4px; margin-bottom: 1rem; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .card-img-container { width: 100%; aspect-ratio: 1 / 1; background: #0f1117; border-radius: 4px; margin-bottom: 1rem; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative; }
     .card-img-container img { width: 100%; height: 100%; object-fit: cover; }
     .card h2 { margin: 0 0 0.5rem 0; font-size: 1.25rem; color: #00d2ff; }
     .card p { margin: 0; font-size: 0.875rem; color: #8c93a8; }
+
+    #iframe-container { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #0f1117; z-index: 9999; }
+    #game-iframe { width: 100%; height: 100%; border: none; }
   </style>
 </head>
 <body>
@@ -347,7 +350,7 @@ const hubHtml = `<!DOCTYPE html>
     ${builtDemos
       .map(
         (name) => `
-    <a class="card" href="./${name}/">
+    <a class="card" href="./${name}/" onclick="openDemo(event, this.href)">
       <div class="card-img-container">
         <img src="./${name}/screenshot.png" alt="${name} screenshot" onerror="this.style.display='none'" />
       </div>
@@ -356,6 +359,52 @@ const hubHtml = `<!DOCTYPE html>
       )
       .join("")}
   </div>
+
+  <div id="iframe-container">
+    <iframe id="game-iframe" allow="autoplay; fullscreen; vr" allowfullscreen="true"></iframe>
+  </div>
+
+  <script>
+    const container = document.getElementById('iframe-container');
+    const iframe = document.getElementById('game-iframe');
+
+    function openDemo(e, url) {
+      // Allow opening in new tabs via Ctrl/Cmd/Shift/Middle click natively
+      if (e.ctrlKey || e.shiftKey || e.metaKey || e.button !== 0) return;
+
+      e.preventDefault();
+
+      iframe.src = url;
+      container.style.display = 'block';
+
+      // Request standard fullscreen on the overlay container
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(err => console.warn("Fullscreen error:", err));
+      } else if (container.webkitRequestFullscreen) {
+        container.webkitRequestFullscreen();
+      }
+    }
+
+    function closeDemo() {
+      container.style.display = 'none';
+      iframe.src = ''; // Unload iframe context to stop game resources
+      window.focus(); // Focus back to window to ensure keyboard events work on the main page
+    }
+
+    // Automatically close the demo when exiting fullscreen
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        closeDemo();
+      }
+    });
+
+    // For older Safari/Webkit
+    document.addEventListener('webkitfullscreenchange', () => {
+      if (!document.webkitFullscreenElement) {
+        closeDemo();
+      }
+    });
+  </script>
 </body>
 </html>`;
 
