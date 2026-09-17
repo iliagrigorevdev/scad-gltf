@@ -360,13 +360,10 @@ const hubHtml = `<!DOCTYPE html>
       .join("")}
   </div>
 
-  <div id="iframe-container">
-    <iframe id="game-iframe" allow="autoplay; fullscreen; vr" allowfullscreen="true"></iframe>
-  </div>
+  <div id="iframe-container"></div>
 
   <script>
     const container = document.getElementById('iframe-container');
-    const iframe = document.getElementById('game-iframe');
 
     function openDemo(e, url) {
       // Allow opening in new tabs via Ctrl/Cmd/Shift/Middle click natively
@@ -374,7 +371,11 @@ const hubHtml = `<!DOCTYPE html>
 
       e.preventDefault();
 
-      iframe.src = url;
+      // Push history state to change URL natively
+      history.pushState({ isDemo: true }, '', url);
+
+      // Dynamically create iframe to prevent it from adding an extra entry to the browser's history stack
+      container.innerHTML = '<iframe id="game-iframe" allow="autoplay; fullscreen; vr" allowfullscreen="true" src="' + url + '"></iframe>';
       container.style.display = 'block';
 
       // Request standard fullscreen on the overlay container
@@ -385,23 +386,16 @@ const hubHtml = `<!DOCTYPE html>
       }
     }
 
-    function closeDemo() {
+    // Triggered when user clicks the browser's native Back button
+    window.addEventListener('popstate', (e) => {
       container.style.display = 'none';
-      iframe.src = ''; // Unload iframe context to stop game resources
+      container.innerHTML = ''; // Unload iframe context completely to stop game resources
       window.focus(); // Focus back to window to ensure keyboard events work on the main page
-    }
 
-    // Automatically close the demo when exiting fullscreen
-    document.addEventListener('fullscreenchange', () => {
-      if (!document.fullscreenElement) {
-        closeDemo();
-      }
-    });
-
-    // For older Safari/Webkit
-    document.addEventListener('webkitfullscreenchange', () => {
-      if (!document.webkitFullscreenElement) {
-        closeDemo();
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(err => console.warn(err));
+      } else if (document.webkitFullscreenElement) {
+        document.webkitExitFullscreen();
       }
     });
   </script>
