@@ -64,6 +64,203 @@ function waitForEnter(message) {
   });
 }
 
+async function runAutomatedGeminiFlow(
+  apiKey,
+  modelName,
+  systemPrompt,
+  inputRequest,
+) {
+  console.log(
+    `\n🚀 Starting automated generation via Gemini API (${modelName})...`,
+  );
+
+  let mcpClient = null;
+  let mcpTransport = null;
+  let geminiTools = [];
+
+  try {
+    const mcpClientIndex =
+      await import("@modelcontextprotocol/sdk/client/index.js");
+    const mcpClientStdio =
+      await import("@modelcontextprotocol/sdk/client/stdio.js");
+
+    console.log("🔌 Starting local SCAD MCP server...");
+    mcpTransport = new mcpClientStdio.StdioClientTransport({
+      command: process.execPath,
+      args: [path.resolve(__dirname, "scad-mcp.js")],
+    });
+
+    mcpClient = new mcpClientIndex.Client(
+      { name: "scad-godot-client", version: "1.0.0" },
+      { capabilities: {} },
+    );
+    await mcpClient.connect(mcpTransport);
+
+    const { tools } = await mcpClient.listTools();
+
+    function mapSchemaToGemini(schema) {
+      if (!schema) return undefined;
+      const typeMap = {
+        string: "STRING",
+        number: "NUMBER",
+        integer: "INTEGER",
+        boolean: "BOOLEAN",
+        array: "ARRAY",
+        object: "OBJECT",
+      };
+      const mapped = { type: typeMap[schema.type] || "STRING" };
+      if (schema.description) mapped.description = schema.description;
+      if (schema.properties) {
+        mapped.properties = {};
+        for (const [k, v] of Object.entries(schema.properties)) {
+          mapped.properties[k] = mapSchemaToGemini(v);
+        }
+      }
+      if (schema.items) mapped.items = mapSchemaToGemini(schema.items);
+      if (schema.enum) mapped.enum = schema.enum;
+      return mapped;
+    }
+
+    geminiTools = tools
+      .filter((t) => t.name === "render_scad_model")
+      .map((t) => ({
+        name: t.name,
+        description: t.description,
+        parameters: {
+          type: "OBJECT",
+          properties: mapSchemaToGemini({
+            properties: t.inputSchema.properties,
+          }).properties,
+          required: t.inputSchema.required,
+        },
+      }));
+    console.log(
+      `✔️  MCP tools linked: ${geminiTools.map((t) => t.name).join(", ")}`,
+    );
+  } catch (err) {
+    console.warn(
+      "⚠️  Could not initialize MCP client. Proceeding without visual tool support.",
+      err.message,
+    );
+  }
+
+  let contents = [{ role: "user", parts: [{ text: inputRequest }] }];
+
+  // Dynamically import and initialize the official SDK
+  const { GoogleGenAI } = await import("@google/genai");
+  const ai = new GoogleGenAI({ apiKey: apiKey });
+
+  let iterations = 0;
+  const maxIterations = 15;
+
+  while (iterations < maxIterations) {
+    iterations++;
+    console.log("🧠 Waiting for Gemini...");
+
+    // Map system instructions and tools to the config object
+    const config = {
+      systemInstruction: systemPrompt, // String works natively here
+    };
+    if (geminiTools.length > 0) {
+      config.tools = [{ functionDeclarations: geminiTools }];
+    }
+
+    let response;
+    try {
+      // Make the API call using the SDK
+      response = await ai.models.generateContent({
+        model: modelName,
+        contents: contents,
+        config: config,
+      });
+    } catch (error) {
+      throw new Error(`Gemini API Error: ${error.message}`);
+    }
+
+    // Extract the content chunk.
+    // The SDK's underlying GenerateContentResponse perfectly preserves the
+    // candidates[0].content.parts structure, so your function calling loop works seamlessly.
+    const responseMessage = response.candidates[0].content;
+    contents.push(responseMessage);
+
+    const parts = responseMessage.parts || [];
+    const functionCalls = parts.filter((p) => p.functionCall);
+
+    if (functionCalls.length > 0) {
+      const functionResponsesParts = [];
+      for (const fcall of functionCalls) {
+        console.log(`\n⚙️  AI is using tool: ${fcall.functionCall.name}...`);
+        if (!mcpClient) {
+          functionResponsesParts.push({
+            functionResponse: {
+              name: fcall.functionCall.name,
+              response: { error: "MCP client not available." },
+            },
+          });
+          continue;
+        }
+
+        try {
+          const result = await mcpClient.callTool({
+            name: fcall.functionCall.name,
+            arguments: fcall.functionCall.args,
+          });
+          let responseText = "";
+          const imageParts = [];
+          for (const item of result.content) {
+            if (item.type === "text") responseText += item.text + "\n";
+            if (item.type === "image")
+              imageParts.push({
+                inlineData: { mimeType: item.mimeType, data: item.data },
+              });
+          }
+
+          functionResponsesParts.push({
+            functionResponse: {
+              name: fcall.functionCall.name,
+              response: { result: responseText || "Success" },
+            },
+          });
+          functionResponsesParts.push(...imageParts);
+          console.log(
+            `✔️  Tool ${fcall.functionCall.name} completed successfully.`,
+          );
+        } catch (err) {
+          console.error(`⚠️  Tool error: ${err.message}`);
+          functionResponsesParts.push({
+            functionResponse: {
+              name: fcall.functionCall.name,
+              response: { error: err.message },
+            },
+          });
+        }
+      }
+      contents.push({ role: "user", parts: functionResponsesParts });
+    } else {
+      const textPart = parts.find((p) => p.text);
+      const finalText = textPart ? textPart.text : "";
+
+      console.log("✅ Gemini finished thinking.");
+
+      const match = finalText.match(
+        /```(?:javascript|js|node)?\n([\s\S]*?)```/,
+      );
+      const finalJS = match ? match[1].trim() : finalText.trim();
+
+      const filename = "generate_godot_project.js";
+      fs.writeFileSync(filename, finalJS, "utf-8");
+      console.log(`\n🎉 Success! Node.js script written to: ${filename}`);
+      console.log(`▶️  Run it with: node ${filename}`);
+
+      if (mcpTransport)
+        try {
+          await mcpTransport.close();
+        } catch (e) {}
+      break;
+    }
+  }
+}
+
 async function main() {
   let task = "";
   let optionsStr = "{}";
@@ -90,7 +287,7 @@ async function main() {
     console.error("");
     console.error("Example with JSON options:");
     console.error(
-      '  scad-godot "Game description" \'{"animation": false, "bakeColors": true, "scadFiles": ["player.scad"]}\'',
+      '  scad-godot "Game description" \'{"animation": false, "bakeColors": true, "geminiApiKey": "AIzaSy...", "geminiModel": "gemini-3.8-flash", "scadFiles": ["player.scad"]}\'',
     );
     process.exit(1);
   }
@@ -259,6 +456,20 @@ ${promptRules}
 
   // 7. Format the input request output
   const inputRequestOutput = `Design and implement a Godot 4 project for the following game concept: "${task}"`;
+
+  // Check if API Key flow should be initialized instead of clipboard
+  const apiKey = options.geminiApiKey || process.env.GEMINI_API_KEY;
+  const geminiModel =
+    options.geminiModel || process.env.GEMINI_MODEL || "gemini-flash-latest";
+  if (apiKey) {
+    await runAutomatedGeminiFlow(
+      apiKey,
+      geminiModel,
+      systemClipboardOutput,
+      inputRequestOutput,
+    );
+    return;
+  }
 
   // 8. Write to System Clipboard (Part 1: System Instructions)
   try {

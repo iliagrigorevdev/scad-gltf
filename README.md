@@ -22,6 +22,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **CLI Converter:** Bundled `scad-convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
 - **MCP Server for AI Agents:** Bundled `scad-mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering and animation frame evaluation.
 - **AI Studio Extension:** Chrome extension to natively preview, prompt, take chat snapshots, open in Scadify, and locally save AI-generated 3D models directly inside Google AI Studio.
+- **Automated AI Generation:** Pass a Gemini API key to the `scad-godot` CLI to automatically spawn a local MCP server, query the Gemini API, allow it to visually iterate, and output a ready-to-run Godot project generator script.
 - **Godot 4 Integration & Web Demos:** Native Godot 4 importer addon for procedural `.scad` assets and prebuilt AI-generated [web game examples](https://iliagrigorevdev.github.io/scad-godot/).
 
 ---
@@ -292,6 +293,32 @@ Try prebuilt AI-generated Godot games directly in your browser: [https://iliagri
 - **Examples:** Check out AI-generated game templates in the [`godot/examples`](./godot/examples) directory.
 - **License:** The Godot Addon is licensed under **MIT**.
 - **Setup:** Simply copy the `addons/scad_importer` folder to your project and enable it in Project Settings.
+
+---
+
+### Automated AI Generation (Gemini API)
+
+By default, `scad-godot` copies a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Gemini API Key**, the CLI will fully automate this process. It will automatically spin up the `scad-mcp` server in the background, connect it to the `gemini-flash-latest` model, and allow the AI to _visually evaluate and fix_ its 3D models in real-time before saving the final `generate_godot_project.js` script to your disk.
+
+**Option 1: Using an Environment Variable (Recommended)**
+
+```bash
+export GEMINI_API_KEY="AIzaSy..."
+export GEMINI_MODEL="gemini-3.8-flash" # Optional: defaults to gemini-flash-latest
+scad-godot "A fast-paced 3D hovercraft racing game"
+```
+
+**Option 2: Passing it via JSON options**
+
+```bash
+scad-godot "A 3D chess game" '{"geminiApiKey": "AIzaSy...", "geminiModel": "gemini-3.8-flash"}'
+```
+
+_Once the automated process completes, simply run the generated Node.js script to assemble your complete Godot project structure with all assets and code!_
+
+```bash
+node generate_godot_project.js
+```
 
 ---
 
