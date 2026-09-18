@@ -97,6 +97,7 @@ ${promptRules}
       systemPrompt,
       inputRequestOutput,
       "generate_web_project.js",
+      ["render_scad_model"],
     );
     return;
   }

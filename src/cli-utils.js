@@ -78,6 +78,7 @@ export async function runAutomatedGeminiFlow(
   systemPrompt,
   inputRequest,
   outputFilename = "generate_project.js",
+  allowedTools = ["render_scad_model", "test_godot_project"],
 ) {
   console.log(
     `\n🚀 Starting automated generation via Gemini API (${modelName})...`,
@@ -131,10 +132,7 @@ export async function runAutomatedGeminiFlow(
     }
 
     geminiTools = tools
-      .filter(
-        (t) =>
-          t.name === "render_scad_model" || t.name === "test_godot_project",
-      )
+      .filter((t) => allowedTools.includes(t.name))
       .map((t) => ({
         name: t.name,
         description: t.description,
