@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
 import readline from "node:readline";
+import { execSync, spawn } from "node:child_process";
+import { getGodotBin } from "./godot-utils.js";
 
 const __filename = fs.realpathSync(url.fileURLToPath(import.meta.url));
 const __dirname = path.dirname(__filename);
@@ -68,6 +70,47 @@ export function waitForEnter(message) {
     rl.question(message, () => {
       rl.close();
       resolve();
+    });
+  });
+}
+
+// Helper to ask a question and retrieve a text answer from the user
+export function askQuestion(message) {
+  return new Promise((resolve) => {
+    if (!process.stdin.isTTY) {
+      try {
+        const tty = process.platform === "win32" ? "CONIN$" : "/dev/tty";
+        const fd = fs.openSync(tty, "rs");
+        process.stdout.write(message);
+        let answer = "";
+        const buf = Buffer.alloc(1);
+        while (true) {
+          const bytesRead = fs.readSync(fd, buf, 0, 1, null);
+          if (bytesRead === 0) break;
+          const char = buf.toString("utf-8");
+          if (char === "\n" || char === "\r") break;
+          answer += char;
+        }
+        fs.closeSync(fd);
+        console.log();
+        resolve(answer.trim());
+        return;
+      } catch (e) {
+        console.log(
+          message + " y (Auto-accepting due to non-interactive environment)",
+        );
+        resolve("y");
+        return;
+      }
+    }
+
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+    rl.question(message, (answer) => {
+      rl.close();
+      resolve(answer.trim());
     });
   });
 }
@@ -159,7 +202,7 @@ export async function runAutomatedGeminiFlow(
   const ai = new GoogleGenAI({ apiKey: apiKey });
 
   let iterations = 0;
-  const maxIterations = 15;
+  const maxIterations = 30; // Increased to allow plenty of room for human feedback loop
 
   while (iterations < maxIterations) {
     iterations++;
@@ -271,22 +314,124 @@ export async function runAutomatedGeminiFlow(
       const textPart = parts.find((p) => p.text);
       const finalText = textPart ? textPart.text : "";
 
-      console.log("\n✅ Gemini finished thinking.");
+      console.log("\n✅ AI proposed a code version.");
       const match = finalText.match(
         /```(?:javascript|js|node)?\n([\s\S]*?)```/,
       );
       const finalJS = match ? match[1].trim() : finalText.trim();
 
       fs.writeFileSync(outputFilename, finalJS, "utf-8");
-      console.log(`\n🎉 Success! Node.js script written to: ${outputFilename}`);
-      console.log(`▶️  Run it with: node ${outputFilename}`);
 
-      if (mcpTransport) {
-        try {
-          await mcpTransport.close();
-        } catch (e) {}
+      try {
+        console.log(`   Generating project files to preview...`);
+        execSync(`node ${outputFilename}`, { stdio: "pipe" });
+
+        // Find the newest project.godot generated in the current working directory
+        let projectDir = null;
+        let latestTime = 0;
+        const items = fs.readdirSync(process.cwd());
+        for (const item of items) {
+          const itemPath = path.join(process.cwd(), item);
+          if (
+            fs.statSync(itemPath).isDirectory() &&
+            fs.existsSync(path.join(itemPath, "project.godot"))
+          ) {
+            const mtime = fs.statSync(itemPath).mtimeMs;
+            if (mtime > latestTime) {
+              latestTime = mtime;
+              projectDir = itemPath;
+            }
+          }
+        }
+
+        if (!projectDir) {
+          console.log(
+            `   ❌ Could not find the generated Godot project folder.`,
+          );
+          contents.push({
+            role: "user",
+            parts: [
+              {
+                text: "Your script successfully executed, but no directory containing 'project.godot' was found. Make sure your script creates a root folder and generates project.godot inside it.",
+              },
+            ],
+          });
+          continue;
+        }
+
+        console.log(
+          `\n🎮 Launching project visually: ${path.basename(projectDir)}`,
+        );
+        const godotBin = getGodotBin();
+        const godotProc = spawn(godotBin, ["--path", projectDir], {
+          stdio: "ignore",
+          detached: true,
+        });
+        godotProc.unref();
+
+        const feedback = await askQuestion(
+          "Are you happy with this result? (Type 'y' to accept, or type feedback for the AI to fix): ",
+        );
+
+        if (
+          feedback.toLowerCase() === "y" ||
+          feedback.toLowerCase() === "yes" ||
+          feedback === ""
+        ) {
+          console.log(
+            `\n🎉 Success! Final Node.js script finalized and written to: ${outputFilename}`,
+          );
+          console.log(`▶️  Run it again later with: node ${outputFilename}`);
+
+          try {
+            godotProc.kill();
+          } catch (e) {}
+
+          if (mcpTransport) {
+            try {
+              await mcpTransport.close();
+            } catch (e) {}
+          }
+          break;
+        } else {
+          console.log("\n🔄 Sending your feedback back to Gemini...");
+          try {
+            godotProc.kill();
+          } catch (e) {}
+
+          contents.push({
+            role: "user",
+            parts: [
+              {
+                text: `I played the current version. Here is my feedback to improve it:\n\n${feedback}\n\nPlease implement these fixes and output an updated Node.js script.`,
+              },
+            ],
+          });
+          // Loop continues back to Gemini
+        }
+      } catch (err) {
+        const stderr = err.stderr ? err.stderr.toString() : err.message;
+        console.error(`   ❌ Failed to execute generated script:\n${stderr}`);
+        contents.push({
+          role: "user",
+          parts: [
+            {
+              text: `Your generated script threw an error when I tried to run it locally:\n${stderr}\n\nPlease fix the Node.js script.`,
+            },
+          ],
+        });
       }
-      break;
+    }
+  }
+
+  if (iterations >= maxIterations) {
+    console.log(
+      `\n⚠️ Reached maximum iterations (${maxIterations}). Terminating.`,
+    );
+    if (mcpTransport) {
+      try {
+        await mcpTransport.close();
+      } catch (e) {}
     }
   }
 }
