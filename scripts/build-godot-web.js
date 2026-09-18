@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { execSync } from "child_process";
+import { getGodotBin } from "../src/godot-utils.js";
 
 const targets = process.argv.slice(2);
 
@@ -23,9 +24,6 @@ const BUILD_DIR = path.resolve(ROOT_DIR, ".godot-build");
 const BIN_DIR = path.resolve(ROOT_DIR, ".godot-bin");
 const SCAD_CONVERT_JS = path.resolve(ROOT_DIR, "bin/scad-convert.js");
 
-const GODOT_VERSION = "4.7.2-stable";
-const GODOT_SHORT_VERSION = "4.7.2.stable";
-
 // ==========================================
 // 1. ENSURE GODOT & SCAD-CONVERT IN $PATH
 // ==========================================
@@ -41,51 +39,7 @@ fs.writeFileSync(shimPath, `#!/bin/sh\nnode "${SCAD_CONVERT_JS}" "$@"\n`, {
 process.env.PATH = `${BIN_DIR}${path.delimiter}${process.env.PATH}`;
 
 // Find or download Godot
-let godotBin = "";
-try {
-  execSync("godot --version", { stdio: "ignore" });
-  godotBin = "godot";
-} catch {
-  const localGodot = path.join(BIN_DIR, "godot");
-  if (!fs.existsSync(localGodot)) {
-    console.log(`\n⬇️  Downloading Godot ${GODOT_VERSION} Linux headless...`);
-    const zipPath = path.join(BIN_DIR, "godot.zip");
-    execSync(
-      `curl -fL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -o "${zipPath}"`,
-      { stdio: "inherit" },
-    );
-    execSync(`unzip -q -o "${zipPath}" -d "${BIN_DIR}"`, { stdio: "inherit" });
-    fs.renameSync(
-      path.join(BIN_DIR, `Godot_v${GODOT_VERSION}_linux.x86_64`),
-      localGodot,
-    );
-    fs.chmodSync(localGodot, 0o755);
-    fs.unlinkSync(zipPath);
-
-    console.log(`⬇️  Downloading Web export templates...`);
-    const templateDir = path.join(
-      os.homedir(),
-      `.local/share/godot/export_templates/${GODOT_SHORT_VERSION}`,
-    );
-    fs.mkdirSync(templateDir, { recursive: true });
-
-    const tpzPath = path.join(BIN_DIR, "templates.tpz");
-    execSync(
-      `curl -fL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_export_templates.tpz" -o "${tpzPath}"`,
-      { stdio: "inherit" },
-    );
-    const extractTemp = path.join(BIN_DIR, "templates_temp");
-    execSync(`unzip -q -o "${tpzPath}" -d "${extractTemp}"`, {
-      stdio: "inherit",
-    });
-    execSync(`cp -r "${extractTemp}/templates/"* "${templateDir}/"`, {
-      stdio: "inherit",
-    });
-    fs.rmSync(extractTemp, { recursive: true, force: true });
-    fs.unlinkSync(tpzPath);
-  }
-  godotBin = localGodot;
-}
+const godotBin = getGodotBin(true); // true to ensure templates
 
 // Flags to prevent headless Linux crashes (disables Vulkan and ALSA/Pulse audio servers)
 const HEADLESS_FLAGS =

@@ -13,14 +13,11 @@ import {
 import puppeteer from "puppeteer";
 import { convertScadToGltf } from "../src/convert.js";
 import { generatePrompt } from "../src/prompt.js";
+import { runGodotAsync } from "../src/godot-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const wasmPath = path.resolve(__dirname, "../src/ext/openscad.wasm");
-
-// Godot downloader configuration
-const GODOT_VERSION = "4.7.2-stable";
-const BIN_DIR = path.resolve(__dirname, "../.godot-bin");
 
 // Polyfill fetch so the WASM loader works natively in Node.js
 const originalFetch = global.fetch;
@@ -39,96 +36,6 @@ global.fetch = async (url, options) => {
   }
   return originalFetch ? originalFetch(url, options) : undefined;
 };
-
-// Ensure Godot is available for the test_godot_project tool
-function getGodotBin() {
-  try {
-    execSync("godot --version", { stdio: "ignore" });
-    return "godot";
-  } catch {
-    const isWin = os.platform() === "win32";
-    const isMac = os.platform() === "darwin";
-    const localGodot = path.join(
-      BIN_DIR,
-      isWin ? "godot.exe" : isMac ? "Godot.app/Contents/MacOS/Godot" : "godot",
-    );
-
-    if (!fs.existsSync(localGodot)) {
-      console.error(
-        `\n⬇️  Downloading Godot ${GODOT_VERSION} headless for testing...`,
-      );
-      fs.mkdirSync(BIN_DIR, { recursive: true });
-      let zipUrl = "";
-
-      if (isWin) {
-        zipUrl = `https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_win64.exe.zip`;
-      } else if (isMac) {
-        zipUrl = `https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_macos.universal.zip`;
-      } else {
-        zipUrl = `https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip`;
-      }
-
-      const zipPath = path.join(BIN_DIR, "godot.zip");
-      execSync(`curl -fL "${zipUrl}" -o "${zipPath}"`, { stdio: "ignore" });
-
-      if (isWin) {
-        execSync(`tar -xf "${zipPath}" -C "${BIN_DIR}"`, { stdio: "ignore" });
-      } else {
-        execSync(`unzip -q -o "${zipPath}" -d "${BIN_DIR}"`, {
-          stdio: "ignore",
-        });
-      }
-
-      if (!isMac) {
-        const files = fs.readdirSync(BIN_DIR);
-        const extracted = files.find(
-          (f) =>
-            f.startsWith("Godot_v") &&
-            !f.endsWith(".zip") &&
-            fs.statSync(path.join(BIN_DIR, f)).isFile(),
-        );
-        if (extracted) {
-          fs.renameSync(path.join(BIN_DIR, extracted), localGodot);
-        }
-      }
-
-      fs.chmodSync(localGodot, 0o755);
-      try {
-        fs.unlinkSync(zipPath);
-      } catch (e) {}
-    }
-    return localGodot;
-  }
-}
-
-// Helper to asynchronously run headless Godot and collect logs
-function runGodotAsync(args, cwd, timeoutMs) {
-  return new Promise((resolve) => {
-    let output = "";
-    const godotProcess = spawn(getGodotBin(), args, { cwd });
-
-    godotProcess.stdout.on("data", (data) => {
-      output += data.toString();
-    });
-    godotProcess.stderr.on("data", (data) => {
-      output += data.toString();
-    });
-
-    const timer = setTimeout(() => {
-      godotProcess.kill();
-    }, timeoutMs);
-
-    godotProcess.on("close", (code) => {
-      clearTimeout(timer);
-      resolve({ code, output });
-    });
-
-    godotProcess.on("error", (err) => {
-      clearTimeout(timer);
-      resolve({ code: -1, output: `Process error: ${err.message}` });
-    });
-  });
-}
 
 // Initialize MCP Server
 const server = new Server(

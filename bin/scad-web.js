@@ -3,83 +3,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
-import readline from "node:readline";
-
-// Safely resolve symlinks to find the actual package directory
-const __filename = fs.realpathSync(url.fileURLToPath(import.meta.url));
-const __dirname = path.dirname(__filename);
-const DIR = path.resolve(__dirname, "..");
-
-// Safely detect if actual data is being piped into the script via STDIN
-function hasStdinData() {
-  try {
-    const stat = fs.fstatSync(0); // 0 is the file descriptor for STDIN
-    // isFIFO means piped (echo "foo" | script)
-    // isFile means redirected (script < foo.txt)
-    return stat.isFIFO() || stat.isFile();
-  } catch (e) {
-    return false;
-  }
-}
-
-// Writes text to system clipboard
-async function writeToClipboard(text) {
-  const clipboardy = (await import("clipboardy")).default;
-  await clipboardy.write(text);
-}
-
-function waitForEnter(message) {
-  return new Promise((resolve) => {
-    // If standard input was piped/redirected, we need to bypass it and read from the actual terminal
-    if (!process.stdin.isTTY) {
-      try {
-        const tty = process.platform === "win32" ? "CONIN$" : "/dev/tty";
-        const fd = fs.openSync(tty, "rs");
-        process.stdout.write(message);
-        const buf = Buffer.alloc(1);
-        fs.readSync(fd, buf, 0, 1, null);
-        fs.closeSync(fd);
-        console.log();
-        resolve();
-        return;
-      } catch (e) {
-        console.log(
-          message +
-            " (Auto-continuing due to non-interactive terminal environment)",
-        );
-        resolve();
-        return;
-      }
-    }
-
-    // For standard TTY terminals
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-    rl.question(message, () => {
-      rl.close();
-      resolve();
-    });
-  });
-}
+import { generatePrompt } from "../src/prompt.js";
+import {
+  parseTaskAndOptions,
+  writeToClipboard,
+  waitForEnter,
+  runAutomatedGeminiFlow,
+} from "../src/cli-utils.js";
 
 async function main() {
-  let task = "";
-  let optionsStr = "{}";
-
-  // 1. Read TASK and OPTIONS
-  if (hasStdinData()) {
-    try {
-      task = fs.readFileSync(0, "utf-8").trim();
-    } catch (e) {
-      console.error("Error reading from STDIN:", e);
-    }
-    if (process.argv[2]) optionsStr = process.argv[2];
-  } else {
-    if (process.argv[2]) task = process.argv[2];
-    if (process.argv[3]) optionsStr = process.argv[3];
-  }
+  const { task, optionsStr } = parseTaskAndOptions();
 
   if (!task) {
     console.error("Error: Task parameter is required.");
@@ -108,18 +41,6 @@ async function main() {
 
   // Disable the modelName instructions specifically for this wrapper context
   options.modelName = false;
-
-  // 3. Dynamically import and generate prompt rules from src/prompt.js
-  let generatePrompt;
-  try {
-    const promptJsPath = path.join(DIR, "src", "prompt.js");
-    const promptModuleUrl = url.pathToFileURL(promptJsPath).href;
-    const m = await import(promptModuleUrl);
-    generatePrompt = m.generatePrompt;
-  } catch (e) {
-    console.error(`Error loading ${path.join("src", "prompt.js")}:`, e);
-    process.exit(1);
-  }
 
   let promptRules = "";
   try {
@@ -165,6 +86,20 @@ ${promptRules}
 
   // 5. Format the input request output
   const inputRequestOutput = `Design and implement a web-based 3D glTF app using Vite for the following concept: "${task}"`;
+
+  const apiKey = options.geminiApiKey || process.env.GEMINI_API_KEY;
+  const geminiModel =
+    options.geminiModel || process.env.GEMINI_MODEL || "gemini-flash-latest";
+  if (apiKey) {
+    await runAutomatedGeminiFlow(
+      apiKey,
+      geminiModel,
+      systemPrompt,
+      inputRequestOutput,
+      "generate_web_project.js",
+    );
+    return;
+  }
 
   // 6. Write to System Clipboard (Part 1: System Instructions)
   try {
