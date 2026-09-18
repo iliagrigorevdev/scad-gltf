@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import url from "node:url";
+import os from "node:os";
 import readline from "node:readline";
 import { execSync, spawn } from "node:child_process";
 import { getGodotBin } from "./godot-utils.js";
@@ -123,6 +124,7 @@ export async function runAutomatedGeminiFlow(
   allowedTools = ["render_scad_model", "test_godot_project"],
   projectType = "godot", // "godot" or "web"
 ) {
+  // Dynamically derive the output filename
   const outputFilename = `generate_${projectType}_project.js`;
 
   console.log(
@@ -322,19 +324,30 @@ export async function runAutomatedGeminiFlow(
       );
       const finalJS = match ? match[1].trim() : finalText.trim();
 
-      fs.writeFileSync(outputFilename, finalJS, "utf-8");
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "scad-preview-"));
+      const tempScriptPath = path.join(tempDir, outputFilename);
+      let runProc = null;
 
       try {
-        console.log(`   Generating project files to preview...`);
-        execSync(`node ${outputFilename}`, { stdio: "pipe" });
+        // Write the script safely to the hidden temporary folder FIRST
+        fs.writeFileSync(tempScriptPath, finalJS, "utf-8");
 
-        // Find the newest project directory generated in the current working directory
+        console.log(
+          `   Generating project files to preview in a temporary folder...`,
+        );
+        // Execute the script from the temporary folder
+        execSync(`node "${tempScriptPath}"`, {
+          cwd: tempDir,
+          stdio: "pipe",
+        });
+
+        // Find the newest project directory generated inside the temp directory
         let projectDir = null;
         let latestTime = 0;
-        const items = fs.readdirSync(process.cwd());
+        const items = fs.readdirSync(tempDir);
 
         for (const item of items) {
-          const itemPath = path.join(process.cwd(), item);
+          const itemPath = path.join(tempDir, item);
           if (fs.statSync(itemPath).isDirectory()) {
             const isGodot =
               projectType === "godot" &&
@@ -365,8 +378,6 @@ export async function runAutomatedGeminiFlow(
           });
           continue;
         }
-
-        let runProc = null;
 
         if (projectType === "godot") {
           console.log(
@@ -409,14 +420,18 @@ export async function runAutomatedGeminiFlow(
           feedback.toLowerCase() === "yes" ||
           feedback === ""
         ) {
+          // User confirmed! NOW copy it to their working directory
+          fs.copyFileSync(
+            tempScriptPath,
+            path.resolve(process.cwd(), outputFilename),
+          );
+
           console.log(
             `\n🎉 Success! Final Node.js script finalized and written to: ${outputFilename}`,
           );
-          console.log(`▶️  Run it again later with: node ${outputFilename}`);
-
-          try {
-            if (runProc) runProc.kill();
-          } catch (e) {}
+          console.log(
+            `▶️  Run it again later to unpack the final project with: node ${outputFilename}`,
+          );
 
           if (mcpTransport) {
             try {
@@ -426,10 +441,6 @@ export async function runAutomatedGeminiFlow(
           break;
         } else {
           console.log("\n🔄 Sending your feedback back to Gemini...");
-          try {
-            if (runProc) runProc.kill();
-          } catch (e) {}
-
           contents.push({
             role: "user",
             parts: [
@@ -451,6 +462,15 @@ export async function runAutomatedGeminiFlow(
             },
           ],
         });
+      } finally {
+        if (runProc) {
+          try {
+            runProc.kill();
+          } catch (e) {}
+        }
+        try {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        } catch (e) {}
       }
     }
   }
