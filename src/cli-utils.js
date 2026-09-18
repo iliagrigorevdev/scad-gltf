@@ -120,9 +120,11 @@ export async function runAutomatedGeminiFlow(
   modelName,
   systemPrompt,
   inputRequest,
-  outputFilename = "generate_project.js",
   allowedTools = ["render_scad_model", "test_godot_project"],
+  projectType = "godot", // "godot" or "web"
 ) {
+  const outputFilename = `generate_${projectType}_project.js`;
+
   console.log(
     `\n🚀 Starting automated generation via Gemini API (${modelName})...`,
   );
@@ -202,7 +204,7 @@ export async function runAutomatedGeminiFlow(
   const ai = new GoogleGenAI({ apiKey: apiKey });
 
   let iterations = 0;
-  const maxIterations = 30; // Increased to allow plenty of room for human feedback loop
+  const maxIterations = 30; // High limit to allow plenty of room for human feedback loop
 
   while (iterations < maxIterations) {
     iterations++;
@@ -326,51 +328,80 @@ export async function runAutomatedGeminiFlow(
         console.log(`   Generating project files to preview...`);
         execSync(`node ${outputFilename}`, { stdio: "pipe" });
 
-        // Find the newest project.godot generated in the current working directory
+        // Find the newest project directory generated in the current working directory
         let projectDir = null;
         let latestTime = 0;
         const items = fs.readdirSync(process.cwd());
+
         for (const item of items) {
           const itemPath = path.join(process.cwd(), item);
-          if (
-            fs.statSync(itemPath).isDirectory() &&
-            fs.existsSync(path.join(itemPath, "project.godot"))
-          ) {
-            const mtime = fs.statSync(itemPath).mtimeMs;
-            if (mtime > latestTime) {
-              latestTime = mtime;
-              projectDir = itemPath;
+          if (fs.statSync(itemPath).isDirectory()) {
+            const isGodot =
+              projectType === "godot" &&
+              fs.existsSync(path.join(itemPath, "project.godot"));
+            const isWeb =
+              projectType === "web" &&
+              fs.existsSync(path.join(itemPath, "package.json"));
+
+            if (isGodot || isWeb) {
+              const mtime = fs.statSync(itemPath).mtimeMs;
+              if (mtime > latestTime) {
+                latestTime = mtime;
+                projectDir = itemPath;
+              }
             }
           }
         }
 
         if (!projectDir) {
-          console.log(
-            `   ❌ Could not find the generated Godot project folder.`,
-          );
+          console.log(`   ❌ Could not find the generated project folder.`);
           contents.push({
             role: "user",
             parts: [
               {
-                text: "Your script successfully executed, but no directory containing 'project.godot' was found. Make sure your script creates a root folder and generates project.godot inside it.",
+                text: `Your script successfully executed, but no valid ${projectType === "godot" ? "Godot" : "Web (package.json)"} project directory was found. Make sure your script creates a root folder and generates the correct required files inside it.`,
               },
             ],
           });
           continue;
         }
 
-        console.log(
-          `\n🎮 Launching project visually: ${path.basename(projectDir)}`,
-        );
-        const godotBin = getGodotBin();
-        const godotProc = spawn(godotBin, ["--path", projectDir], {
-          stdio: "ignore",
-          detached: true,
-        });
-        godotProc.unref();
+        let runProc = null;
+
+        if (projectType === "godot") {
+          console.log(
+            `\n🎮 Launching project visually: ${path.basename(projectDir)}`,
+          );
+          const godotBin = getGodotBin();
+          runProc = spawn(godotBin, ["--path", projectDir], {
+            stdio: "ignore",
+            detached: true,
+          });
+          runProc.unref();
+        } else if (projectType === "web") {
+          console.log(
+            `\n🌐 Installing web dependencies for: ${path.basename(projectDir)}...`,
+          );
+          try {
+            execSync("npm install", { cwd: projectDir, stdio: "inherit" });
+          } catch (e) {
+            console.log("⚠️ npm install failed, trying to continue anyway...");
+          }
+
+          console.log(`\n🌐 Starting web dev server...`);
+          const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+          runProc = spawn(npmCmd, ["run", "dev"], {
+            cwd: projectDir,
+            stdio: "inherit", // Inherit to print Vite's "Local: http://localhost:5173" URL
+            detached: false,
+          });
+
+          // Give Vite a couple seconds to boot and print the local URL before we show the input prompt
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
 
         const feedback = await askQuestion(
-          "Are you happy with this result? (Type 'y' to accept, or type feedback for the AI to fix): ",
+          "\nAre you happy with this result? (Type 'y' to accept, or type feedback for the AI to fix): ",
         );
 
         if (
@@ -384,7 +415,7 @@ export async function runAutomatedGeminiFlow(
           console.log(`▶️  Run it again later with: node ${outputFilename}`);
 
           try {
-            godotProc.kill();
+            if (runProc) runProc.kill();
           } catch (e) {}
 
           if (mcpTransport) {
@@ -396,14 +427,14 @@ export async function runAutomatedGeminiFlow(
         } else {
           console.log("\n🔄 Sending your feedback back to Gemini...");
           try {
-            godotProc.kill();
+            if (runProc) runProc.kill();
           } catch (e) {}
 
           contents.push({
             role: "user",
             parts: [
               {
-                text: `I played the current version. Here is my feedback to improve it:\n\n${feedback}\n\nPlease implement these fixes and output an updated Node.js script.`,
+                text: `I reviewed the current version. Here is my feedback to improve it:\n\n${feedback}\n\nPlease implement these fixes and output an updated Node.js script.`,
               },
             ],
           });

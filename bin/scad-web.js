@@ -96,8 +96,8 @@ ${promptRules}
       geminiModel,
       systemPrompt,
       inputRequestOutput,
-      "generate_web_project.js",
       ["render_scad_model"],
+      "web",
     );
     return;
   }

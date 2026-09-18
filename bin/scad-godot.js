@@ -196,8 +196,8 @@ ${promptRules}
       geminiModel,
       systemClipboardOutput,
       inputRequestOutput,
-      "generate_godot_project.js",
       ["render_scad_model", "test_godot_project"],
+      "godot",
     );
     return;
   }
