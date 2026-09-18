@@ -119,7 +119,8 @@ ${promptRules}
          ? "\n     - The exact source code of the provided user `.scad` files, placed in the appropriate project folders."
          : ""
      }
-   - Ensure all string file contents inside the Node.js script are properly escaped.`;
+   - Ensure all string file contents inside the Node.js script are properly escaped.
+   - TESTING CAPABILITY: You have access to the \`test_godot_project\` tool. If you want to verify your code before outputting your final response, you can pass your complete generated Node.js script as the \`nodejs_script\` parameter. The server will execute it in a temporary folder and run the Godot tests automatically.`;
 
   // 5. Gather Addon Files content
   const addonDir = path.join(DIR, "godot", "addons", "scad_importer");

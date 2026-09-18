@@ -41,7 +41,7 @@ global.fetch = async (url, options) => {
 const server = new Server(
   {
     name: "scad-mcp-server",
-    version: "1.2.0",
+    version: "1.3.0",
   },
   {
     capabilities: {
@@ -121,7 +121,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             project_dir: {
               type: "string",
               description:
-                "The relative or absolute path to the directory containing project.godot.",
+                "The relative or absolute path to the directory containing project.godot. Use this if the project is already extracted on disk.",
+            },
+            nodejs_script: {
+              type: "string",
+              description:
+                "The complete self-contained Node.js script that generates the Godot project. If provided, the tool will execute this script in a temporary directory to extract the project before testing it. Use this during the generation phase to test your code before providing the final answer.",
             },
             run_time: {
               type: "number",
@@ -129,7 +134,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                 "Time in seconds to run the project before terminating. Default is 5.0.",
             },
           },
-          required: ["project_dir"],
         },
       },
     ],
@@ -520,16 +524,85 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // TOOL 3: test_godot_project
   // ------------------------------------------
   if (name === "test_godot_project") {
+    let cleanupDir = null;
     try {
-      const projectDir = path.resolve(process.cwd(), args.project_dir);
+      let projectDir = null;
       const runTime = args.run_time || 5.0;
+
+      if (args.nodejs_script) {
+        // Create a unique temporary directory
+        const tempBase = fs.mkdtempSync(
+          path.join(os.tmpdir(), "scad-godot-test-"),
+        );
+        cleanupDir = tempBase;
+
+        const scriptPath = path.join(tempBase, "generate.js");
+        fs.writeFileSync(scriptPath, args.nodejs_script, "utf-8");
+
+        try {
+          execSync(`node generate.js`, {
+            cwd: tempBase,
+            stdio: "pipe",
+            timeout: 15000, // Time out after 15 seconds if it hangs
+          });
+        } catch (err) {
+          const stderr = err.stderr ? err.stderr.toString() : "";
+          const stdout = err.stdout ? err.stdout.toString() : "";
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: The Node.js script failed to execute properly.\n\nSTDERR:\n${stderr}\n\nSTDOUT:\n${stdout}\n\nException: ${err.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        // Find the generated folder containing project.godot
+        const items = fs.readdirSync(tempBase);
+        for (const item of items) {
+          const itemPath = path.join(tempBase, item);
+          if (
+            fs.statSync(itemPath).isDirectory() &&
+            fs.existsSync(path.join(itemPath, "project.godot"))
+          ) {
+            projectDir = itemPath;
+            break;
+          }
+        }
+
+        if (!projectDir) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: The Node.js script finished running, but NO Godot project was found. A valid Godot project requires a 'project.godot' file. Ensure your script creates a root project directory and places 'project.godot' inside it.`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      } else if (args.project_dir) {
+        projectDir = path.resolve(process.cwd(), args.project_dir);
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: Invalid arguments. You must provide either 'project_dir' or 'nodejs_script'.`,
+            },
+          ],
+          isError: true,
+        };
+      }
 
       if (!fs.existsSync(path.join(projectDir, "project.godot"))) {
         return {
           content: [
             {
               type: "text",
-              text: `Error: project.godot not found in directory: ${projectDir}`,
+              text: `Error: The specified directory is not a valid Godot project. 'project.godot' was not found in: ${projectDir}`,
             },
           ],
           isError: true,
@@ -614,6 +687,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         ],
         isError: true,
       };
+    } finally {
+      // Clean up temporary directory if we created one
+      if (cleanupDir && fs.existsSync(cleanupDir)) {
+        try {
+          fs.rmSync(cleanupDir, { recursive: true, force: true });
+        } catch (e) {
+          console.error(`Failed to clean up temp dir: ${cleanupDir}`, e);
+        }
+      }
     }
   }
 
