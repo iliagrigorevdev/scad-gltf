@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import fs from "fs";
 import path from "path";
+import os from "os";
+import { spawn, execSync } from "child_process";
 import { fileURLToPath } from "url";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -15,6 +17,10 @@ import { generatePrompt } from "../src/prompt.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const wasmPath = path.resolve(__dirname, "../src/ext/openscad.wasm");
+
+// Godot downloader configuration
+const GODOT_VERSION = "4.7.2-stable";
+const BIN_DIR = path.resolve(__dirname, "../.godot-bin");
 
 // Polyfill fetch so the WASM loader works natively in Node.js
 const originalFetch = global.fetch;
@@ -33,6 +39,96 @@ global.fetch = async (url, options) => {
   }
   return originalFetch ? originalFetch(url, options) : undefined;
 };
+
+// Ensure Godot is available for the test_godot_project tool
+function getGodotBin() {
+  try {
+    execSync("godot --version", { stdio: "ignore" });
+    return "godot";
+  } catch {
+    const isWin = os.platform() === "win32";
+    const isMac = os.platform() === "darwin";
+    const localGodot = path.join(
+      BIN_DIR,
+      isWin ? "godot.exe" : isMac ? "Godot.app/Contents/MacOS/Godot" : "godot",
+    );
+
+    if (!fs.existsSync(localGodot)) {
+      console.error(
+        `\n⬇️  Downloading Godot ${GODOT_VERSION} headless for testing...`,
+      );
+      fs.mkdirSync(BIN_DIR, { recursive: true });
+      let zipUrl = "";
+
+      if (isWin) {
+        zipUrl = `https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_win64.exe.zip`;
+      } else if (isMac) {
+        zipUrl = `https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_macos.universal.zip`;
+      } else {
+        zipUrl = `https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip`;
+      }
+
+      const zipPath = path.join(BIN_DIR, "godot.zip");
+      execSync(`curl -fL "${zipUrl}" -o "${zipPath}"`, { stdio: "ignore" });
+
+      if (isWin) {
+        execSync(`tar -xf "${zipPath}" -C "${BIN_DIR}"`, { stdio: "ignore" });
+      } else {
+        execSync(`unzip -q -o "${zipPath}" -d "${BIN_DIR}"`, {
+          stdio: "ignore",
+        });
+      }
+
+      if (!isMac) {
+        const files = fs.readdirSync(BIN_DIR);
+        const extracted = files.find(
+          (f) =>
+            f.startsWith("Godot_v") &&
+            !f.endsWith(".zip") &&
+            fs.statSync(path.join(BIN_DIR, f)).isFile(),
+        );
+        if (extracted) {
+          fs.renameSync(path.join(BIN_DIR, extracted), localGodot);
+        }
+      }
+
+      fs.chmodSync(localGodot, 0o755);
+      try {
+        fs.unlinkSync(zipPath);
+      } catch (e) {}
+    }
+    return localGodot;
+  }
+}
+
+// Helper to asynchronously run headless Godot and collect logs
+function runGodotAsync(args, cwd, timeoutMs) {
+  return new Promise((resolve) => {
+    let output = "";
+    const godotProcess = spawn(getGodotBin(), args, { cwd });
+
+    godotProcess.stdout.on("data", (data) => {
+      output += data.toString();
+    });
+    godotProcess.stderr.on("data", (data) => {
+      output += data.toString();
+    });
+
+    const timer = setTimeout(() => {
+      godotProcess.kill();
+    }, timeoutMs);
+
+    godotProcess.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ code, output });
+    });
+
+    godotProcess.on("error", (err) => {
+      clearTimeout(timer);
+      resolve({ code: -1, output: `Process error: ${err.message}` });
+    });
+  });
+}
 
 // Initialize MCP Server
 const server = new Server(
@@ -106,6 +202,27 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
           },
           required: ["scad_code"],
+        },
+      },
+      {
+        name: "test_godot_project",
+        description:
+          "Runs a specified Godot project in headless mode for a short duration to detect script compilation errors, missing resources, or runtime crashes.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            project_dir: {
+              type: "string",
+              description:
+                "The relative or absolute path to the directory containing project.godot.",
+            },
+            run_time: {
+              type: "number",
+              description:
+                "Time in seconds to run the project before terminating. Default is 5.0.",
+            },
+          },
+          required: ["project_dir"],
         },
       },
     ],
@@ -485,6 +602,107 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           {
             type: "text",
             text: `Failed to compile or render OpenSCAD model. Error: ${error.message}\nIf this is a syntax error, review your OpenSCAD code and try again.`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  // ------------------------------------------
+  // TOOL 3: test_godot_project
+  // ------------------------------------------
+  if (name === "test_godot_project") {
+    try {
+      const projectDir = path.resolve(process.cwd(), args.project_dir);
+      const runTime = args.run_time || 5.0;
+
+      if (!fs.existsSync(path.join(projectDir, "project.godot"))) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: project.godot not found in directory: ${projectDir}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // 1. Headless Editor Import Step (Wait for Godot to import .scad and other assets)
+      const importResult = await runGodotAsync(
+        ["--headless", "--editor", "--quit", "--path", projectDir],
+        projectDir,
+        30000,
+      );
+
+      // 2. Play Game Step
+      const playResult = await runGodotAsync(
+        [
+          "--headless",
+          "--audio-driver",
+          "Dummy",
+          "--rendering-driver",
+          "opengl3",
+          "--path",
+          projectDir,
+        ],
+        projectDir,
+        runTime * 1000,
+      );
+
+      const fullOutput =
+        "--- IMPORT PHASE ---\n" +
+        importResult.output +
+        "\n\n--- PLAY PHASE ---\n" +
+        playResult.output;
+
+      const errorLines = fullOutput
+        .split("\n")
+        .filter(
+          (line) =>
+            line.includes("ERROR:") ||
+            line.includes("SCRIPT ERROR:") ||
+            line.includes("Parse Error:"),
+        );
+
+      let responseText = `Godot Import Exit Code: ${importResult.code}\nGodot Play Exit Code: ${playResult.code}\n\n`;
+
+      if (errorLines.length > 0) {
+        responseText +=
+          "🚨 Errors detected in Godot output:\n" +
+          errorLines.join("\n") +
+          "\n\n";
+      } else {
+        responseText +=
+          "✅ No obvious errors detected in the Godot output log.\n\n";
+      }
+
+      // Keep output reasonable size to avoid context exhaustion
+      const maxOutputLen = 4000;
+      let truncatedOutput = fullOutput;
+      if (fullOutput.length > maxOutputLen) {
+        truncatedOutput = fullOutput.substring(
+          fullOutput.length - maxOutputLen,
+        );
+        responseText += `...[truncated]...\n`;
+      }
+      responseText += truncatedOutput;
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: responseText,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error testing Godot project: ${error.message}`,
           },
         ],
         isError: true,
