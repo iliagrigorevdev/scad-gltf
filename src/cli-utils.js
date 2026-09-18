@@ -165,7 +165,7 @@ export async function runAutomatedGeminiFlow(
 
   while (iterations < maxIterations) {
     iterations++;
-    console.log("🧠 Waiting for Gemini...");
+    console.log("\n🧠 Waiting for Gemini...");
 
     const config = { systemInstruction: systemPrompt };
     if (geminiTools.length > 0)
@@ -191,8 +191,29 @@ export async function runAutomatedGeminiFlow(
     if (functionCalls.length > 0) {
       const functionResponsesParts = [];
       for (const fcall of functionCalls) {
-        console.log(`\n⚙️  AI is using tool: ${fcall.functionCall.name}...`);
+        console.log(`\n⚙️  AI is using tool: ${fcall.functionCall.name}`);
+
+        // Log truncated arguments to avoid flooding the terminal with long scripts
+        const argsToLog = fcall.functionCall.args
+          ? { ...fcall.functionCall.args }
+          : {};
+        for (const key in argsToLog) {
+          if (
+            typeof argsToLog[key] === "string" &&
+            argsToLog[key].length > 300
+          ) {
+            argsToLog[key] =
+              argsToLog[key].substring(0, 300) +
+              "\n... [truncated for logging]";
+          }
+        }
+        console.log(
+          `   Args:`,
+          JSON.stringify(argsToLog, null, 2).replace(/\n/g, "\n   "),
+        );
+
         if (!mcpClient) {
+          console.error("   ❌ MCP client not available.");
           functionResponsesParts.push({
             functionResponse: {
               name: fcall.functionCall.name,
@@ -223,9 +244,20 @@ export async function runAutomatedGeminiFlow(
             },
           });
           functionResponsesParts.push(...imageParts);
-          console.log(
-            `✔️  Tool ${fcall.functionCall.name} completed successfully.`,
-          );
+
+          console.log(`✔️  Tool ${fcall.functionCall.name} completed.`);
+
+          // Print a snippet of the tool's response text
+          if (responseText) {
+            const lines = responseText.trim().split("\n");
+            const previewLines = lines.slice(0, 15);
+            console.log(`   Response:\n   | ${previewLines.join("\n   | ")}`);
+            if (lines.length > 15)
+              console.log(`   | ... [${lines.length - 15} more lines]`);
+          }
+          if (imageParts.length > 0) {
+            console.log(`   🖼️  Returned ${imageParts.length} image(s).`);
+          }
         } catch (err) {
           console.error(`⚠️  Tool error: ${err.message}`);
           functionResponsesParts.push({
@@ -241,7 +273,7 @@ export async function runAutomatedGeminiFlow(
       const textPart = parts.find((p) => p.text);
       const finalText = textPart ? textPart.text : "";
 
-      console.log("✅ Gemini finished thinking.");
+      console.log("\n✅ Gemini finished thinking.");
       const match = finalText.match(
         /```(?:javascript|js|node)?\n([\s\S]*?)```/,
       );
