@@ -114,7 +114,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "test_godot_project",
         description:
-          "Runs a specified Godot project in headless mode for a short duration to detect script compilation errors, missing resources, or runtime crashes.",
+          "Runs a specified Godot project for a short duration to detect script errors, missing resources, or runtime crashes. Returns the console output logs and a visual screenshot of the gameplay.",
         inputSchema: {
           type: "object",
           properties: {
@@ -616,21 +616,74 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         30000,
       );
 
+      // 1.5 Prepare Screenshot Autoload Script
+      const projectGodotPath = path.join(projectDir, "project.godot");
+      const originalProjectGodot = fs.readFileSync(projectGodotPath, "utf8");
+
+      // Calculate how long to wait before snapping the picture (leave 0.5s buffer)
+      const snapTime = Math.max(0.5, runTime - 0.5);
+
+      const screenshotScript = `extends Node
+func _ready():
+\tawait get_tree().create_timer(${snapTime}).timeout
+\tvar img = get_viewport().get_texture().get_image()
+\tif img != null and not img.is_empty():
+\t\tvar w = img.get_width()
+\t\tvar h = img.get_height()
+\t\tvar size = min(w, h)
+\t\tvar x = (w - size) / 2
+\t\tvar y = (h - size) / 2
+\t\tvar cropped = img.get_region(Rect2i(x, y, size, size))
+\t\tcropped.save_png("res://screenshot_mcp.png")
+\tget_tree().quit()
+`;
+      fs.writeFileSync(
+        path.join(projectDir, "screenshot_mcp.gd"),
+        screenshotScript,
+      );
+
+      let tempProjectGodot = originalProjectGodot;
+      if (tempProjectGodot.includes("[autoload]")) {
+        tempProjectGodot = tempProjectGodot.replace(
+          "[autoload]",
+          '[autoload]\nScreenshotMCP="*res://screenshot_mcp.gd"',
+        );
+      } else {
+        tempProjectGodot += `\n[autoload]\nScreenshotMCP="*res://screenshot_mcp.gd"\n`;
+      }
+      fs.writeFileSync(projectGodotPath, tempProjectGodot, "utf8");
+
       // 2. Play Game Step
       const playResult = await runGodotAsync(
         [
-          "--headless",
+          "--windowed", // Use windowed instead of headless to ensure rendering works for screenshot
+          "--resolution",
+          "512x512",
           "--audio-driver",
           "Dummy",
-          "--rendering-driver",
-          "opengl3",
           "--path",
           projectDir,
         ],
         projectDir,
-        runTime * 1000,
+        // Give Godot extra buffer time to boot, take the shot, and quit gracefully
+        runTime * 1000 + 5000,
       );
 
+      // 3. Cleanup Autoloads
+      fs.writeFileSync(projectGodotPath, originalProjectGodot, "utf8");
+      if (fs.existsSync(path.join(projectDir, "screenshot_mcp.gd"))) {
+        fs.unlinkSync(path.join(projectDir, "screenshot_mcp.gd"));
+      }
+
+      // 4. Read Screenshot
+      const screenshotPath = path.join(projectDir, "screenshot_mcp.png");
+      let screenshotBase64 = null;
+      if (fs.existsSync(screenshotPath)) {
+        screenshotBase64 = fs.readFileSync(screenshotPath).toString("base64");
+        fs.unlinkSync(screenshotPath); // Remove the image after reading
+      }
+
+      // Format Text Output
       const fullOutput =
         "--- IMPORT PHASE ---\n" +
         importResult.output +
@@ -658,7 +711,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           "✅ No obvious errors detected in the Godot output log.\n\n";
       }
 
-      // Keep output reasonable size to avoid context exhaustion
       const maxOutputLen = 4000;
       let truncatedOutput = fullOutput;
       if (fullOutput.length > maxOutputLen) {
@@ -669,13 +721,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
       responseText += truncatedOutput;
 
+      // 5. Construct Final MCP Response
+      const responseContent = [
+        {
+          type: "text",
+          text: responseText,
+        },
+      ];
+
+      // If screenshot was captured successfully, attach it
+      if (screenshotBase64) {
+        responseContent.push({
+          type: "image",
+          data: screenshotBase64,
+          mimeType: "image/png",
+        });
+      } else {
+        responseContent.push({
+          type: "text",
+          text: "⚠️ A visual screenshot could not be captured (Godot may have crashed immediately or rendering failed).",
+        });
+      }
+
       return {
-        content: [
-          {
-            type: "text",
-            text: responseText,
-          },
-        ],
+        content: responseContent,
       };
     } catch (error) {
       return {
