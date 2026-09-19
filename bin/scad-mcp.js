@@ -625,16 +625,29 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       const screenshotScript = `extends Node
 func _ready():
+\tprint("[ScreenshotMCP] Autoload ready. Waiting ${snapTime} seconds...")
 \tawait get_tree().create_timer(${snapTime}).timeout
-\tvar img = get_viewport().get_texture().get_image()
-\tif img != null and not img.is_empty():
-\t\tvar w = img.get_width()
-\t\tvar h = img.get_height()
-\t\tvar size = min(w, h)
-\t\tvar x = (w - size) / 2
-\t\tvar y = (h - size) / 2
-\t\tvar cropped = img.get_region(Rect2i(x, y, size, size))
-\t\tcropped.save_png("res://screenshot_mcp.png")
+\tvar ds = DisplayServer.get_name()
+\tprint("[ScreenshotMCP] DisplayServer is: ", ds)
+\tif ds != "headless":
+\t\tawait RenderingServer.frame_post_draw
+\t\tvar tex = get_viewport().get_texture()
+\t\tif tex != null:
+\t\t\tvar img = tex.get_image()
+\t\t\tif img != null and not img.is_empty():
+\t\t\t\tvar w = img.get_width()
+\t\t\t\tvar h = img.get_height()
+\t\t\t\tvar size = mini(w, h)
+\t\t\t\tvar x = (w - size) / 2
+\t\t\t\tvar y = (h - size) / 2
+\t\t\t\tvar cropped = img.get_region(Rect2i(x, y, size, size))
+\t\t\t\tvar path = ProjectSettings.globalize_path("res://screenshot_mcp.png")
+\t\t\t\tvar err = cropped.save_png(path)
+\t\t\t\tprint("[ScreenshotMCP] Save PNG to ", path, " returned error code: ", err)
+\t\t\telse:
+\t\t\t\tprint("[ScreenshotMCP] Error: Image is null or empty.")
+\t\telse:
+\t\t\tprint("[ScreenshotMCP] Error: Viewport texture is null.")
 \tget_tree().quit()
 `;
       fs.writeFileSync(
@@ -654,20 +667,45 @@ func _ready():
       fs.writeFileSync(projectGodotPath, tempProjectGodot, "utf8");
 
       // 2. Play Game Step
-      const playResult = await runGodotAsync(
-        [
-          "--windowed", // Use windowed instead of headless to ensure rendering works for screenshot
-          "--resolution",
-          "512x512",
-          "--audio-driver",
-          "Dummy",
-          "--path",
-          projectDir,
-        ],
+      // Always try windowed first to get the screenshot.
+      // If the environment lacks a display server, we'll catch the error and fallback.
+      let playArgs = [
+        "--windowed", // Use windowed instead of headless to ensure rendering works for screenshot
+        "--resolution",
+        "512x512",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        projectDir,
+      ];
+
+      let playResult = await runGodotAsync(
+        playArgs,
         projectDir,
         // Give Godot extra buffer time to boot, take the shot, and quit gracefully
         runTime * 1000 + 5000,
       );
+
+      let windowedOutput = playResult.output;
+
+      // Fallback if windowed mode fails due to display server issues
+      if (
+        playResult.code !== 0 &&
+        (playResult.output.includes("Unable to create DisplayServer") ||
+          playResult.output.includes("Display driver"))
+      ) {
+        playResult = await runGodotAsync(
+          ["--headless", "--audio-driver", "Dummy", "--path", projectDir],
+          projectDir,
+          runTime * 1000,
+        );
+        // Explicitly inject the display error into the final output so we aren't flying blind!
+        playResult.output =
+          "--- WINDOWED LAUNCH FAILED (Display Error) ---\n" +
+          windowedOutput.trim() +
+          "\n\n--- FALLBACK HEADLESS LAUNCH ---\n" +
+          playResult.output;
+      }
 
       // 3. Cleanup Autoloads
       fs.writeFileSync(projectGodotPath, originalProjectGodot, "utf8");

@@ -130,7 +130,37 @@ export function runGodotAsync(args, cwd, timeoutMs) {
   return new Promise((resolve) => {
     let output = "";
     const godotBin = getGodotBin();
-    const godotProcess = spawn(godotBin, args, { cwd });
+
+    // ---------------------------------------------------------
+    // CRITICAL: Ensure display variables are present on Linux
+    // Some tools (MCP Inspector, sudo, IDEs) strip these!
+    // ---------------------------------------------------------
+    const env = { ...process.env };
+    if (process.platform === "linux") {
+      if (!env.DISPLAY && !env.WAYLAND_DISPLAY) {
+        try {
+          // On modern Ubuntu Wayland, Xwayland is often on :1
+          if (fs.existsSync("/tmp/.X11-unix/X1")) env.DISPLAY = ":1";
+          else if (fs.existsSync("/tmp/.X11-unix/X0")) env.DISPLAY = ":0";
+          else env.DISPLAY = ":0";
+        } catch (e) {
+          env.DISPLAY = ":0";
+        }
+        env.WAYLAND_DISPLAY = "wayland-0";
+      }
+      if (!env.XAUTHORITY) {
+        try {
+          env.XAUTHORITY = `/home/${os.userInfo().username}/.Xauthority`;
+        } catch (e) {}
+      }
+      if (!env.XDG_RUNTIME_DIR) {
+        try {
+          env.XDG_RUNTIME_DIR = `/run/user/${os.userInfo().uid}`;
+        } catch (e) {}
+      }
+    }
+
+    const godotProcess = spawn(godotBin, args, { cwd, env });
 
     godotProcess.stdout.on("data", (data) => {
       output += data.toString();
