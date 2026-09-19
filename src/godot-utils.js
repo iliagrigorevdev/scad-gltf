@@ -88,7 +88,16 @@ export function getGodotBin(withTemplates = false) {
       } else if (isMac) {
         zipUrl = `https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_macos.universal.zip`;
       } else {
-        zipUrl = `https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip`;
+        const arch = os.arch();
+        let linuxArch = "x86_64";
+        if (arch === "arm64") {
+          linuxArch = "arm64";
+        } else if (arch === "arm") {
+          linuxArch = "arm32";
+        } else if (arch === "ia32") {
+          linuxArch = "x86_32";
+        }
+        zipUrl = `https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.${linuxArch}.zip`;
       }
 
       const zipPath = path.join(BIN_DIR, "godot.zip");
