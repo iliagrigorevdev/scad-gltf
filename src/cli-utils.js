@@ -335,6 +335,8 @@ export async function runAutomatedGeminiFlow(
         console.log(
           `   Generating project files to preview in a temporary folder...`,
         );
+        console.log(`   Temp folder: ${tempDir}`);
+        console.log(`   Temp script: ${tempScriptPath}`);
         // Execute the script from the temporary folder
         execSync(`node "${tempScriptPath}"`, {
           cwd: tempDir,
@@ -378,6 +380,8 @@ export async function runAutomatedGeminiFlow(
           });
           continue;
         }
+
+        console.log(`   Project folder: ${projectDir}`);
 
         if (projectType === "godot") {
           console.log(
