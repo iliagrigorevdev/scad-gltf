@@ -131,36 +131,20 @@ export function runGodotAsync(args, cwd, timeoutMs) {
     let output = "";
     const godotBin = getGodotBin();
 
-    // ---------------------------------------------------------
-    // CRITICAL: Ensure display variables are present on Linux
-    // Some tools (MCP Inspector, sudo, IDEs) strip these!
-    // ---------------------------------------------------------
     const env = { ...process.env };
+    let spawnBin = godotBin;
+    let spawnArgs = args;
+
+    // ---------------------------------------------------------
+    // CRITICAL: Do not use real display on Linux. Run inside Xvfb
+    // to avoid popping up windows or failing in headless server environments.
+    // ---------------------------------------------------------
     if (process.platform === "linux") {
-      if (!env.DISPLAY && !env.WAYLAND_DISPLAY) {
-        try {
-          // On modern Ubuntu Wayland, Xwayland is often on :1
-          if (fs.existsSync("/tmp/.X11-unix/X1")) env.DISPLAY = ":1";
-          else if (fs.existsSync("/tmp/.X11-unix/X0")) env.DISPLAY = ":0";
-          else env.DISPLAY = ":0";
-        } catch (e) {
-          env.DISPLAY = ":0";
-        }
-        env.WAYLAND_DISPLAY = "wayland-0";
-      }
-      if (!env.XAUTHORITY) {
-        try {
-          env.XAUTHORITY = `/home/${os.userInfo().username}/.Xauthority`;
-        } catch (e) {}
-      }
-      if (!env.XDG_RUNTIME_DIR) {
-        try {
-          env.XDG_RUNTIME_DIR = `/run/user/${os.userInfo().uid}`;
-        } catch (e) {}
-      }
+      spawnArgs = ["-a", "-s", "-screen 0 1024x768x24", spawnBin, ...args];
+      spawnBin = "xvfb-run";
     }
 
-    const godotProcess = spawn(godotBin, args, { cwd, env });
+    const godotProcess = spawn(spawnBin, spawnArgs, { cwd, env });
 
     godotProcess.stdout.on("data", (data) => {
       output += data.toString();
