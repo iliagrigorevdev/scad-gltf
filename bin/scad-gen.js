@@ -51,34 +51,37 @@ async function main() {
   const isAutomated = !!(openaiApiKey || openaiBaseUrl);
 
   if (isAutomated) {
-    // Filter out API settings so they aren't included in the tool call instruction
+    // Filter out API settings
     const promptOptions = { ...options };
     delete promptOptions.openaiApiKey;
     delete promptOptions.openaiBaseUrl;
     delete promptOptions.openaiModel;
-    const optionsJson = JSON.stringify(promptOptions);
+
+    let finalTaskPrompt = "";
+    try {
+      finalTaskPrompt = generatePrompt(task, promptOptions);
+    } catch (e) {
+      console.error("Error generating prompt rules from prompt.js:");
+      console.error(e);
+      process.exit(1);
+    }
 
     const automatedSystemPrompt = `You are an expert procedural 3D technical artist and OpenSCAD developer.
 Your goal is to generate a single OpenSCAD (.scad) file based on the user's request.
 
 CRITICAL WORKFLOW:
-1. Call the \`get_scad_prompt\` tool with the user's description and the \`options\` parameter set to: ${optionsJson}. This returns the custom syntax rules for PBR materials, animations, and texture baking specific to this environment.
-2. Write the OpenSCAD code using those rules.
-3. Call the \`render_scad_model\` tool with your code to visually verify your design.
-4. If the model looks incorrect, adjust your code and re-render. Iterate until perfect.
-5. Provide your final OpenSCAD code in a standard markdown block (\`\`\`openscad).
-
-Important Output Rules:
-- Inside the code block, on the FIRST line, include a block comment with a concise filename in snake_case.
-- Example: /* Model Name: your_model_name_here */`;
+1. Write the OpenSCAD code using the custom syntax rules provided in the request.
+2. Call the \`render_scad_model\` tool with your code to visually verify your design.
+3. If the model looks incorrect, adjust your code and re-render. Iterate until perfect.
+4. Provide your final OpenSCAD code in a standard markdown block (\`\`\`openscad).`;
 
     await runAutomatedAIFlow(
       openaiApiKey,
       openaiBaseUrl,
       openaiModel,
       automatedSystemPrompt,
-      task, // Just pass the raw task as the input request
-      ["get_scad_prompt", "render_scad_model"],
+      finalTaskPrompt, // Pass the fully generated prompt here containing rules
+      ["render_scad_model"],
       "scad", // Indicates we are directly generating a .scad file
     );
     return;
