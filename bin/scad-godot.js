@@ -192,8 +192,7 @@ ${promptRules}
   // Check if API Key flows should be initialized instead of manual clipboard
   const openaiApiKey = options.openaiApiKey || process.env.OPENAI_API_KEY;
   const openaiBaseUrl = options.openaiBaseUrl || process.env.OPENAI_BASE_URL;
-  const openaiModel =
-    options.openaiModel || process.env.OPENAI_MODEL || "gpt-4o";
+  const openaiModel = options.openaiModel || process.env.OPENAI_MODEL;
 
   if (openaiApiKey || openaiBaseUrl) {
     await runAutomatedAIFlow(

@@ -53,8 +53,7 @@ async function main() {
   // Check if API Key flows should be initialized
   const openaiApiKey = options.openaiApiKey || process.env.OPENAI_API_KEY;
   const openaiBaseUrl = options.openaiBaseUrl || process.env.OPENAI_BASE_URL;
-  const openaiModel =
-    options.openaiModel || process.env.OPENAI_MODEL || "gpt-4o";
+  const openaiModel = options.openaiModel || process.env.OPENAI_MODEL;
 
   const isAutomated = !!(openaiApiKey || openaiBaseUrl);
 

@@ -128,8 +128,9 @@ export async function runAutomatedAIFlow(
 ) {
   const outputFilename = `generate_${projectType}_project.js`;
   const isRawScad = projectType === "scad";
+  const modelTag = modelName ? ` (${modelName})` : "";
 
-  console.log(`\n🚀 Starting automated AI generation (${modelName})...`);
+  console.log(`\n🚀 Starting automated AI generation${modelTag}...`);
 
   let mcpClient = null;
   let mcpTransport = null;
@@ -192,12 +193,16 @@ export async function runAutomatedAIFlow(
 
   while (iterations < maxIterations) {
     iterations++;
-    console.log(`\n🧠 Waiting for response from ${modelName}...`);
+    const waitingFrom = modelName ? ` from ${modelName}` : "";
+    console.log(`\n🧠 Waiting for response${waitingFrom}...`);
 
     const body = {
-      model: modelName,
       messages: messages,
     };
+
+    if (modelName) {
+      body.model = modelName;
+    }
 
     if (openaiTools.length > 0) {
       body.tools = openaiTools;
