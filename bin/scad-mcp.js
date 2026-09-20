@@ -189,6 +189,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               description:
                 "The index of the animation track to play if multiple exist. Default is 0.",
             },
+            return_images: {
+              type: "boolean",
+              description:
+                "Return image renderings of the model. Set to false for text-only validation (faster). Default is true.",
+            },
           },
           required: ["scad_code"],
         },
@@ -214,6 +219,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "number",
               description:
                 "Time in seconds to run the project before terminating. Default is 5.0.",
+            },
+            return_images: {
+              type: "boolean",
+              description:
+                "Capture a screenshot of the project. Set to false for text-only logs (faster). Default is true.",
             },
           },
         },
@@ -263,11 +273,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           : ["front", "top", "isometric"];
       const animTime = args.animation_time || 0.0;
       const animIndex = args.animation_index || 0;
+      const returnImages = args.return_images !== false;
 
       // 1. Convert SCAD to GLB ArrayBuffer
       const glbDataArray = await convertScadToGltf(scadCode, {
         wasmUrl: `file://${wasmPath}`,
       });
+
+      if (!returnImages) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Successfully compiled SCAD without syntax errors. (Visual rendering skipped because return_images is false).`,
+            },
+          ],
+        };
+      }
 
       // Convert Uint8Array to base64
       const glbBase64 = Buffer.from(glbDataArray).toString("base64");
@@ -691,6 +713,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      const returnImages = args.return_images !== false;
+
       // 1. Headless Editor Import Step (Wait for Godot to import .scad and other assets)
       const importResult = await runGodotAsync(
         ["--headless", "--editor", "--quit", "--path", projectDir],
@@ -698,14 +722,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         30000,
       );
 
-      // 1.5 Prepare Screenshot Autoload Script
       const projectGodotPath = path.join(projectDir, "project.godot");
       const originalProjectGodot = fs.readFileSync(projectGodotPath, "utf8");
+      let playResult;
 
-      // Calculate how long to wait before snapping the picture (leave 0.5s buffer)
-      const snapTime = Math.max(0.5, runTime - 0.5);
+      if (returnImages) {
+        // 1.5 Prepare Screenshot Autoload Script
+        const snapTime = Math.max(0.5, runTime - 0.5);
 
-      const screenshotScript = `extends Node
+        const screenshotScript = `extends Node
 func _ready():
 \tprint("[ScreenshotMCP] Autoload ready. Waiting ${snapTime} seconds...")
 \tawait get_tree().create_timer(${snapTime}).timeout
@@ -732,75 +757,85 @@ func _ready():
 \t\t\tprint("[ScreenshotMCP] Error: Viewport texture is null.")
 \tget_tree().quit()
 `;
-      fs.writeFileSync(
-        path.join(projectDir, "screenshot_mcp.gd"),
-        screenshotScript,
-      );
-
-      let tempProjectGodot = originalProjectGodot;
-      if (tempProjectGodot.includes("[autoload]")) {
-        tempProjectGodot = tempProjectGodot.replace(
-          "[autoload]",
-          '[autoload]\nScreenshotMCP="*res://screenshot_mcp.gd"',
+        fs.writeFileSync(
+          path.join(projectDir, "screenshot_mcp.gd"),
+          screenshotScript,
         );
+
+        let tempProjectGodot = originalProjectGodot;
+        if (tempProjectGodot.includes("[autoload]")) {
+          tempProjectGodot = tempProjectGodot.replace(
+            "[autoload]",
+            '[autoload]\nScreenshotMCP="*res://screenshot_mcp.gd"',
+          );
+        } else {
+          tempProjectGodot += `\n[autoload]\nScreenshotMCP="*res://screenshot_mcp.gd"\n`;
+        }
+        fs.writeFileSync(projectGodotPath, tempProjectGodot, "utf8");
+
+        // 2. Play Game Step
+        // Always try windowed first to get the screenshot.
+        // If the environment lacks a display server, we'll catch the error and fallback.
+        let playArgs = [
+          "--windowed", // Use windowed instead of headless to ensure rendering works for screenshot
+          "--resolution",
+          "512x512",
+          "--audio-driver",
+          "Dummy",
+          "--path",
+          projectDir,
+        ];
+
+        playResult = await runGodotAsync(
+          playArgs,
+          projectDir,
+          // Give Godot extra buffer time to boot, take the shot, and quit gracefully
+          runTime * 1000 + 5000,
+        );
+
+        let windowedOutput = playResult.output;
+
+        // Fallback if windowed mode fails due to display server issues
+        if (
+          playResult.code !== 0 &&
+          (playResult.output.includes("Unable to create DisplayServer") ||
+            playResult.output.includes("Display driver"))
+        ) {
+          playResult = await runGodotAsync(
+            ["--headless", "--audio-driver", "Dummy", "--path", projectDir],
+            projectDir,
+            runTime * 1000,
+          );
+          // Explicitly inject the display error into the final output so we aren't flying blind!
+          playResult.output =
+            "--- WINDOWED LAUNCH FAILED (Display Error) ---\n" +
+            windowedOutput.trim() +
+            "\n\n--- FALLBACK HEADLESS LAUNCH ---\n" +
+            playResult.output;
+        }
+
+        // 3. Cleanup Autoloads
+        fs.writeFileSync(projectGodotPath, originalProjectGodot, "utf8");
+        if (fs.existsSync(path.join(projectDir, "screenshot_mcp.gd"))) {
+          fs.unlinkSync(path.join(projectDir, "screenshot_mcp.gd"));
+        }
       } else {
-        tempProjectGodot += `\n[autoload]\nScreenshotMCP="*res://screenshot_mcp.gd"\n`;
-      }
-      fs.writeFileSync(projectGodotPath, tempProjectGodot, "utf8");
-
-      // 2. Play Game Step
-      // Always try windowed first to get the screenshot.
-      // If the environment lacks a display server, we'll catch the error and fallback.
-      let playArgs = [
-        "--windowed", // Use windowed instead of headless to ensure rendering works for screenshot
-        "--resolution",
-        "512x512",
-        "--audio-driver",
-        "Dummy",
-        "--path",
-        projectDir,
-      ];
-
-      let playResult = await runGodotAsync(
-        playArgs,
-        projectDir,
-        // Give Godot extra buffer time to boot, take the shot, and quit gracefully
-        runTime * 1000 + 5000,
-      );
-
-      let windowedOutput = playResult.output;
-
-      // Fallback if windowed mode fails due to display server issues
-      if (
-        playResult.code !== 0 &&
-        (playResult.output.includes("Unable to create DisplayServer") ||
-          playResult.output.includes("Display driver"))
-      ) {
+        // Text-only mode: Run headless immediately
         playResult = await runGodotAsync(
           ["--headless", "--audio-driver", "Dummy", "--path", projectDir],
           projectDir,
           runTime * 1000,
         );
-        // Explicitly inject the display error into the final output so we aren't flying blind!
-        playResult.output =
-          "--- WINDOWED LAUNCH FAILED (Display Error) ---\n" +
-          windowedOutput.trim() +
-          "\n\n--- FALLBACK HEADLESS LAUNCH ---\n" +
-          playResult.output;
-      }
-
-      // 3. Cleanup Autoloads
-      fs.writeFileSync(projectGodotPath, originalProjectGodot, "utf8");
-      if (fs.existsSync(path.join(projectDir, "screenshot_mcp.gd"))) {
-        fs.unlinkSync(path.join(projectDir, "screenshot_mcp.gd"));
       }
 
       // 4. Read Screenshot
-      const screenshotPath = path.join(projectDir, "screenshot_mcp.png");
       let screenshotBase64 = null;
-      if (fs.existsSync(screenshotPath)) {
-        screenshotBase64 = fs.readFileSync(screenshotPath).toString("base64");
-        fs.unlinkSync(screenshotPath); // Remove the image after reading
+      if (returnImages) {
+        const screenshotPath = path.join(projectDir, "screenshot_mcp.png");
+        if (fs.existsSync(screenshotPath)) {
+          screenshotBase64 = fs.readFileSync(screenshotPath).toString("base64");
+          fs.unlinkSync(screenshotPath); // Remove the image after reading
+        }
       }
 
       // Format Text Output
@@ -850,17 +885,19 @@ func _ready():
       ];
 
       // If screenshot was captured successfully, attach it
-      if (screenshotBase64) {
-        responseContent.push({
-          type: "image",
-          data: screenshotBase64,
-          mimeType: "image/png",
-        });
-      } else {
-        responseContent.push({
-          type: "text",
-          text: "⚠️ A visual screenshot could not be captured (Godot may have crashed immediately or rendering failed).",
-        });
+      if (returnImages) {
+        if (screenshotBase64) {
+          responseContent.push({
+            type: "image",
+            data: screenshotBase64,
+            mimeType: "image/png",
+          });
+        } else {
+          responseContent.push({
+            type: "text",
+            text: "⚠️ A visual screenshot could not be captured (Godot may have crashed immediately or rendering failed).",
+          });
+        }
       }
 
       return {

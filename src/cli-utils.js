@@ -189,6 +189,7 @@ export async function runAutomatedAIFlow(
 
   let iterations = 0;
   const maxIterations = 30;
+  let disableImageSupport = false;
 
   // Ensure the baseUrl points to the chat completions path
   const endpoint = baseUrl.replace(/\/+$/, "") + "/chat/completions";
@@ -226,6 +227,34 @@ export async function runAutomatedAIFlow(
 
     if (!response.ok) {
       const errorText = await response.text();
+
+      // Auto-fallback if the model complains about image/vision input
+      const errLower = errorText.toLowerCase();
+      if (
+        !disableImageSupport &&
+        (errLower.includes("image") || errLower.includes("vision"))
+      ) {
+        console.log(
+          "\n⚠️  API rejected image input. Falling back to text-only mode and retrying...",
+        );
+        disableImageSupport = true;
+
+        // Strip any existing images from previous messages
+        for (const msg of messages) {
+          if (Array.isArray(msg.content)) {
+            msg.content = msg.content.filter((c) => c.type !== "image_url");
+            // If only text parts remain, just keep them. If empty, add placeholder.
+            if (msg.content.length === 0) {
+              msg.content =
+                "[Images removed by system fallback due to lack of model vision support]";
+            }
+          }
+        }
+
+        iterations--;
+        continue;
+      }
+
       throw new Error(
         `AI API Error: ${response.status} ${response.statusText}\n${errorText}`,
       );
@@ -282,6 +311,11 @@ export async function runAutomatedAIFlow(
 
         try {
           const callArgs = JSON.parse(toolCall.function.arguments);
+
+          if (disableImageSupport) {
+            callArgs.return_images = false;
+          }
+
           const result = await mcpClient.callTool({
             name: toolCall.function.name,
             arguments: callArgs,
