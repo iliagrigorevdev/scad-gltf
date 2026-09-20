@@ -232,7 +232,9 @@ export async function runAutomatedAIFlow(
       const errLower = errorText.toLowerCase();
       if (
         !disableImageSupport &&
-        (errLower.includes("image") || errLower.includes("vision"))
+        (errLower.includes("image") ||
+          errLower.includes("vision") ||
+          errLower.includes("invalid_request"))
       ) {
         console.log(
           "\n⚠️  API rejected image input. Falling back to text-only mode and retrying...",
