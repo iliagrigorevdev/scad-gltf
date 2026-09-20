@@ -22,7 +22,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **CLI Converter:** Bundled `scad-convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
 - **MCP Server for AI Agents:** Bundled `scad-mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering and animation frame evaluation.
 - **AI Studio Extension:** Chrome extension to natively preview, prompt, take chat snapshots, open in Scadify, and locally save AI-generated 3D models directly inside Google AI Studio.
-- **Automated AI Generation:** Pass a Gemini or OpenAI API key to the `scad-godot` or `scad-web` CLI to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run project generator script.
+- **Automated AI Generation:** Pass an OpenAI-compatible API key or base URL to the `scad-godot` or `scad-web` CLI to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run project generator script.
 - **Godot 4 Integration & Web Demos:** Native Godot 4 importer addon for procedural `.scad` assets and prebuilt AI-generated [web game examples](https://iliagrigorevdev.github.io/scad-godot/).
 
 ---
@@ -296,25 +296,26 @@ Try prebuilt AI-generated Godot games directly in your browser: [https://iliagri
 
 ---
 
-### Automated AI Generation (Gemini & OpenAI API)
+### Automated AI Generation (OpenAI-Compatible API)
 
 By default, `scad-godot` and `scad-web` copy a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide an **API Key** or **Base URL**, the CLI will fully automate this process. It will automatically spin up the `scad-mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its 3D models in real-time before saving the final `generate_project.js` script to your disk.
 
-**Option 1: Using Google Gemini**
-_(Under the hood, this seamlessly routes to Google's official OpenAI-compatible API endpoint `https://generativelanguage.googleapis.com/v1beta/openai/`, allowing unified standard tool calling and vision.)_
-
-```bash
-export GEMINI_API_KEY="AIzaSy..."
-export GEMINI_MODEL="gemini-3.8-flash" # Optional: defaults to gemini-flash-latest
-scad-godot "A fast-paced 3D hovercraft racing game"
-```
-
-**Option 2: Using OpenAI (GPT-4o)**
+**Option 1: Using OpenAI (GPT-4o)**
 
 ```bash
 export OPENAI_API_KEY="sk-..."
 export OPENAI_MODEL="gpt-4o"
 scad-godot "A 3D chess game"
+```
+
+**Option 2: Using Google Gemini (via OpenAI compatibility)**
+Because Gemini provides an official OpenAI-compatible endpoint, you can configure it using standard OpenAI variables:
+
+```bash
+export OPENAI_API_KEY="AIzaSy..."
+export OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
+export OPENAI_MODEL="gemini-3.8-flash"
+scad-godot "A fast-paced 3D hovercraft racing game"
 ```
 
 **Option 3: Using Local Server**

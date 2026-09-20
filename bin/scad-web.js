@@ -23,7 +23,7 @@ async function main() {
     console.error("");
     console.error("Examples with JSON options (Automated AI flow):");
     console.error(
-      '  scad-web "3D Car Configurator Web App" \'{"geminiApiKey": "AIzaSy...", "geminiModel": "gemini-3.8-flash"}\'',
+      '  scad-web "3D Car Configurator Web App" \'{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}\'',
     );
     console.error(
       '  scad-web "3D Car Configurator Web App" \'{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}\'',
@@ -91,10 +91,6 @@ ${promptRules}
   const inputRequestOutput = `Design and implement a web-based 3D glTF app using Vite for the following concept: "${task}"`;
 
   // Check if API Key flows should be initialized instead of manual clipboard
-  const geminiApiKey = options.geminiApiKey || process.env.GEMINI_API_KEY;
-  const geminiModel =
-    options.geminiModel || process.env.GEMINI_MODEL || "gemini-flash-latest";
-
   const openaiApiKey = options.openaiApiKey || process.env.OPENAI_API_KEY;
   const openaiBaseUrl = options.openaiBaseUrl || process.env.OPENAI_BASE_URL;
   const openaiModel =
@@ -105,17 +101,6 @@ ${promptRules}
       openaiApiKey,
       openaiBaseUrl,
       openaiModel,
-      systemPrompt,
-      inputRequestOutput,
-      ["render_scad_model"],
-      "web",
-    );
-    return;
-  } else if (geminiApiKey) {
-    await runAutomatedAIFlow(
-      geminiApiKey,
-      "https://generativelanguage.googleapis.com/v1beta/openai/",
-      geminiModel,
       systemPrompt,
       inputRequestOutput,
       ["render_scad_model"],

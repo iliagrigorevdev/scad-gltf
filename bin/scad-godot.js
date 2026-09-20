@@ -27,7 +27,7 @@ async function main() {
     console.error("");
     console.error("Examples with JSON options (Automated AI flow):");
     console.error(
-      '  scad-godot "Game description" \'{"animation": false, "bakeColors": true, "geminiApiKey": "AIzaSy...", "geminiModel": "gemini-3.8-flash", "scadFiles": ["player.scad"]}\'',
+      '  scad-godot "Game description" \'{"animation": false, "bakeColors": true, "openaiApiKey": "sk-...", "openaiModel": "gpt-4o", "scadFiles": ["player.scad"]}\'',
     );
     console.error(
       '  scad-godot "Game description" \'{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}\'',
@@ -190,10 +190,6 @@ ${promptRules}
   const inputRequestOutput = `Design and implement a Godot 4 project for the following game concept: "${task}"`;
 
   // Check if API Key flows should be initialized instead of manual clipboard
-  const geminiApiKey = options.geminiApiKey || process.env.GEMINI_API_KEY;
-  const geminiModel =
-    options.geminiModel || process.env.GEMINI_MODEL || "gemini-flash-latest";
-
   const openaiApiKey = options.openaiApiKey || process.env.OPENAI_API_KEY;
   const openaiBaseUrl = options.openaiBaseUrl || process.env.OPENAI_BASE_URL;
   const openaiModel =
@@ -204,17 +200,6 @@ ${promptRules}
       openaiApiKey,
       openaiBaseUrl,
       openaiModel,
-      systemClipboardOutput,
-      inputRequestOutput,
-      ["render_scad_model", "test_godot_project"],
-      "godot",
-    );
-    return;
-  } else if (geminiApiKey) {
-    await runAutomatedAIFlow(
-      geminiApiKey,
-      "https://generativelanguage.googleapis.com/v1beta/openai/",
-      geminiModel,
       systemClipboardOutput,
       inputRequestOutput,
       ["render_scad_model", "test_godot_project"],
