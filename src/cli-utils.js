@@ -126,6 +126,10 @@ export async function runAutomatedAIFlow(
   allowedTools = ["render_scad_model", "test_godot_project"],
   projectType = "godot",
 ) {
+  if (!baseUrl) {
+    throw new Error("Base URL is required to run the automated AI flow.");
+  }
+
   const outputFilename = `generate_${projectType}_project.js`;
   const isRawScad = projectType === "scad";
   const modelTag = modelName ? ` (${modelName})` : "";
@@ -186,10 +190,8 @@ export async function runAutomatedAIFlow(
   let iterations = 0;
   const maxIterations = 30;
 
-  // If a baseUrl is given (like llama.cpp http://127.0.0.1:8080/v1), ensure it points to the chat completions path
-  const endpoint = baseUrl
-    ? baseUrl.replace(/\/+$/, "") + "/chat/completions"
-    : "https://api.openai.com/v1/chat/completions";
+  // Ensure the baseUrl points to the chat completions path
+  const endpoint = baseUrl.replace(/\/+$/, "") + "/chat/completions";
 
   while (iterations < maxIterations) {
     iterations++;
