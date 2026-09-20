@@ -8,8 +8,7 @@ import {
   parseTaskAndOptions,
   writeToClipboard,
   waitForEnter,
-  runAutomatedGeminiFlow,
-  runAutomatedOpenAIFlow,
+  runAutomatedAIFlow,
 } from "../src/cli-utils.js";
 
 const __filename = url.fileURLToPath(import.meta.url);
@@ -201,7 +200,7 @@ ${promptRules}
     options.openaiModel || process.env.OPENAI_MODEL || "gpt-4o";
 
   if (openaiApiKey || openaiBaseUrl) {
-    await runAutomatedOpenAIFlow(
+    await runAutomatedAIFlow(
       openaiApiKey,
       openaiBaseUrl,
       openaiModel,
@@ -212,8 +211,9 @@ ${promptRules}
     );
     return;
   } else if (geminiApiKey) {
-    await runAutomatedGeminiFlow(
+    await runAutomatedAIFlow(
       geminiApiKey,
+      "https://generativelanguage.googleapis.com/v1beta/openai/",
       geminiModel,
       systemClipboardOutput,
       inputRequestOutput,
