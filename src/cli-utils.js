@@ -117,6 +117,20 @@ export function askQuestion(message) {
   });
 }
 
+export function generateScadPreviewUrl(scadCode) {
+  try {
+    const deflated = zlib.deflateRawSync(Buffer.from(scadCode, "utf-8"));
+    const base64 = deflated
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    return `https://iliagrigorevdev.github.io/scad-gltf/#c${base64}`;
+  } catch (e) {
+    return null;
+  }
+}
+
 export async function runAutomatedAIFlow(
   apiKey,
   baseUrl,
@@ -318,6 +332,18 @@ export async function runAutomatedAIFlow(
             callArgs.return_images = false;
           }
 
+          if (
+            toolCall.function.name === "render_scad_model" &&
+            callArgs.scad_code
+          ) {
+            const link = generateScadPreviewUrl(callArgs.scad_code);
+            if (link) {
+              console.log(
+                `   🔗 Intermediate Web Preview Link:\n      ${link}`,
+              );
+            }
+          }
+
           const result = await mcpClient.callTool({
             name: toolCall.function.name,
             arguments: callArgs,
@@ -425,19 +451,9 @@ export async function runAutomatedAIFlow(
           );
           console.log(`   Temp file: ${tempFilePath}`);
 
-          try {
-            const deflated = zlib.deflateRawSync(
-              Buffer.from(finalCode, "utf-8"),
-            );
-            const base64 = deflated
-              .toString("base64")
-              .replace(/\+/g, "-")
-              .replace(/\//g, "_")
-              .replace(/=+$/, "");
-            const directLink = `https://iliagrigorevdev.github.io/scad-gltf/#c${base64}`;
-            console.log(`\n🔗 Direct Web Preview Link:\n   ${directLink}\n`);
-          } catch (e) {
-            // Ignore compression errors
+          const link = generateScadPreviewUrl(finalCode);
+          if (link) {
+            console.log(`\n🔗 Direct Web Preview Link:\n   ${link}\n`);
           }
 
           console.log(
