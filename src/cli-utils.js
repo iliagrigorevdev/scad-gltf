@@ -4,6 +4,7 @@ import url from "node:url";
 import os from "node:os";
 import readline from "node:readline";
 import { execSync, spawn } from "node:child_process";
+import zlib from "node:zlib";
 import { getGodotBin } from "./godot-utils.js";
 
 const __filename = fs.realpathSync(url.fileURLToPath(import.meta.url));
@@ -380,6 +381,22 @@ export async function runAutomatedAIFlow(
             `   Generating OpenSCAD file to preview in a temporary folder...`,
           );
           console.log(`   Temp file: ${tempFilePath}`);
+
+          try {
+            const deflated = zlib.deflateRawSync(
+              Buffer.from(finalCode, "utf-8"),
+            );
+            const base64 = deflated
+              .toString("base64")
+              .replace(/\+/g, "-")
+              .replace(/\//g, "_")
+              .replace(/=+$/, "");
+            const directLink = `https://iliagrigorevdev.github.io/scad-gltf/#c${base64}`;
+            console.log(`\n🔗 Direct Web Preview Link:\n   ${directLink}\n`);
+          } catch (e) {
+            // Ignore compression errors
+          }
+
           console.log(
             `\n🌐 Starting local viewer to preview ${extractedFilename}...`,
           );
