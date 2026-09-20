@@ -126,6 +126,7 @@ export async function runAutomatedAIFlow(
   projectType = "godot",
 ) {
   const outputFilename = `generate_${projectType}_project.js`;
+  const isRawScad = projectType === "scad";
 
   console.log(`\n🚀 Starting automated AI generation (${modelName})...`);
 
@@ -338,94 +339,139 @@ export async function runAutomatedAIFlow(
       }
     } else {
       const finalText = message.content || "";
-      console.log("\n✅ AI proposed a code version.");
-      const match = finalText.match(
-        /```(?:javascript|js|node)?\n([\s\S]*?)```/,
-      );
-      const finalJS = match ? match[1].trim() : finalText.trim();
+      console.log("\n✅ AI proposed a final code version.");
+
+      let finalCode = "";
+      let extractedFilename = outputFilename;
+
+      // Extract the code payload based on the project type target
+      if (isRawScad) {
+        const match = finalText.match(/```(?:openscad|scad)?\n([\s\S]*?)```/i);
+        finalCode = match ? match[1].trim() : finalText.trim();
+
+        extractedFilename = "generated_model.scad";
+        const nameMatch = finalCode.match(
+          /\/\*\s*Model Name:\s*([^*]+)\s*\*\//i,
+        );
+        if (nameMatch) {
+          let safeName = nameMatch[1]
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9_]/g, "_");
+          if (!safeName.endsWith(".scad")) safeName += ".scad";
+          extractedFilename = safeName;
+        }
+      } else {
+        const match = finalText.match(
+          /```(?:javascript|js|node)?\n([\s\S]*?)```/i,
+        );
+        finalCode = match ? match[1].trim() : finalText.trim();
+      }
 
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "scad-preview-"));
-      const tempScriptPath = path.join(tempDir, outputFilename);
+      const tempFilePath = path.join(tempDir, extractedFilename);
       let runProc = null;
 
       try {
-        fs.writeFileSync(tempScriptPath, finalJS, "utf-8");
+        fs.writeFileSync(tempFilePath, finalCode, "utf-8");
 
-        console.log(
-          `   Generating project files to preview in a temporary folder...`,
-        );
-        console.log(`   Temp folder: ${tempDir}`);
-        console.log(`   Temp script: ${tempScriptPath}`);
-
-        execSync(`node "${tempScriptPath}"`, {
-          cwd: tempDir,
-          stdio: "pipe",
-        });
-
-        let projectDir = null;
-        let latestTime = 0;
-        const items = fs.readdirSync(tempDir);
-
-        for (const item of items) {
-          const itemPath = path.join(tempDir, item);
-          if (fs.statSync(itemPath).isDirectory()) {
-            const isGodot =
-              projectType === "godot" &&
-              fs.existsSync(path.join(itemPath, "project.godot"));
-            const isWeb =
-              projectType === "web" &&
-              fs.existsSync(path.join(itemPath, "package.json"));
-
-            if (isGodot || isWeb) {
-              const mtime = fs.statSync(itemPath).mtimeMs;
-              if (mtime > latestTime) {
-                latestTime = mtime;
-                projectDir = itemPath;
-              }
-            }
-          }
-        }
-
-        if (!projectDir) {
-          console.log(`   ❌ Could not find the generated project folder.`);
-          messages.push({
-            role: "user",
-            content: `Your script successfully executed, but no valid ${projectType === "godot" ? "Godot" : "Web (package.json)"} project directory was found. Make sure your script creates a root folder and generates the correct required files inside it.`,
-          });
-          continue;
-        }
-
-        console.log(`   Project folder: ${projectDir}`);
-
-        if (projectType === "godot") {
+        if (isRawScad) {
           console.log(
-            `\n🎮 Launching project visually: ${path.basename(projectDir)}`,
+            `   Generating OpenSCAD file to preview in a temporary folder...`,
           );
-          const godotBin = getGodotBin();
-          runProc = spawn(godotBin, ["--path", projectDir], {
-            stdio: "ignore",
-            detached: true,
-          });
-          runProc.unref();
-        } else if (projectType === "web") {
+          console.log(`   Temp file: ${tempFilePath}`);
           console.log(
-            `\n🌐 Installing web dependencies for: ${path.basename(projectDir)}...`,
+            `\n🌐 Starting local viewer to preview ${extractedFilename}...`,
           );
-          try {
-            execSync("npm install", { cwd: projectDir, stdio: "inherit" });
-          } catch (e) {
-            console.log("⚠️ npm install failed, trying to continue anyway...");
-          }
 
-          console.log(`\n🌐 Starting web dev server...`);
-          const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-          runProc = spawn(npmCmd, ["run", "dev"], {
-            cwd: projectDir,
+          const scadServePath = path.resolve(__dirname, "../bin/scad-serve.js");
+          runProc = spawn(process.execPath, [scadServePath], {
+            cwd: tempDir,
             stdio: "inherit",
             detached: false,
           });
 
           await new Promise((resolve) => setTimeout(resolve, 2000));
+        } else {
+          console.log(
+            `   Generating project files to preview in a temporary folder...`,
+          );
+          console.log(`   Temp script: ${tempFilePath}`);
+
+          execSync(`node "${tempFilePath}"`, {
+            cwd: tempDir,
+            stdio: "pipe",
+          });
+
+          let projectDir = null;
+          let latestTime = 0;
+          const items = fs.readdirSync(tempDir);
+
+          for (const item of items) {
+            const itemPath = path.join(tempDir, item);
+            if (fs.statSync(itemPath).isDirectory()) {
+              const isGodot =
+                projectType === "godot" &&
+                fs.existsSync(path.join(itemPath, "project.godot"));
+              const isWeb =
+                projectType === "web" &&
+                fs.existsSync(path.join(itemPath, "package.json"));
+
+              if (isGodot || isWeb) {
+                const mtime = fs.statSync(itemPath).mtimeMs;
+                if (mtime > latestTime) {
+                  latestTime = mtime;
+                  projectDir = itemPath;
+                }
+              }
+            }
+          }
+
+          if (!projectDir) {
+            console.log(`   ❌ Could not find the generated project folder.`);
+            const expectedFile =
+              projectType === "godot" ? "project.godot" : "package.json";
+            messages.push({
+              role: "user",
+              content: `Your script successfully executed, but no valid project directory was found. Make sure your script creates a root folder and generates the correct required files (like ${expectedFile}) inside it.`,
+            });
+            continue;
+          }
+
+          console.log(`   Project folder: ${projectDir}`);
+
+          if (projectType === "godot") {
+            console.log(
+              `\n🎮 Launching project visually: ${path.basename(projectDir)}`,
+            );
+            const godotBin = getGodotBin();
+            runProc = spawn(godotBin, ["--path", projectDir], {
+              stdio: "ignore",
+              detached: true,
+            });
+            runProc.unref();
+          } else if (projectType === "web") {
+            console.log(
+              `\n🌐 Installing dependencies for: ${path.basename(projectDir)}...`,
+            );
+            try {
+              execSync("npm install", { cwd: projectDir, stdio: "inherit" });
+            } catch (e) {
+              console.log(
+                "⚠️ npm install failed, trying to continue anyway...",
+              );
+            }
+
+            console.log(`\n🌐 Starting dev server...`);
+            const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+            runProc = spawn(npmCmd, ["run", "dev"], {
+              cwd: projectDir,
+              stdio: "inherit",
+              detached: false,
+            });
+
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
         }
 
         const feedback = await askQuestion(
@@ -438,16 +484,19 @@ export async function runAutomatedAIFlow(
           feedback === ""
         ) {
           fs.copyFileSync(
-            tempScriptPath,
-            path.resolve(process.cwd(), outputFilename),
+            tempFilePath,
+            path.resolve(process.cwd(), extractedFilename),
           );
 
           console.log(
-            `\n🎉 Success! Final Node.js script finalized and written to: ${outputFilename}`,
+            `\n🎉 Success! Final file finalized and written to: ${extractedFilename}`,
           );
-          console.log(
-            `▶️  Run it again later to unpack the final project with: node ${outputFilename}`,
-          );
+
+          if (!isRawScad) {
+            console.log(
+              `▶️  Run it again later to unpack the final project with: node ${extractedFilename}`,
+            );
+          }
 
           if (mcpTransport) {
             try {
@@ -459,15 +508,17 @@ export async function runAutomatedAIFlow(
           console.log("\n🔄 Sending your feedback back to the LLM...");
           messages.push({
             role: "user",
-            content: `I reviewed the current version. Here is my feedback to improve it:\n\n${feedback}\n\nPlease implement these fixes and output an updated Node.js script.`,
+            content: `I reviewed the current version. Here is my feedback to improve it:\n\n${feedback}\n\nPlease implement these fixes and output an updated ${isRawScad ? "OpenSCAD block" : "Node.js script"}.`,
           });
         }
       } catch (err) {
         const stderr = err.stderr ? err.stderr.toString() : err.message;
-        console.error(`   ❌ Failed to execute generated script:\n${stderr}`);
+        console.error(
+          `   ❌ Failed to execute/preview generated code:\n${stderr}`,
+        );
         messages.push({
           role: "user",
-          content: `Your generated script threw an error when I tried to run it locally:\n${stderr}\n\nPlease fix the Node.js script.`,
+          content: `Your generated code threw an error when I tried to run/preview it locally:\n${stderr}\n\nPlease fix the ${isRawScad ? "OpenSCAD code" : "Node.js script"}.`,
         });
       } finally {
         if (runProc) {
