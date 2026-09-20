@@ -68,7 +68,84 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             options: {
               type: "object",
               description:
-                "Optional feature toggles to enable or disable specific OpenSCAD syntax rules. Examples: { animation: false, bakeColors: true }.",
+                "Optional feature toggles to customize the generated prompt syntax rules.",
+              properties: {
+                basic: {
+                  type: "boolean",
+                  description:
+                    "Include rules for basic PBR attributes: metalness and roughness. (Default: true)",
+                },
+                transmission: {
+                  type: "boolean",
+                  description:
+                    "Include rules for transparent/glass volumes: transmission, thickness, ior, attenuationColor, and attenuationDistance. (Default: true)",
+                },
+                clearcoat: {
+                  type: "boolean",
+                  description:
+                    "Include rules for clearcoat and clearcoatRoughness. (Default: true)",
+                },
+                sheen: {
+                  type: "boolean",
+                  description:
+                    "Include rules for cloth/velvet sheen: sheen, sheenColor, and sheenRoughness. (Default: true)",
+                },
+                emissive: {
+                  type: "boolean",
+                  description:
+                    "Include rules for glowing materials: emissive and emissiveIntensity. (Default: true)",
+                },
+                specular: {
+                  type: "boolean",
+                  description:
+                    "Include rules for specular reflections: specularColor and specularIntensity. (Default: true)",
+                },
+                iridescence: {
+                  type: "boolean",
+                  description:
+                    "Include rules for thin-film interference: iridescence and iridescenceIOR. (Default: true)",
+                },
+                autoSmoothAngle: {
+                  type: "boolean",
+                  description:
+                    "Include rules for smooth shading vertex normals via $asa. (Default: true)",
+                },
+                animation: {
+                  type: "boolean",
+                  description:
+                    "Include rules for hierarchical node animations using armature() and bone(). (Default: true)",
+                },
+                bakeColors: {
+                  type: "boolean",
+                  description:
+                    "Include rules for baking colors from high-poly onto low-poly meshes. (Default: false)",
+                },
+                bakeNormals: {
+                  type: "boolean",
+                  description:
+                    "Include rules for baking tangent-space normal maps. (Default: false)",
+                },
+                bakeOrm: {
+                  type: "boolean",
+                  description:
+                    "Include rules for baking Occlusion/Roughness/Metallic (ORM) textures. (Default: false)",
+                },
+                bakeUvs: {
+                  type: "boolean",
+                  description:
+                    "Include rules for generating textureless UV coordinates and tangents. (Default: false)",
+                },
+                lazyUnion: {
+                  type: "boolean",
+                  description:
+                    "Include rules for the lazy-union compiler optimization. (Default: false)",
+                },
+                modelName: {
+                  type: "boolean",
+                  description:
+                    "Include output instructions requiring the '/* Model Name: ... */' header comment. (Default: true)",
+                },
+              },
             },
           },
           required: ["description"],
