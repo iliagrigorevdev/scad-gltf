@@ -9,6 +9,7 @@ import {
   writeToClipboard,
   waitForEnter,
   runAutomatedGeminiFlow,
+  runAutomatedOpenAIFlow,
 } from "../src/cli-utils.js";
 
 async function main() {
@@ -21,9 +22,12 @@ async function main() {
     );
     console.error('   or: echo "<description>" | scad-web [options_json]');
     console.error("");
-    console.error("Example with JSON options:");
+    console.error("Examples with JSON options (Automated AI flow):");
     console.error(
-      '  scad-web "3D Car Configurator Web App" \'{"animation": false}\'',
+      '  scad-web "3D Car Configurator Web App" \'{"geminiApiKey": "AIzaSy...", "geminiModel": "gemini-3.8-flash"}\'',
+    );
+    console.error(
+      '  scad-web "3D Car Configurator Web App" \'{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}\'',
     );
     process.exit(1);
   }
@@ -87,12 +91,30 @@ ${promptRules}
   // 5. Format the input request output
   const inputRequestOutput = `Design and implement a web-based 3D glTF app using Vite for the following concept: "${task}"`;
 
-  const apiKey = options.geminiApiKey || process.env.GEMINI_API_KEY;
+  // Check if API Key flows should be initialized instead of manual clipboard
+  const geminiApiKey = options.geminiApiKey || process.env.GEMINI_API_KEY;
   const geminiModel =
     options.geminiModel || process.env.GEMINI_MODEL || "gemini-flash-latest";
-  if (apiKey) {
+
+  const openaiApiKey = options.openaiApiKey || process.env.OPENAI_API_KEY;
+  const openaiBaseUrl = options.openaiBaseUrl || process.env.OPENAI_BASE_URL;
+  const openaiModel =
+    options.openaiModel || process.env.OPENAI_MODEL || "gpt-4o";
+
+  if (openaiApiKey || openaiBaseUrl) {
+    await runAutomatedOpenAIFlow(
+      openaiApiKey,
+      openaiBaseUrl,
+      openaiModel,
+      systemPrompt,
+      inputRequestOutput,
+      ["render_scad_model"],
+      "web",
+    );
+    return;
+  } else if (geminiApiKey) {
     await runAutomatedGeminiFlow(
-      apiKey,
+      geminiApiKey,
       geminiModel,
       systemPrompt,
       inputRequestOutput,

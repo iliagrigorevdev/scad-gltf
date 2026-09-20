@@ -296,11 +296,11 @@ Try prebuilt AI-generated Godot games directly in your browser: [https://iliagri
 
 ---
 
-### Automated AI Generation (Gemini API)
+### Automated AI Generation (Gemini & OpenAI API)
 
-By default, `scad-godot` copies a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Gemini API Key**, the CLI will fully automate this process. It will automatically spin up the `scad-mcp` server in the background, connect it to the `gemini-flash-latest` model, and allow the AI to _visually evaluate and fix_ its 3D models in real-time before saving the final `generate_godot_project.js` script to your disk.
+By default, `scad-godot` and `scad-web` copy a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide an **API Key** or **Base URL**, the CLI will fully automate this process. It will automatically spin up the `scad-mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its 3D models in real-time before saving the final `generate_project.js` script to your disk.
 
-**Option 1: Using an Environment Variable (Recommended)**
+**Option 1: Using Google Gemini (Native SDK)**
 
 ```bash
 export GEMINI_API_KEY="AIzaSy..."
@@ -308,13 +308,31 @@ export GEMINI_MODEL="gemini-3.8-flash" # Optional: defaults to gemini-flash-late
 scad-godot "A fast-paced 3D hovercraft racing game"
 ```
 
-**Option 2: Passing it via JSON options**
+**Option 2: Using OpenAI (GPT-4o)**
 
 ```bash
-scad-godot "A 3D chess game" '{"geminiApiKey": "AIzaSy...", "geminiModel": "gemini-3.8-flash"}'
+export OPENAI_API_KEY="sk-..."
+export OPENAI_MODEL="gpt-4o"
+scad-godot "A 3D chess game"
 ```
 
-_Once the automated process completes, simply run the generated Node.js script to assemble your complete Godot project structure with all assets and code!_
+**Option 3: Using Local Server**
+You can use completely local, uncensored, or fine-tuned vision models by overriding the OpenAI Base URL to point to a local inference server (like `llama.cpp`'s API server).
+
+```bash
+export OPENAI_BASE_URL="http://127.0.0.1:8080/v1"
+export OPENAI_MODEL="llama-3" # Or whatever model name you've loaded
+scad-web "A 3D configurator app"
+```
+
+**Passing Parameters via JSON**
+You can also pass credentials inline as a JSON string argument instead of modifying environment variables:
+
+```bash
+scad-godot "A futuristic tank game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'
+```
+
+_Once the automated process completes, simply run the generated Node.js script to assemble your complete Godot or Vite project structure with all assets and code!_
 
 ```bash
 node generate_godot_project.js
