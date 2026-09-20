@@ -51,11 +51,18 @@ async function main() {
   const isAutomated = !!(openaiApiKey || openaiBaseUrl);
 
   if (isAutomated) {
+    // Filter out API settings so they aren't included in the tool call instruction
+    const promptOptions = { ...options };
+    delete promptOptions.openaiApiKey;
+    delete promptOptions.openaiBaseUrl;
+    delete promptOptions.openaiModel;
+    const optionsJson = JSON.stringify(promptOptions);
+
     const automatedSystemPrompt = `You are an expert procedural 3D technical artist and OpenSCAD developer.
 Your goal is to generate a single OpenSCAD (.scad) file based on the user's request.
 
 CRITICAL WORKFLOW:
-1. Call the \`get_scad_prompt\` tool with the user's description. This returns the custom syntax rules for PBR materials, animations, and texture baking specific to this environment.
+1. Call the \`get_scad_prompt\` tool with the user's description and the \`options\` parameter set to: ${optionsJson}. This returns the custom syntax rules for PBR materials, animations, and texture baking specific to this environment.
 2. Write the OpenSCAD code using those rules.
 3. Call the \`render_scad_model\` tool with your code to visually verify your design.
 4. If the model looks incorrect, adjust your code and re-render. Iterate until perfect.

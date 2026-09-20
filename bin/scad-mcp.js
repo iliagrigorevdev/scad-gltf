@@ -65,6 +65,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "string",
               description: "The description of the object you want to design.",
             },
+            options: {
+              type: "object",
+              description:
+                "Optional feature toggles to enable or disable specific OpenSCAD syntax rules. Examples: { animation: false, bakeColors: true }.",
+            },
           },
           required: ["description"],
         },
@@ -149,7 +154,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // ------------------------------------------
   if (name === "get_scad_prompt") {
     try {
-      const promptText = generatePrompt(args.description, {});
+      const promptText = generatePrompt(args.description, args.options || {});
       return {
         content: [
           {
