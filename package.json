@@ -37,7 +37,8 @@
     "scad-mcp": "./bin/scad-mcp.js",
     "scad-godot": "./bin/scad-godot.js",
     "scad-web": "./bin/scad-web.js",
-    "scad-gen": "./bin/scad-gen.js"
+    "scad-gen": "./bin/scad-gen.js",
+    "scad-play": "./bin/scad-play.js"
   },
   "exports": {
     ".": "./src/ext/openscad.js",
