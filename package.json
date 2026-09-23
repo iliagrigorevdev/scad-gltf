@@ -37,6 +37,7 @@
     "scad-mcp": "./bin/scad-mcp.js",
     "scad-godot": "./bin/scad-godot.js",
     "scad-web": "./bin/scad-web.js",
+    "scad-bevy": "./bin/scad-bevy.js",
     "scad-gen": "./bin/scad-gen.js",
     "scad-play": "./bin/scad-play.js"
   },

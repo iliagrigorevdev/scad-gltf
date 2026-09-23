@@ -73,13 +73,14 @@ function main() {
       if (fs.statSync(itemPath).isDirectory()) {
         const isGodot = fs.existsSync(path.join(itemPath, "project.godot"));
         const isWeb = fs.existsSync(path.join(itemPath, "package.json"));
+        const isBevy = fs.existsSync(path.join(itemPath, "Cargo.toml"));
 
-        if (isGodot || isWeb) {
+        if (isGodot || isWeb || isBevy) {
           const mtime = fs.statSync(itemPath).mtimeMs;
           if (mtime > latestTime) {
             latestTime = mtime;
             projectDir = itemPath;
-            projectType = isGodot ? "godot" : "web";
+            projectType = isGodot ? "godot" : isBevy ? "bevy" : "web";
           }
         }
       }
@@ -135,6 +136,15 @@ function main() {
       const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
 
       appProcess = spawn(npmCmd, ["run", "dev"], {
+        cwd: projectDir,
+        stdio: "inherit",
+      });
+    } else if (projectType === "bevy") {
+      console.log(
+        `\n🦀 Compiling and starting Rust Bevy game (this may take a moment)...`,
+      );
+      const cargoCmd = process.platform === "win32" ? "cargo.exe" : "cargo";
+      appProcess = spawn(cargoCmd, ["run"], {
         cwd: projectDir,
         stdio: "inherit",
       });

@@ -492,8 +492,11 @@ export async function runAutomatedAIFlow(
               const isWeb =
                 projectType === "web" &&
                 fs.existsSync(path.join(itemPath, "package.json"));
+              const isBevy =
+                projectType === "bevy" &&
+                fs.existsSync(path.join(itemPath, "Cargo.toml"));
 
-              if (isGodot || isWeb) {
+              if (isGodot || isWeb || isBevy) {
                 const mtime = fs.statSync(itemPath).mtimeMs;
                 if (mtime > latestTime) {
                   latestTime = mtime;
@@ -506,7 +509,11 @@ export async function runAutomatedAIFlow(
           if (!projectDir) {
             console.log(`   ❌ Could not find the generated project folder.`);
             const expectedFile =
-              projectType === "godot" ? "project.godot" : "package.json";
+              projectType === "godot"
+                ? "project.godot"
+                : projectType === "bevy"
+                  ? "Cargo.toml"
+                  : "package.json";
             messages.push({
               role: "user",
               content: `Your script successfully executed, but no valid project directory was found. Make sure your script creates a root folder and generates the correct required files (like ${expectedFile}) inside it.`,
@@ -546,6 +553,18 @@ export async function runAutomatedAIFlow(
               detached: false,
             });
 
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          } else if (projectType === "bevy") {
+            console.log(
+              `\n🦀 Building and running Bevy project: ${path.basename(projectDir)}...`,
+            );
+            const cargoCmd =
+              process.platform === "win32" ? "cargo.exe" : "cargo";
+            runProc = spawn(cargoCmd, ["run"], {
+              cwd: projectDir,
+              stdio: "inherit",
+              detached: false,
+            });
             await new Promise((resolve) => setTimeout(resolve, 2000));
           }
         }
