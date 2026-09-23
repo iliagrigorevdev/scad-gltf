@@ -1,4 +1,4 @@
-// Self-contained generator for Battleship 3D with the original flame spire style elevated higher,
+// Self-contained generator for Naval Battle 3D with the original flame spire style elevated higher,
 // corrected HUD reticle corners, and full English localization.
 const fs = require("fs");
 const path = require("path");
@@ -18,7 +18,7 @@ function writeFile(relativePath, content) {
   console.log(`Created: ${relativePath}`);
 }
 
-console.log(`\n=== Generating Battleship 3D: ${ROOT_DIR} ===\n`);
+console.log(`\n=== Generating Naval Battle 3D: ${ROOT_DIR} ===\n`);
 ensureDir(ROOT_DIR);
 
 // =========================================================================
@@ -1510,7 +1510,7 @@ theme_override_constants/separation = 4
 
 [node name="TitleLabel" type="Label" parent="UI/TopBar"]
 layout_mode = 2
-text = "BATTLESHIP 3D"
+text = "Naval Battle 3D"
 label_settings = SubResource("LabelSettings_title")
 horizontal_alignment = 1
 
@@ -1634,7 +1634,7 @@ writeFile(
 
 [application]
 
-config/name="Battleship 3D"
+config/name="Naval Battle 3D"
 config/description="3D Naval Battleship game featuring procedural OpenSCAD warships and tactical AI"
 run/main_scene="res://scenes/main_scene.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
@@ -1668,7 +1668,7 @@ scad_cache_*
 
 writeFile(
   "README.md",
-  `# Battleship 3D
+  `# Naval Battle 3D
 
 Tactical 3D Battleship game built for Godot 4 using procedural OpenSCAD 3D models.
 
