@@ -4,9 +4,6 @@ This folder contains the official Godot 4.x Editor plugin for natively importing
 
 By leveraging the `scad-gltf` compiler under the hood, this addon allows you to drag and drop procedural CAD files directly into your Godot project. It automatically compiles them into binary glTF (`.glb`) meshes, supporting advanced features like **PBR materials**, **hierarchical node animations**, and **texture baking**—all natively within the Godot editor.
 
-**🕹️ Play Online in Your Browser (No Installation Required):**
-👉 **[https://iliagrigorevdev.github.io/scad-godot/](https://iliagrigorevdev.github.io/scad-godot/)**
-
 ## ✨ Features
 
 - **Seamless Integration**: Drag and drop `.scad` files directly into the Godot FileSystem dock.

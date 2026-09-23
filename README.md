@@ -22,7 +22,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **CLI Converter:** Bundled `scad-convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
 - **MCP Server for AI Agents:** Bundled `scad-mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering and animation frame evaluation.
 - **AI Studio Extension:** Chrome extension to natively preview, prompt, take chat snapshots, open in Scadify, and locally save AI-generated 3D models directly inside Google AI Studio.
-- **Godot 4, Rust Bevy & Web Integration:** Native Godot 4 importer addon, Rust Bevy compile-time `build.rs` integration, and prebuilt AI-generated game examples for Godot and Bevy.
+- **Godot 4, Rust Bevy & Web Integration:** Native Godot 4 importer addon and Rust Bevy compile-time `build.rs` integration.
 - **Automated AI Generation:** Pass an OpenAI-compatible base URL (and optional API key) to the `scad-godot`, `scad-bevy`, or `scad-web` CLI to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run project generator script.
 
 ---
@@ -287,11 +287,7 @@ This repository includes an official **Godot 4.x Importer Addon** located in the
 
 The addon allows you to drag-and-drop `.scad` files directly into your Godot project. It uses this WASM compiler under the hood to transform scripts into 3D scenes automatically.
 
-**🕹️ Play Web Demos (No Installation Required):**
-Try prebuilt AI-generated Godot games directly in your browser: [https://iliagrigorevdev.github.io/scad-godot/](https://iliagrigorevdev.github.io/scad-godot/)
-
 - **Features:** Supports PBR Materials and Hierarchical Node Animations inside the Godot Editor.
-- **Examples:** Check out AI-generated game templates in the [`godot/examples`](./godot/examples) directory.
 - **License:** The Godot Addon is licensed under **MIT**.
 - **Setup:** Simply copy the `addons/scad_importer` folder to your project and enable it in Project Settings.
 
