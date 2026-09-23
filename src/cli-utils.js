@@ -145,7 +145,7 @@ export async function runAutomatedAIFlow(
   }
 
   const outputFilename = `generate_${projectType}_project.js`;
-  const isRawScad = projectType === "scad";
+  const isRawScad = projectType === "gen";
   const modelTag = modelName ? ` (${modelName})` : "";
 
   console.log(`\n🚀 Starting automated AI generation${modelTag}...`);
@@ -641,30 +641,49 @@ export async function runAutomatedAIFlow(
 }
 
 export async function runCliApp({
-  appName,
+  projectType,
   buildSystemPrompt,
   buildInputRequest,
-  allowedTools,
-  projectType,
+  allowedTools = ["render_scad_model"],
 }) {
-  appName = appName || (projectType ? `scad-${projectType}` : "scad");
+  if (!projectType) {
+    throw new Error("projectType is required.");
+  }
+
+  const appName = `scad-${projectType}`;
+  const isRawScad = projectType === "gen";
 
   const { task, optionsStr } = parseTaskAndOptions();
 
   if (!task) {
     console.error("Error: Task parameter is required.");
-    console.error(
-      `Usage: ${appName} "<description of the game to generate>" [options_json]`,
-    );
-    console.error(`   or: echo "<description>" | ${appName} [options_json]`);
-    console.error("");
-    console.error("Examples with JSON options (Automated AI flow):");
-    console.error(
-      `  ${appName} "A simple 3D game" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
-    );
-    console.error(
-      `  ${appName} "A simple 3D game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'`,
-    );
+    if (isRawScad) {
+      console.error(
+        `Usage: ${appName} "<description of the 3D model to generate>" [options_json]`,
+      );
+      console.error(`   or: echo "<description>" | ${appName} [options_json]`);
+      console.error("");
+      console.error("Examples with JSON options (Automated AI flow):");
+      console.error(
+        `  ${appName} "A modular sci-fi corridor piece" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
+      );
+      console.error(
+        `  ${appName} "A medieval longsword" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'`,
+      );
+    } else {
+      console.error(
+        `Usage: ${appName} "<description of the game to generate>" [options_json]`,
+      );
+      console.error(`   or: echo "<description>" | ${appName} [options_json]`);
+      console.error("");
+      console.error("Examples with JSON options (Automated AI flow):");
+      console.error(
+        `  ${appName} "A simple 3D game" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
+      );
+      console.error(
+        `  ${appName} "A simple 3D game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'`,
+      );
+    }
     process.exit(1);
   }
 
@@ -687,13 +706,18 @@ export async function runCliApp({
     }
   }
 
-  // Disable the modelName instructions specifically for these wrapper contexts
-  options.modelName = false;
+  if (!isRawScad) {
+    // Disable the modelName instructions specifically for these wrapper contexts
+    options.modelName = false;
+  }
 
   let promptRules = "";
   try {
     const { generatePrompt } = await import("./prompt.js");
-    promptRules = generatePrompt("the 3D assets for the game", options);
+    promptRules = generatePrompt(
+      isRawScad ? task : "the 3D assets for the game",
+      options,
+    );
   } catch (e) {
     console.error("Error generating prompt rules from prompt.js:");
     console.error(e);
@@ -701,7 +725,9 @@ export async function runCliApp({
   }
 
   const systemClipboardOutput = buildSystemPrompt(promptRules, options);
-  const inputRequestOutput = buildInputRequest(task);
+  const inputRequestOutput = buildInputRequest
+    ? buildInputRequest(task, promptRules)
+    : promptRules;
 
   // Check if API Key flows should be initialized instead of manual clipboard
   const openaiApiKey = options.openaiApiKey || process.env.OPENAI_API_KEY;
@@ -718,6 +744,20 @@ export async function runCliApp({
       allowedTools,
       projectType,
     );
+    return;
+  }
+
+  if (isRawScad) {
+    try {
+      await writeToClipboard(inputRequestOutput);
+      console.log(
+        "✔️  Input request and syntax rules have been copied to the clipboard. You can now paste it into your LLM.",
+      );
+    } catch (err) {
+      console.error("Error: Failed to copy input request to the clipboard.");
+      console.error(err.message);
+      process.exit(1);
+    }
     return;
   }
 
