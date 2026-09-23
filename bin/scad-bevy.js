@@ -1,69 +1,19 @@
 #!/usr/bin/env node
 
-import fs from "node:fs";
-import path from "node:path";
-import url from "node:url";
-import { generatePrompt } from "../src/prompt.js";
-import {
-  parseTaskAndOptions,
-  writeToClipboard,
-  waitForEnter,
-  runAutomatedAIFlow,
-} from "../src/cli-utils.js";
+import { runCliApp } from "../src/cli-utils.js";
 
 async function main() {
-  const { task, optionsStr } = parseTaskAndOptions();
-
-  if (!task) {
-    console.error("Error: Task parameter is required.");
-    console.error(
-      'Usage: scad-bevy "<description of the game to generate>" [options_json]',
-    );
-    console.error('   or: echo "<description>" | scad-bevy [options_json]');
-    console.error("");
-    console.error("Examples with JSON options (Automated AI flow):");
-    console.error(
-      '  scad-bevy "3D Space Shooter Game" \'{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}\'',
-    );
-    console.error(
-      '  scad-bevy "3D Platformer" \'{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}\'',
-    );
-    process.exit(1);
-  }
-
-  // 2. Parse Options JSON
-  // Disable heavy PBR features by default
-  let options = {
-    transmission: false,
-    clearcoat: false,
-    sheen: false,
-    iridescence: false,
-  };
-
-  if (optionsStr) {
-    try {
-      const parsed = JSON.parse(optionsStr);
-      options = { ...options, ...parsed }; // User provided options override defaults
-    } catch (e) {
-      console.error(`Invalid JSON options: ${optionsStr}`);
-      process.exit(1);
-    }
-  }
-
-  // Disable the modelName instructions specifically for this wrapper context
-  options.modelName = false;
-
-  let promptRules = "";
-  try {
-    promptRules = generatePrompt("the 3D assets for the game", options);
-  } catch (e) {
-    console.error("Error generating prompt rules from prompt.js:");
-    console.error(e);
-    process.exit(1);
-  }
-
-  // 4. Construct the Main Bevy Prompt System Text (System Instructions)
-  const systemPrompt = `You are an expert Rust Bevy engine game developer and procedural 3D technical artist.
+  await runCliApp({
+    appName: "scad-bevy",
+    appDescription: "game",
+    examples: [
+      'scad-bevy "3D Space Shooter Game" \'{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}\'',
+      'scad-bevy "3D Platformer" \'{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}\'',
+    ],
+    promptTarget: "the 3D assets for the game",
+    buildSystemPrompt: (
+      promptRules,
+    ) => `You are an expert Rust Bevy engine game developer and procedural 3D technical artist.
 
 NAMING CONVENTION REQUIREMENT:
 - All generated files, directories, models, scripts, and root folders MUST strictly use snake_case (lowercase with underscores, e.g. \`player_character.rs\`, \`enemy_walker.scad\`).
@@ -116,57 +66,12 @@ ${promptRules}
    - The script must embed and write:
      - Your generated \`.scad\` 3D assets.
      - Your generated Rust Bevy project files (\`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).
-   - Ensure all string file contents inside the Node.js script are properly escaped.`;
-
-  // 5. Format the input request output
-  const inputRequestOutput = `Design and implement a Rust Bevy engine game for the following concept: "${task}"`;
-
-  // Check if API Key flows should be initialized instead of manual clipboard
-  const openaiApiKey = options.openaiApiKey || process.env.OPENAI_API_KEY;
-  const openaiBaseUrl = options.openaiBaseUrl || process.env.OPENAI_BASE_URL;
-  const openaiModel = options.openaiModel || process.env.OPENAI_MODEL;
-
-  if (openaiApiKey || openaiBaseUrl) {
-    await runAutomatedAIFlow(
-      openaiApiKey,
-      openaiBaseUrl,
-      openaiModel,
-      systemPrompt,
-      inputRequestOutput,
-      ["render_scad_model", "compile_bevy_project"],
-      "bevy",
-    );
-    return;
-  }
-
-  // 6. Write to System Clipboard (Part 1: System Instructions)
-  try {
-    await writeToClipboard(systemPrompt);
-    console.log("✔️  System instructions have been copied to the clipboard.");
-  } catch (err) {
-    console.error(
-      "Error: Failed to copy system instructions to the clipboard.",
-    );
-    console.error(err.message);
-    process.exit(1);
-  }
-
-  // 7. Await user confirmation
-  await waitForEnter(
-    "Please paste the system instructions into your LLM, then press ENTER to copy your input request...",
-  );
-
-  // 8. Write to System Clipboard (Part 2: Input Request)
-  try {
-    await writeToClipboard(inputRequestOutput);
-    console.log(
-      "✔️  Input request has been copied to the clipboard. You can now paste it into your LLM.",
-    );
-  } catch (err) {
-    console.error("Error: Failed to copy input request to the clipboard.");
-    console.error(err.message);
-    process.exit(1);
-  }
+   - Ensure all string file contents inside the Node.js script are properly escaped.`,
+    buildInputRequest: (task) =>
+      `Design and implement a Rust Bevy engine game for the following concept: "${task}"`,
+    allowedTools: ["render_scad_model", "compile_bevy_project"],
+    projectType: "bevy",
+  });
 }
 
 // Execute and handle unhandled runtime errors
