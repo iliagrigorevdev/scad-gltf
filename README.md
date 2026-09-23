@@ -22,8 +22,8 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **CLI Converter:** Bundled `scad-convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
 - **MCP Server for AI Agents:** Bundled `scad-mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering and animation frame evaluation.
 - **AI Studio Extension:** Chrome extension to natively preview, prompt, take chat snapshots, open in Scadify, and locally save AI-generated 3D models directly inside Google AI Studio.
-- **Automated AI Generation:** Pass an OpenAI-compatible base URL (and optional API key) to the `scad-godot` or `scad-web` CLI to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run project generator script.
-- **Godot 4 Integration & Web Demos:** Native Godot 4 importer addon for procedural `.scad` assets and prebuilt AI-generated [web game examples](https://iliagrigorevdev.github.io/scad-godot/).
+- **Godot 4, Rust Bevy & Web Integration:** Native Godot 4 importer addon, Rust Bevy compile-time `build.rs` integration, and prebuilt AI-generated game examples for Godot and Bevy.
+- **Automated AI Generation:** Pass an OpenAI-compatible base URL (and optional API key) to the `scad-godot`, `scad-bevy`, or `scad-web` CLI to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run project generator script.
 
 ---
 
@@ -261,6 +261,7 @@ Instead of generating code blindly, the AI can compile its script, render the 3D
 
 - `get_scad_prompt`: Injects the custom OpenSCAD syntax rules (PBR, animations, baking) into the AI's context.
 - `render_scad_model`: Compiles the generated `.scad` code to GLB and returns base64 images from requested camera angles (front, back, left, right, top, bottom, isometric) and specific animation keyframes.
+- `compile_bevy_project` / `test_godot_project`: Tests the generated game projects for compilation and runtime errors.
 
 ### Setup
 
@@ -298,7 +299,7 @@ Try prebuilt AI-generated Godot games directly in your browser: [https://iliagri
 
 ### Automated AI Generation (OpenAI-Compatible API)
 
-By default, `scad-godot` and `scad-web` copy a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Base URL** (and optional **API Key**), the CLI will fully automate this process. It will automatically spin up the `scad-mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its 3D models in real-time before saving the final `generate_project.js` script to your disk.
+By default, `scad-godot`, `scad-bevy`, and `scad-web` copy a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Base URL** (and optional **API Key**), the CLI will fully automate this process. It will automatically spin up the `scad-mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its 3D models in real-time before saving the final `generate_project.js` script to your disk.
 
 **Option 1: Using OpenAI (GPT-4o)**
 
@@ -306,7 +307,7 @@ By default, `scad-godot` and `scad-web` copy a heavily engineered system prompt 
 export OPENAI_BASE_URL="https://api.openai.com/v1"
 export OPENAI_API_KEY="sk-..."
 export OPENAI_MODEL="gpt-4o"
-scad-godot "A 3D chess game"
+scad-bevy "A 3D spaceship shooter game"
 ```
 
 **Option 2: Using Google Gemini (via OpenAI compatibility)**
@@ -335,7 +336,7 @@ You can also pass credentials inline as a JSON string argument instead of modify
 scad-godot "A futuristic tank game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'
 ```
 
-_Once the automated process completes, simply run the generated Node.js script to assemble your complete Godot or Vite project structure with all assets and code!_
+_Once the automated process completes, simply run the generated Node.js script to assemble your complete Godot, Bevy, or Vite project structure with all assets and code!_
 
 ```bash
 node generate_godot_project.js
@@ -468,8 +469,6 @@ const promptContext = generatePrompt(description, {
 // or print it to the console to paste into Gemini.
 console.log(promptContext);
 ```
-
----
 
 ### Workflow
 
