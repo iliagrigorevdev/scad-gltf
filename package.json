@@ -22,6 +22,7 @@
     "3d",
     "cad",
     "godot",
+    "bevy",
     "mcp",
     "ai"
   ],
@@ -29,6 +30,7 @@
     "bin",
     "src",
     "godot",
+    "bevy",
     "editor/dist"
   ],
   "bin": {
