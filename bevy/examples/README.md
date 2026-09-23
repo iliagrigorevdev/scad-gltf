@@ -52,3 +52,7 @@ scad-bevy "A simple 3D platformer where you control a rolling ball collecting co
 ```
 
 _(See the main repository documentation for full details on generating your own AI projects)._
+
+## 📜 License
+
+These examples are licensed under the [MIT License](LICENSE).
