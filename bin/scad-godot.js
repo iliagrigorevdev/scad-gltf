@@ -11,13 +11,7 @@ const DIR = path.resolve(__dirname, "..");
 
 async function main() {
   await runCliApp({
-    appName: "scad-godot",
-    appDescription: "game",
-    examples: [
-      'scad-godot "Game description" \'{"animation": false, "bakeColors": true, "openaiApiKey": "sk-...", "openaiModel": "gpt-4o", "scadFiles": ["player.scad"]}\'',
-      'scad-godot "Game description" \'{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}\'',
-    ],
-    promptTarget: "the 3D assets for the game",
+    projectType: "godot",
     buildSystemPrompt: (promptRules, options) => {
       const hasUserScadFiles =
         Array.isArray(options.scadFiles) && options.scadFiles.length > 0;
@@ -136,7 +130,6 @@ ${promptRules}
     buildInputRequest: (task) =>
       `Design and implement a Godot 4 project for the following game concept: "${task}"`,
     allowedTools: ["render_scad_model", "test_godot_project"],
-    projectType: "godot",
   });
 }
 

@@ -642,25 +642,29 @@ export async function runAutomatedAIFlow(
 
 export async function runCliApp({
   appName,
-  appDescription,
-  examples,
-  promptTarget,
   buildSystemPrompt,
   buildInputRequest,
   allowedTools,
   projectType,
 }) {
+  appName = appName || (projectType ? `scad-${projectType}` : "scad");
+
   const { task, optionsStr } = parseTaskAndOptions();
 
   if (!task) {
     console.error("Error: Task parameter is required.");
     console.error(
-      `Usage: ${appName} "<description of the ${appDescription} to generate>" [options_json]`,
+      `Usage: ${appName} "<description of the game to generate>" [options_json]`,
     );
     console.error(`   or: echo "<description>" | ${appName} [options_json]`);
     console.error("");
     console.error("Examples with JSON options (Automated AI flow):");
-    examples.forEach((ex) => console.error(`  ${ex}`));
+    console.error(
+      `  ${appName} "A simple 3D game" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
+    );
+    console.error(
+      `  ${appName} "A simple 3D game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'`,
+    );
     process.exit(1);
   }
 
@@ -689,7 +693,7 @@ export async function runCliApp({
   let promptRules = "";
   try {
     const { generatePrompt } = await import("./prompt.js");
-    promptRules = generatePrompt(promptTarget, options);
+    promptRules = generatePrompt("the 3D assets for the game", options);
   } catch (e) {
     console.error("Error generating prompt rules from prompt.js:");
     console.error(e);

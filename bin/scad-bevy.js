@@ -4,13 +4,7 @@ import { runCliApp } from "../src/cli-utils.js";
 
 async function main() {
   await runCliApp({
-    appName: "scad-bevy",
-    appDescription: "game",
-    examples: [
-      'scad-bevy "3D Space Shooter Game" \'{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}\'',
-      'scad-bevy "3D Platformer" \'{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}\'',
-    ],
-    promptTarget: "the 3D assets for the game",
+    projectType: "bevy",
     buildSystemPrompt: (
       promptRules,
     ) => `You are an expert Rust Bevy engine game developer and procedural 3D technical artist.
@@ -70,7 +64,6 @@ ${promptRules}
     buildInputRequest: (task) =>
       `Design and implement a Rust Bevy engine game for the following concept: "${task}"`,
     allowedTools: ["render_scad_model", "compile_bevy_project"],
-    projectType: "bevy",
   });
 }
 
