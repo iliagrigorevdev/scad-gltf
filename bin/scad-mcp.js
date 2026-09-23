@@ -228,6 +228,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
       },
+      {
+        name: "compile_bevy_project",
+        description:
+          "Compiles a specified Rust Bevy project to detect syntax errors, missing dependencies, or compilation failures. Returns the cargo console output logs.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            project_dir: {
+              type: "string",
+              description:
+                "The relative or absolute path to the directory containing Cargo.toml. Use this if the project is already extracted on disk.",
+            },
+            nodejs_script: {
+              type: "string",
+              description:
+                "The complete self-contained Node.js script that generates the Bevy project. If provided, the tool will execute this script in a temporary directory to extract the project before compiling it. Use this during the generation phase to test your code before providing the final answer.",
+            },
+          },
+        },
+      },
     ],
   };
 });
@@ -915,6 +935,192 @@ func _ready():
       };
     } finally {
       // Clean up temporary directory if we created one
+      if (cleanupDir && fs.existsSync(cleanupDir)) {
+        try {
+          fs.rmSync(cleanupDir, { recursive: true, force: true });
+        } catch (e) {
+          console.error(`Failed to clean up temp dir: ${cleanupDir}`, e);
+        }
+      }
+    }
+  }
+
+  // ------------------------------------------
+  // TOOL 4: compile_bevy_project
+  // ------------------------------------------
+  if (name === "compile_bevy_project") {
+    let cleanupDir = null;
+    try {
+      let projectDir = null;
+
+      if (args.nodejs_script) {
+        // Create a unique temporary directory
+        const tempBase = fs.mkdtempSync(
+          path.join(os.tmpdir(), "scad-bevy-compile-"),
+        );
+        cleanupDir = tempBase;
+
+        const scriptPath = path.join(tempBase, "generate.js");
+        fs.writeFileSync(scriptPath, args.nodejs_script, "utf-8");
+
+        try {
+          execSync(`node generate.js`, {
+            cwd: tempBase,
+            stdio: "pipe",
+            timeout: 15000, // Time out after 15 seconds if it hangs
+          });
+        } catch (err) {
+          const stderr = err.stderr ? err.stderr.toString() : "";
+          const stdout = err.stdout ? err.stdout.toString() : "";
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: The Node.js script failed to execute properly.\n\nSTDERR:\n${stderr}\n\nSTDOUT:\n${stdout}\n\nException: ${err.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+
+        // Find the generated folder containing Cargo.toml
+        const items = fs.readdirSync(tempBase);
+        for (const item of items) {
+          const itemPath = path.join(tempBase, item);
+          if (
+            fs.statSync(itemPath).isDirectory() &&
+            fs.existsSync(path.join(itemPath, "Cargo.toml"))
+          ) {
+            projectDir = itemPath;
+            break;
+          }
+        }
+
+        if (!projectDir) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error: The Node.js script finished running, but NO Bevy project was found. A valid Rust Bevy project requires a 'Cargo.toml' file. Ensure your script creates a root project directory and places 'Cargo.toml' inside it.`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      } else if (args.project_dir) {
+        projectDir = path.resolve(process.cwd(), args.project_dir);
+      } else {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: Invalid arguments. You must provide either 'project_dir' or 'nodejs_script'.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      if (!fs.existsSync(path.join(projectDir, "Cargo.toml"))) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: The specified directory is not a valid Rust Bevy project. 'Cargo.toml' was not found in: ${projectDir}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const runCargoAsync = () =>
+        new Promise((resolve) => {
+          const cargoCmd = process.platform === "win32" ? "cargo.exe" : "cargo";
+          const child = spawn(cargoCmd, ["check"], {
+            cwd: projectDir,
+          });
+
+          let output = "";
+          if (child.stdout)
+            child.stdout.on("data", (data) => (output += data.toString()));
+          if (child.stderr)
+            child.stderr.on("data", (data) => (output += data.toString()));
+
+          child.on("error", (error) => {
+            output += `\nError launching cargo: ${error.message}`;
+            resolve({ code: 1, output });
+          });
+
+          child.on("close", (code) => {
+            resolve({ code, output });
+          });
+
+          // 2-minute timeout for Bevy compilation (can be slow as dependencies download)
+          setTimeout(() => {
+            try {
+              child.kill();
+            } catch (e) {}
+            output += "\n--- COMPILATION TIMED OUT (2 minutes) ---";
+            resolve({ code: 1, output });
+          }, 120000);
+        });
+
+      const compileResult = await runCargoAsync();
+      const compileOutput = compileResult.output;
+      const compileCode = compileResult.code;
+
+      const fullOutput = "--- CARGO CHECK ---\n" + compileOutput.trim();
+
+      const errorLines = fullOutput
+        .split("\n")
+        .filter(
+          (line) =>
+            line.includes("error:") ||
+            line.includes("error[E") ||
+            line.includes("could not compile"),
+        );
+
+      let responseText = `Cargo Check Exit Code: ${compileCode}\n\n`;
+
+      if (compileCode !== 0 || errorLines.length > 0) {
+        responseText +=
+          "🚨 Errors detected in Cargo output:\n" +
+          errorLines.join("\n") +
+          "\n\n";
+      } else {
+        responseText +=
+          "✅ No obvious errors detected. Project checked successfully.\n\n";
+      }
+
+      const maxOutputLen = 4000;
+      let truncatedOutput = fullOutput;
+      if (fullOutput.length > maxOutputLen) {
+        truncatedOutput = fullOutput.substring(
+          fullOutput.length - maxOutputLen,
+        );
+        responseText += `...[truncated]...\n`;
+      }
+      responseText += truncatedOutput;
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: responseText,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error compiling Bevy project: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    } finally {
       if (cleanupDir && fs.existsSync(cleanupDir)) {
         try {
           fs.rmSync(cleanupDir, { recursive: true, force: true });

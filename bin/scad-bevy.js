@@ -133,7 +133,7 @@ ${promptRules}
       openaiModel,
       systemPrompt,
       inputRequestOutput,
-      ["render_scad_model"],
+      ["render_scad_model", "compile_bevy_project"],
       "bevy",
     );
     return;
