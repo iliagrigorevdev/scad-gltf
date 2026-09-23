@@ -1,6 +1,6 @@
 {
   "name": "scad-gltf",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "WASM build of a custom OpenSCAD fork that compiles .scad scripts directly to glTF/GLB with PBR and animation support",
   "type": "module",
   "main": "./src/ext/openscad.js",
