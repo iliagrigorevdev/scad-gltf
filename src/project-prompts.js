@@ -106,7 +106,7 @@ ${promptRules}
    - Create the necessary files for a modern web application (e.g., \`package.json\`, \`index.html\`, \`main.js\`).
    - You can use ANY web 3D library with glTF support (e.g., Three.js, Babylon.js, @google/model-viewer, PlayCanvas, A-Frame, etc.) that fits the game's requirements.
    - In \`package.json\`, you MUST include the scad to gltf converter tool as a dev dependency:
-     \`"scad-gltf": "^0.1.0"\`
+     \`"scad-gltf": "^0.3.0"\`
    - In \`package.json\`, add npm scripts to automatically compile the \`.scad\` files into \`.glb\` format inside the \`public/\` folder before Vite runs its dev or build steps.
      For example:
      \`"predev": "scad-gltf convert ./scad ./public/models --cache"\`
