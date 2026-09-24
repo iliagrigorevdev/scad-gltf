@@ -519,7 +519,7 @@ async function fetchDependencies(code) {
   let serverFiles = [];
 
   try {
-    // Check if scad-serve backend is available to fetch potential include files
+    // Check if `scad-gltf serve` backend is available to fetch potential include files
     const res = await fetch(`${backendUrl}/api/scads`);
     if (res.ok) {
       const data = await res.json();
@@ -625,7 +625,7 @@ saveBtn.addEventListener("click", async () => {
     saveBtn.disabled = true;
 
     const res = await fetch(`${backendUrl}/api/scads`);
-    if (!res.ok) throw new Error("Could not reach scad-serve.");
+    if (!res.ok) throw new Error("Could not reach `scad-gltf serve`.");
 
     const data = await res.json();
     const checkFilename = filename.toLowerCase().endsWith(".scad")

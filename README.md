@@ -18,12 +18,12 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **Texture Baking:** Automatically generate UVs and bake high-poly details (colors, normals, ORM) onto low-poly meshes using the new `bake()` module.
 - **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, video/image export, URL sharing, and `.scad` / `.hdr` drag-and-drop.
 - **LLM Friendly:** Includes a built-in modular prompt generator (`prompt.js` and Web UI) to help AI models (like Gemini, Claude, or ChatGPT) write compatible OpenSCAD scripts utilizing the new features.
-- **Local API Server & Editor:** Bundled `scad-serve` CLI utility to manage local `.scad` files remotely via REST API with automatic `include`/`use` dependency resolution.
-- **CLI Converter:** Bundled `scad-convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
-- **MCP Server for AI Agents:** Bundled `scad-mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering and animation frame evaluation.
+- **Local API Server & Editor:** Bundled `scad-gltf serve` CLI utility to manage local `.scad` files remotely via REST API with automatic `include`/`use` dependency resolution.
+- **CLI Converter:** Bundled `scad-gltf convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
+- **MCP Server for AI Agents:** Bundled `scad-gltf mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering and animation frame evaluation.
 - **AI Studio Extension:** Chrome extension to natively preview, prompt, take chat snapshots, open in Scadify, and locally save AI-generated 3D models directly inside Google AI Studio.
 - **Godot 4, Rust Bevy & Web Integration:** Native Godot 4 importer addon and Rust Bevy compile-time `build.rs` integration.
-- **Automated AI Generation:** Pass an OpenAI-compatible base URL (and optional API key) to the `scad-gen` CLI tool to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run game project or raw 3D asset script.
+- **Automated AI Generation:** Pass an OpenAI-compatible base URL (and optional API key) to the `scad-gltf gen` CLI tool to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run game project or raw 3D asset script.
 
 ---
 
@@ -41,7 +41,7 @@ The built-in web editor (**Scadify**) provides a full-featured development envir
 - **Compressed URL Sharing:** Share your designs instantly via URL hash using client-side raw Deflate compression with an optional **Minify Share** toggle to strip comments and whitespace. Integrates with the Web Share API on supported devices.
 - **File Management & Drag and Drop:** Load local `.scad` files, drop any `.scad` script or `.hdr` environment map directly onto the viewport, download `.scad` source code, or export `.glb` binaries.
 - **Automatic Model Naming:** Extracts model names automatically from `/* Model Name: ... */` header comments for file downloads and exports.
-- **Local Workspace Sync:** Connect to `scad-serve` on localhost to load, edit, save, and delete `.scad` files with change detection and recursive dependency resolution (`include` / `use`).
+- **Local Workspace Sync:** Connect to `scad-gltf serve` on localhost to load, edit, save, and delete `.scad` files with change detection and recursive dependency resolution (`include` / `use`).
 - **PWA Support:** Installable as a Progressive Web App for desktop and mobile.
 
 ---
@@ -51,7 +51,7 @@ The built-in web editor (**Scadify**) provides a full-featured development envir
 This package is designed to be installed directly from GitHub.
 
 **Option 1: Global Installation (Recommended for CLI usage)**
-If you plan to use the `scad-convert`, `scad-serve`, `scad-gen`, or `scad-mcp` command-line tools anywhere on your system:
+If you plan to use the `scad-gltf` command-line tool and its subcommands anywhere on your system:
 
 ```bash
 npm install -g scad-gltf
@@ -148,49 +148,49 @@ const glbData = await convertScadToGltf(scadCode, { wasmUrl });
 
 ---
 
-## Command Line Conversion (`scad-convert`)
+## Command Line Conversion (`scad-gltf convert`)
 
 The package includes a CLI utility to convert `.scad` files to `.glb` directly from your terminal. It supports single files or entire directories, and features smart caching with dependency resolution to speed up build pipelines.
 
 **Usage:**
 
 ```bash
-scad-convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]
+scad-gltf convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]
 ```
 
 **Examples:**
 
 - **Single File:**
   ```bash
-  scad-convert model.scad model.glb
+  scad-gltf convert model.scad model.glb
   ```
 - **Directory Batch Conversion:**
   ```bash
-  scad-convert ./src_models ./out_glbs
+  scad-gltf convert ./src_models ./out_glbs
   ```
 - **With Smart Caching (`--cache`):**
   Generates a `.import` file containing a SHA-256 hash of the `.scad` file (including any recursively resolved `include` or `use` files) and compiler options. Subsequent runs skip recompilation if no changes are detected.
   ```bash
-  scad-convert ./src_models ./out_glbs --cache
+  scad-gltf convert ./src_models ./out_glbs --cache
   ```
 - **With Options:**
   Pass custom compiler options as a JSON string (or Base64 encoded JSON string):
   ```bash
-  scad-convert model.scad model.glb '{"variables": {"size": 20}}'
+  scad-gltf convert model.scad model.glb '{"variables": {"size": 20}}'
   ```
 
 ---
 
-## Local File Management & Web Editor (`scad-serve`)
+## Local File Management & Web Editor (`scad-gltf serve`)
 
-`scad-serve` provides a local REST API to manage `.scad` files and perform in-memory SCAD-to-GLB conversions. It automatically builds and serves the Scadify Web Editor UI.
+`scad-gltf serve` provides a local REST API to manage `.scad` files and perform in-memory SCAD-to-GLB conversions. It automatically builds and serves the Scadify Web Editor UI.
 
 It operates strictly on the working directory where the command is executed.
 
 **Start the server:**
 
 ```bash
-scad-serve
+scad-gltf serve
 ```
 
 **Available Endpoints:**
@@ -220,9 +220,9 @@ When asking an LLM (like Gemini) to generate OpenSCAD code, the extension automa
 - **Instant 3D Preview:** Injects a **"Preview 3D"** button on any OpenSCAD code block to compile and render the model in an embedded 3D viewer with grid, wireframe, and full-screen support.
 - **Visual Chat Feedback (📷):** Click the snapshot button inside the 3D preview window to capture a PNG snapshot of the model and **automatically paste it into the AI Studio chat input**, allowing Gemini to visually evaluate and fix geometry.
 - **Smart Prompt Injection:** Click the floating **"✨ SCAD"** button to open the configuration modal. Select your desired engine feature set (PBR, auto-smooth, animations, baking) to automatically generate and inject the prompt rules into your chat input.
-- **Local Model Refinement:** Connect to your local `scad-serve` workspace directly from the prompt modal. Select an existing `.scad` file to automatically append its source code to your prompt as a reference, enabling seamless AI iteration and refinement of your existing local designs.
+- **Local Model Refinement:** Connect to your local `scad-gltf serve` workspace directly from the prompt modal. Select an existing `.scad` file to automatically append its source code to your prompt as a reference, enabling seamless AI iteration and refinement of your existing local designs.
 - **Open in Scadify:** Click **"Edit"** in the preview window to immediately transfer the current script into the full standalone Scadify editor via compressed URL hash.
-- **Local Workspace Saving:** Directly save and overwrite models to your local directory when running `scad-serve`.
+- **Local Workspace Saving:** Directly save and overwrite models to your local directory when running `scad-gltf serve`.
 
 ### Installation (Chrome / Edge / Brave)
 
@@ -253,7 +253,7 @@ When asking an LLM (like Gemini) to generate OpenSCAD code, the extension automa
 
 ## 🤖 Model Context Protocol (MCP) Server
 
-This package includes a native [MCP Server](https://modelcontextprotocol.io/) (`scad-mcp`) designed to give AI assistants **visual feedback** during the 3D modeling process.
+This package includes a native [MCP Server](https://modelcontextprotocol.io/) (`scad-gltf mcp`) designed to give AI assistants **visual feedback** during the 3D modeling process.
 
 Instead of generating code blindly, the AI can compile its script, render the 3D scene in a headless browser (Puppeteer + Three.js), and evaluate multi-angle snapshots to iteratively fix geometric or animation errors.
 
@@ -265,15 +265,16 @@ Instead of generating code blindly, the AI can compile its script, render the 3D
 
 ### Setup
 
-If you installed the package globally, you can configure your MCP client to use the `scad-mcp` command directly.
+If you installed the package globally, you can configure your MCP client to use the `scad-gltf mcp` command directly.
 
 **Example `config.json`:**
 
 ```json
 {
   "mcpServers": {
-    "scad-mcp": {
-      "command": "scad-mcp"
+    "scad-gltf": {
+      "command": "scad-gltf",
+      "args": ["mcp"]
     }
   }
 }
@@ -295,7 +296,7 @@ The addon allows you to drag-and-drop `.scad` files directly into your Godot pro
 
 ### Automated AI Generation (OpenAI-Compatible API)
 
-By default, the `scad-gen` utility copies a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Base URL** (and optional **API Key**), the CLI will fully automate this process. It will automatically spin up the `scad-mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its code in real-time before saving the final `generate_project.js` script to your disk.
+By default, the `scad-gltf gen` utility copies a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Base URL** (and optional **API Key**), the CLI will fully automate this process. It will automatically spin up the `scad-gltf mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its code in real-time before saving the final `generate_project.js` script to your disk.
 
 **Supported Generation Types:**
 
@@ -310,7 +311,7 @@ By default, the `scad-gen` utility copies a heavily engineered system prompt to 
 export OPENAI_BASE_URL="https://api.openai.com/v1"
 export OPENAI_API_KEY="sk-..."
 export OPENAI_MODEL="gpt-4o"
-scad-gen bevy "A 3D spaceship shooter game"
+scad-gltf gen bevy "A 3D spaceship shooter game"
 ```
 
 **Option 2: Using Google Gemini (via OpenAI compatibility)**
@@ -320,7 +321,7 @@ Because Gemini provides an official OpenAI-compatible endpoint, you can configur
 export OPENAI_API_KEY="AIzaSy..."
 export OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
 export OPENAI_MODEL="gemini-3.8-flash"
-scad-gen godot "A fast-paced 3D hovercraft racing game"
+scad-gltf gen godot "A fast-paced 3D hovercraft racing game"
 ```
 
 **Option 3: Using Local Server**
@@ -329,14 +330,14 @@ You can use completely local, uncensored, or fine-tuned vision models by overrid
 ```bash
 export OPENAI_BASE_URL="http://127.0.0.1:8080/v1"
 export OPENAI_MODEL="llama-3" # Or whatever model name you've loaded
-scad-gen web "A 3D configurator app"
+scad-gltf gen web "A 3D configurator app"
 ```
 
 **Passing Parameters via JSON**
 You can also pass credentials inline as a JSON string argument instead of modifying environment variables:
 
 ```bash
-scad-gen godot "A futuristic tank game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'
+scad-gltf gen godot "A futuristic tank game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'
 ```
 
 _Once the automated process completes for full game projects, simply run the generated Node.js script to assemble your complete Godot, Bevy, or Vite project structure with all assets and code!_
