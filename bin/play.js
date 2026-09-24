@@ -13,9 +13,7 @@ function main() {
     console.error(
       "❌ Error: Path to the packed Node.js generator script is required.",
     );
-    console.error(
-      "Usage: node bin/scad-play.js <path_to_generated_project.js>",
-    );
+    console.error("Usage: scad-gltf play <path_to_generated_project.js>");
     process.exit(1);
   }
 
@@ -64,7 +62,7 @@ function main() {
 
     // 3. Find the resulting project folder and determine its type
     let projectDir = null;
-    let projectType = null; // 'godot' | 'web'
+    let projectType = null; // 'godot' | 'web' | 'bevy'
     let latestTime = 0;
 
     const items = fs.readdirSync(tempDir);

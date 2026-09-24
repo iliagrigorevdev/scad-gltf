@@ -32,11 +32,7 @@
     "editor/dist"
   ],
   "bin": {
-    "scad-convert": "./bin/scad-convert.js",
-    "scad-serve": "./bin/scad-serve.js",
-    "scad-mcp": "./bin/scad-mcp.js",
-    "scad-gen": "./bin/scad-gen.js",
-    "scad-play": "./bin/scad-play.js"
+    "scad-gltf": "./bin/scad-gltf.js"
   },
   "exports": {
     ".": "./src/ext/openscad.js",
@@ -48,7 +44,7 @@
   },
   "scripts": {
     "format": "prettier --write .",
-    "mcp": "npx @modelcontextprotocol/inspector node ./bin/scad-mcp.js",
+    "mcp": "npx @modelcontextprotocol/inspector node ./bin/mcp.js",
     "prepublishOnly": "npm install --prefix editor && npm run build --prefix editor"
   },
   "dependencies": {

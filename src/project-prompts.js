@@ -55,18 +55,18 @@ ${promptRules}
 
          // Ensure cross-platform compatibility for npm global binaries
          let cmd = if cfg!(target_os = "windows") {
-             "scad-convert.cmd"
+             "scad-gltf.cmd"
          } else {
-             "scad-convert"
+             "scad-gltf"
          };
 
          let status = Command::new(cmd)
-             .args(["./scad", "./assets/models", "--cache"])
+             .args(["convert", "./scad", "./assets/models", "--cache"])
              .status()
-             .expect("Failed to execute scad-convert. Is scad-gltf installed globally?");
+             .expect("Failed to execute scad-gltf. Is scad-gltf installed globally?");
 
          if !status.success() {
-             panic!("scad-convert failed with status: {}", status);
+             panic!("scad-gltf convert failed with status: {}", status);
          }
      }
      \`\`\`
@@ -109,8 +109,8 @@ ${promptRules}
      \`"scad-gltf": "^0.1.0"\`
    - In \`package.json\`, add npm scripts to automatically compile the \`.scad\` files into \`.glb\` format inside the \`public/\` folder before Vite runs its dev or build steps.
      For example:
-     \`"predev": "scad-convert ./scad ./public/models --cache"\`
-     \`"prebuild": "scad-convert ./scad ./public/models --cache"\`
+     \`"predev": "scad-gltf convert ./scad ./public/models --cache"\`
+     \`"prebuild": "scad-gltf convert ./scad ./public/models --cache"\`
    - Write the core game logic to load and display the converted \`.glb\` files interactively.
 
 3. Delivery Format (Single Node.js Script):

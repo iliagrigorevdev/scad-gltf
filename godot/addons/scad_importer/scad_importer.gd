@@ -16,27 +16,28 @@ func _import_scene(path: String, flags: int, options: Dictionary) -> Object:
 	var temp_glb_path = ProjectSettings.globalize_path("user://scad_cache_" + unique_id + ".glb")
 
 	var args = PackedStringArray()
+	args.append("convert")
 	args.append(global_source)
 	args.append(temp_glb_path)
 
 	var output = []
-	print("Importing %s via scad-convert..." % path.get_file())
+	print("Importing %s via scad-gltf..." % path.get_file())
 
 	var exit_code = -1
 	if OS.get_name() == "Windows":
-		var win_args = PackedStringArray(["/c", "scad-convert"])
+		var win_args = PackedStringArray(["/c", "scad-gltf"])
 		win_args.append_array(args)
 		exit_code = OS.execute("cmd.exe", win_args, output, true)
 	else:
-		exit_code = OS.execute("scad-convert", args, output, true)
+		exit_code = OS.execute("scad-gltf", args, output, true)
 
 	if exit_code != 0:
-		print("scad-convert conversion failed for %s. Attempting fallback to local scad-serve..." % path.get_file())
+		print("scad-gltf convert failed for %s. Attempting fallback to local scad-gltf serve..." % path.get_file())
 		var fallback_success = _try_scad_serve_fallback(global_source, temp_glb_path)
 
 		if not fallback_success:
-			push_error("Failed to compile SCAD file: %s. Ensure Node.js is installed or scad-serve is running." % path.get_file())
-			push_error("scad-convert output: ", "\n".join(output))
+			push_error("Failed to compile SCAD file: %s. Ensure Node.js is installed or scad-gltf serve is running." % path.get_file())
+			push_error("scad-gltf convert output: ", "\n".join(output))
 			return null
 
 	var gltf_doc = GLTFDocument.new()
@@ -194,7 +195,7 @@ func _try_scad_serve_fallback(source_path: String, out_glb_path: String) -> bool
 		out_file.store_buffer(rb)
 		out_file.close()
 
-		print("Successfully compiled %s using scad-serve fallback." % source_path.get_file())
+		print("Successfully compiled %s using scad-gltf serve fallback." % source_path.get_file())
 		return true
 
 	return false

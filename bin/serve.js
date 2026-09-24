@@ -217,7 +217,7 @@ if (fs.existsSync(editorDistDir)) {
 
 // Start Server
 app.listen(port, () => {
-  console.log(`🚀 scad-serve listening on http://localhost:${port}`);
+  console.log(`🚀 scad-gltf serve listening on http://localhost:${port}`);
   if (fs.existsSync(editorDistDir)) {
     console.log(`🌐 Editor available at: http://localhost:${port}/`);
   }

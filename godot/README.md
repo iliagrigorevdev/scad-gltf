@@ -10,7 +10,7 @@ By leveraging the `scad-gltf` compiler under the hood, this addon allows you to 
 - **Advanced Materials**: Supports standard OpenSCAD plus custom extensions for roughness, metalness, transmission, emission, and more.
 - **Hierarchical Node Animations**: Automatically parses `armature()` and `bone()` modules into Godot `Node3D` transform hierarchies animated via `AnimationPlayer` (rigid-body hierarchy animation, ideal for mechanical and articulated models).
 - **Dependency Tracking**: Smart resolution of local `include` and `use` OpenSCAD dependencies.
-- **Auto-Fallback Engine**: Attempts to use the high-performance CLI compiler (`scad-convert`) and seamlessly falls back to the HTTP backend (`scad-serve`) if running in a restricted environment.
+- **Auto-Fallback Engine**: Attempts to use the high-performance CLI compiler (`scad-gltf convert`) and seamlessly falls back to the HTTP backend (`scad-gltf serve`) if running in a restricted environment.
 
 ---
 
@@ -42,7 +42,7 @@ When you import or reimport a `.scad` file, the plugin will attempt to compile i
 
 ### 1. CLI Mode (Default)
 
-The plugin will try to execute the `scad-convert` CLI command natively through your operating system. This requires the `scad-gltf` package to be installed globally (as shown in Prerequisites). This is the fastest and recommended method for Windows, macOS, and Linux desktops.
+The plugin will try to execute the `scad-gltf convert` CLI command natively through your operating system. This requires the `scad-gltf` package to be installed globally (as shown in Prerequisites). This is the fastest and recommended method for Windows, macOS, and Linux desktops.
 
 ### 2. Server Fallback Mode (Termux / Android / Portable)
 
@@ -53,7 +53,7 @@ It will look for a local backend server running on `127.0.0.1:3000`. To use this
 1. Open your terminal in your project directory.
 2. Run the server using `npx`:
    ```bash
-   npx -p scad-gltf scad-serve
+   npx scad-gltf serve
    ```
 3. Leave the server running in the background. Godot will now send your `.scad` code to this local server, compile it in memory, and import the resulting 3D mesh.
 

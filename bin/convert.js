@@ -62,7 +62,7 @@ async function run() {
 
   if (!inputPath || !outputPath) {
     console.error(
-      "Usage: scad-convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]",
+      "Usage: scad-gltf convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]",
     );
     process.exit(1);
   }

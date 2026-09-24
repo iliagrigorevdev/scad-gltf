@@ -1138,7 +1138,7 @@ func _ready():
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("🚀 SCAD MCP Server running on stdio");
+  console.error("🚀 scad-gltf mcp server running on stdio");
 }
 
 main().catch((error) => {

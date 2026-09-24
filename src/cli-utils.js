@@ -163,7 +163,7 @@ export async function runAutomatedAIFlow(
     console.log("🔌 Starting local SCAD MCP server...");
     mcpTransport = new mcpClientStdio.StdioClientTransport({
       command: process.execPath,
-      args: [path.resolve(__dirname, "../bin/scad-mcp.js")],
+      args: [path.resolve(__dirname, "../bin/mcp.js")],
     });
 
     mcpClient = new mcpClientIndex.Client(
@@ -460,7 +460,7 @@ export async function runAutomatedAIFlow(
             `\n🌐 Starting local viewer to preview ${extractedFilename}...`,
           );
 
-          const scadServePath = path.resolve(__dirname, "../bin/scad-serve.js");
+          const scadServePath = path.resolve(__dirname, "../bin/serve.js");
           runProc = spawn(process.execPath, [scadServePath], {
             cwd: tempDir,
             stdio: "inherit",
@@ -657,20 +657,20 @@ export async function runCliApp({
   if (!task) {
     console.error("Error: Task parameter is required.");
     console.error(
-      `Usage: scad-gen ${projectType} "<description>" [options_json]`,
+      `Usage: scad-gltf gen ${projectType} "<description>" [options_json]`,
     );
     console.error(
-      `   or: echo "<description>" | scad-gen ${projectType} [options_json]`,
+      `   or: echo "<description>" | scad-gltf gen ${projectType} [options_json]`,
     );
     console.error("");
     console.error("Examples with JSON options (Automated AI flow):");
     if (isRawScad) {
       console.error(
-        `  scad-gen ${projectType} "A modular sci-fi corridor piece" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
+        `  scad-gltf gen ${projectType} "A modular sci-fi corridor piece" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
       );
     } else {
       console.error(
-        `  scad-gen ${projectType} "A simple 3D game" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
+        `  scad-gltf gen ${projectType} "A simple 3D game" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
       );
     }
     process.exit(1);

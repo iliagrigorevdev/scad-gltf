@@ -11,10 +11,10 @@ async function main() {
   if (!projectType || !VALID_TYPES.includes(projectType)) {
     console.error(`Error: Invalid or missing project type.`);
     console.error(
-      `Usage: scad-gen <${VALID_TYPES.join("|")}> "<description>" [options_json]`,
+      `Usage: scad-gltf gen <${VALID_TYPES.join("|")}> "<description>" [options_json]`,
     );
     console.error(
-      `Example: scad-gen godot "A 3D racing game" '{"openaiModel": "gpt-4o"}'`,
+      `Example: scad-gltf gen godot "A 3D racing game" '{"openaiModel": "gpt-4o"}'`,
     );
     process.exit(1);
   }
