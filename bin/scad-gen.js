@@ -1,20 +1,28 @@
 #!/usr/bin/env node
 
 import { runCliApp } from "../src/cli-utils.js";
+import { getProjectPrompts } from "../src/project-prompts.js";
+
+const VALID_TYPES = ["scad", "bevy", "web", "godot"];
 
 async function main() {
-  await runCliApp({
-    projectType: "gen",
-    buildSystemPrompt: () =>
-      `You are an expert procedural 3D technical artist and OpenSCAD developer.
-Your goal is to generate a single OpenSCAD (.scad) file based on the user's request.
+  const projectType = process.argv[2];
 
-CRITICAL WORKFLOW:
-1. Write the OpenSCAD code using the custom syntax rules provided in the request.
-2. Call the \`render_scad_model\` tool with your code to visually verify your design.
-3. If the model looks incorrect, adjust your code and re-render. Iterate until perfect.
-4. Provide your final OpenSCAD code in a standard markdown block (\`\`\`openscad).`,
-    allowedTools: ["render_scad_model"],
+  if (!projectType || !VALID_TYPES.includes(projectType)) {
+    console.error(`Error: Invalid or missing project type.`);
+    console.error(
+      `Usage: scad-gen <${VALID_TYPES.join("|")}> "<description>" [options_json]`,
+    );
+    console.error(
+      `Example: scad-gen godot "A 3D racing game" '{"openaiModel": "gpt-4o"}'`,
+    );
+    process.exit(1);
+  }
+
+  await runCliApp({
+    projectType,
+    ...getProjectPrompts(projectType),
+    argStartIndex: 3, // Shift arg parsing right by 1 since projectType is at index 2
   });
 }
 

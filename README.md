@@ -23,7 +23,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **MCP Server for AI Agents:** Bundled `scad-mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering and animation frame evaluation.
 - **AI Studio Extension:** Chrome extension to natively preview, prompt, take chat snapshots, open in Scadify, and locally save AI-generated 3D models directly inside Google AI Studio.
 - **Godot 4, Rust Bevy & Web Integration:** Native Godot 4 importer addon and Rust Bevy compile-time `build.rs` integration.
-- **Automated AI Generation:** Pass an OpenAI-compatible base URL (and optional API key) to the `scad-godot`, `scad-bevy`, or `scad-web` CLI to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run project generator script.
+- **Automated AI Generation:** Pass an OpenAI-compatible base URL (and optional API key) to the `scad-gen` CLI tool to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run game project or raw 3D asset script.
 
 ---
 
@@ -51,7 +51,7 @@ The built-in web editor (**Scadify**) provides a full-featured development envir
 This package is designed to be installed directly from GitHub.
 
 **Option 1: Global Installation (Recommended for CLI usage)**
-If you plan to use the `scad-convert`, `scad-serve`, or `scad-mcp` command-line tools anywhere on your system:
+If you plan to use the `scad-convert`, `scad-serve`, `scad-gen`, or `scad-mcp` command-line tools anywhere on your system:
 
 ```bash
 npm install -g scad-gltf
@@ -295,7 +295,14 @@ The addon allows you to drag-and-drop `.scad` files directly into your Godot pro
 
 ### Automated AI Generation (OpenAI-Compatible API)
 
-By default, `scad-godot`, `scad-bevy`, and `scad-web` copy a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Base URL** (and optional **API Key**), the CLI will fully automate this process. It will automatically spin up the `scad-mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its 3D models in real-time before saving the final `generate_project.js` script to your disk.
+By default, the `scad-gen` utility copies a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Base URL** (and optional **API Key**), the CLI will fully automate this process. It will automatically spin up the `scad-mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its code in real-time before saving the final `generate_project.js` script to your disk.
+
+**Supported Generation Types:**
+
+- `gen`: Generate a single raw `.scad` asset file.
+- `godot`: Generate a fully packaged Godot 4 game project containing generated assets and GDScript logic.
+- `bevy`: Generate a Rust Bevy game project.
+- `web`: Generate a Vite-based Web3D app (Three.js/Babylon).
 
 **Option 1: Using OpenAI (GPT-4o)**
 
@@ -303,7 +310,7 @@ By default, `scad-godot`, `scad-bevy`, and `scad-web` copy a heavily engineered 
 export OPENAI_BASE_URL="https://api.openai.com/v1"
 export OPENAI_API_KEY="sk-..."
 export OPENAI_MODEL="gpt-4o"
-scad-bevy "A 3D spaceship shooter game"
+scad-gen bevy "A 3D spaceship shooter game"
 ```
 
 **Option 2: Using Google Gemini (via OpenAI compatibility)**
@@ -313,7 +320,7 @@ Because Gemini provides an official OpenAI-compatible endpoint, you can configur
 export OPENAI_API_KEY="AIzaSy..."
 export OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
 export OPENAI_MODEL="gemini-3.8-flash"
-scad-godot "A fast-paced 3D hovercraft racing game"
+scad-gen godot "A fast-paced 3D hovercraft racing game"
 ```
 
 **Option 3: Using Local Server**
@@ -322,17 +329,17 @@ You can use completely local, uncensored, or fine-tuned vision models by overrid
 ```bash
 export OPENAI_BASE_URL="http://127.0.0.1:8080/v1"
 export OPENAI_MODEL="llama-3" # Or whatever model name you've loaded
-scad-web "A 3D configurator app"
+scad-gen web "A 3D configurator app"
 ```
 
 **Passing Parameters via JSON**
 You can also pass credentials inline as a JSON string argument instead of modifying environment variables:
 
 ```bash
-scad-godot "A futuristic tank game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'
+scad-gen godot "A futuristic tank game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'
 ```
 
-_Once the automated process completes, simply run the generated Node.js script to assemble your complete Godot, Bevy, or Vite project structure with all assets and code!_
+_Once the automated process completes for full game projects, simply run the generated Node.js script to assemble your complete Godot, Bevy, or Vite project structure with all assets and code!_
 
 ```bash
 node generate_godot_project.js

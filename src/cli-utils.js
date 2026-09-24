@@ -19,7 +19,7 @@ export function hasStdinData() {
   }
 }
 
-export function parseTaskAndOptions() {
+export function parseTaskAndOptions(startIndex = 2) {
   let task = "";
   let optionsStr = "{}";
 
@@ -29,10 +29,10 @@ export function parseTaskAndOptions() {
     } catch (e) {
       console.error("Error reading from STDIN:", e);
     }
-    if (process.argv[2]) optionsStr = process.argv[2];
+    if (process.argv[startIndex]) optionsStr = process.argv[startIndex];
   } else {
-    if (process.argv[2]) task = process.argv[2];
-    if (process.argv[3]) optionsStr = process.argv[3];
+    if (process.argv[startIndex]) task = process.argv[startIndex];
+    if (process.argv[startIndex + 1]) optionsStr = process.argv[startIndex + 1];
   }
   return { task, optionsStr };
 }
@@ -145,7 +145,7 @@ export async function runAutomatedAIFlow(
   }
 
   const outputFilename = `generate_${projectType}_project.js`;
-  const isRawScad = projectType === "gen";
+  const isRawScad = projectType === "scad";
   const modelTag = modelName ? ` (${modelName})` : "";
 
   console.log(`\n🚀 Starting automated AI generation${modelTag}...`);
@@ -645,43 +645,32 @@ export async function runCliApp({
   buildSystemPrompt,
   buildInputRequest,
   allowedTools = ["render_scad_model"],
+  argStartIndex = 2,
 }) {
   if (!projectType) {
     throw new Error("projectType is required.");
   }
 
-  const appName = `scad-${projectType}`;
-  const isRawScad = projectType === "gen";
-
-  const { task, optionsStr } = parseTaskAndOptions();
+  const isRawScad = projectType === "scad";
+  const { task, optionsStr } = parseTaskAndOptions(argStartIndex);
 
   if (!task) {
     console.error("Error: Task parameter is required.");
+    console.error(
+      `Usage: scad-gen ${projectType} "<description>" [options_json]`,
+    );
+    console.error(
+      `   or: echo "<description>" | scad-gen ${projectType} [options_json]`,
+    );
+    console.error("");
+    console.error("Examples with JSON options (Automated AI flow):");
     if (isRawScad) {
       console.error(
-        `Usage: ${appName} "<description of the 3D model to generate>" [options_json]`,
-      );
-      console.error(`   or: echo "<description>" | ${appName} [options_json]`);
-      console.error("");
-      console.error("Examples with JSON options (Automated AI flow):");
-      console.error(
-        `  ${appName} "A modular sci-fi corridor piece" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
-      );
-      console.error(
-        `  ${appName} "A medieval longsword" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'`,
+        `  scad-gen ${projectType} "A modular sci-fi corridor piece" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
       );
     } else {
       console.error(
-        `Usage: ${appName} "<description of the game to generate>" [options_json]`,
-      );
-      console.error(`   or: echo "<description>" | ${appName} [options_json]`);
-      console.error("");
-      console.error("Examples with JSON options (Automated AI flow):");
-      console.error(
-        `  ${appName} "A simple 3D game" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
-      );
-      console.error(
-        `  ${appName} "A simple 3D game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'`,
+        `  scad-gen ${projectType} "A simple 3D game" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
       );
     }
     process.exit(1);
