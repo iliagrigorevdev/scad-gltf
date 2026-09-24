@@ -17,7 +17,7 @@ if (!command || !commands[command]) {
   console.error("  serve     Start local API server and Web Editor");
   console.error("  mcp       Start the Model Context Protocol (MCP) server");
   console.error(
-    "  gen       Automated AI generation of 3D models and game projects",
+    "  gen       Automated AI generation of 3D models, simulations, and interactive projects",
   );
   console.error("  play      Test and launch generated Node.js scripts");
   process.exit(1);

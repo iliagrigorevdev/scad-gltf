@@ -103,7 +103,7 @@ function main() {
 
       console.log(`\n⚙️  Importing Godot assets (this may take a moment)...`);
       try {
-        // Force Godot to build the .godot/imported cache before attempting to run the game
+        // Force Godot to build the .godot/imported cache before attempting to run the project
         execSync(`"${godotBin}" --headless --editor --quit`, {
           cwd: projectDir,
           stdio: "inherit",
@@ -139,7 +139,7 @@ function main() {
       });
     } else if (projectType === "rust") {
       console.log(
-        `\n🦀 Compiling and starting Rust game (this may take a moment)...`,
+        `\n🦀 Compiling and starting Rust project (this may take a moment)...`,
       );
       const cargoCmd = process.platform === "win32" ? "cargo.exe" : "cargo";
       appProcess = spawn(cargoCmd, ["run"], {

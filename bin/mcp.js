@@ -201,7 +201,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "test_godot_project",
         description:
-          "Runs a specified Godot project for a short duration to detect script errors, missing resources, or runtime crashes. Returns the console output logs and a visual screenshot of the gameplay.",
+          "Runs a specified Godot project for a short duration to detect script errors, missing resources, or runtime crashes. Returns the console output logs and a visual screenshot of the running project.",
         inputSchema: {
           type: "object",
           properties: {
@@ -793,7 +793,7 @@ func _ready():
         }
         fs.writeFileSync(projectGodotPath, tempProjectGodot, "utf8");
 
-        // 2. Play Game Step
+        // 2. Run Project Step
         // Always try windowed first to get the screenshot.
         // If the environment lacks a display server, we'll catch the error and fallback.
         let playArgs = [

@@ -674,7 +674,7 @@ export async function runCliApp({
       );
     } else {
       console.error(
-        `  scad-gltf gen ${projectType} "A simple 3D game" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
+        `  scad-gltf gen ${projectType} "A simple 3D simulation" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
       );
     }
     process.exit(1);
@@ -708,7 +708,7 @@ export async function runCliApp({
   try {
     const { generatePrompt } = await import("./prompt.js");
     promptRules = generatePrompt(
-      isRawScad ? task : "the 3D assets for the game",
+      isRawScad ? task : "the 3D assets for the project",
       options,
     );
   } catch (e) {
