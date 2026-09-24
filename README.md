@@ -261,7 +261,7 @@ Instead of generating code blindly, the AI can compile its script, render the 3D
 
 - `get_scad_prompt`: Injects the custom OpenSCAD syntax rules (PBR, animations, baking) into the AI's context.
 - `render_scad_model`: Compiles the generated `.scad` code to GLB and returns base64 images from requested camera angles (front, back, left, right, top, bottom, isometric) and specific animation keyframes.
-- `compile_bevy_project` / `test_godot_project`: Tests the generated game projects for compilation and runtime errors.
+- `compile_rust_project` / `test_godot_project`: Tests the generated game projects for compilation and runtime errors.
 
 ### Setup
 

@@ -229,9 +229,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: "compile_bevy_project",
+        name: "compile_rust_project",
         description:
-          "Compiles a specified Rust Bevy project to detect syntax errors, missing dependencies, or compilation failures. Returns the cargo console output logs.",
+          "Compiles a specified Rust project to detect syntax errors, missing dependencies, or compilation failures. Returns the cargo console output logs.",
         inputSchema: {
           type: "object",
           properties: {
@@ -243,7 +243,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             nodejs_script: {
               type: "string",
               description:
-                "The complete self-contained Node.js script that generates the Bevy project. If provided, the tool will execute this script in a temporary directory to extract the project before compiling it. Use this during the generation phase to test your code before providing the final answer.",
+                "The complete self-contained Node.js script that generates the Rust project. If provided, the tool will execute this script in a temporary directory to extract the project before compiling it. Use this during the generation phase to test your code before providing the final answer.",
             },
           },
         },
@@ -946,9 +946,9 @@ func _ready():
   }
 
   // ------------------------------------------
-  // TOOL 4: compile_bevy_project
+  // TOOL 4: compile_rust_project
   // ------------------------------------------
-  if (name === "compile_bevy_project") {
+  if (name === "compile_rust_project") {
     let cleanupDir = null;
     try {
       let projectDir = null;
@@ -956,7 +956,7 @@ func _ready():
       if (args.nodejs_script) {
         // Create a unique temporary directory
         const tempBase = fs.mkdtempSync(
-          path.join(os.tmpdir(), "scad-bevy-compile-"),
+          path.join(os.tmpdir(), "scad-rust-compile-"),
         );
         cleanupDir = tempBase;
 
@@ -1001,7 +1001,7 @@ func _ready():
             content: [
               {
                 type: "text",
-                text: `Error: The Node.js script finished running, but NO Bevy project was found. A valid Rust Bevy project requires a 'Cargo.toml' file. Ensure your script creates a root project directory and places 'Cargo.toml' inside it.`,
+                text: `Error: The Node.js script finished running, but NO Rust project was found. A valid Rust project requires a 'Cargo.toml' file. Ensure your script creates a root project directory and places 'Cargo.toml' inside it.`,
               },
             ],
             isError: true,
@@ -1026,7 +1026,7 @@ func _ready():
           content: [
             {
               type: "text",
-              text: `Error: The specified directory is not a valid Rust Bevy project. 'Cargo.toml' was not found in: ${projectDir}`,
+              text: `Error: The specified directory is not a valid Rust project. 'Cargo.toml' was not found in: ${projectDir}`,
             },
           ],
           isError: true,
@@ -1055,7 +1055,7 @@ func _ready():
             resolve({ code, output });
           });
 
-          // 2-minute timeout for Bevy compilation (can be slow as dependencies download)
+          // 2-minute timeout for Rust compilation (can be slow as dependencies download)
           setTimeout(() => {
             try {
               child.kill();
@@ -1115,7 +1115,7 @@ func _ready():
         content: [
           {
             type: "text",
-            text: `Error compiling Bevy project: ${error.message}`,
+            text: `Error compiling Rust project: ${error.message}`,
           },
         ],
         isError: true,
