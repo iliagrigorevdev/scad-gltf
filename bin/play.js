@@ -62,7 +62,7 @@ function main() {
 
     // 3. Find the resulting project folder and determine its type
     let projectDir = null;
-    let projectType = null; // 'godot' | 'web' | 'bevy'
+    let projectType = null; // 'godot' | 'web' | 'rust'
     let latestTime = 0;
 
     const items = fs.readdirSync(tempDir);
@@ -71,14 +71,14 @@ function main() {
       if (fs.statSync(itemPath).isDirectory()) {
         const isGodot = fs.existsSync(path.join(itemPath, "project.godot"));
         const isWeb = fs.existsSync(path.join(itemPath, "package.json"));
-        const isBevy = fs.existsSync(path.join(itemPath, "Cargo.toml"));
+        const isRust = fs.existsSync(path.join(itemPath, "Cargo.toml"));
 
-        if (isGodot || isWeb || isBevy) {
+        if (isGodot || isWeb || isRust) {
           const mtime = fs.statSync(itemPath).mtimeMs;
           if (mtime > latestTime) {
             latestTime = mtime;
             projectDir = itemPath;
-            projectType = isGodot ? "godot" : isBevy ? "bevy" : "web";
+            projectType = isGodot ? "godot" : isRust ? "rust" : "web";
           }
         }
       }
@@ -87,7 +87,7 @@ function main() {
     if (!projectDir || !projectType) {
       console.error("\n❌ Error: Could not find a valid generated project.");
       console.error(
-        "The script did not produce a folder containing 'project.godot' or 'package.json'.",
+        "The script did not produce a folder containing 'project.godot', 'package.json', or 'Cargo.toml'.",
       );
       cleanup();
       process.exit(1);
@@ -137,9 +137,9 @@ function main() {
         cwd: projectDir,
         stdio: "inherit",
       });
-    } else if (projectType === "bevy") {
+    } else if (projectType === "rust") {
       console.log(
-        `\n🦀 Compiling and starting Rust Bevy game (this may take a moment)...`,
+        `\n🦀 Compiling and starting Rust game (this may take a moment)...`,
       );
       const cargoCmd = process.platform === "win32" ? "cargo.exe" : "cargo";
       appProcess = spawn(cargoCmd, ["run"], {
