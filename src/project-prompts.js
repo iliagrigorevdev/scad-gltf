@@ -82,7 +82,7 @@ ${promptRules}
    - Ensure all string file contents inside the Node.js script are properly escaped.`,
       buildInputRequest: (task) =>
         `Design and implement a Rust Bevy engine game for the following concept: "${task}"`,
-      allowedTools: ["render_scad_model", "compile_bevy_project"],
+      allowedTools: ["render_scad_model", "compile_rust_project"],
     };
   }
 
