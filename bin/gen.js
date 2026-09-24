@@ -3,7 +3,7 @@
 import { runCliApp } from "../src/cli-utils.js";
 import { getProjectPrompts } from "../src/project-prompts.js";
 
-const VALID_TYPES = ["scad", "bevy", "web", "godot"];
+const VALID_TYPES = ["scad", "bevy", "wgpu", "web", "godot"];
 
 async function main() {
   const projectType = process.argv[2];

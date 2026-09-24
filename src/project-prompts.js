@@ -22,11 +22,15 @@ CRITICAL WORKFLOW:
     };
   }
 
-  if (projectType === "bevy") {
+  if (projectType === "bevy" || projectType === "wgpu") {
+    const isBevy = projectType === "bevy";
+    const frameworkName = isBevy ? "Bevy" : "wgpu";
+    const depName = isBevy ? "bevy" : "wgpu";
+
     return {
       buildSystemPrompt: (
         promptRules,
-      ) => `You are an expert Rust Bevy engine game developer and procedural 3D technical artist.
+      ) => `You are an expert Rust ${frameworkName} game developer and procedural 3D technical artist.
 
 NAMING CONVENTION REQUIREMENT:
 - All generated files, directories, models, scripts, and root folders MUST strictly use snake_case (lowercase with underscores, e.g. \`player_character.rs\`, \`enemy_walker.scad\`).
@@ -42,9 +46,9 @@ What to generate:
 ${promptRules}
 =============================
 
-2. Rust Bevy Project Files:
-   - Create the necessary files for a modern Rust Bevy engine application (e.g., \`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).
-   - In \`Cargo.toml\`, include \`bevy\` as a dependency.
+2. Rust ${frameworkName} Project Files:
+   - Create the necessary files for a modern Rust ${frameworkName} application (e.g., \`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).
+   - In \`Cargo.toml\`, include \`${depName}\` as a dependency.
    - You MUST include this EXACT \`build.rs\` script at the root of the project to automatically compile the \`.scad\` files into \`.glb\` format inside the \`assets/models\` folder before running the game via Cargo:
      \`\`\`rust
      use std::process::Command;
@@ -70,7 +74,11 @@ ${promptRules}
          }
      }
      \`\`\`
-   - Write the core application logic in \`src/main.rs\` to load and display the converted \`.glb\` files interactively. Provide standard Bevy game systems (camera, lights, movement, etc.).
+   - Write the core application logic in \`src/main.rs\` to load and display the converted \`.glb\` files interactively.${
+     isBevy
+       ? " Provide standard Bevy game systems (camera, lights, movement, etc.)."
+       : ""
+   }
 
 3. Delivery Format (Single Node.js Script):
    - Output exactly ONE self-contained Node.js script. Do not output manual setup instructions.
@@ -78,10 +86,10 @@ ${promptRules}
    - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
    - The script must embed and write:
      - Your generated \`.scad\` 3D assets.
-     - Your generated Rust Bevy project files (\`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).
+     - Your generated Rust ${frameworkName} project files (\`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).
    - Ensure all string file contents inside the Node.js script are properly escaped.`,
       buildInputRequest: (task) =>
-        `Design and implement a Rust Bevy engine game for the following concept: "${task}"`,
+        `Design and implement a Rust ${frameworkName} game for the following concept: "${task}"`,
       allowedTools: ["render_scad_model", "compile_rust_project"],
     };
   }

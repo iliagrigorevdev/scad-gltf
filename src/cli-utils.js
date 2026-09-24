@@ -495,8 +495,11 @@ export async function runAutomatedAIFlow(
               const isBevy =
                 projectType === "bevy" &&
                 fs.existsSync(path.join(itemPath, "Cargo.toml"));
+              const isWgpu =
+                projectType === "wgpu" &&
+                fs.existsSync(path.join(itemPath, "Cargo.toml"));
 
-              if (isGodot || isWeb || isBevy) {
+              if (isGodot || isWeb || isBevy || isWgpu) {
                 const mtime = fs.statSync(itemPath).mtimeMs;
                 if (mtime > latestTime) {
                   latestTime = mtime;
@@ -511,7 +514,7 @@ export async function runAutomatedAIFlow(
             const expectedFile =
               projectType === "godot"
                 ? "project.godot"
-                : projectType === "bevy"
+                : projectType === "bevy" || projectType === "wgpu"
                   ? "Cargo.toml"
                   : "package.json";
             messages.push({
@@ -554,9 +557,10 @@ export async function runAutomatedAIFlow(
             });
 
             await new Promise((resolve) => setTimeout(resolve, 2000));
-          } else if (projectType === "bevy") {
+          } else if (projectType === "bevy" || projectType === "wgpu") {
+            const fwName = projectType === "bevy" ? "Bevy" : "wgpu";
             console.log(
-              `\n🦀 Building and running Bevy project: ${path.basename(projectDir)}...`,
+              `\n🦀 Building and running ${fwName} project: ${path.basename(projectDir)}...`,
             );
             const cargoCmd =
               process.platform === "win32" ? "cargo.exe" : "cargo";
