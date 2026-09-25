@@ -24,6 +24,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **AI Studio Extension:** Chrome extension to natively preview, prompt, take chat snapshots, open in Scadify, and locally save AI-generated 3D models directly inside Google AI Studio.
 - **Godot 4, Rust Bevy & Web Integration:** Native Godot 4 importer addon and Rust Bevy compile-time `build.rs` integration.
 - **Automated AI Generation:** Pass an OpenAI-compatible base URL (and optional API key) to the `scad-gltf gen` CLI tool to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run game project or raw 3D asset script.
+- **Project Runner:** Bundled `scad-gltf play` CLI utility to safely unpack, build, and launch generated game projects in isolated temporary environments.
 
 ---
 
@@ -251,7 +252,7 @@ When asking an LLM (like Gemini) to generate OpenSCAD code, the extension automa
 
 ---
 
-## 🤖 Model Context Protocol (MCP) Server
+## 🤖 Model Context Protocol Server (`scad-gltf mcp`)
 
 This package includes a native [MCP Server](https://modelcontextprotocol.io/) (`scad-gltf mcp`) designed to give AI assistants **visual feedback** during the 3D modeling process.
 
@@ -294,7 +295,7 @@ The addon allows you to drag-and-drop `.scad` files directly into your Godot pro
 
 ---
 
-### Automated AI Generation (OpenAI-Compatible API)
+## Automated AI Generation (`scad-gltf gen`)
 
 By default, the `scad-gltf gen` utility copies a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Base URL** (and optional **API Key**), the CLI will fully automate this process. It will automatically spin up the `scad-gltf mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its code in real-time before saving the final `generate_project.js` script to your disk.
 
@@ -340,10 +341,28 @@ You can also pass credentials inline as a JSON string argument instead of modify
 scad-gltf gen godot "A futuristic tank game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'
 ```
 
-_Once the automated process completes for full game projects, simply run the generated Node.js script to assemble your complete Godot, Bevy, or Vite project structure with all assets and code!_
+_Once the automated process completes for full game projects, you can test it instantly using the `play` command:_
+
+```bash
+scad-gltf play generate_godot_project.js
+```
+
+_Alternatively, to extract the final project permanently into your current directory, just run the script with Node:_
 
 ```bash
 node generate_godot_project.js
+```
+
+---
+
+## Testing Generated Projects (`scad-gltf play`)
+
+The `scad-gltf play` utility is designed to quickly test the single-file Node.js scripts produced by the `gen` command. Instead of cluttering your working directory, it unpacks the project into a temporary folder, automatically installs dependencies or builds the project (Godot, Rust Bevy, or Vite), and launches it. Once you close the application, the temporary folder is automatically cleaned up.
+
+**Usage:**
+
+```bash
+scad-gltf play <path_to_generated_script.js>
 ```
 
 ---
