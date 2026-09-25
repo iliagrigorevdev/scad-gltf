@@ -6,10 +6,37 @@ const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DIR = path.resolve(__dirname, "..");
 
+function appendUserScadFiles(options = {}) {
+  if (
+    !options.scadFiles ||
+    !Array.isArray(options.scadFiles) ||
+    options.scadFiles.length === 0
+  ) {
+    return "";
+  }
+
+  let output = `\n\n=== USER PROVIDED OPENSCAD FILES ===\n`;
+  output += `The following .scad files are provided as reference or base assets. You MUST embed and write them into the generated project (or use them as context), modifying them if necessary to fit the project logic.\n\n`;
+  for (const file of options.scadFiles) {
+    try {
+      const content = fs.readFileSync(file, "utf-8").replace(/\r\n/g, "\n");
+      const relativePath = path.isAbsolute(file)
+        ? path.relative(process.cwd(), file).replace(/\\/g, "/")
+        : file.replace(/\\/g, "/");
+      output += `### ${relativePath}\n---\n\`\`\`openscad\n${content}\n\`\`\`\n\n`;
+    } catch (e) {
+      console.error(
+        `Warning: Skipping user SCAD file '${file}'. It is not a readable file.`,
+      );
+    }
+  }
+  return output;
+}
+
 export function getProjectPrompts(projectType) {
   if (projectType === "scad") {
     return {
-      buildSystemPrompt: () =>
+      buildSystemPrompt: (promptRules, options = {}) =>
         `You are an expert procedural 3D technical artist and OpenSCAD developer.
 Your goal is to generate a single OpenSCAD (.scad) file based on the user's request.
 
@@ -17,7 +44,8 @@ CRITICAL WORKFLOW:
 1. Write the OpenSCAD code using the custom syntax rules provided in the request.
 2. Call the \`render_scad_model\` tool with your code to visually verify your design.
 3. If the model looks incorrect, adjust your code and re-render. Iterate until perfect.
-4. Provide your final OpenSCAD code in a standard markdown block (\`\`\`openscad).`,
+4. Provide your final OpenSCAD code in a standard markdown block (\`\`\`openscad).` +
+        appendUserScadFiles(options),
       allowedTools: ["render_scad_model"],
     };
   }
@@ -28,9 +56,12 @@ CRITICAL WORKFLOW:
     const depName = isBevy ? "bevy" : "wgpu";
 
     return {
-      buildSystemPrompt: (
-        promptRules,
-      ) => `You are an expert Rust ${frameworkName} developer and procedural 3D technical artist.
+      buildSystemPrompt: (promptRules, options = {}) => {
+        const hasUserScadFiles =
+          Array.isArray(options.scadFiles) && options.scadFiles.length > 0;
+
+        return (
+          `You are an expert Rust ${frameworkName} developer and procedural 3D technical artist.
 
 NAMING CONVENTION REQUIREMENT:
 - All generated files, directories, models, scripts, and root folders MUST strictly use snake_case (lowercase with underscores, e.g. \`player_character.rs\`, \`enemy_walker.scad\`).
@@ -87,8 +118,15 @@ ${promptRules}
    - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
    - The script must embed and write:
      - Your generated \`.scad\` 3D assets.
-     - Your generated Rust ${frameworkName} project files (\`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).
-   - Ensure all string file contents inside the Node.js script are properly escaped.`,
+     - Your generated Rust ${frameworkName} project files (\`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).${
+       hasUserScadFiles
+         ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
+         : ""
+     }
+   - Ensure all string file contents inside the Node.js script are properly escaped.` +
+          appendUserScadFiles(options)
+        );
+      },
       buildInputRequest: (task) =>
         `Design and implement a Rust ${frameworkName} project for the following concept: "${task}"`,
       allowedTools: ["render_scad_model", "compile_rust_project"],
@@ -97,9 +135,12 @@ ${promptRules}
 
   if (projectType === "web") {
     return {
-      buildSystemPrompt: (
-        promptRules,
-      ) => `You are an expert Web 3D developer and procedural 3D technical artist.
+      buildSystemPrompt: (promptRules, options = {}) => {
+        const hasUserScadFiles =
+          Array.isArray(options.scadFiles) && options.scadFiles.length > 0;
+
+        return (
+          `You are an expert Web 3D developer and procedural 3D technical artist.
 
 What to generate:
 1. 3D Web Assets (.scad):
@@ -129,8 +170,15 @@ ${promptRules}
    - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
    - The script must embed and write:
      - Your generated \`.scad\` 3D assets.
-     - Your generated Vite web project files.
-   - Ensure all string file contents inside the Node.js script are properly escaped.`,
+     - Your generated Vite web project files.${
+       hasUserScadFiles
+         ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
+         : ""
+     }
+   - Ensure all string file contents inside the Node.js script are properly escaped.` +
+          appendUserScadFiles(options)
+        );
+      },
       buildInputRequest: (task) =>
         `Design and implement a web-based 3D glTF project using Vite for the following concept: "${task}"`,
       allowedTools: ["render_scad_model"],
@@ -192,7 +240,7 @@ ${promptRules}
      - Your generated Godot project files.
      - The exact source code of the provided \`addons/scad_importer/*\` files, placed in their correct respective paths.${
        hasUserScadFiles
-         ? "\n     - The exact source code of the provided user `.scad` files, placed in the appropriate project folders."
+         ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
          : ""
      }
    - Ensure all string file contents inside the Node.js script are properly escaped.
@@ -235,25 +283,7 @@ ${promptRules}
           }
         }
 
-        if (hasUserScadFiles) {
-          systemClipboardOutput += `=== USER PROVIDED OPENSCAD FILES ===\n`;
-          systemClipboardOutput += `The following .scad files are provided as reference or base assets. You MUST embed and write them into the generated project, modifying them if necessary to fit the project logic.\n\n`;
-          for (const file of options.scadFiles) {
-            try {
-              const content = fs
-                .readFileSync(file, "utf-8")
-                .replace(/\r\n/g, "\n");
-              const relativePath = path.isAbsolute(file)
-                ? path.relative(process.cwd(), file).replace(/\\/g, "/")
-                : file.replace(/\\/g, "/");
-              systemClipboardOutput += `### ${relativePath}\n---\n\`\`\`openscad\n${content}\n\`\`\`\n\n`;
-            } catch (e) {
-              console.error(
-                `Warning: Skipping user SCAD file '${file}'. It is not a readable file.`,
-              );
-            }
-          }
-        }
+        systemClipboardOutput += appendUserScadFiles(options);
 
         return systemClipboardOutput.trimEnd() + "\n";
       },

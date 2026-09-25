@@ -14,7 +14,7 @@ async function main() {
       `Usage: scad-gltf gen <${VALID_TYPES.join("|")}> "<description>" [options_json]`,
     );
     console.error(
-      `Example: scad-gltf gen godot "A 3D physics simulation" '{"openaiModel": "gpt-4o"}'`,
+      `Example: scad-gltf gen godot "A 3D physics simulation" '{"openaiModel": "gpt-4o", "scadFiles": ["./player.scad"]}'`,
     );
     process.exit(1);
   }

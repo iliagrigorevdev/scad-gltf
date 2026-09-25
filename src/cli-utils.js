@@ -670,11 +670,11 @@ export async function runCliApp({
     console.error("Examples with JSON options (Automated AI flow):");
     if (isRawScad) {
       console.error(
-        `  scad-gltf gen ${projectType} "A modular sci-fi corridor piece" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
+        `  scad-gltf gen ${projectType} "A modular sci-fi corridor piece" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o", "scadFiles": ["./base.scad"]}'`,
       );
     } else {
       console.error(
-        `  scad-gltf gen ${projectType} "A simple 3D simulation" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o"}'`,
+        `  scad-gltf gen ${projectType} "A simple 3D simulation" '{"openaiApiKey": "sk-...", "openaiModel": "gpt-4o", "scadFiles": ["./character.scad"]}'`,
       );
     }
     process.exit(1);
