@@ -83,6 +83,7 @@ ${promptRules}
 3. Delivery Format (Single Node.js Script):
    - Output exactly ONE self-contained Node.js script. Do not output manual setup instructions.
    - CRITICAL: The generated Node.js script MUST first create a root project folder (named using a slugified version of the project name) and output all files and folders inside this newly created project folder.
+   - CRITICAL: You MUST use \`process.cwd()\` (and NOT \`__dirname\`) when defining the target directory path (e.g. \`const rootDir = path.join(process.cwd(), "my_project");\`). This ensures the script extracts correctly into whatever temporary folder it is executed from.
    - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
    - The script must embed and write:
      - Your generated \`.scad\` 3D assets.
@@ -124,6 +125,7 @@ ${promptRules}
 3. Delivery Format (Single Node.js Script):
    - Output exactly ONE self-contained Node.js script. Do not output manual setup instructions.
    - CRITICAL: The generated Node.js script MUST first create a root project folder (named using a slugified version of the project name) and output all files and folders inside this newly created project folder.
+   - CRITICAL: You MUST use \`process.cwd()\` (and NOT \`__dirname\`) when defining the target directory path (e.g. \`const rootDir = path.join(process.cwd(), "my_project");\`). This ensures the script extracts correctly into whatever temporary folder it is executed from.
    - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
    - The script must embed and write:
      - Your generated \`.scad\` 3D assets.
@@ -183,6 +185,7 @@ ${promptRules}
 3. Delivery Format (Single Node.js Script):
    - Output exactly ONE self-contained Node.js script. Do not output manual setup instructions.
    - CRITICAL: The generated Node.js script MUST first create a root project folder (named using snake_case with underscores, e.g., \`my_project\`) and output all files and folders inside this newly created project folder.
+   - CRITICAL: You MUST use \`process.cwd()\` (and NOT \`__dirname\`) when defining the target directory path (e.g. \`const rootDir = path.join(process.cwd(), "my_project");\`). This ensures the script extracts correctly into whatever temporary folder it is executed from.
    - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
    - The script must embed and write:
      - Your generated \`.scad\` assets.
