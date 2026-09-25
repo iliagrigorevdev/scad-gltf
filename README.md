@@ -301,9 +301,10 @@ By default, the `scad-gltf gen` utility copies a heavily engineered system promp
 
 **Supported Generation Types:**
 
-- `gen`: Generate a single raw `.scad` asset file.
+- `scad`: Generate a single raw `.scad` asset file.
 - `godot`: Generate a fully packaged Godot 4 game project containing generated assets and GDScript logic.
 - `bevy`: Generate a Rust Bevy game project.
+- `wgpu`: Generate a Rust wgpu graphics project.
 - `web`: Generate a Vite-based Web3D app (Three.js/Babylon).
 
 **Option 1: Using OpenAI (GPT-4o)**
@@ -339,6 +340,13 @@ You can also pass credentials inline as a JSON string argument instead of modify
 
 ```bash
 scad-gltf gen godot "A futuristic tank game" '{"openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'
+```
+
+**Providing Existing SCAD Files (`scadFiles`)**
+You can inject your own local `.scad` files into the AI's context using the `scadFiles` JSON option. The AI will embed them into the generated project or use them as a foundation.
+
+```bash
+scad-gltf gen godot "A game using the provided player model" '{"scadFiles": ["./player.scad"]}'
 ```
 
 _Once the automated process completes for full game projects, you can test it instantly using the `play` command:_
