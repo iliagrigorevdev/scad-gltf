@@ -757,10 +757,29 @@ saveBtn.addEventListener("click", async () => {
       saveBtn.disabled = false;
     }, 2000);
   } catch (err) {
-    console.error(err);
-    alert("Error saving file: " + err.message);
-    saveBtn.innerText = "Save";
-    saveBtn.disabled = false;
+    console.warn(
+      "Backend not connected or save failed, falling back to download",
+      err,
+    );
+
+    const blob = new Blob([latestScadCode || ""], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const checkFilename = filename.toLowerCase().endsWith(".scad")
+      ? filename
+      : `${filename}.scad`;
+    link.download = checkFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    saveBtn.innerText = "✅ Downloaded!";
+    setTimeout(() => {
+      saveBtn.innerText = "Save";
+      saveBtn.disabled = false;
+    }, 2000);
   }
 });
 
