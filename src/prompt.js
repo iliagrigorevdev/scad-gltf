@@ -117,6 +117,7 @@ export function generatePrompt(description, options = {}) {
     prompt += `\n\nImportant Animation rules:
 - Wrapping: Use the 'armature(animations=...)' module at the root to wrap all animated components.
 - Hierarchies: Use the 'bone(name="BoneName", t=[x,y,z], r=[x,y,z])' module to define hierarchical animated parts.
+- Camera Animation: You can create an animated glTF camera by naming a bone "Camera" or "camera". You can append numbers or separators to the name (e.g., "Camera1", "Camera_fov60" for Perspective 60 deg FOV, or "Camera_ortho_mag10" for Orthographic, scale 10). Physical parts like "CameraMount" are safely ignored. It will animate just like any other bone! Note: The camera looks forward along the +Y axis, with +Z as its UP direction.
 - Auto-Unioning: Any child meshes (e.g., cube, cylinder, imported objects) placed directly inside an 'armature()' or 'bone()' node are automatically unioned together by the engine and rigidly attached to that bone's transform node. Child bones remain separate nodes in the hierarchy.
 - Animation Data: The 'animations' property is an array of named animation sequences. Each sequence contains an array of tracks defining keyframes for each bone. Format:
   animations = [

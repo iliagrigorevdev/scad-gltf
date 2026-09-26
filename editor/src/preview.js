@@ -19,6 +19,7 @@ const showGridCb = document.getElementById("show-grid-cb");
 const wireframeCb = document.getElementById("wireframe-cb");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const screenshotBtn = document.getElementById("screenshot-btn");
+const cameraSelect = document.getElementById("camera-select");
 
 const animControls = document.getElementById("anim-controls");
 const animPlayBtn = document.getElementById("anim-play-btn");
@@ -36,6 +37,25 @@ let pendingCode = null;
 let mixer = null;
 let captureNextFrame = false;
 
+let gltfCameras = [];
+let activeCamera = null;
+
+function updateCameraAspect(cam, w, h) {
+  if (!cam) return;
+  if (cam.isPerspectiveCamera) {
+    cam.aspect = w / h;
+    cam.updateProjectionMatrix();
+  } else if (cam.isOrthographicCamera) {
+    const aspect = w / h;
+    if (!cam.userData.ymag) cam.userData.ymag = cam.top;
+    cam.left = -cam.userData.ymag * aspect;
+    cam.right = cam.userData.ymag * aspect;
+    cam.top = cam.userData.ymag;
+    cam.bottom = -cam.userData.ymag;
+    cam.updateProjectionMatrix();
+  }
+}
+
 // --- Setup Three.js Scene ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x222222);
@@ -47,6 +67,7 @@ const camera = new THREE.PerspectiveCamera(
   2000,
 );
 camera.position.set(50, 50, -50);
+activeCamera = camera;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -62,7 +83,7 @@ viewerEl.appendChild(renderer.domElement);
 
 // --- Post-processing: Bloom for Emissive Glow ---
 const composer = new EffectComposer(renderer);
-const renderPass = new RenderPass(scene, camera);
+const renderPass = new RenderPass(scene, activeCamera);
 composer.addPass(renderPass);
 
 const bloomPass = new UnrealBloomPass(
@@ -87,6 +108,25 @@ scene.environment = pmremGenerator.fromScene(
   0.04,
 ).texture;
 scene.environmentIntensity = 0.8;
+
+if (cameraSelect) {
+  cameraSelect.addEventListener("change", (e) => {
+    const val = e.target.value;
+    if (val === "") {
+      activeCamera = camera;
+      controls.enabled = true;
+    } else {
+      activeCamera = gltfCameras[parseInt(val)];
+      controls.enabled = false;
+    }
+    const w = viewerContainer ? viewerContainer.clientWidth : window.innerWidth;
+    const h = viewerContainer
+      ? viewerContainer.clientHeight
+      : window.innerHeight;
+    updateCameraAspect(activeCamera, w, h);
+    renderPass.camera = activeCamera;
+  });
+}
 
 // Environment Helpers
 const lightGroup = new THREE.Group();
@@ -269,6 +309,11 @@ function animate() {
   gridHelper.visible = showGrid;
   axesHelper.visible = showGrid;
 
+  // Currently preview.js doesn't have pathTracer imported by default, but just in case:
+  if (typeof pathTracer !== "undefined" && currentAction && isPlaying) {
+    pathTracer.updateCamera();
+  }
+
   composer.render();
 
   if (captureNextFrame) {
@@ -283,8 +328,7 @@ animate();
 window.addEventListener("resize", () => {
   const w = viewerContainer ? viewerContainer.clientWidth : window.innerWidth;
   const h = viewerContainer ? viewerContainer.clientHeight : window.innerHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
+  updateCameraAspect(activeCamera, w, h);
   renderer.setSize(w, h);
   composer.setSize(w, h);
 });
@@ -404,10 +448,52 @@ function renderGLTF(outputArray) {
         currentAnimations = gltf.animations || [];
         const isWireframe = wireframeCb ? wireframeCb.checked : false;
 
+        gltfCameras = [];
+        currentMesh.traverse((child) => {
+          if (child.isCamera) {
+            gltfCameras.push(child);
+          }
+        });
+
+        let hasAnimOrCamera = false;
+
+        if (cameraSelect) {
+          if (gltfCameras.length > 0) {
+            cameraSelect.style.display = "inline-block";
+            cameraSelect.innerHTML = '<option value="">Free Camera</option>';
+            gltfCameras.forEach((cam, idx) => {
+              const opt = document.createElement("option");
+              opt.value = idx;
+              opt.innerText = cam.name || `Camera ${idx + 1}`;
+              cameraSelect.appendChild(opt);
+            });
+            cameraSelect.value = "0";
+            activeCamera = gltfCameras[0];
+            controls.enabled = false;
+            hasAnimOrCamera = true;
+          } else {
+            cameraSelect.style.display = "none";
+            cameraSelect.value = "";
+            activeCamera = camera;
+            controls.enabled = true;
+          }
+        } else {
+          activeCamera = camera;
+          controls.enabled = true;
+        }
+
+        const w = viewerEl ? viewerEl.clientWidth : window.innerWidth;
+        const h = viewerEl ? viewerEl.clientHeight : window.innerHeight;
+        updateCameraAspect(activeCamera, w, h);
+        renderPass.camera = activeCamera;
+
         if (currentAnimations.length > 0) {
           mixer = new THREE.AnimationMixer(currentMesh);
+          hasAnimOrCamera = true;
           if (animControls) {
-            animControls.style.display = "flex";
+            if (animPlayBtn) animPlayBtn.style.display = "";
+            if (animSelect) animSelect.style.display = "";
+            if (animSlider) animSlider.style.display = "";
             animSelect.innerHTML = "";
             currentAnimations.forEach((clip, i) => {
               const opt = document.createElement("option");
@@ -425,8 +511,16 @@ function renderGLTF(outputArray) {
             mixer.update(0);
           }
         } else {
-          if (animControls) animControls.style.display = "none";
+          if (animControls) {
+            if (animPlayBtn) animPlayBtn.style.display = "none";
+            if (animSelect) animSelect.style.display = "none";
+            if (animSlider) animSlider.style.display = "none";
+          }
           currentAction = null;
+        }
+
+        if (animControls) {
+          animControls.style.display = hasAnimOrCamera ? "flex" : "none";
         }
 
         currentMesh.traverse((child) => {

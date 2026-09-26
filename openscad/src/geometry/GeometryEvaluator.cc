@@ -68,6 +68,7 @@ class Tree;
 
 static bool is_unmergeable(const std::shared_ptr<const Geometry>& geom) {
   if (std::dynamic_pointer_cast<const BoneGeometry>(geom)) return true;
+  if (std::dynamic_pointer_cast<const ArmatureGeometry>(geom)) return true;
   if (auto ps = std::dynamic_pointer_cast<const PolySet>(geom)) {
     if (ps->high_poly_bake) return true;
   }

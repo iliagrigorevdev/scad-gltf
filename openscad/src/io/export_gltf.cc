@@ -278,6 +278,51 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         node.translation = {t.x(), t.y(), t.z()};
         node.rotation = {q.x(), q.y(), q.z(), q.w()};
         node.scale = {s.x(), s.y(), s.z()};
+
+        auto is_camera_bone = [](const std::string& name) {
+            if (name.rfind("Camera", 0) != 0 && name.rfind("camera", 0) != 0) return false;
+            if (name.size() == 6) return true;
+            char next = name[6];
+            return next == '_' || next == '-' || next == '.' || next == ' ' || std::isdigit(static_cast<unsigned char>(next));
+        };
+
+        if (is_camera_bone(bone->name)) {
+            tinygltf::Camera cam;
+            if (bone->name.find("_ortho") != std::string::npos) {
+                cam.type = "orthographic";
+                cam.orthographic.xmag = 10.0;
+                cam.orthographic.ymag = 10.0;
+                cam.orthographic.znear = 0.01;
+                cam.orthographic.zfar = 10000.0;
+                size_t mag_pos = bone->name.find("_mag");
+                if (mag_pos != std::string::npos) {
+                    try {
+                        float mag = std::stof(bone->name.substr(mag_pos + 4));
+                        if (mag > 0.0f) {
+                            cam.orthographic.xmag = mag;
+                            cam.orthographic.ymag = mag;
+                        }
+                    } catch (...) {}
+                }
+            } else {
+                cam.type = "perspective";
+                cam.perspective.yfov = 45.0 * M_PI / 180.0;
+                cam.perspective.znear = 0.01;
+                cam.perspective.zfar = 10000.0;
+                size_t fov_pos = bone->name.find("_fov");
+                if (fov_pos != std::string::npos) {
+                    try {
+                        float fov_deg = std::stof(bone->name.substr(fov_pos + 4));
+                        if (fov_deg > 0.0f && fov_deg < 180.0f) {
+                            cam.perspective.yfov = fov_deg * M_PI / 180.0;
+                        }
+                    } catch (...) {}
+                }
+            }
+            node.camera = model.cameras.size();
+            model.cameras.push_back(cam);
+        }
+
         model.nodes.push_back(node);
         bone_to_node[bone->name] = node_idx;
 
