@@ -58,3 +58,35 @@ public:
         world_matrix = mat * world_matrix;
     }
 };
+
+class LightGeometry : public GeometryList {
+public:
+    std::string light_type;
+    Color4f color;
+    double intensity;
+    double range;
+    double innerConeAngle;
+    double outerConeAngle;
+    Transform3d local_matrix;
+
+    LightGeometry(std::string type, Color4f c, double i, double r, double inner, double outer)
+        : GeometryList(Geometry::Geometries()), light_type(std::move(type)), color(c), intensity(i), range(r), innerConeAngle(inner), outerConeAngle(outer), local_matrix(Transform3d::Identity()) {}
+
+    LightGeometry(const LightGeometry& other)
+        : GeometryList(other), light_type(other.light_type), color(other.color), intensity(other.intensity), range(other.range), innerConeAngle(other.innerConeAngle), outerConeAngle(other.outerConeAngle), local_matrix(other.local_matrix) {}
+
+    void accept(GeometryVisitor& visitor) const override {
+        visitor.visit(static_cast<const GeometryList&>(*this));
+    }
+    size_t memsize() const override { return GeometryList::memsize() + sizeof(LightGeometry); }
+    std::unique_ptr<Geometry> copy() const override { return std::make_unique<LightGeometry>(*this); }
+    std::string dump() const override { return "LightGeometry(" + light_type + ")\n" + GeometryList::dump(); }
+
+    unsigned int getDimension() const override { return 3; }
+    bool isEmpty() const override { return false; }
+
+    void transform(const Transform3d& mat) override {
+        GeometryList::transform(mat);
+        local_matrix = mat * local_matrix;
+    }
+};

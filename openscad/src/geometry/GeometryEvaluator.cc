@@ -69,6 +69,7 @@ class Tree;
 static bool is_unmergeable(const std::shared_ptr<const Geometry>& geom) {
   if (std::dynamic_pointer_cast<const BoneGeometry>(geom)) return true;
   if (std::dynamic_pointer_cast<const ArmatureGeometry>(geom)) return true;
+  if (std::dynamic_pointer_cast<const LightGeometry>(geom)) return true;
   if (auto ps = std::dynamic_pointer_cast<const PolySet>(geom)) {
     if (ps->high_poly_bake) return true;
   }
@@ -675,6 +676,36 @@ Response GeometryEvaluator::visit(State& state, const BoneNode& node)
           }
       }
       geom = boneGeom;
+    } else {
+      geom = smartCacheGet(node, state.preferNef());
+    }
+    addToParent(state, node, geom);
+    node.progress_report();
+  }
+  return Response::ContinueTraversal;
+}
+
+Response GeometryEvaluator::visit(State& state, const LightNode& node)
+{
+  if (state.isPrefix()) {
+    if (isSmartCached(node)) return Response::PruneTraversal;
+    state.setPreferNef(true);
+  }
+  if (state.isPostfix()) {
+    std::shared_ptr<const Geometry> geom;
+    if (!isSmartCached(node)) {
+      auto unioned_children = applyToChildren(node, OpenSCADOperator::UNION).constptr();
+
+      auto lightGeom = std::make_shared<LightGeometry>(node.light_type, node.color, node.intensity, node.range, node.innerConeAngle, node.outerConeAngle);
+      if (unioned_children) {
+          if (typeid(*unioned_children) == typeid(GeometryList)) {
+              auto gl = std::static_pointer_cast<const GeometryList>(unioned_children);
+              lightGeom->children = gl->children;
+          } else {
+              lightGeom->children.push_back({node.shared_from_this(), unioned_children});
+          }
+      }
+      geom = lightGeom;
     } else {
       geom = smartCacheGet(node, state.preferNef());
     }

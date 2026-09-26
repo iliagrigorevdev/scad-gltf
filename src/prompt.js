@@ -27,6 +27,7 @@ export function generatePrompt(description, options = {}) {
     animation: options.animation ?? true,
     lazyUnion: options.lazyUnion ?? false,
     modelName: options.modelName ?? true,
+    lights: options.lights ?? false,
   };
 
   let prompt = `Generate an OpenSCAD script to design the following: ${description}.`;
@@ -227,6 +228,24 @@ ${bakeSig} {
 bake(uvs=true) {
   color("white") cube([10, 10, 10]);
 }
+\`\`\``;
+  }
+
+  if (opts.lights) {
+    prompt += `\n\nImportant Lighting rules:
+- Lights: Use the 'light()' module to add lights to the scene.
+- Syntax: \`light(type="point", color=[1,1,1], intensity=1.0, range=0.0, innerConeAngle=0.0, outerConeAngle=45.0) { ... }\`
+- Supported light types: "directional", "point", "spot".
+- Orientation: A directional or spot light shines in the -Z direction by default. Use \`translate()\` and \`rotate()\` around the \`light()\` module to position and orient it.
+- Spot lights accept \`innerConeAngle\` and \`outerConeAngle\` (in degrees). Point/Spot lights accept \`range\` (0.0 means infinite).
+- Children inside a \`light()\` block are rendered normally in OpenSCAD and exported. The light transform automatically follows its enclosing transformations.
+
+Example Lighting Usage:
+\`\`\`openscad
+// A spot light pointing down at an angle
+translate([0, 0, 50]) rotate([0, 30, 0])
+  light(type="spot", color=[1, 0.8, 0.8], intensity=5.0, innerConeAngle=15.0, outerConeAngle=30.0)
+    color("gray") cylinder(h=2, r=1, center=true); // A visual representation of the light fixture
 \`\`\``;
   }
 

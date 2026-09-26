@@ -750,7 +750,7 @@ include(FetchContent)
 FetchContent_Declare(
   tinygltf
   GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
-  GIT_TAG v2.9.7
+  GIT_TAG v3.0.1
 )
 set(TINYGLTF_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(tinygltf)

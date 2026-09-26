@@ -3,6 +3,7 @@ export const PROMPT_UI_HTML = `
     <label><input type="checkbox" id="opt-pbr-basic" checked /> Basic PBR</label>
     <label><input type="checkbox" id="opt-pbr-autosmooth" checked /> Auto Smooth</label>
     <label><input type="checkbox" id="opt-anim" checked /> Animations</label>
+    <label><input type="checkbox" id="opt-lights" /> Lights</label>
   </div>
 
   <div class="scad-prompt-group">
@@ -131,5 +132,6 @@ export function getPromptOptions(containerElement) {
     bakeOrm: containerElement.querySelector("#opt-bake-orm")?.checked ?? false,
     bakeUvs: containerElement.querySelector("#opt-bake-uvs")?.checked ?? false,
     animation: containerElement.querySelector("#opt-anim")?.checked ?? true,
+    lights: containerElement.querySelector("#opt-lights")?.checked ?? false,
   };
 }

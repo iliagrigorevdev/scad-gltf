@@ -15,8 +15,7 @@
 #include <algorithm>
 
 #include <xatlas.h>
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
+#include "lodepng/lodepng.h"
 #include <nanort.h>
 
 #define TINYGLTF_IMPLEMENTATION
@@ -25,7 +24,7 @@
 #define TINYGLTF_NO_EXTERNAL_IMAGE
 #define TINYGLTF_NO_INCLUDE_JSON
 #include "json/json.hpp"
-#include <tiny_gltf.h>
+#include <attic/tiny_gltf.h>
 
 namespace {
 
@@ -241,7 +240,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                   tinygltf::Model& model, std::vector<MeshInfo>& meshes_info,
                   std::map<std::string, int>& bone_to_node, Value& global_anims,
                   Transform3d C, Transform3d M_accum,
-                  std::vector<int>& scene_nodes)
+                  std::vector<int>& scene_nodes, std::vector<tinygltf::Value>& gltf_lights)
 {
     if (auto armature = std::dynamic_pointer_cast<const ArmatureGeometry>(geom)) {
         if (armature->animations.type() == Value::Type::VECTOR) {
@@ -255,7 +254,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         if (parent_node_idx < 0) scene_nodes.push_back(node_idx);
 
         for (const auto& item : armature->getChildren()) {
-            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes);
+            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes, gltf_lights);
             if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
         }
         return node_idx;
@@ -331,14 +330,74 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         Transform3d next_M_accum = M_accum * bone->local_matrix;
 
         for (const auto& item : bone->getChildren()) {
-            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, next_M_accum, scene_nodes);
+            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, next_M_accum, scene_nodes, gltf_lights);
             if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
         }
         return node_idx;
     }
+    else if (auto light = std::dynamic_pointer_cast<const LightGeometry>(geom)) {
+        int light_node_idx = model.nodes.size();
+        tinygltf::Node lnode;
+        lnode.name = "Light";
+
+        Transform3d R_intrinsic = Transform3d::Identity();
+        R_intrinsic.rotate(Eigen::AngleAxisd(-M_PI/2.0, Vector3d::UnitX()));
+
+        Transform3d M_gltf = C * light->local_matrix * C.inverse() * R_intrinsic;
+        Eigen::Matrix3d R_and_S = M_gltf.linear();
+        Eigen::Vector3d s(R_and_S.col(0).norm(), R_and_S.col(1).norm(), R_and_S.col(2).norm());
+        Eigen::Matrix3d R;
+        for(int i=0; i<3; ++i) R.col(i) = R_and_S.col(i) / (s[i] > 1e-8 ? s[i] : 1.0);
+        if (R.determinant() < 0) { s.x() *= -1; R.col(0) *= -1; }
+
+        Eigen::Vector3d t = M_gltf.translation();
+        Eigen::Quaterniond q(R);
+
+        lnode.translation = {t.x(), t.y(), t.z()};
+        lnode.rotation = {q.x(), q.y(), q.z(), q.w()};
+        lnode.scale = {s.x(), s.y(), s.z()};
+
+        tinygltf::Value::Object l_obj;
+        l_obj["type"] = tinygltf::Value(light->light_type);
+        l_obj["color"] = tinygltf::Value(tinygltf::Value::Array{
+            tinygltf::Value((double)light->color.r()),
+            tinygltf::Value((double)light->color.g()),
+            tinygltf::Value((double)light->color.b())
+        });
+        l_obj["intensity"] = tinygltf::Value((double)light->intensity);
+        if (light->range > 0.0) {
+            l_obj["range"] = tinygltf::Value((double)light->range);
+        }
+        if (light->light_type == "spot") {
+            tinygltf::Value::Object spot_obj;
+            spot_obj["innerConeAngle"] = tinygltf::Value((double)(light->innerConeAngle * M_PI / 180.0));
+            spot_obj["outerConeAngle"] = tinygltf::Value((double)(light->outerConeAngle * M_PI / 180.0));
+            l_obj["spot"] = tinygltf::Value(spot_obj);
+        }
+
+        int light_idx = gltf_lights.size();
+        gltf_lights.push_back(tinygltf::Value(l_obj));
+
+        lnode.light = light_idx;
+
+        model.nodes.push_back(lnode);
+        if (parent_node_idx >= 0) {
+            model.nodes[parent_node_idx].children.push_back(light_node_idx);
+        } else {
+            scene_nodes.push_back(light_node_idx);
+        }
+
+        for (const auto& item : light->getChildren()) {
+            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes, gltf_lights);
+            if (child_idx >= 0 && parent_node_idx >= 0) {
+                model.nodes[parent_node_idx].children.push_back(child_idx);
+            }
+        }
+        return -1;
+    }
     else if (auto geomList = std::dynamic_pointer_cast<const GeometryList>(geom)) {
         for (const auto& item : geomList->getChildren()) {
-            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes);
+            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes, gltf_lights);
             if (child_idx >= 0 && parent_node_idx >= 0) {
                 model.nodes[parent_node_idx].children.push_back(child_idx);
             }
@@ -502,8 +561,9 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     Value global_anims = Value::undefined.clone();
     Transform3d C = get_z_to_y_up_matrix();
     std::vector<int> scene_nodes;
+    std::vector<tinygltf::Value> gltf_lights;
 
-    traverse_gltf(geom, -1, model, meshes_info, bone_to_node, global_anims, C, Transform3d::Identity(), scene_nodes);
+    traverse_gltf(geom, -1, model, meshes_info, bone_to_node, global_anims, C, Transform3d::Identity(), scene_nodes, gltf_lights);
 
     if (meshes_info.empty() && model.nodes.empty()) return;
 
@@ -998,11 +1058,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     }
                 }
                 std::vector<unsigned char> png_data;
-                auto write_func = [](void *context, void *data, int size) {
-                    auto *vec = static_cast<std::vector<unsigned char>*>(context);
-                    vec->insert(vec->end(), static_cast<unsigned char*>(data), static_cast<unsigned char*>(data) + size);
-                };
-                stbi_write_png_to_func(write_func, &png_data, width, height, 4, px.data(), width * 4);
+                lodepng::encode(png_data, px, width, height);
                 return "data:image/png;base64," + base64_encode(png_data.data(), png_data.size());
             };
 
@@ -1466,6 +1522,13 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     if (use_emissive_strength) model.extensionsUsed.push_back("KHR_materials_emissive_strength");
     if (use_specular) model.extensionsUsed.push_back("KHR_materials_specular");
     if (use_iridescence) model.extensionsUsed.push_back("KHR_materials_iridescence");
+
+    if (!gltf_lights.empty()) {
+        tinygltf::Value::Object khr_lights;
+        khr_lights["lights"] = tinygltf::Value(gltf_lights);
+        model.extensions["KHR_lights_punctual"] = tinygltf::Value(khr_lights);
+        model.extensionsUsed.push_back("KHR_lights_punctual");
+    }
 
     model.buffers[0].data = std::move(bin_data);
 

@@ -3,6 +3,22 @@
 #include "core/node.h"
 #include "core/Value.h"
 
+class LightNode : public AbstractNode {
+public:
+    VISITABLE();
+    std::string light_type;
+    Color4f color;
+    double intensity;
+    double range;
+    double innerConeAngle;
+    double outerConeAngle;
+
+    LightNode(const ModuleInstantiation *mi, std::string type, Color4f c, double i, double r, double inner, double outer)
+      : AbstractNode(mi), light_type(std::move(type)), color(c), intensity(i), range(r), innerConeAngle(inner), outerConeAngle(outer) {
+    }
+    std::string name() const override { return "light"; }
+};
+
 class ArmatureNode : public AbstractNode {
 public:
     VISITABLE();

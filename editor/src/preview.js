@@ -39,6 +39,7 @@ let captureNextFrame = false;
 
 let gltfCameras = [];
 let activeCamera = null;
+let sceneHasLights = false;
 
 function updateCameraAspect(cam, w, h) {
   if (!cam) return;
@@ -449,11 +450,21 @@ function renderGLTF(outputArray) {
         const isWireframe = wireframeCb ? wireframeCb.checked : false;
 
         gltfCameras = [];
+        sceneHasLights = false;
         currentMesh.traverse((child) => {
           if (child.isCamera) {
             gltfCameras.push(child);
           }
+          if (child.isLight) {
+            sceneHasLights = true;
+          }
         });
+
+        scene.environmentIntensity = sceneHasLights ? 0.0 : 0.8;
+
+        if (typeof lightGroup !== "undefined") {
+          lightGroup.visible = !sceneHasLights;
+        }
 
         let hasAnimOrCamera = false;
 
@@ -539,6 +550,16 @@ function renderGLTF(outputArray) {
               }
             }
           }
+
+          if (child.isLight) {
+            child.castShadow = true;
+
+            if (child.shadow) {
+              // Help prevent shadow acne (stripes)
+              child.shadow.bias = -0.0005;
+              child.shadow.normalBias = 0.02;
+            }
+          }
         });
 
         scene.add(currentMesh);
@@ -603,6 +624,23 @@ function fitCamera() {
   dirLight.shadow.camera.near = 0.1;
   dirLight.shadow.camera.far = maxDim * 5;
   dirLight.shadow.camera.updateProjectionMatrix();
+
+  // Apply the same dynamic bounds to any imported Directional lights
+  currentMesh.traverse((child) => {
+    if (child.isDirectionalLight && child.shadow) {
+      child.shadow.camera.left = -shadowCamSize;
+      child.shadow.camera.right = shadowCamSize;
+      child.shadow.camera.top = shadowCamSize;
+      child.shadow.camera.bottom = -shadowCamSize;
+      child.shadow.camera.near = 0.1;
+      child.shadow.camera.far = maxDim * 5;
+      child.shadow.camera.updateProjectionMatrix();
+
+      // Increase shadow resolution (default is only 512x512)
+      child.shadow.mapSize.width = 2048;
+      child.shadow.mapSize.height = 2048;
+    }
+  });
 
   scene.fog = new THREE.Fog(0x222222, distance * 1.5, distance * 5);
 }

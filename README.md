@@ -16,6 +16,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **Extended PBR Material Support:** Native extensions to the OpenSCAD `color()` module supporting `metalness`, `roughness`, `transmission` (glass), `thickness`, `ior`, `attenuationColor`, `attenuationDistance`, `clearcoat`, `sheen`, `emissive`, `specular`, and `iridescence`, plus a `$asa` special variable for auto smooth shading.
 - **Hierarchical Node Animation:** Define articulated, rigid-body hierarchies and keyframe animations using `armature()` and `bone()` modules. Exports proper glTF node transform tracks (rigid parenting rather than vertex-weighted skinning—ideal for robots, mechanical parts, vehicles, and articulated components).
 - **Texture Baking:** Automatically generate UVs and bake high-poly details (colors, normals, ORM) onto low-poly meshes using the new `bake()` module.
+- **Scene Lighting:** Spawn precise light sources within your hierarchy (point, directional, spot) using the `light()` module, exporting directly to glTF.
 - **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, video/image export, URL sharing, and `.scad` / `.hdr` drag-and-drop.
 - **LLM Friendly:** Includes a built-in modular prompt generator (`prompt.js` and Web UI) to help AI models (like Gemini, Claude, or ChatGPT) write compatible OpenSCAD scripts utilizing the new features.
 - **Local API Server & Editor:** Bundled `scad-gltf serve` CLI utility to manage local `.scad` files remotely via REST API with automatic `include`/`use` dependency resolution.
@@ -467,6 +468,17 @@ bake(uvs=true) {
 }
 ```
 
+### 4. Scene Lighting
+
+Add glTF lights directly into your model hierarchy:
+
+```openscad
+// A spot light pointing down at an angle
+translate([0, 0, 50]) rotate([0, 30, 0])
+  light(type="spot", color=[1, 0.8, 0.8], intensity=5.0, innerConeAngle=15.0, outerConeAngle=30.0)
+    color("gray") cylinder(h=2, r=1, center=true); // A visual representation of the light fixture
+```
+
 ---
 
 ## AI Integration (`prompt.js`)
@@ -490,6 +502,7 @@ const promptContext = generatePrompt(description, {
   iridescence: true, // Thin-film interference
   autoSmoothAngle: true, // $asa rules
   animation: true, // Armature & bone syntax
+  lights: false, // Light rules
   bakeColors: false, // Texture baking flags
   bakeNormals: false,
   bakeOrm: false,

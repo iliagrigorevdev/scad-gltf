@@ -19,6 +19,7 @@ class Tree;
 class ArmatureNode;
 class BoneNode;
 class BakeNode;
+class LightNode;
 
 // This evaluates a node tree into concrete geometry usign an underlying geometry engine
 // FIXME: Ideally, each engine should implement its own subtype. Instead we currently have
@@ -54,6 +55,7 @@ public:
   Response visit(State& state, const ArmatureNode& node) override;
   Response visit(State& state, const BoneNode& node) override;
   Response visit(State& state, const BakeNode& node) override;
+  Response visit(State& state, const LightNode& node) override;
 
   [[nodiscard]] const Tree& getTree() const { return this->tree; }
 

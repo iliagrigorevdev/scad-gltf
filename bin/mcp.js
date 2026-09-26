@@ -145,6 +145,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                   description:
                     "Include output instructions requiring the '/* Model Name: ... */' header comment. (Default: true)",
                 },
+                lights: {
+                  type: "boolean",
+                  description:
+                    "Include rules for adding scene lights. (Default: false)",
+                },
               },
             },
           },
