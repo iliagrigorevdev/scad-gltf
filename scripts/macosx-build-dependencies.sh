@@ -41,7 +41,7 @@ PACKAGES=(
     "double_conversion 3.3.1"
 
     # https://www.boost.org/releases/latest/
-    "boost 1.88.0"
+    "boost 1.92.0 1"
 
     # https://gitlab.com/libeigen/eigen/-/releases
     "eigen 3.4.0"
@@ -92,7 +92,7 @@ PACKAGES=(
     "cairo 1.18.0"
 
     # https://github.com/CGAL/cgal/releases
-    "cgal 6.1"
+    "cgal 6.2"
 
     # https://download.qt.io/official_releases/qt/6.8/
     "qt6 6.8.4"
@@ -380,6 +380,7 @@ build_boost()
   done
 
   ./bootstrap.sh --prefix=$DEPLOYDIR --with-libraries=thread,program_options,chrono,system,regex,date_time,atomic
+  ./b2 headers
   ./b2 -j"$NUMCPU" -d+2 $BOOST_TOOLSET link=shared cflags="-mmacosx-version-min=$MAC_OSX_VERSION_MIN ${ARCH_FLAGS[*]}" linkflags="-mmacosx-version-min=$MAC_OSX_VERSION_MIN ${ARCH_FLAGS[*]} -headerpad_max_install_names" install
 }
 
