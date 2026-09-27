@@ -761,7 +761,7 @@ window.addEventListener("drop", async (e) => {
           }
 
           if (typeof pathTracer !== "undefined") {
-            pathTracer.setScene(scene, camera);
+            pathTracer.setScene(scene, activeCamera);
             pathTracer.updateCamera();
           }
         },
@@ -1816,9 +1816,6 @@ function animate() {
     if (typeof axesHelper !== "undefined") axesHelper.visible = false;
 
     if (typeof pathTracer !== "undefined" && !isRecording) {
-      if (currentAction && isPlaying) {
-        pathTracer.updateCamera();
-      }
       pathTracer.renderSample();
     }
   } else {
