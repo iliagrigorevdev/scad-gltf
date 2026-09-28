@@ -480,7 +480,7 @@ captureImageBtn.onclick = () => {
           if (typeof floor !== "undefined") floor.visible = true;
           if (typeof lightGroup !== "undefined")
             lightGroup.visible =
-              !sceneHasLights && (lightsCb ? lightsCb.checked : true);
+              !sceneHasLights || (lightsCb && !lightsCb.checked);
           if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
           if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
 
@@ -1029,7 +1029,7 @@ new HDRLoader().load(
     if (typeof floor !== "undefined") floor.visible = !isPT;
     if (typeof lightGroup !== "undefined")
       lightGroup.visible =
-        !isPT && !sceneHasLights && (lightsCb ? lightsCb.checked : true);
+        !isPT && (!sceneHasLights || (lightsCb && !lightsCb.checked));
     if (typeof gridHelper !== "undefined")
       gridHelper.visible = !isPT && showGrid;
     if (typeof axesHelper !== "undefined")
@@ -1063,7 +1063,7 @@ if (pathTracingCb) {
     if (typeof floor !== "undefined") floor.visible = !isPT;
     if (typeof lightGroup !== "undefined")
       lightGroup.visible =
-        !isPT && !sceneHasLights && (lightsCb ? lightsCb.checked : true);
+        !isPT && (!sceneHasLights || (lightsCb && !lightsCb.checked));
     if (typeof gridHelper !== "undefined")
       gridHelper.visible = !isPT && showGrid;
     if (typeof axesHelper !== "undefined")
@@ -1191,7 +1191,7 @@ if (lightsCb) {
       sceneHasLights && useLights ? currentOptimalExposure : 1.0;
 
     if (typeof lightGroup !== "undefined") {
-      lightGroup.visible = !isPT && !(sceneHasLights && useLights);
+      lightGroup.visible = !isPT && (!sceneHasLights || !useLights);
     }
 
     if (isPT && typeof pathTracer !== "undefined") {
@@ -1490,7 +1490,7 @@ function rebuildSceneFromGLTF(gltfData) {
           if (typeof floor !== "undefined") floor.visible = !isPT;
           if (typeof lightGroup !== "undefined")
             lightGroup.visible =
-              !isPT && !sceneHasLights && (lightsCb ? lightsCb.checked : true);
+              !isPT && (!sceneHasLights || (lightsCb && !lightsCb.checked));
           if (typeof gridHelper !== "undefined")
             gridHelper.visible = !isPT && showGrid;
           if (typeof axesHelper !== "undefined")
@@ -1533,7 +1533,7 @@ function fitCamera() {
   if (typeof floor !== "undefined") floor.visible = !isPT;
   if (typeof lightGroup !== "undefined")
     lightGroup.visible =
-      !isPT && !sceneHasLights && (lightsCb ? lightsCb.checked : true);
+      !isPT && (!sceneHasLights || (lightsCb && !lightsCb.checked));
   if (typeof gridHelper !== "undefined") gridHelper.visible = !isPT && showGrid;
   if (typeof axesHelper !== "undefined") axesHelper.visible = !isPT && showGrid;
 
@@ -1582,8 +1582,8 @@ function animate() {
   } else {
     if (typeof floor !== "undefined") floor.visible = true;
     if (typeof lightGroup !== "undefined")
-      lightGroup.visible =
-        !sceneHasLights && (lightsCb ? lightsCb.checked : true);
+      lightGroup.visible = lightGroup.visible =
+        !sceneHasLights || (lightsCb && !lightsCb.checked);
     if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
     if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
     if (!isRecording) {
