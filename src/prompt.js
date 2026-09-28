@@ -234,17 +234,18 @@ bake(uvs=true) {
   if (opts.lights) {
     prompt += `\n\nImportant Lighting rules:
 - Lights: Use the 'light()' module to add lights to the scene.
-- Syntax: \`light(type="point", color=[1,1,1], intensity=1.0, range=0.0, innerConeAngle=0.0, outerConeAngle=45.0) { ... }\`
+- Syntax: \`light(type="point", color=[1,1,1], intensity=2000.0, range=0.0, innerConeAngle=0.0, outerConeAngle=45.0) { ... }\`
 - Supported light types: "directional", "point", "spot".
+- Intensity (Physically Correct): Directional lights use Lux (e.g., 300-500 for indoor lighting, 100000 for the sun). Point and Spot lights use Candelas and decay over distance via the inverse-square law. They require VERY HIGH values (e.g., 1000.0 to 10000.0+) to illuminate objects!
 - Orientation: A directional or spot light shines in the -Z direction by default. Use \`translate()\` and \`rotate()\` around the \`light()\` module to position and orient it.
 - Spot lights accept \`innerConeAngle\` and \`outerConeAngle\` (in degrees). Point/Spot lights accept \`range\` (0.0 means infinite).
 - Children inside a \`light()\` block are rendered normally in OpenSCAD and exported. The light transform automatically follows its enclosing transformations.
 
 Example Lighting Usage:
 \`\`\`openscad
-// A spot light pointing down at an angle
+// A spot light pointing down at an angle (Note the high intensity of 5000)
 translate([0, 0, 50]) rotate([0, 30, 0])
-  light(type="spot", color=[1, 0.8, 0.8], intensity=5.0, innerConeAngle=15.0, outerConeAngle=30.0)
+  light(type="spot", color=[1, 0.8, 0.8], intensity=5000.0, innerConeAngle=15.0, outerConeAngle=30.0)
     color("gray") cylinder(h=2, r=1, center=true); // A visual representation of the light fixture
 \`\`\``;
   }

@@ -15,7 +15,7 @@ import {
   fetchDependencies,
   fitCameraToBox,
   setupMeshShadowsAndWireframe,
-  applyDynamicBoundsToDirectionalLights,
+  applyDynamicBoundsToLights,
   extractCamerasAndLights,
 } from "./shared.js";
 
@@ -429,7 +429,7 @@ function fitCamera() {
 
   const { maxDim } = fitCameraToBox(camera, controls, null, scene, worldBox);
 
-  applyDynamicBoundsToDirectionalLights(currentMesh, maxDim * 1.5);
+  applyDynamicBoundsToLights(currentMesh, maxDim * 1.5);
 }
 
 async function fetchDependenciesWrapper(code) {

@@ -26,7 +26,7 @@ import {
   fetchDependencies,
   fitCameraToBox,
   setupMeshShadowsAndWireframe,
-  applyDynamicBoundsToDirectionalLights,
+  applyDynamicBoundsToLights,
   extractCamerasAndLights,
 } from "./shared.js";
 
@@ -100,6 +100,7 @@ let gltfCameras = [];
 let gltfLights = [];
 let activeCamera = null;
 let sceneHasLights = false;
+let currentOptimalExposure = 1.0;
 
 // Helper to determine what to render
 function getEditorContent() {
@@ -1185,6 +1186,8 @@ if (lightsCb) {
 
     gltfLights.forEach((l) => (l.visible = useLights));
     scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
+    renderer.toneMappingExposure =
+      sceneHasLights && useLights ? currentOptimalExposure : 1.0;
 
     if (typeof lightGroup !== "undefined") {
       lightGroup.visible = !isPT && !(sceneHasLights && useLights);
@@ -1387,6 +1390,7 @@ function rebuildSceneFromGLTF(gltfData) {
         gltfCameras = extracted.gltfCameras;
         gltfLights = extracted.gltfLights;
         sceneHasLights = extracted.sceneHasLights;
+        currentOptimalExposure = extracted.optimalExposure || 1.0;
 
         const lightsCbLabel = document.getElementById("lights-cb-label");
         if (lightsCbLabel) {
@@ -1396,6 +1400,8 @@ function rebuildSceneFromGLTF(gltfData) {
         const useLights = lightsCb ? lightsCb.checked : true;
         gltfLights.forEach((l) => (l.visible = useLights));
         scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
+        renderer.toneMappingExposure =
+          sceneHasLights && useLights ? currentOptimalExposure : 1.0;
 
         let hasAnimOrCamera = false;
 
@@ -1518,7 +1524,7 @@ function fitCamera() {
     worldBox,
   );
 
-  applyDynamicBoundsToDirectionalLights(currentMesh, maxDim * 1.5);
+  applyDynamicBoundsToLights(currentMesh, maxDim * 1.5);
 
   const isPT = pathTracingCb && pathTracingCb.checked;
   const showGrid = showGridCb ? showGridCb.checked : true;

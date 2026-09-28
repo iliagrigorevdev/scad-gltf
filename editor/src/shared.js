@@ -295,7 +295,7 @@ export function setupMeshShadowsAndWireframe(mesh, isWireframe) {
   });
 }
 
-export function applyDynamicBoundsToDirectionalLights(mesh, shadowCamSize) {
+export function applyDynamicBoundsToLights(mesh, shadowCamSize) {
   mesh.traverse((child) => {
     if (child.isDirectionalLight && child.shadow) {
       child.shadow.camera.left = -shadowCamSize;
@@ -309,6 +309,12 @@ export function applyDynamicBoundsToDirectionalLights(mesh, shadowCamSize) {
       child.shadow.mapSize.width = 2048;
       child.shadow.mapSize.height = 2048;
     }
+
+    if ((child.isPointLight || child.isSpotLight) && child.shadow) {
+      child.shadow.camera.near = 0.1;
+      child.shadow.camera.far = shadowCamSize * 5;
+      child.shadow.camera.updateProjectionMatrix();
+    }
   });
 }
 
@@ -316,12 +322,35 @@ export function extractCamerasAndLights(mesh) {
   const gltfCameras = [];
   const gltfLights = [];
   let sceneHasLights = false;
+  let maxDir = 0;
+  let maxPt = 0;
+
   mesh.traverse((child) => {
     if (child.isCamera) gltfCameras.push(child);
     if (child.isLight) {
       sceneHasLights = true;
       gltfLights.push(child);
+      if (child.isDirectionalLight) {
+        maxDir = Math.max(maxDir, child.intensity);
+      } else {
+        maxPt = Math.max(maxPt, child.intensity);
+      }
     }
   });
-  return { gltfCameras, gltfLights, sceneHasLights };
+
+  let optimalExposure = 1.0;
+  if (sceneHasLights) {
+    // Target well-exposed intensity values for Three.js SDR view
+    const expDir = maxDir > 0 ? 3.0 / maxDir : 1.0;
+    const expPt = maxPt > 0 ? 3000.0 / maxPt : 1.0;
+
+    if (maxDir > 0 && maxPt > 0) optimalExposure = Math.min(expDir, expPt);
+    else if (maxDir > 0) optimalExposure = expDir;
+    else if (maxPt > 0) optimalExposure = expPt;
+
+    // Clamp to prevent complete black/white out if AI hallucinates extreme values
+    optimalExposure = Math.max(0.00001, Math.min(optimalExposure, 5.0));
+  }
+
+  return { gltfCameras, gltfLights, sceneHasLights, optimalExposure };
 }
