@@ -62,6 +62,7 @@ const promptUiContainer = document.getElementById("prompt-ui-container");
 
 const showGridCb = document.getElementById("show-grid-cb");
 const wireframeCb = document.getElementById("wireframe-cb");
+const bloomCb = document.getElementById("bloom-cb");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const screenshotBtn = document.getElementById("screenshot-btn");
 const cameraSelect = document.getElementById("camera-select");
@@ -993,6 +994,7 @@ const bloomPass = new UnrealBloomPass(
   0.1, // radius
   2.0, // threshold
 );
+bloomPass.enabled = false;
 composer.addPass(bloomPass);
 
 const outputPass = new OutputPass();
@@ -1156,10 +1158,19 @@ scene.add(axesHelper);
 if (wireframeCb) {
   wireframeCb.addEventListener("change", () => {
     const isWireframe = wireframeCb.checked;
-    bloomPass.enabled = !isWireframe;
+    const isBloom = bloomCb ? bloomCb.checked : false;
+    bloomPass.enabled = isBloom && !isWireframe;
     if (currentMesh) {
       setupMeshShadowsAndWireframe(currentMesh, isWireframe);
     }
+  });
+}
+
+if (bloomCb) {
+  bloomCb.addEventListener("change", () => {
+    const isBloom = bloomCb.checked;
+    const isWireframe = wireframeCb ? wireframeCb.checked : false;
+    bloomPass.enabled = isBloom && !isWireframe;
   });
 }
 
@@ -1346,7 +1357,8 @@ function rebuildSceneFromGLTF(gltfData) {
         currentMesh = gltf.scene;
         currentAnimations = gltf.animations || [];
         const isWireframe = wireframeCb ? wireframeCb.checked : false;
-        bloomPass.enabled = !isWireframe;
+        const isBloom = bloomCb ? bloomCb.checked : false;
+        bloomPass.enabled = isBloom && !isWireframe;
 
         const extracted = extractCamerasAndLights(currentMesh);
         gltfCameras = extracted.gltfCameras;
