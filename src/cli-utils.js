@@ -125,7 +125,8 @@ export function generateScadPreviewUrl(scadCode) {
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
       .replace(/=+$/, "");
-    return `https://iliagrigorevdev.github.io/scad-gltf/#c${base64}`;
+    const indexPath = path.resolve(__dirname, "../editor/dist/index.html");
+    return `${url.pathToFileURL(indexPath).href}#c${base64}`;
   } catch (e) {
     return null;
   }
@@ -455,19 +456,6 @@ export async function runAutomatedAIFlow(
           if (link) {
             console.log(`\n🔗 Direct Web Preview Link:\n   ${link}\n`);
           }
-
-          console.log(
-            `\n🌐 Starting local viewer to preview ${extractedFilename}...`,
-          );
-
-          const scadServePath = path.resolve(__dirname, "../bin/serve.js");
-          runProc = spawn(process.execPath, [scadServePath], {
-            cwd: tempDir,
-            stdio: "inherit",
-            detached: false,
-          });
-
-          await new Promise((resolve) => setTimeout(resolve, 2000));
         } else {
           console.log(
             `   Generating project files to preview in a temporary folder...`,
