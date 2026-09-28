@@ -125,8 +125,7 @@ export function generateScadPreviewUrl(scadCode) {
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
       .replace(/=+$/, "");
-    const indexPath = path.resolve(__dirname, "../editor/dist/index.html");
-    return `${url.pathToFileURL(indexPath).href}#c${base64}`;
+    return `http://localhost:3000/#c${base64}`;
   } catch (e) {
     return null;
   }
@@ -154,6 +153,18 @@ export async function runAutomatedAIFlow(
   let mcpClient = null;
   let mcpTransport = null;
   let openaiTools = [];
+  let serveProc = null;
+
+  if (isRawScad) {
+    console.log("🌐 Starting local viewer background server...");
+    const scadServePath = path.resolve(__dirname, "../bin/serve.js");
+    serveProc = spawn(process.execPath, [scadServePath], {
+      cwd: process.cwd(),
+      stdio: "ignore", // Hide Express logs from the terminal
+      detached: false,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
 
   try {
     const mcpClientIndex =
@@ -445,7 +456,6 @@ export async function runAutomatedAIFlow(
 
       try {
         fs.writeFileSync(tempFilePath, finalCode, "utf-8");
-
         if (isRawScad) {
           console.log(
             `   Generating OpenSCAD file to preview in a temporary folder...`,
@@ -590,6 +600,11 @@ export async function runAutomatedAIFlow(
               await mcpTransport.close();
             } catch (e) {}
           }
+          if (serveProc) {
+            try {
+              serveProc.kill();
+            } catch (e) {}
+          }
           break;
         } else {
           console.log("\n🔄 Sending your feedback back to the LLM...");
@@ -627,6 +642,11 @@ export async function runAutomatedAIFlow(
     if (mcpTransport) {
       try {
         await mcpTransport.close();
+      } catch (e) {}
+    }
+    if (serveProc) {
+      try {
+        serveProc.kill();
       } catch (e) {}
     }
   }
