@@ -1469,8 +1469,9 @@ function rebuildSceneFromGLTF(gltfData) {
         scene.add(currentMesh);
 
         let geometryChanged = true;
+        let newBox = null;
         if (oldBox && !oldBox.isEmpty()) {
-          const newBox = computeModelBounds(currentMesh, currentAnimations);
+          newBox = computeModelBounds(currentMesh, currentAnimations);
           if (!newBox.isEmpty()) {
             const epsilon = 0.001;
             if (
@@ -1485,6 +1486,12 @@ function rebuildSceneFromGLTF(gltfData) {
         if (geometryChanged) {
           if (typeof fitCamera === "function") fitCamera();
         } else {
+          if (newBox) {
+            const size = newBox.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z) || 10;
+            applyDynamicBoundsToLights(currentMesh, maxDim * 1.5);
+          }
+
           const isPT = pathTracingCb && pathTracingCb.checked;
           const showGrid = showGridCb ? showGridCb.checked : true;
           if (typeof floor !== "undefined") floor.visible = !isPT;
