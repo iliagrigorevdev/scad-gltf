@@ -8,6 +8,17 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import {
+  updateCameraAspect,
+  computeModelBounds,
+  downloadBlob,
+  encodeCode,
+  fetchDependencies,
+  fitCameraToBox,
+  setupMeshShadowsAndWireframe,
+  applyDynamicBoundsToDirectionalLights,
+  extractCamerasAndLights,
+} from "./shared.js";
 
 const viewerContainer = document.getElementById("viewer-container");
 const viewerEl = document.getElementById("viewer");
@@ -41,22 +52,6 @@ let gltfCameras = [];
 let activeCamera = null;
 let sceneHasLights = false;
 
-function updateCameraAspect(cam, w, h) {
-  if (!cam) return;
-  if (cam.isPerspectiveCamera) {
-    cam.aspect = w / h;
-    cam.updateProjectionMatrix();
-  } else if (cam.isOrthographicCamera) {
-    const aspect = w / h;
-    if (!cam.userData.ymag) cam.userData.ymag = cam.top;
-    cam.left = -cam.userData.ymag * aspect;
-    cam.right = cam.userData.ymag * aspect;
-    cam.top = cam.userData.ymag;
-    cam.bottom = -cam.userData.ymag;
-    cam.updateProjectionMatrix();
-  }
-}
-
 // --- Setup Three.js Scene ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x222222);
@@ -75,8 +70,6 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-// Add Tone Mapping for realistic lighting display
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
@@ -169,17 +162,7 @@ if (wireframeCb) {
   wireframeCb.addEventListener("change", () => {
     const isWireframe = wireframeCb.checked;
     if (currentMesh) {
-      currentMesh.traverse((child) => {
-        if (child.isMesh && child.material) {
-          if (Array.isArray(child.material)) {
-            child.material.forEach((m) => {
-              m.wireframe = isWireframe;
-            });
-          } else {
-            child.material.wireframe = isWireframe;
-          }
-        }
-      });
+      setupMeshShadowsAndWireframe(currentMesh, isWireframe);
     }
   });
 }
@@ -310,7 +293,6 @@ function animate() {
   gridHelper.visible = showGrid;
   axesHelper.visible = showGrid;
 
-  // Currently preview.js doesn't have pathTracer imported by default, but just in case:
   if (typeof pathTracer !== "undefined" && currentAction && isPlaying) {
     pathTracer.updateCamera();
   }
@@ -325,7 +307,6 @@ function animate() {
 }
 animate();
 
-// Ensure renderer resizes to the full container size
 window.addEventListener("resize", () => {
   const w = viewerContainer ? viewerContainer.clientWidth : window.innerWidth;
   const h = viewerContainer ? viewerContainer.clientHeight : window.innerHeight;
@@ -333,82 +314,6 @@ window.addEventListener("resize", () => {
   renderer.setSize(w, h);
   composer.setSize(w, h);
 });
-
-// Computes the comprehensive bounding box of an object across rest pose and all animation frames
-function computeModelBounds(root, animations) {
-  if (!root) return new THREE.Box3();
-  root.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(root);
-
-  if (!animations || animations.length === 0) {
-    return box;
-  }
-
-  const savedTransforms = new Map();
-  root.traverse((obj) => {
-    savedTransforms.set(obj, {
-      position: obj.position.clone(),
-      quaternion: obj.quaternion.clone(),
-      scale: obj.scale.clone(),
-    });
-  });
-
-  const tempMixer = new THREE.AnimationMixer(root);
-
-  for (const clip of animations) {
-    const action = tempMixer.clipAction(clip);
-    action.play();
-
-    const sampleTimes = new Set([0, clip.duration]);
-    if (clip.tracks) {
-      for (const track of clip.tracks) {
-        if (track.times) {
-          for (let i = 0; i < track.times.length; i++) {
-            sampleTimes.add(track.times[i]);
-          }
-        }
-      }
-    }
-
-    const numSteps = 20;
-    if (clip.duration > 0) {
-      for (let i = 0; i <= numSteps; i++) {
-        sampleTimes.add((i / numSteps) * clip.duration);
-      }
-    }
-
-    let times = Array.from(sampleTimes).sort((a, b) => a - b);
-    if (times.length > 60) {
-      const sampled = [];
-      const stride = (times.length - 1) / 59;
-      for (let i = 0; i < 60; i++) {
-        sampled.push(times[Math.round(i * stride)]);
-      }
-      times = sampled;
-    }
-
-    for (const time of times) {
-      action.time = time;
-      tempMixer.update(0);
-      root.updateMatrixWorld(true);
-      box.expandByObject(root);
-    }
-
-    action.stop();
-  }
-
-  tempMixer.stopAllAction();
-  tempMixer.uncacheRoot(root);
-
-  savedTransforms.forEach((t, obj) => {
-    obj.position.copy(t.position);
-    obj.quaternion.copy(t.quaternion);
-    obj.scale.copy(t.scale);
-  });
-  root.updateMatrixWorld(true);
-
-  return box;
-}
 
 // --- GLTF Parsing & Rendering Logic ---
 function renderGLTF(outputArray) {
@@ -449,16 +354,9 @@ function renderGLTF(outputArray) {
         currentAnimations = gltf.animations || [];
         const isWireframe = wireframeCb ? wireframeCb.checked : false;
 
-        gltfCameras = [];
-        sceneHasLights = false;
-        currentMesh.traverse((child) => {
-          if (child.isCamera) {
-            gltfCameras.push(child);
-          }
-          if (child.isLight) {
-            sceneHasLights = true;
-          }
-        });
+        const extracted = extractCamerasAndLights(currentMesh);
+        gltfCameras = extracted.gltfCameras;
+        sceneHasLights = extracted.sceneHasLights;
 
         scene.environmentIntensity = sceneHasLights ? 0.0 : 0.8;
 
@@ -534,33 +432,7 @@ function renderGLTF(outputArray) {
           animControls.style.display = hasAnimOrCamera ? "flex" : "none";
         }
 
-        currentMesh.traverse((child) => {
-          if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            child.frustumCulled = false;
-
-            if (child.material) {
-              if (Array.isArray(child.material)) {
-                child.material.forEach((m) => {
-                  m.wireframe = isWireframe;
-                });
-              } else {
-                child.material.wireframe = isWireframe;
-              }
-            }
-          }
-
-          if (child.isLight) {
-            child.castShadow = true;
-
-            if (child.shadow) {
-              // Help prevent shadow acne (stripes)
-              child.shadow.bias = -0.0005;
-              child.shadow.normalBias = 0.02;
-            }
-          }
-        });
+        setupMeshShadowsAndWireframe(currentMesh, isWireframe);
 
         scene.add(currentMesh);
         fitCamera();
@@ -579,117 +451,34 @@ function fitCamera() {
   const worldBox = computeModelBounds(currentMesh, currentAnimations);
   if (worldBox.isEmpty()) return;
 
-  const center = worldBox.getCenter(new THREE.Vector3());
-  const size = worldBox.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z) || 10;
-
   floor.position.y = worldBox.min.y - 0.01;
   gridHelper.position.y = floor.position.y + 0.001;
   axesHelper.position.y = floor.position.y + 0.002;
 
-  const fov = camera.fov * (Math.PI / 180);
-  let distance = maxDim / (2 * Math.tan(fov / 2));
-  if (camera.aspect < 1) distance /= camera.aspect;
-
-  distance *= 1.5;
-
-  camera.near = Math.max(0.01, maxDim * 0.01);
-  camera.far = Math.max(2000, distance * 10);
-  camera.updateProjectionMatrix();
-
-  controls.maxDistance = camera.far;
-
-  camera.position.set(
-    center.x + distance * 0.8,
-    center.y + distance * 0.8,
-    center.z - distance * 0.8,
+  const { maxDim } = fitCameraToBox(
+    camera,
+    controls,
+    dirLight,
+    scene,
+    worldBox,
   );
-  camera.lookAt(center);
-  controls.target.copy(center);
-  controls.update();
 
-  dirLight.position.set(
-    center.x + maxDim,
-    center.y + maxDim * 1.5,
-    center.z - maxDim,
-  );
-  dirLight.target.position.copy(center);
-  dirLight.target.updateMatrixWorld();
-
-  const shadowCamSize = maxDim * 1.5;
-  dirLight.shadow.camera.left = -shadowCamSize;
-  dirLight.shadow.camera.right = shadowCamSize;
-  dirLight.shadow.camera.top = shadowCamSize;
-  dirLight.shadow.camera.bottom = -shadowCamSize;
-  dirLight.shadow.camera.near = 0.1;
-  dirLight.shadow.camera.far = maxDim * 5;
-  dirLight.shadow.camera.updateProjectionMatrix();
-
-  // Apply the same dynamic bounds to any imported Directional lights
-  currentMesh.traverse((child) => {
-    if (child.isDirectionalLight && child.shadow) {
-      child.shadow.camera.left = -shadowCamSize;
-      child.shadow.camera.right = shadowCamSize;
-      child.shadow.camera.top = shadowCamSize;
-      child.shadow.camera.bottom = -shadowCamSize;
-      child.shadow.camera.near = 0.1;
-      child.shadow.camera.far = maxDim * 5;
-      child.shadow.camera.updateProjectionMatrix();
-
-      // Increase shadow resolution (default is only 512x512)
-      child.shadow.mapSize.width = 2048;
-      child.shadow.mapSize.height = 2048;
-    }
-  });
-
-  scene.fog = new THREE.Fog(0x222222, distance * 1.5, distance * 5);
+  applyDynamicBoundsToDirectionalLights(currentMesh, maxDim * 1.5);
 }
 
-async function fetchDependencies(code) {
-  const additionalFiles = {};
+async function fetchDependenciesWrapper(code) {
   const backendUrl = "http://localhost:3000";
   let serverFiles = [];
-
   try {
-    // Check if `scad-gltf serve` backend is available to fetch potential include files
     const res = await fetch(`${backendUrl}/api/scads`);
     if (res.ok) {
       const data = await res.json();
       serverFiles = data.files || [];
     }
   } catch (e) {
-    return additionalFiles; // If backend is offline, we can't resolve deps
+    return {};
   }
-
-  const visited = new Set();
-
-  async function traverse(currentCode) {
-    const regex = /(?:include|use)\s*([<"])([^>"]+)([>"])/g;
-    let match;
-    while ((match = regex.exec(currentCode)) !== null) {
-      const relPath = match[2];
-      const baseName = relPath.split(/[/\\]/).pop();
-
-      if (!visited.has(relPath) && serverFiles.includes(baseName)) {
-        visited.add(relPath);
-        try {
-          const res = await fetch(
-            `${backendUrl}/api/scads/${encodeURIComponent(baseName)}`,
-          );
-          if (res.ok) {
-            const data = await res.json();
-            additionalFiles[relPath] = data.content;
-            await traverse(data.content);
-          }
-        } catch (err) {
-          console.warn(`Failed to load dependency: ${relPath}`);
-        }
-      }
-    }
-  }
-
-  await traverse(code);
-  return additionalFiles;
+  return fetchDependencies(code, backendUrl, serverFiles);
 }
 
 async function compileAndRender(scadCode) {
@@ -700,7 +489,7 @@ async function compileAndRender(scadCode) {
   isCompiling = true;
 
   try {
-    const additionalFiles = await fetchDependencies(scadCode);
+    const additionalFiles = await fetchDependenciesWrapper(scadCode);
     const gltfData = await convertScadToGltf(scadCode, {
       wasmUrl,
       additionalFiles,
@@ -801,17 +590,10 @@ saveBtn.addEventListener("click", async () => {
     );
 
     const blob = new Blob([latestScadCode || ""], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
     const checkFilename = filename.toLowerCase().endsWith(".scad")
       ? filename
       : `${filename}.scad`;
-    link.download = checkFilename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, checkFilename);
 
     saveBtn.innerText = "✅ Downloaded!";
     setTimeout(() => {
@@ -822,34 +604,6 @@ saveBtn.addEventListener("click", async () => {
 });
 
 // --- Edit Functionality (Share to External Viewer) ---
-async function encodeCode(code) {
-  try {
-    if (typeof CompressionStream !== "undefined") {
-      const stream = new Blob([code])
-        .stream()
-        .pipeThrough(new CompressionStream("deflate-raw"));
-      const buffer = await new Response(stream).arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = "";
-      for (let i = 0; i < bytes.length; i++)
-        binary += String.fromCharCode(bytes[i]);
-      return (
-        "c" +
-        btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
-      );
-    }
-  } catch (e) {
-    console.warn("CompressionStream failed, falling back", e);
-  }
-  return (
-    "u" +
-    btoa(unescape(encodeURIComponent(code)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "")
-  );
-}
-
 openEditorBtn.addEventListener("click", async () => {
   if (!latestScadCode) {
     alert("No model loaded to open.");
