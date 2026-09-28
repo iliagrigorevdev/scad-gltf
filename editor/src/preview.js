@@ -6,7 +6,6 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   updateCameraAspect,
@@ -79,14 +78,6 @@ viewerEl.appendChild(renderer.domElement);
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, activeCamera);
 composer.addPass(renderPass);
-
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.1, // strength
-  0.1, // radius
-  2.0, // threshold
-);
-composer.addPass(bloomPass);
 
 const outputPass = new OutputPass();
 composer.addPass(outputPass);
@@ -161,7 +152,6 @@ lightGroup.add(hemiLight);
 if (wireframeCb) {
   wireframeCb.addEventListener("change", () => {
     const isWireframe = wireframeCb.checked;
-    bloomPass.enabled = !isWireframe;
     if (currentMesh) {
       setupMeshShadowsAndWireframe(currentMesh, isWireframe);
     }
@@ -354,7 +344,6 @@ function renderGLTF(outputArray) {
         currentMesh = gltf.scene;
         currentAnimations = gltf.animations || [];
         const isWireframe = wireframeCb ? wireframeCb.checked : false;
-        bloomPass.enabled = !isWireframe;
 
         const extracted = extractCamerasAndLights(currentMesh);
         gltfCameras = extracted.gltfCameras;
