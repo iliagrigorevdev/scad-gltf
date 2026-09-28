@@ -49,7 +49,6 @@ let captureNextFrame = false;
 
 let gltfCameras = [];
 let activeCamera = null;
-let sceneHasLights = false;
 
 // --- Setup Three.js Scene ---
 const scene = new THREE.Scene();
@@ -114,9 +113,6 @@ if (cameraSelect) {
 }
 
 // Environment Helpers
-const lightGroup = new THREE.Group();
-scene.add(lightGroup);
-
 const floorGeo = new THREE.PlaneGeometry(2000, 2000);
 const floorMat = new THREE.MeshStandardMaterial({
   color: 0x222222,
@@ -135,18 +131,6 @@ scene.add(gridHelper);
 
 const axesHelper = new THREE.AxesHelper(100);
 scene.add(axesHelper);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 2048;
-dirLight.shadow.mapSize.height = 2048;
-dirLight.shadow.bias = -0.0005;
-lightGroup.add(dirLight);
-lightGroup.add(dirLight.target);
-
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-hemiLight.position.set(0, 20, 0);
-lightGroup.add(hemiLight);
 
 // --- Viewer Toggles Logic ---
 if (wireframeCb) {
@@ -347,13 +331,10 @@ function renderGLTF(outputArray) {
 
         const extracted = extractCamerasAndLights(currentMesh);
         gltfCameras = extracted.gltfCameras;
-        sceneHasLights = extracted.sceneHasLights;
 
-        scene.environmentIntensity = sceneHasLights ? 0.0 : 0.8;
-
-        if (typeof lightGroup !== "undefined") {
-          lightGroup.visible = !sceneHasLights;
-        }
+        // Force disable custom lights in previewer
+        extracted.gltfLights.forEach((l) => (l.visible = false));
+        scene.environmentIntensity = 0.8;
 
         let hasAnimOrCamera = false;
 
@@ -446,13 +427,7 @@ function fitCamera() {
   gridHelper.position.y = floor.position.y + 0.001;
   axesHelper.position.y = floor.position.y + 0.002;
 
-  const { maxDim } = fitCameraToBox(
-    camera,
-    controls,
-    dirLight,
-    scene,
-    worldBox,
-  );
+  const { maxDim } = fitCameraToBox(camera, controls, null, scene, worldBox);
 
   applyDynamicBoundsToDirectionalLights(currentMesh, maxDim * 1.5);
 }

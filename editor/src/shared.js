@@ -314,10 +314,14 @@ export function applyDynamicBoundsToDirectionalLights(mesh, shadowCamSize) {
 
 export function extractCamerasAndLights(mesh) {
   const gltfCameras = [];
+  const gltfLights = [];
   let sceneHasLights = false;
   mesh.traverse((child) => {
     if (child.isCamera) gltfCameras.push(child);
-    if (child.isLight) sceneHasLights = true;
+    if (child.isLight) {
+      sceneHasLights = true;
+      gltfLights.push(child);
+    }
   });
-  return { gltfCameras, sceneHasLights };
+  return { gltfCameras, gltfLights, sceneHasLights };
 }
