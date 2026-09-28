@@ -421,6 +421,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           const gltf = await loader.loadAsync(dataUrl);
           scene.add(gltf.scene);
 
+          // Detect scene lights to match editor behavior
+          let sceneHasLights = false;
+          let maxDir = 0;
+          let maxPt = 0;
+
+          gltf.scene.traverse((child) => {
+            if (child.isLight) {
+              sceneHasLights = true;
+              if (child.isDirectionalLight) {
+                maxDir = Math.max(maxDir, child.intensity);
+              } else {
+                maxPt = Math.max(maxPt, child.intensity);
+              }
+            }
+          });
+
+          if (sceneHasLights) {
+            let optimalExposure = 1.0;
+            const expDir = maxDir > 0 ? 3.0 / maxDir : 1.0;
+            const expPt = maxPt > 0 ? 3000.0 / maxPt : 1.0;
+
+            if (maxDir > 0 && maxPt > 0)
+              optimalExposure = Math.min(expDir, expPt);
+            else if (maxDir > 0) optimalExposure = expDir;
+            else if (maxPt > 0) optimalExposure = expPt;
+
+            optimalExposure = Math.max(0.00001, Math.min(optimalExposure, 5.0));
+
+            renderer.toneMappingExposure = optimalExposure;
+            scene.environmentIntensity = 0.0;
+
+            ambientLight.visible = false;
+            hemiLight.visible = false;
+            keyLight.visible = false;
+            fillLight.visible = false;
+            rimLight.visible = false;
+          }
+
           // --- Apply Animation State if requested ---
           let appliedAnim = false;
           if (gltf.animations && gltf.animations.length > 0) {
