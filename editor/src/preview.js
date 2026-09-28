@@ -161,6 +161,7 @@ lightGroup.add(hemiLight);
 if (wireframeCb) {
   wireframeCb.addEventListener("change", () => {
     const isWireframe = wireframeCb.checked;
+    bloomPass.enabled = !isWireframe;
     if (currentMesh) {
       setupMeshShadowsAndWireframe(currentMesh, isWireframe);
     }
@@ -353,6 +354,7 @@ function renderGLTF(outputArray) {
         currentMesh = gltf.scene;
         currentAnimations = gltf.animations || [];
         const isWireframe = wireframeCb ? wireframeCb.checked : false;
+        bloomPass.enabled = !isWireframe;
 
         const extracted = extractCamerasAndLights(currentMesh);
         gltfCameras = extracted.gltfCameras;
