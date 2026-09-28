@@ -997,7 +997,6 @@ const bloomPass = new UnrealBloomPass(
   0.1, // radius
   2.0, // threshold
 );
-bloomPass.enabled = false;
 composer.addPass(bloomPass);
 
 const outputPass = new OutputPass();
