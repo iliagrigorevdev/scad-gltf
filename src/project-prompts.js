@@ -6,7 +6,7 @@ const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DIR = path.resolve(__dirname, "..");
 
-function appendUserScadFiles(options = {}) {
+function appendUserScadFiles(options = {}, isRawScad = false) {
   if (
     !options.scadFiles ||
     !Array.isArray(options.scadFiles) ||
@@ -16,7 +16,11 @@ function appendUserScadFiles(options = {}) {
   }
 
   let output = `\n\n=== USER PROVIDED OPENSCAD FILES ===\n`;
-  output += `The following .scad files are provided as reference or base assets. You MUST embed and write them into the generated project (or use them as context), modifying them if necessary to fit the project logic.\n\n`;
+  if (isRawScad) {
+    output += `The following .scad files are provided as reference or base assets. You MUST embed their contents directly into your final single OpenSCAD file (or use them as context), modifying them if necessary to fit the project logic.\n\n`;
+  } else {
+    output += `The following .scad files are provided as reference or base assets. You MUST embed and write them into the generated project (or use them as context), modifying them if necessary to fit the project logic.\n\n`;
+  }
   for (const file of options.scadFiles) {
     try {
       const content = fs.readFileSync(file, "utf-8").replace(/\r\n/g, "\n");
@@ -36,8 +40,12 @@ function appendUserScadFiles(options = {}) {
 export function getProjectPrompts(projectType) {
   if (projectType === "scad") {
     return {
-      buildSystemPrompt: (promptRules, options = {}) =>
-        `You are an expert procedural 3D technical artist and OpenSCAD developer.
+      buildSystemPrompt: (promptRules, options = {}) => {
+        const hasUserScadFiles =
+          Array.isArray(options.scadFiles) && options.scadFiles.length > 0;
+
+        return (
+          `You are an expert procedural 3D technical artist and OpenSCAD developer.
 Your goal is to generate a single OpenSCAD (.scad) file based on the user's request.
 
 CRITICAL WORKFLOW:
@@ -45,7 +53,12 @@ CRITICAL WORKFLOW:
 2. Call the \`render_scad_model\` tool with your code to visually verify your design.
 3. If the model looks incorrect, adjust your code and re-render. Iterate until perfect.
 4. Provide your final OpenSCAD code in a standard markdown block (\`\`\`openscad).` +
-        appendUserScadFiles(options),
+          (hasUserScadFiles
+            ? `\n5. CRITICAL: You MUST embed the contents of the provided user .scad files directly into your generated OpenSCAD code so it remains a single self-contained file. Do not use \`use\` or \`include\` directives.`
+            : "") +
+          appendUserScadFiles(options, true)
+        );
+      },
       allowedTools: ["render_scad_model"],
     };
   }
