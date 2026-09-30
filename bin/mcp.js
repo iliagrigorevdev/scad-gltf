@@ -166,108 +166,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: "get_scad_prompt",
-        description:
-          "Generates the specialized instruction prompt containing the required syntax rules for PBR, Animations, and Texture Baking in this custom OpenSCAD environment.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            description: {
-              type: "string",
-              description: "The description of the object you want to design.",
-            },
-            options: {
-              type: "object",
-              description:
-                "Optional feature toggles to customize the generated prompt syntax rules.",
-              properties: {
-                basic: {
-                  type: "boolean",
-                  description:
-                    "Include rules for basic PBR attributes: metalness and roughness. (Default: true)",
-                },
-                transmission: {
-                  type: "boolean",
-                  description:
-                    "Include rules for transparent/glass volumes: transmission, thickness, ior, attenuationColor, and attenuationDistance. (Default: true)",
-                },
-                clearcoat: {
-                  type: "boolean",
-                  description:
-                    "Include rules for clearcoat and clearcoatRoughness. (Default: true)",
-                },
-                sheen: {
-                  type: "boolean",
-                  description:
-                    "Include rules for cloth/velvet sheen: sheen, sheenColor, and sheenRoughness. (Default: true)",
-                },
-                emissive: {
-                  type: "boolean",
-                  description:
-                    "Include rules for glowing materials: emissive and emissiveIntensity. (Default: true)",
-                },
-                specular: {
-                  type: "boolean",
-                  description:
-                    "Include rules for specular reflections: specularColor and specularIntensity. (Default: true)",
-                },
-                iridescence: {
-                  type: "boolean",
-                  description:
-                    "Include rules for thin-film interference: iridescence and iridescenceIOR. (Default: true)",
-                },
-                autoSmoothAngle: {
-                  type: "boolean",
-                  description:
-                    "Include rules for smooth shading vertex normals via $asa. (Default: true)",
-                },
-                animation: {
-                  type: "boolean",
-                  description:
-                    "Include rules for hierarchical node animations using armature() and bone(). (Default: true)",
-                },
-                bakeColors: {
-                  type: "boolean",
-                  description:
-                    "Include rules for baking colors from high-poly onto low-poly meshes. (Default: false)",
-                },
-                bakeNormals: {
-                  type: "boolean",
-                  description:
-                    "Include rules for baking tangent-space normal maps. (Default: false)",
-                },
-                bakeOrm: {
-                  type: "boolean",
-                  description:
-                    "Include rules for baking Occlusion/Roughness/Metallic (ORM) textures. (Default: false)",
-                },
-                bakeUvs: {
-                  type: "boolean",
-                  description:
-                    "Include rules for generating textureless UV coordinates and tangents. (Default: false)",
-                },
-                lazyUnion: {
-                  type: "boolean",
-                  description:
-                    "Include rules for the lazy-union compiler optimization. (Default: false)",
-                },
-                modelName: {
-                  type: "boolean",
-                  description:
-                    "Include output instructions requiring the '/* Model Name: ... */' header comment. (Default: true)",
-                },
-                lights: {
-                  type: "boolean",
-                  description:
-                    "Include rules for adding scene lights. (Default: false)",
-                },
-              },
-            },
-          },
-          required: ["description"],
-        },
-      },
-      {
         name: "render_scad_model",
         description:
           "Converts OpenSCAD code to GLTF and uses a 3D renderer to capture images from requested camera angles. Analyze these returned images to verify your design, including specific frames of your animations.",
@@ -373,31 +271,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   // ------------------------------------------
-  // TOOL 1: get_scad_prompt
-  // ------------------------------------------
-  if (name === "get_scad_prompt") {
-    try {
-      const promptText = generatePrompt(args.description, args.options || {});
-      return {
-        content: [
-          {
-            type: "text",
-            text: promptText,
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          { type: "text", text: `Error generating prompt: ${error.message}` },
-        ],
-        isError: true,
-      };
-    }
-  }
-
-  // ------------------------------------------
-  // TOOL 2: get_project_prompt
+  // TOOL 1: get_project_prompt
   // ------------------------------------------
   if (name === "get_project_prompt") {
     try {
@@ -452,7 +326,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   // ------------------------------------------
-  // TOOL 3: render_scad_model
+  // TOOL 2: render_scad_model
   // ------------------------------------------
   if (name === "render_scad_model") {
     let browser;
@@ -897,7 +771,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   // ------------------------------------------
-  // TOOL 4: test_godot_project
+  // TOOL 3: test_godot_project
   // ------------------------------------------
   if (name === "test_godot_project") {
     let cleanupDir = null;
@@ -1198,7 +1072,7 @@ func _ready():
   }
 
   // ------------------------------------------
-  // TOOL 5: compile_rust_project
+  // TOOL 4: compile_rust_project
   // ------------------------------------------
   if (name === "compile_rust_project") {
     let cleanupDir = null;
