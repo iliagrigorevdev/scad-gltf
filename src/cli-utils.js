@@ -140,7 +140,10 @@ export function logAIThinking(reasoning, isVerbose = false) {
   console.log(`   | ${tail.join("\n   | ")}`);
 }
 
-export function generateScadPreviewUrl(scadCode) {
+export function generateScadPreviewUrl(
+  scadCode,
+  baseUrl = "http://localhost:3000",
+) {
   try {
     const deflated = zlib.deflateRawSync(Buffer.from(scadCode, "utf-8"));
     const base64 = deflated
@@ -148,7 +151,7 @@ export function generateScadPreviewUrl(scadCode) {
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
       .replace(/=+$/, "");
-    return `http://localhost:3000/#c${base64}`;
+    return `${baseUrl}/#c${base64}`;
   } catch (e) {
     return null;
   }
