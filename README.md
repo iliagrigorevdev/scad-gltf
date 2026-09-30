@@ -261,7 +261,7 @@ Instead of generating code blindly, the AI can compile its script, render the 3D
 
 **Exposed MCP Tools:**
 
-- `get_scad_prompt`: Injects the custom OpenSCAD syntax rules (PBR, animations, baking) into the AI's context.
+- `get_project_prompt`: Generates the specialized system prompt and user input request for creating full procedural 3D projects (Godot, Web, Rust, or pure SCAD).
 - `render_scad_model`: Compiles the generated `.scad` code to GLB and returns base64 images from requested camera angles (front, back, left, right, top, bottom, isometric) and specific animation keyframes.
 - `compile_rust_project` / `test_godot_project`: Tests the generated game projects for compilation and runtime errors.
 
@@ -518,7 +518,7 @@ console.log(promptContext);
 
 Once connected, an AI assistant can use the server to execute the following loop:
 
-1. **Retrieve Syntax Rules:** The assistant calls the `get_scad_prompt` tool to get the extended syntax rules for PBR materials, hierarchical node animations, and texture baking.
+1. **Retrieve Syntax Rules:** The assistant calls the `get_project_prompt` tool to get the extended syntax rules and project structure guidelines.
 2. **Generate Code:** The assistant writes the `.scad` script based on your design request.
 3. **Compile & Visually Inspect:** The assistant calls the `render_scad_model` tool to inspect rendered multi-angle frames and keyframes, fixing any errors before final export.
 
