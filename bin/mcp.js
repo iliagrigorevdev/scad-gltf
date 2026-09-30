@@ -13,6 +13,7 @@ import {
 import puppeteer from "puppeteer";
 import { convertScadToGltf } from "../src/convert.js";
 import { generatePrompt } from "../src/prompt.js";
+import { getProjectPrompts } from "../src/project-prompts.js";
 import { runGodotAsync } from "../src/godot-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -54,6 +55,116 @@ const server = new Server(
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
+      {
+        name: "get_project_prompt",
+        description:
+          "Generates the specialized system prompt and user input request for creating full procedural 3D projects (Godot, Web, Rust, or pure SCAD). This provides the syntax rules and structure required to generate the project.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            project_type: {
+              type: "string",
+              enum: ["scad", "bevy", "wgpu", "web", "godot"],
+              description:
+                "The target framework or output type for the project.",
+            },
+            description: {
+              type: "string",
+              description:
+                "The description of the project or object you want to design.",
+            },
+            options: {
+              type: "object",
+              description:
+                "Optional feature toggles to customize the generated prompt syntax rules.",
+              properties: {
+                basic: {
+                  type: "boolean",
+                  description:
+                    "Include rules for basic PBR attributes: metalness and roughness. (Default: true)",
+                },
+                transmission: {
+                  type: "boolean",
+                  description:
+                    "Include rules for transparent/glass volumes. (Default: false)",
+                },
+                clearcoat: {
+                  type: "boolean",
+                  description:
+                    "Include rules for clearcoat and clearcoatRoughness. (Default: false)",
+                },
+                sheen: {
+                  type: "boolean",
+                  description:
+                    "Include rules for cloth/velvet sheen. (Default: false)",
+                },
+                emissive: {
+                  type: "boolean",
+                  description:
+                    "Include rules for glowing materials: emissive and emissiveIntensity. (Default: true)",
+                },
+                specular: {
+                  type: "boolean",
+                  description:
+                    "Include rules for specular reflections. (Default: true)",
+                },
+                iridescence: {
+                  type: "boolean",
+                  description:
+                    "Include rules for thin-film interference. (Default: false)",
+                },
+                autoSmoothAngle: {
+                  type: "boolean",
+                  description:
+                    "Include rules for smooth shading vertex normals via $asa. (Default: true)",
+                },
+                animation: {
+                  type: "boolean",
+                  description:
+                    "Include rules for hierarchical node animations using armature() and bone(). (Default: true)",
+                },
+                bakeColors: {
+                  type: "boolean",
+                  description:
+                    "Include rules for baking colors from high-poly onto low-poly meshes. (Default: false)",
+                },
+                bakeNormals: {
+                  type: "boolean",
+                  description:
+                    "Include rules for baking tangent-space normal maps. (Default: false)",
+                },
+                bakeOrm: {
+                  type: "boolean",
+                  description:
+                    "Include rules for baking Occlusion/Roughness/Metallic (ORM) textures. (Default: false)",
+                },
+                bakeUvs: {
+                  type: "boolean",
+                  description:
+                    "Include rules for generating textureless UV coordinates and tangents. (Default: false)",
+                },
+                lazyUnion: {
+                  type: "boolean",
+                  description:
+                    "Include rules for the lazy-union compiler optimization. (Default: false)",
+                },
+                lights: {
+                  type: "boolean",
+                  description:
+                    "Include rules for adding scene lights. (Default: false)",
+                },
+                scadFiles: {
+                  type: "array",
+                  items: { type: "string" },
+                  description:
+                    "Array of file paths to existing .scad files to embed as context.",
+                },
+              },
+            },
+          },
+          required: ["project_type", "description"],
+        },
+      },
       {
         name: "get_scad_prompt",
         description:
@@ -286,7 +397,62 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   // ------------------------------------------
-  // TOOL 2: render_scad_model
+  // TOOL 2: get_project_prompt
+  // ------------------------------------------
+  if (name === "get_project_prompt") {
+    try {
+      const pType = args.project_type;
+      const desc = args.description;
+      const opts = {
+        transmission: false,
+        clearcoat: false,
+        sheen: false,
+        iridescence: false,
+        ...(args.options || {}),
+      };
+
+      if (!["scad", "bevy", "wgpu", "web", "godot"].includes(pType)) {
+        throw new Error(`Invalid project type: ${pType}`);
+      }
+
+      if (pType !== "scad") {
+        opts.modelName = false;
+      }
+
+      const promptRules = generatePrompt(
+        pType === "scad" ? desc : "the 3D assets for the project",
+        opts,
+      );
+
+      const prompts = getProjectPrompts(pType);
+      const systemPrompt = prompts.buildSystemPrompt(promptRules, opts);
+      const userRequest = prompts.buildInputRequest
+        ? prompts.buildInputRequest(desc, promptRules)
+        : promptRules;
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== USER REQUEST ===\n${userRequest}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error generating project prompt: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  // ------------------------------------------
+  // TOOL 3: render_scad_model
   // ------------------------------------------
   if (name === "render_scad_model") {
     let browser;
@@ -731,7 +897,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   // ------------------------------------------
-  // TOOL 3: test_godot_project
+  // TOOL 4: test_godot_project
   // ------------------------------------------
   if (name === "test_godot_project") {
     let cleanupDir = null;
@@ -1032,7 +1198,7 @@ func _ready():
   }
 
   // ------------------------------------------
-  // TOOL 4: compile_rust_project
+  // TOOL 5: compile_rust_project
   // ------------------------------------------
   if (name === "compile_rust_project") {
     let cleanupDir = null;
