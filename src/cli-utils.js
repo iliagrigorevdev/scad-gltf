@@ -117,6 +117,29 @@ export function askQuestion(message) {
   });
 }
 
+export function logAIThinking(reasoning, isVerbose = false) {
+  if (!reasoning) return;
+  const lines = reasoning.trim().split("\n");
+  if (lines.length === 0) return;
+
+  console.log(`\n🤔 AI Thinking:`);
+  if (isVerbose || lines.length <= 8) {
+    console.log(`   | ${lines.join("\n   | ")}`);
+    return;
+  }
+
+  // Hybrid view: initial intent + final conclusions
+  const head = lines.slice(0, 3);
+  const tail = lines.slice(-5);
+  const hiddenCount = lines.length - head.length - tail.length;
+
+  console.log(`   | ${head.join("\n   | ")}`);
+  console.log(
+    `   | ... [${hiddenCount} lines hidden, pass --verbose to view full thought process]`,
+  );
+  console.log(`   | ${tail.join("\n   | ")}`);
+}
+
 export function generateScadPreviewUrl(scadCode) {
   try {
     const deflated = zlib.deflateRawSync(Buffer.from(scadCode, "utf-8"));
@@ -139,11 +162,18 @@ export async function runAutomatedAIFlow(
   inputRequest,
   allowedTools = ["render_scad_model", "test_godot_project"],
   projectType = "godot",
+  flowOptions = {},
 ) {
   if (!baseUrl) {
     throw new Error("Base URL is required to run the automated AI flow.");
   }
 
+  const isVerbose = Boolean(
+    flowOptions.verbose ||
+    process.argv.includes("--verbose") ||
+    process.argv.includes("-v") ||
+    process.env.VERBOSE,
+  );
   const outputFilename = `generate_${projectType}_project.js`;
   const isRawScad = projectType === "scad";
   const modelTag = modelName ? ` (${modelName})` : "";
@@ -292,6 +322,11 @@ export async function runAutomatedAIFlow(
       const data = await response.json();
       const choice = data.choices[0];
       const message = choice.message;
+
+      const reasoning = message.reasoning_content || message.reasoning || "";
+      if (reasoning) {
+        logAIThinking(reasoning, isVerbose);
+      }
 
       // Append the assistant message exactly as provided (including tool_calls)
       messages.push(message);
@@ -739,6 +774,7 @@ export async function runCliApp({
       inputRequestOutput,
       allowedTools,
       projectType,
+      options,
     );
     return;
   }
