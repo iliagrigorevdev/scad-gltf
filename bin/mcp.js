@@ -880,16 +880,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const originalProjectGodot = fs.readFileSync(projectGodotPath, "utf8");
       let playResult;
 
-      if (returnImages) {
-        // 1.5 Prepare Screenshot Autoload Script
-        const snapTime = Math.max(0.5, runTime - 0.5);
+      // 1.5 Prepare MCP Runner Autoload Script (ALWAYS inject to ensure a clean exit)
+      const snapTime = Math.max(0.5, runTime - 0.5);
 
-        const screenshotScript = `extends Node
-func _ready():
-\tprint("[ScreenshotMCP] Autoload ready. Waiting ${snapTime} seconds...")
-\tawait get_tree().create_timer(${snapTime}).timeout
-\tvar ds = DisplayServer.get_name()
-\tprint("[ScreenshotMCP] DisplayServer is: ", ds)
+      let runnerScript = `extends Node\nfunc _ready():\n\tprint("[MCP] Autoload ready. Waiting ${snapTime} seconds...")\n\tawait get_tree().create_timer(${snapTime}).timeout\n`;
+
+      // If returning images, inject the screenshot capture logic
+      if (returnImages) {
+        runnerScript += `\tvar ds = DisplayServer.get_name()
+\tprint("[MCP] DisplayServer is: ", ds)
 \tif ds != "headless":
 \t\tawait RenderingServer.frame_post_draw
 \t\tvar tex = get_viewport().get_texture()
@@ -904,34 +903,37 @@ func _ready():
 \t\t\t\tvar cropped = img.get_region(Rect2i(x, y, size, size))
 \t\t\t\tvar path = ProjectSettings.globalize_path("res://screenshot_mcp.png")
 \t\t\t\tvar err = cropped.save_png(path)
-\t\t\t\tprint("[ScreenshotMCP] Save PNG to ", path, " returned error code: ", err)
+\t\t\t\tprint("[MCP] Save PNG to ", path, " returned error code: ", err)
 \t\t\telse:
-\t\t\t\tprint("[ScreenshotMCP] Error: Image is null or empty.")
+\t\t\t\tprint("[MCP] Error: Image is null or empty.")
 \t\telse:
-\t\t\tprint("[ScreenshotMCP] Error: Viewport texture is null.")
-\tget_tree().quit()
-`;
-        fs.writeFileSync(
-          path.join(projectDir, "screenshot_mcp.gd"),
-          screenshotScript,
+\t\t\tprint("[MCP] Error: Viewport texture is null.")\n`;
+      }
+
+      // Always force Godot to quit gracefully from the inside
+      runnerScript += `\tget_tree().quit()\n`;
+
+      fs.writeFileSync(path.join(projectDir, "mcp_runner.gd"), runnerScript);
+
+      let tempProjectGodot = originalProjectGodot;
+      if (tempProjectGodot.includes("[autoload]")) {
+        tempProjectGodot = tempProjectGodot.replace(
+          "[autoload]",
+          '[autoload]\nMCPRunner="*res://mcp_runner.gd"',
         );
+      } else {
+        tempProjectGodot += `\n[autoload]\nMCPRunner="*res://mcp_runner.gd"\n`;
+      }
+      fs.writeFileSync(projectGodotPath, tempProjectGodot, "utf8");
 
-        let tempProjectGodot = originalProjectGodot;
-        if (tempProjectGodot.includes("[autoload]")) {
-          tempProjectGodot = tempProjectGodot.replace(
-            "[autoload]",
-            '[autoload]\nScreenshotMCP="*res://screenshot_mcp.gd"',
-          );
-        } else {
-          tempProjectGodot += `\n[autoload]\nScreenshotMCP="*res://screenshot_mcp.gd"\n`;
-        }
-        fs.writeFileSync(projectGodotPath, tempProjectGodot, "utf8");
+      // 2. Run Project Step
+      // Give the Node wrapper a +5000ms buffer so the internal Godot timer always finishes first
+      const safeNodeTimeout = runTime * 1000 + 5000;
 
-        // 2. Run Project Step
-        // Always try windowed first to get the screenshot.
-        // If the environment lacks a display server, we'll catch the error and fallback.
+      if (returnImages) {
+        // Windowed first to get the screenshot
         let playArgs = [
-          "--windowed", // Use windowed instead of headless to ensure rendering works for screenshot
+          "--windowed",
           "--resolution",
           "512x512",
           "--audio-driver",
@@ -940,13 +942,7 @@ func _ready():
           projectDir,
         ];
 
-        playResult = await runGodotAsync(
-          playArgs,
-          projectDir,
-          // Give Godot extra buffer time to boot, take the shot, and quit gracefully
-          runTime * 1000 + 5000,
-        );
-
+        playResult = await runGodotAsync(playArgs, projectDir, safeNodeTimeout);
         let windowedOutput = playResult.output;
 
         // Fallback if windowed mode fails due to display server issues
@@ -958,28 +954,27 @@ func _ready():
           playResult = await runGodotAsync(
             ["--headless", "--audio-driver", "Dummy", "--path", projectDir],
             projectDir,
-            runTime * 1000,
+            safeNodeTimeout,
           );
-          // Explicitly inject the display error into the final output so we aren't flying blind!
           playResult.output =
             "--- WINDOWED LAUNCH FAILED (Display Error) ---\n" +
             windowedOutput.trim() +
             "\n\n--- FALLBACK HEADLESS LAUNCH ---\n" +
             playResult.output;
         }
-
-        // 3. Cleanup Autoloads
-        fs.writeFileSync(projectGodotPath, originalProjectGodot, "utf8");
-        if (fs.existsSync(path.join(projectDir, "screenshot_mcp.gd"))) {
-          fs.unlinkSync(path.join(projectDir, "screenshot_mcp.gd"));
-        }
       } else {
         // Text-only mode: Run headless immediately
         playResult = await runGodotAsync(
           ["--headless", "--audio-driver", "Dummy", "--path", projectDir],
           projectDir,
-          runTime * 1000,
+          safeNodeTimeout,
         );
+      }
+
+      // 3. Cleanup Autoloads
+      fs.writeFileSync(projectGodotPath, originalProjectGodot, "utf8");
+      if (fs.existsSync(path.join(projectDir, "mcp_runner.gd"))) {
+        fs.unlinkSync(path.join(projectDir, "mcp_runner.gd"));
       }
 
       // 4. Read Screenshot
