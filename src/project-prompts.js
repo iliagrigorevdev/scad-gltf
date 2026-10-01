@@ -278,8 +278,7 @@ ${promptRules}
          ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
          : ""
      }
-   - Ensure all string file contents inside the Node.js script are properly escaped.
-   - TESTING CAPABILITY: You have access to the \`test_godot_project\` tool. If you want to verify your code before outputting your final response, you can pass your complete generated Node.js script as the \`nodejs_script\` parameter. The server will execute it in a temporary folder and run the Godot tests automatically.`;
+   - Ensure all string file contents inside the Node.js script are properly escaped.`;
 
         let systemClipboardOutput = `${systemPrompt}\n\n`;
         systemClipboardOutput += appendUserScadFiles(options);
