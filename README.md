@@ -284,18 +284,6 @@ If you installed the package globally, you can configure your MCP client to use 
 
 ---
 
-## 🎮 Godot Engine Integration
-
-This repository includes an official **Godot 4.x Importer Addon** located in the [`/godot`](./godot) directory.
-
-The addon allows you to drag-and-drop `.scad` files directly into your Godot project. It uses this WASM compiler under the hood to transform scripts into 3D scenes automatically.
-
-- **Features:** Supports PBR Materials and Hierarchical Node Animations inside the Godot Editor.
-- **License:** The Godot Addon is licensed under **MIT**.
-- **Setup:** Simply copy the `addons/scad_importer` folder to your project and enable it in Project Settings.
-
----
-
 ## Automated AI Generation (`scad-gltf gen`)
 
 By default, the `scad-gltf gen` utility copies a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Base URL** (and optional **API Key**), the CLI will fully automate this process. It will automatically spin up the `scad-gltf mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its code in real-time before saving the final `generate_project.js` script to your disk.

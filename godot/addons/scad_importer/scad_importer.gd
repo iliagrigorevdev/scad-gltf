@@ -1,6 +1,3 @@
-# Copyright (c) 2026 Ilia Grigorev. Distributed under the MIT License.
-# See LICENSE in the addon directory for details.
-
 @tool
 extends EditorSceneFormatImporter
 
