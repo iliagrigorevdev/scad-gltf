@@ -782,45 +782,19 @@ export async function runCliApp({
     return;
   }
 
-  if (isRawScad) {
-    try {
-      await writeToClipboard(inputRequestOutput);
-      console.log(
-        "✔️  Input request and syntax rules have been copied to the clipboard. You can now paste it into your LLM.",
-      );
-    } catch (err) {
-      console.error("Error: Failed to copy input request to the clipboard.");
-      console.error(err.message);
-      process.exit(1);
-    }
-    return;
-  }
+  const combinedOutput = `=== SYSTEM PROMPT ===
+${systemClipboardOutput}
 
-  // Write to System Clipboard (Part 1: System Instructions)
+=== USER REQUEST ===
+${inputRequestOutput}`;
+
   try {
-    await writeToClipboard(systemClipboardOutput);
-    console.log("✔️  System instructions have been copied to the clipboard.");
-  } catch (err) {
-    console.error(
-      "Error: Failed to copy system instructions to the clipboard.",
-    );
-    console.error(err.message);
-    process.exit(1);
-  }
-
-  // Await user confirmation
-  await waitForEnter(
-    "Please paste the system instructions into your LLM, then press ENTER to copy your input request...",
-  );
-
-  // Write to System Clipboard (Part 2: Input Request)
-  try {
-    await writeToClipboard(inputRequestOutput);
+    await writeToClipboard(combinedOutput);
     console.log(
-      "✔️  Input request has been copied to the clipboard. You can now paste it into your LLM.",
+      "✔️  The system prompt and input request have been combined and copied to the clipboard. You can now paste them into your LLM.",
     );
   } catch (err) {
-    console.error("Error: Failed to copy input request to the clipboard.");
+    console.error("Error: Failed to copy to the clipboard.");
     console.error(err.message);
     process.exit(1);
   }
