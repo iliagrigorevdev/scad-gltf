@@ -205,7 +205,7 @@ What to generate:
    - Scale & Units: 1 OpenSCAD unit = 1 Godot meter. Design your models using realistic meter-based scales (e.g., a character should be ~1.8 units tall). DO NOT use millimeter-based scaling.
    - Coordinate System & Forward Convention: Write standard OpenSCAD Z-up code (+Z is UP, XY plane is ground). Build objects standing upright and facing Front (Positive Y-axis).
    - Left/Right Convention: Always name and position "left" and "right" components (e.g., LeftArm, RightEye) based on the object's anatomical point of view (facing Forward towards +Y), NOT the camera/viewer's screen perspective. Because the object faces +Y, the object's Left side is along the -X axis, and the object's Right side is along the +X axis.
-   - CRITICAL Coordinate Mapping: The SCAD to glTF converter automatically converts OpenSCAD's Z-up coordinate system to Godot's Y-up coordinate system. Design your models naturally in OpenSCAD using this exact mapping:
+   - CRITICAL Coordinate Mapping: The SCAD to glTF converter used by the Godot importer automatically converts OpenSCAD's Z-up coordinate system to Godot's Y-up coordinate system. Design your models naturally in OpenSCAD using this exact mapping:
      * OpenSCAD +X (Right)   -> Godot +X (Right)
      * OpenSCAD -X (Left)    -> Godot -X (Left)
      * OpenSCAD +Y (Forward) -> Godot -Z (Forward)
@@ -220,7 +220,7 @@ ${promptRules}
 
 2. Godot 4 Project Files:
    - Create the necessary GDScript (\`.gd\`) and scene (\`.tscn\`) files to implement the project logic, responsive user input controls, and a core interaction loop.
-   - The scenes should directly instance the compiled \`.glb\` files (NOT the \`.scad\` files).
+   - The scenes should directly instance the generated \`.scad\` files (the provided addon will handle importing them as 3D scenes).
    - GDScript Coordinate, Forward, and Left/Right Conventions:
      * Forward is -Z: In Godot, \`Vector3.FORWARD\` is \`Vector3(0, 0, -1)\`. A 3D node's local forward direction is \`-transform.basis.z\` (or \`-global_transform.basis.z\`). In character movement, forward input (e.g., W or ui_up) must translate along \`-transform.basis.z\`. Never treat +Z as forward.
      * Backward is +Z: \`Vector3.BACK\` is \`Vector3(0, 0, 1)\` (\`transform.basis.z\`).
@@ -228,43 +228,9 @@ ${promptRules}
      * Left is -X: \`Vector3.LEFT\` is \`Vector3(-1, 0, 0)\` (\`-transform.basis.x\`).
      * Left/Right Convention in Godot Script: Maintain anatomical consistency in scripts—character Right is along +X (\`transform.basis.x\`) and character Left is along -X (\`-transform.basis.x\`).
      * Natural Model Alignment: Because OpenSCAD models face +Y (Forward), they automatically import facing Godot's Forward direction (-Z). Built-in Godot methods like \`look_at()\` orient the node's -Z axis toward the target, which perfectly aligns with the model's front. Do NOT apply compensation rotations (e.g., \`rotate_y(PI)\`) in GDScript to compensate for model orientation.
-   - You MUST include a Godot EditorPlugin (in \`addons/scad_builder/\`) that acts as an automated pre-build step. It overrides \`_build()\` to automatically compile \`.scad\` files to \`.glb\` inside the \`models/\` folder every time the user presses Play. Output these two exact files:
-     File 1: \`addons/scad_builder/plugin.cfg\`
-     \`\`\`ini
-     [plugin]
-     name="SCAD Builder"
-     description="Auto-compiles SCAD to GLTF on Play."
-     author="Auto"
-     version="1.0"
-     script="scad_builder.gd"
-     \`\`\`
-     File 2: \`addons/scad_builder/scad_builder.gd\`
-     \`\`\`gdscript
-     @tool
-     extends EditorPlugin
-
-     func _build() -> bool:
-         print("[SCAD Builder] Compiling SCAD files...")
-         var output = []
-         var exit_code = -1
-         var args = ["convert", ProjectSettings.globalize_path("res://scad"), ProjectSettings.globalize_path("res://models"), "--cache"]
-         if OS.get_name() == "Windows":
-             var win_args = ["/c", "scad-gltf"]
-             win_args.append_array(args)
-             exit_code = OS.execute("cmd.exe", win_args, output, true)
-         else:
-             exit_code = OS.execute("scad-gltf", args, output, true)
-         if exit_code != 0:
-             push_error("[SCAD Builder] Compilation failed:\\n" + "\\n".join(output))
-             return false
-         get_editor_interface().get_resource_filesystem().scan()
-         return true
-     \`\`\`
-   - Generate a \`project.godot\` file. It must configure the project and explicitly enable the builder plugin:
-     \`\`\`ini
-     [editor_plugins]
-     enabled=PackedStringArray("res://addons/scad_builder/plugin.cfg")
-     \`\`\`
+   - Generate a \`project.godot\` file. It must configure the project and automatically enable the \`scad_importer\` plugin.
+   - Generate a \`.gitignore\` file that ignores the \`.godot/\` folder.
+   - Generate a \`README.md\` file that documents the project, mechanics/features, and controls.
 
 3. Delivery Format (Single Node.js Script):
    - Output exactly ONE self-contained Node.js script. Do not output manual setup instructions.
@@ -272,15 +238,52 @@ ${promptRules}
    - CRITICAL: You MUST use \`process.cwd()\` (and NOT \`__dirname\`) when defining the target directory path (e.g. \`const rootDir = path.join(process.cwd(), "my_project");\`). This ensures the script extracts correctly into whatever temporary folder it is executed from.
    - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
    - The script must embed and write:
-     - Your generated \`.scad\` assets (e.g., in a \`scad/\` folder).
-     - Your generated Godot project files.${
+     - Your generated \`.scad\` assets.
+     - Your generated Godot project files.
+     - The exact source code of the provided \`addons/scad_importer/*\` files, placed in their correct respective paths.${
        hasUserScadFiles
          ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
          : ""
      }
    - Ensure all string file contents inside the Node.js script are properly escaped.`;
 
+        // Gather Addon Files content
+        const addonDir = path.join(DIR, "godot", "addons", "scad_importer");
+        let addonFiles = [];
+        try {
+          if (fs.existsSync(addonDir)) {
+            const files = fs.readdirSync(addonDir);
+            for (const file of files) {
+              const fullPath = path.join(addonDir, file);
+              if (
+                fs.statSync(fullPath).isFile() &&
+                (file.endsWith(".gd") || file.endsWith(".cfg"))
+              ) {
+                addonFiles.push(fullPath);
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Warning: Could not read addon directory.", e);
+        }
+
         let systemClipboardOutput = `${systemPrompt}\n\n`;
+
+        for (const file of addonFiles) {
+          try {
+            const content = fs
+              .readFileSync(file, "utf-8")
+              .replace(/\r\n/g, "\n");
+            const relativePath = path.relative(DIR, file).replace(/\\/g, "/");
+            const lang = file.endsWith(".gd") ? "gdscript" : "text";
+            systemClipboardOutput += `### ${relativePath}\n---\n\`\`\`${lang}\n${content}\n\`\`\`\n\n`;
+          } catch (e) {
+            console.error(
+              `Warning: Skipping '${file}'. It is not a readable file.`,
+            );
+          }
+        }
+
         systemClipboardOutput += appendUserScadFiles(options);
 
         return systemClipboardOutput.trimEnd() + "\n";
