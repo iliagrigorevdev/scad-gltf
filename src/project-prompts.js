@@ -41,24 +41,13 @@ export function getProjectPrompts(projectType) {
   if (projectType === "scad") {
     return {
       buildSystemPrompt: (promptRules, options = {}) => {
-        const hasUserScadFiles =
-          Array.isArray(options.scadFiles) && options.scadFiles.length > 0;
-
-        return (
-          `You are an expert procedural 3D technical artist and OpenSCAD developer.
-Your goal is to generate a single OpenSCAD (.scad) file based on the user's request.
-
-CRITICAL WORKFLOW:
-1. Write the OpenSCAD code using the custom syntax rules provided in the request.
-2. Call the \`render_scad_model\` tool with your code to visually verify your design.
-3. If the model looks incorrect, adjust your code and re-render. Iterate until perfect.
-4. Provide your final OpenSCAD code in a standard markdown block (\`\`\`openscad).` +
-          (hasUserScadFiles
-            ? `\n5. CRITICAL: You MUST embed the contents of the provided user .scad files directly into your generated OpenSCAD code so it remains a single self-contained file. Do not use \`use\` or \`include\` directives.`
-            : "") +
-          appendUserScadFiles(options, true)
-        );
+        let output = promptRules;
+        if (Array.isArray(options.scadFiles) && options.scadFiles.length > 0) {
+          output += appendUserScadFiles(options, true);
+        }
+        return output;
       },
+      buildInputRequest: (task) => task,
       allowedTools: ["render_scad_model"],
     };
   }

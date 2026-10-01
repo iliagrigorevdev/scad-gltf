@@ -782,6 +782,20 @@ export async function runCliApp({
     return;
   }
 
+  if (isRawScad) {
+    try {
+      await writeToClipboard(systemClipboardOutput);
+      console.log(
+        "✔️  Input request and syntax rules have been copied to the clipboard. You can now paste it into your LLM.",
+      );
+    } catch (err) {
+      console.error("Error: Failed to copy input request to the clipboard.");
+      console.error(err.message);
+      process.exit(1);
+    }
+    return;
+  }
+
   const combinedOutput = `=== SYSTEM PROMPT ===
 ${systemClipboardOutput}
 
