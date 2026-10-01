@@ -228,12 +228,12 @@ ${promptRules}
      * Left is -X: \`Vector3.LEFT\` is \`Vector3(-1, 0, 0)\` (\`-transform.basis.x\`).
      * Left/Right Convention in Godot Script: Maintain anatomical consistency in scripts—character Right is along +X (\`transform.basis.x\`) and character Left is along -X (\`-transform.basis.x\`).
      * Natural Model Alignment: Because OpenSCAD models face +Y (Forward), they automatically import facing Godot's Forward direction (-Z). Built-in Godot methods like \`look_at()\` orient the node's -Z axis toward the target, which perfectly aligns with the model's front. Do NOT apply compensation rotations (e.g., \`rotate_y(PI)\`) in GDScript to compensate for model orientation.
-   - You MUST include a Godot EditorPlugin (in \`addons/scad_builder/\`) that acts as an automated pre-build step. It overrides \`_build()\` to automatically compile \`.scad\` files to \`.glb\` inside the \`models/\` folder every time the user presses Play. To ensure the addon also works when the project is run directly without opening the editor first, you MUST also trigger the build inside \`_enter_tree()\` and provide a fallback Autoload. Output these three exact files:
+   - You MUST include a Godot EditorPlugin (in \`addons/scad_builder/\`) that acts as an automated pre-build step. It overrides \`_build()\` to automatically compile \`.scad\` files to \`.glb\` inside the \`models/\` folder every time the user presses Play. Output these two exact files:
      File 1: \`addons/scad_builder/plugin.cfg\`
      \`\`\`ini
      [plugin]
      name="SCAD Builder"
-     description="Auto-compiles SCAD to GLTF."
+     description="Auto-compiles SCAD to GLTF on Play."
      author="Auto"
      version="1.0"
      script="scad_builder.gd"
@@ -242,9 +242,6 @@ ${promptRules}
      \`\`\`gdscript
      @tool
      extends EditorPlugin
-
-     func _enter_tree():
-         _build()
 
      func _build() -> bool:
          print("[SCAD Builder] Compiling SCAD files...")
@@ -260,34 +257,11 @@ ${promptRules}
          if exit_code != 0:
              push_error("[SCAD Builder] Compilation failed:\\n" + "\\n".join(output))
              return false
-         if Engine.is_editor_hint():
-             get_editor_interface().get_resource_filesystem().scan()
+         get_editor_interface().get_resource_filesystem().scan()
          return true
      \`\`\`
-     File 3: \`addons/scad_builder/scad_autoload.gd\`
-     \`\`\`gdscript
-     extends Node
-
-     func _enter_tree():
-         if not OS.has_feature("template") and not Engine.is_editor_hint():
-             print("[SCAD Autoload] Compiling SCAD files...")
-             var output = []
-             var exit_code = -1
-             var args = ["convert", ProjectSettings.globalize_path("res://scad"), ProjectSettings.globalize_path("res://models"), "--cache"]
-             if OS.get_name() == "Windows":
-                 var win_args = ["/c", "scad-gltf"]
-                 win_args.append_array(args)
-                 exit_code = OS.execute("cmd.exe", win_args, output, true)
-             else:
-                 exit_code = OS.execute("scad-gltf", args, output, true)
-             if exit_code != 0:
-                 push_error("[SCAD Autoload] Compilation failed:\\n" + "\\n".join(output))
-     \`\`\`
-   - Generate a \`project.godot\` file. It must configure the project and explicitly enable the builder plugin and the autoload:
+   - Generate a \`project.godot\` file. It must configure the project and explicitly enable the builder plugin:
      \`\`\`ini
-     [autoload]
-     ScadAutoload="*res://addons/scad_builder/scad_autoload.gd"
-
      [editor_plugins]
      enabled=PackedStringArray("res://addons/scad_builder/plugin.cfg")
      \`\`\`
