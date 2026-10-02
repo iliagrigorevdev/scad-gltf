@@ -29,6 +29,7 @@
     "bin",
     "src",
     "godot",
+    "rust",
     "editor/dist"
   ],
   "bin": {
