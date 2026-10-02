@@ -6,6 +6,19 @@ const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DIR = path.resolve(__dirname, "..");
 
+function readFile(filePath) {
+  try {
+    return fs.readFileSync(filePath, "utf-8").replace(/\r\n/g, "\n");
+  } catch (e) {
+    console.error(`Warning: Skipping file '${filePath}'. It is not readable.`);
+    return null;
+  }
+}
+
+function formatMarkdownFile(displayPath, lang, content) {
+  return `### ${displayPath}\n---\n\`\`\`${lang}\n${content}\n\`\`\`\n\n`;
+}
+
 function appendUserScadFiles(options = {}, isRawScad = false) {
   if (
     !options.scadFiles ||
@@ -22,16 +35,12 @@ function appendUserScadFiles(options = {}, isRawScad = false) {
     output += `The following .scad files are provided as reference or base assets. You MUST embed and write them into the generated project (or use them as context), modifying them if necessary to fit the project logic.\n\n`;
   }
   for (const file of options.scadFiles) {
-    try {
-      const content = fs.readFileSync(file, "utf-8").replace(/\r\n/g, "\n");
+    const content = readFile(file);
+    if (content !== null) {
       const relativePath = path.isAbsolute(file)
         ? path.relative(process.cwd(), file).replace(/\\/g, "/")
         : file.replace(/\\/g, "/");
-      output += `### ${relativePath}\n---\n\`\`\`openscad\n${content}\n\`\`\`\n\n`;
-    } catch (e) {
-      console.error(
-        `Warning: Skipping user SCAD file '${file}'. It is not a readable file.`,
-      );
+      output += formatMarkdownFile(relativePath, "openscad", content);
     }
   }
   return output;
@@ -62,8 +71,7 @@ export function getProjectPrompts(projectType) {
         const hasUserScadFiles =
           Array.isArray(options.scadFiles) && options.scadFiles.length > 0;
 
-        return (
-          `You are an expert Rust ${frameworkName} developer and procedural 3D technical artist.
+        const systemPrompt = `You are an expert Rust ${frameworkName} developer and procedural 3D technical artist.
 
 NAMING CONVENTION REQUIREMENT:
 - All generated files, directories, models, scripts, and root folders MUST strictly use snake_case (lowercase with underscores, e.g. \`player_character.rs\`, \`enemy_walker.scad\`).
@@ -82,31 +90,7 @@ ${promptRules}
 2. Rust ${frameworkName} Project Files:
    - Create the necessary files for a modern Rust ${frameworkName} application (e.g., \`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).
    - In \`Cargo.toml\`, include \`${depName}\` as a dependency.
-   - You MUST include this EXACT \`build.rs\` script at the root of the project to automatically compile the \`.scad\` files into \`.glb\` format inside the \`assets/models\` folder before running the application via Cargo:
-     \`\`\`rust
-     use std::process::Command;
-
-     fn main() {
-         // Tell Cargo to re-run this script only if the 'scad' directory changes
-         println!("cargo::rerun-if-changed=scad");
-
-         // Ensure cross-platform compatibility for npm global binaries
-         let cmd = if cfg!(target_os = "windows") {
-             "scad-gltf.cmd"
-         } else {
-             "scad-gltf"
-         };
-
-         let status = Command::new(cmd)
-             .args(["convert", "./scad", "./assets/models", "--cache"])
-             .status()
-             .expect("Failed to execute scad-gltf. Is scad-gltf installed globally?");
-
-         if !status.success() {
-             panic!("scad-gltf convert failed with status: {}", status);
-         }
-     }
-     \`\`\`
+   - You MUST include the provided \`build.rs\` script at the root of the project to automatically compile the \`.scad\` files into \`.glb\` format inside the \`assets/models\` folder before running the application via Cargo.
    - Write the core application logic in \`src/main.rs\` to load and display the converted \`.glb\` files interactively.${
      isBevy
        ? " Provide standard Bevy systems (camera, lights, movement, etc.)."
@@ -120,14 +104,29 @@ ${promptRules}
    - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
    - The script must embed and write:
      - Your generated \`.scad\` 3D assets.
-     - Your generated Rust ${frameworkName} project files (\`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).${
+     - Your generated Rust ${frameworkName} project files (\`Cargo.toml\`, \`src/main.rs\`).
+     - The exact source code of the provided \`build.rs\` file, placed in the project root.${
        hasUserScadFiles
          ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
          : ""
      }
-   - Ensure all string file contents inside the Node.js script are properly escaped.` +
-          appendUserScadFiles(options)
-        );
+   - Ensure all string file contents inside the Node.js script are properly escaped.`;
+
+        let systemClipboardOutput = `${systemPrompt}\n\n`;
+
+        const buildRsPath = path.join(DIR, "rust", "build.rs");
+        const buildRsContent = readFile(buildRsPath);
+        if (buildRsContent !== null) {
+          systemClipboardOutput += formatMarkdownFile(
+            "build.rs",
+            "rust",
+            buildRsContent,
+          );
+        }
+
+        systemClipboardOutput += appendUserScadFiles(options);
+
+        return systemClipboardOutput.trimEnd() + "\n";
       },
       buildInputRequest: (task) =>
         `Design and implement a Rust ${frameworkName} project for the following concept: "${task}"`,
@@ -245,9 +244,10 @@ ${promptRules}
      }
    - Ensure all string file contents inside the Node.js script are properly escaped.`;
 
+        let systemClipboardOutput = `${systemPrompt}\n\n`;
+
         // Gather Addon Files content
         const addonDir = path.join(DIR, "godot", "addons", "scad_importer");
-        let addonFiles = [];
         try {
           if (fs.existsSync(addonDir)) {
             const files = fs.readdirSync(addonDir);
@@ -257,29 +257,21 @@ ${promptRules}
                 fs.statSync(fullPath).isFile() &&
                 (file.endsWith(".gd") || file.endsWith(".cfg"))
               ) {
-                addonFiles.push(fullPath);
+                const content = readFile(fullPath);
+                if (content !== null) {
+                  const relativePath = `addons/scad_importer/${file}`;
+                  const lang = file.endsWith(".gd") ? "gdscript" : "text";
+                  systemClipboardOutput += formatMarkdownFile(
+                    relativePath,
+                    lang,
+                    content,
+                  );
+                }
               }
             }
           }
         } catch (e) {
           console.error("Warning: Could not read addon directory.", e);
-        }
-
-        let systemClipboardOutput = `${systemPrompt}\n\n`;
-
-        for (const file of addonFiles) {
-          try {
-            const content = fs
-              .readFileSync(file, "utf-8")
-              .replace(/\r\n/g, "\n");
-            const relativePath = path.relative(DIR, file).replace(/\\/g, "/");
-            const lang = file.endsWith(".gd") ? "gdscript" : "text";
-            systemClipboardOutput += `### ${relativePath}\n---\n\`\`\`${lang}\n${content}\n\`\`\`\n\n`;
-          } catch (e) {
-            console.error(
-              `Warning: Skipping '${file}'. It is not a readable file.`,
-            );
-          }
         }
 
         systemClipboardOutput += appendUserScadFiles(options);
