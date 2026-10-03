@@ -46,6 +46,90 @@ function appendUserScadFiles(options = {}, isRawScad = false) {
   return output;
 }
 
+function getScadAssetsInstructions(promptRules, projectType) {
+  let specificRules = "";
+  if (projectType === "godot") {
+    specificRules = `   - Scale & Units: 1 OpenSCAD unit = 1 Godot meter. Design your models using realistic meter-based scales (e.g., a character should be ~1.8 units tall). DO NOT use millimeter-based scaling.
+   - Coordinate System & Forward Convention: Write standard OpenSCAD Z-up code (+Z is UP, XY plane is ground). Build objects standing upright and facing Front (Positive Y-axis).
+   - Left/Right Convention: Always name and position "left" and "right" components (e.g., LeftArm, RightEye) based on the object's anatomical point of view (facing Forward towards +Y), NOT the camera/viewer's screen perspective. Because the object faces +Y, the object's Left side is along the -X axis, and the object's Right side is along the +X axis.
+   - CRITICAL Coordinate Mapping: The SCAD to glTF converter used by the Godot importer automatically converts OpenSCAD's Z-up coordinate system to Godot's Y-up coordinate system. Design your models naturally in OpenSCAD using this exact mapping:
+     * OpenSCAD +X (Right)   -> Godot +X (Right)
+     * OpenSCAD -X (Left)    -> Godot -X (Left)
+     * OpenSCAD +Y (Forward) -> Godot -Z (Forward)
+     * OpenSCAD -Y (Back)    -> Godot +Z (Back)
+     * OpenSCAD +Z (Up)      -> Godot +Y (Up)
+     DO NOT manually apply root rotations (e.g., \`rotate([90, 0, 0])\`) to compensate for Godot.`;
+  } else {
+    specificRules = `   - CRITICAL: The SCAD to glTF converter automatically converts OpenSCAD's Z-up coordinate system to the standard glTF Y-up coordinate system. Design your models naturally in OpenSCAD.`;
+  }
+
+  return `1. 3D Assets (.scad):
+   - Generate procedural 3D models for the project using OpenSCAD.
+${specificRules}
+   - CRITICAL: You must use the custom OpenSCAD glTF extensions for PBR materials (e.g., \`roughness\`, \`metalness\`, \`emissive\`) and Hierarchical Node Animations (\`armature()\`, \`bone()\`). The rules and syntax for these features are provided below:
+
+=== OPENSCAD SYNTAX RULES ===
+${promptRules}
+=============================`;
+}
+
+function getDeliveryFormat(projectType, frameworkName, hasUserScadFiles) {
+  let exampleCode = "";
+  let includes = "";
+
+  if (projectType === "bevy" || projectType === "wgpu") {
+    exampleCode = `     ### my_project/Cargo.toml
+     \`\`\`toml
+     [package]
+     name = "my_project"
+     ...
+     \`\`\`
+     ### my_project/src/main.rs
+     \`\`\`rust
+     fn main() {}
+     \`\`\``;
+    includes = `     - Your generated Rust ${frameworkName} project files (\`Cargo.toml\`, \`src/main.rs\`).
+     - The exact source code of the provided \`build.rs\` file, placed in the project root.`;
+  } else if (projectType === "web") {
+    exampleCode = `     ### my_project/package.json
+     \`\`\`json
+     {
+       "name": "my_project"
+     }
+     \`\`\`
+     ### my_project/main.js
+     \`\`\`javascript
+     console.log("Started");
+     \`\`\``;
+    includes = `     - Your generated Vite web project files.`;
+  } else if (projectType === "godot") {
+    exampleCode = `     ### my_project/project.godot
+     \`\`\`ini
+     config_version=5
+     \`\`\`
+     ### my_project/main.gd
+     \`\`\`gdscript
+     extends Node
+     \`\`\``;
+    includes = `     - Your generated Godot project files.
+     - The exact source code of the provided \`addons/scad_importer/*\` files, placed in their correct respective paths.`;
+  }
+
+  return `3. Delivery Format (Single Markdown File):
+   - Output exactly ONE Markdown response containing all project files.
+   - Format EACH file with a Markdown header specifying the relative file path (using snake_case directories), followed immediately by a code block containing the file's contents.
+   - Example Format:
+${exampleCode}
+   - The project files must be placed inside a root project folder (e.g., \`my_project/\`).
+   - You must include and write:
+     - Your generated \`.scad\` 3D assets.
+${includes}${
+    hasUserScadFiles
+      ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
+      : ""
+  }`;
+}
+
 export function getProjectPrompts(projectType) {
   if (projectType === "scad") {
     return {
@@ -78,14 +162,7 @@ NAMING CONVENTION REQUIREMENT:
 - NEVER use hyphens/minus signs (\`-\`) or spaces in any file or folder names.
 
 What to generate:
-1. 3D Assets (.scad):
-   - Generate procedural 3D models for the project using OpenSCAD.
-   - CRITICAL: The SCAD to glTF converter automatically converts OpenSCAD's Z-up coordinate system to the standard glTF Y-up coordinate system. Design your models naturally in OpenSCAD.
-   - CRITICAL: You must use the custom OpenSCAD glTF extensions for PBR materials (e.g., \`roughness\`, \`metalness\`, \`emissive\`) and Hierarchical Node Animations (\`armature()\`, \`bone()\`). The rules and syntax for these features are provided below:
-
-=== OPENSCAD SYNTAX RULES ===
-${promptRules}
-=============================
+${getScadAssetsInstructions(promptRules, projectType)}
 
 2. Rust ${frameworkName} Project Files:
    - Create the necessary files for a modern Rust ${frameworkName} application (e.g., \`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).
@@ -97,30 +174,7 @@ ${promptRules}
        : ""
    }
 
-3. Delivery Format (Single Markdown File):
-   - Output exactly ONE Markdown response containing all project files.
-   - Do not output manual setup instructions or conversational explanations; output only the project files.
-   - Format EACH file with a Markdown header specifying the relative file path (using snake_case directories), followed immediately by a code block containing the file's contents.
-   - Example Format:
-     ### my_project/Cargo.toml
-     \`\`\`toml
-     [package]
-     name = "my_project"
-     ...
-     \`\`\`
-     ### my_project/src/main.rs
-     \`\`\`rust
-     fn main() {}
-     \`\`\`
-   - The project files must be placed inside a root project folder (e.g., \`my_project/\`).
-   - You must include and write:
-     - Your generated \`.scad\` 3D assets.
-     - Your generated Rust ${frameworkName} project files (\`Cargo.toml\`, \`src/main.rs\`).
-     - The exact source code of the provided \`build.rs\` file, placed in the project root.${
-       hasUserScadFiles
-         ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
-         : ""
-     }`;
+${getDeliveryFormat(projectType, frameworkName, hasUserScadFiles)}`;
 
         let systemClipboardOutput = `${systemPrompt}\n\n`;
 
@@ -154,14 +208,7 @@ ${promptRules}
           `You are an expert Web 3D developer and procedural 3D technical artist.
 
 What to generate:
-1. 3D Web Assets (.scad):
-   - Generate procedural 3D models for the project using OpenSCAD.
-   - CRITICAL: The SCAD to glTF converter automatically converts OpenSCAD's Z-up coordinate system to the standard glTF Y-up coordinate system. Design your models naturally in OpenSCAD.
-   - CRITICAL: You must use the custom OpenSCAD glTF extensions for PBR materials (e.g., \`roughness\`, \`metalness\`, \`emissive\`) and Hierarchical Node Animations (\`armature()\`, \`bone()\`). The rules and syntax for these features are provided below:
-
-=== OPENSCAD SYNTAX RULES ===
-${promptRules}
-=============================
+${getScadAssetsInstructions(promptRules, projectType)}
 
 2. Vite Web Project Files (npm based):
    - Create the necessary files for a modern web application (e.g., \`package.json\`, \`index.html\`, \`main.js\`).
@@ -174,29 +221,8 @@ ${promptRules}
      \`"prebuild": "scad-gltf convert ./scad ./public/models --cache"\`
    - Write the core application logic to load and display the converted \`.glb\` files interactively.
 
-3. Delivery Format (Single Markdown File):
-   - Output exactly ONE Markdown response containing all project files.
-   - Do not output manual setup instructions or conversational explanations; output only the project files.
-   - Format EACH file with a Markdown header specifying the relative file path (using snake_case directories), followed immediately by a code block containing the file's contents.
-   - Example Format:
-     ### my_project/package.json
-     \`\`\`json
-     {
-       "name": "my_project"
-     }
-     \`\`\`
-     ### my_project/main.js
-     \`\`\`javascript
-     console.log("Started");
-     \`\`\`
-   - The project files must be placed inside a root project folder (e.g., \`my_project/\`).
-   - You must include and write:
-     - Your generated \`.scad\` 3D assets.
-     - Your generated Vite web project files.${
-       hasUserScadFiles
-         ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
-         : ""
-     }` + appendUserScadFiles(options)
+${getDeliveryFormat(projectType, null, hasUserScadFiles)}` +
+          appendUserScadFiles(options)
         );
       },
       buildInputRequest: (task) =>
@@ -218,23 +244,7 @@ NAMING CONVENTION REQUIREMENT:
 - NEVER use hyphens/minus signs (\`-\`) or spaces in any file or folder names.
 
 What to generate:
-1. 3D Assets (.scad):
-   - Generate procedural 3D models for the project using OpenSCAD.
-   - Scale & Units: 1 OpenSCAD unit = 1 Godot meter. Design your models using realistic meter-based scales (e.g., a character should be ~1.8 units tall). DO NOT use millimeter-based scaling.
-   - Coordinate System & Forward Convention: Write standard OpenSCAD Z-up code (+Z is UP, XY plane is ground). Build objects standing upright and facing Front (Positive Y-axis).
-   - Left/Right Convention: Always name and position "left" and "right" components (e.g., LeftArm, RightEye) based on the object's anatomical point of view (facing Forward towards +Y), NOT the camera/viewer's screen perspective. Because the object faces +Y, the object's Left side is along the -X axis, and the object's Right side is along the +X axis.
-   - CRITICAL Coordinate Mapping: The SCAD to glTF converter used by the Godot importer automatically converts OpenSCAD's Z-up coordinate system to Godot's Y-up coordinate system. Design your models naturally in OpenSCAD using this exact mapping:
-     * OpenSCAD +X (Right)   -> Godot +X (Right)
-     * OpenSCAD -X (Left)    -> Godot -X (Left)
-     * OpenSCAD +Y (Forward) -> Godot -Z (Forward)
-     * OpenSCAD -Y (Back)    -> Godot +Z (Back)
-     * OpenSCAD +Z (Up)      -> Godot +Y (Up)
-     DO NOT manually apply root rotations (e.g., \`rotate([90, 0, 0])\`) to compensate for Godot.
-   - CRITICAL: You must use the custom OpenSCAD glTF extensions for PBR materials (e.g., \`roughness\`, \`metalness\`, \`emissive\`) and Hierarchical Node Animations (\`armature()\`, \`bone()\`). The rules and syntax for these features are provided below:
-
-=== OPENSCAD SYNTAX RULES ===
-${promptRules}
-=============================
+${getScadAssetsInstructions(promptRules, projectType)}
 
 2. Godot 4 Project Files:
    - Create the necessary GDScript (\`.gd\`) and scene (\`.tscn\`) files to implement the project logic, responsive user input controls, and a core interaction loop.
@@ -248,28 +258,7 @@ ${promptRules}
      * Natural Model Alignment: Because OpenSCAD models face +Y (Forward), they automatically import facing Godot's Forward direction (-Z). Built-in Godot methods like \`look_at()\` orient the node's -Z axis toward the target, which perfectly aligns with the model's front. Do NOT apply compensation rotations (e.g., \`rotate_y(PI)\`) in GDScript to compensate for model orientation.
    - Generate a \`project.godot\` file. It must configure the project and automatically enable the \`scad_importer\` plugin.
 
-3. Delivery Format (Single Markdown File):
-   - Output exactly ONE Markdown response containing all project files.
-   - Do not output manual setup instructions or conversational explanations; output only the project files.
-   - Format EACH file with a Markdown header specifying the relative file path (using snake_case directories), followed immediately by a code block containing the file's contents.
-   - Example Format:
-     ### my_project/project.godot
-     \`\`\`ini
-     config_version=5
-     \`\`\`
-     ### my_project/main.gd
-     \`\`\`gdscript
-     extends Node
-     \`\`\`
-   - The project files must be placed inside a root project folder (e.g., \`my_project/\`).
-   - You must include and write:
-     - Your generated \`.scad\` assets.
-     - Your generated Godot project files.
-     - The exact source code of the provided \`addons/scad_importer/*\` files, placed in their correct respective paths.${
-       hasUserScadFiles
-         ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
-         : ""
-     }`;
+${getDeliveryFormat(projectType, null, hasUserScadFiles)}`;
 
         let systemClipboardOutput = `${systemPrompt}\n\n`;
 
