@@ -25,7 +25,8 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **AI Studio Extension:** Chrome extension to natively preview, prompt, take chat snapshots, open in Scadify, and locally save AI-generated 3D models directly inside Google AI Studio.
 - **Godot 4, Rust Bevy & Web Integration:** Native Godot 4 importer addon and Rust Bevy compile-time `build.rs` integration.
 - **Automated AI Generation:** Pass an OpenAI-compatible base URL (and optional API key) to the `scad-gltf gen` CLI tool to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run game project or raw 3D asset script.
-- **Project Runner:** Bundled `scad-gltf play` CLI utility to safely unpack, build, and launch generated game projects in isolated temporary environments.
+- **Project Runner:** Bundled `scad-gltf play` CLI utility to safely unpack, build, and launch generated Markdown projects in isolated temporary environments.
+- **Project Extractor:** Bundled `scad-gltf extract` CLI utility to permanently unpack AI-generated Markdown projects to your local filesystem.
 
 ---
 
@@ -286,7 +287,7 @@ If you installed the package globally, you can configure your MCP client to use 
 
 ## Automated AI Generation (`scad-gltf gen`)
 
-By default, the `scad-gltf gen` utility copies a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Base URL** (and optional **API Key**), the CLI will fully automate this process. It will automatically spin up the `scad-gltf mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its code in real-time before saving the final `generate_project.js` script to your disk.
+By default, the `scad-gltf gen` utility copies a heavily engineered system prompt to your clipboard to paste into an LLM. However, if you provide a **Base URL** (and optional **API Key**), the CLI will fully automate this process. It will automatically spin up the `scad-gltf mcp` server in the background, connect it to your LLM, and allow the AI to _visually evaluate and fix_ its code in real-time before saving the final `generate_project.md` file to your disk.
 
 **Supported Generation Types:**
 
@@ -341,25 +342,43 @@ scad-gltf gen godot "A game using the provided player model" '{"scadFiles": ["./
 _Once the automated process completes for full game projects, you can test it instantly using the `play` command:_
 
 ```bash
-scad-gltf play generate_godot_project.js
+scad-gltf play generate_godot_project.md
 ```
 
-_Alternatively, to extract the final project permanently into your current directory, just run the script with Node:_
+_Alternatively, to permanently unpack the project to your local filesystem, use the `extract` command:_
 
 ```bash
-node generate_godot_project.js
+scad-gltf extract generate_godot_project.md
 ```
 
 ---
 
 ## Testing Generated Projects (`scad-gltf play`)
 
-The `scad-gltf play` utility is designed to quickly test the single-file Node.js scripts produced by the `gen` command. Instead of cluttering your working directory, it unpacks the project into a temporary folder, automatically installs dependencies or builds the project (Godot, Rust Bevy, or Vite), and launches it. Once you close the application, the temporary folder is automatically cleaned up.
+The `scad-gltf play` utility is designed to quickly test the single-file Markdown projects produced by the `gen` command. Instead of cluttering your working directory, it unpacks the project into a temporary folder, automatically installs dependencies or builds the project (Godot, Rust Bevy, or Vite), and launches it. Once you close the application, the temporary folder is automatically cleaned up.
 
 **Usage:**
 
 ```bash
-scad-gltf play <path_to_generated_script.js>
+scad-gltf play <path_to_generated_project.md>
+```
+
+---
+
+## Extracting Generated Projects (`scad-gltf extract`)
+
+When you are satisfied with a generated project and want to continue developing it yourself, use the `scad-gltf extract` command to permanently unpack the Markdown file to your disk.
+
+It reads the `### filepath` headers and writes the code blocks to their respective directories.
+
+**Usage:**
+
+```bash
+# Extract files into the current working directory
+scad-gltf extract <path_to_generated_project.md>
+
+# Extract files into a specific directory
+scad-gltf extract <path_to_generated_project.md> ./my_new_game
 ```
 
 ---

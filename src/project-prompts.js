@@ -16,7 +16,7 @@ function readFile(filePath) {
 }
 
 function formatMarkdownFile(displayPath, lang, content) {
-  return `### ${displayPath}\n---\n\`\`\`${lang}\n${content}\n\`\`\`\n\n`;
+  return `### ${displayPath}\n\`\`\`${lang}\n${content}\n\`\`\`\n\n`;
 }
 
 function appendUserScadFiles(options = {}, isRawScad = false) {
@@ -99,6 +99,7 @@ ${promptRules}
 
 3. Delivery Format (Single Markdown File):
    - Output exactly ONE Markdown response containing all project files.
+   - Do not output manual setup instructions or conversational explanations; output only the project files.
    - Format EACH file with a Markdown header specifying the relative file path (using snake_case directories), followed immediately by a code block containing the file's contents.
    - Example Format:
      ### my_project/Cargo.toml
@@ -175,6 +176,7 @@ ${promptRules}
 
 3. Delivery Format (Single Markdown File):
    - Output exactly ONE Markdown response containing all project files.
+   - Do not output manual setup instructions or conversational explanations; output only the project files.
    - Format EACH file with a Markdown header specifying the relative file path (using snake_case directories), followed immediately by a code block containing the file's contents.
    - Example Format:
      ### my_project/package.json
@@ -248,6 +250,7 @@ ${promptRules}
 
 3. Delivery Format (Single Markdown File):
    - Output exactly ONE Markdown response containing all project files.
+   - Do not output manual setup instructions or conversational explanations; output only the project files.
    - Format EACH file with a Markdown header specifying the relative file path (using snake_case directories), followed immediately by a code block containing the file's contents.
    - Example Format:
      ### my_project/project.godot

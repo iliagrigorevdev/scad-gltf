@@ -8,6 +8,7 @@ const commands = {
   mcp: "./mcp.js",
   gen: "./gen.js",
   play: "./play.js",
+  extract: "./extract.js",
 };
 
 if (!command || !commands[command]) {
@@ -19,7 +20,12 @@ if (!command || !commands[command]) {
   console.error(
     "  gen       Automated AI generation of 3D models, simulations, and interactive projects",
   );
-  console.error("  play      Test and launch generated Node.js scripts");
+  console.error(
+    "  play      Test and launch generated projects in a temporary folder",
+  );
+  console.error(
+    "  extract   Extract a generated Markdown project to your local filesystem",
+  );
   process.exit(1);
 }
 
