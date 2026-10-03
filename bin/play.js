@@ -5,15 +5,19 @@ import path from "node:path";
 import os from "node:os";
 import { execSync, spawn } from "node:child_process";
 import { getGodotBin } from "../src/godot-utils.js";
+import {
+  extractFilesFromMarkdown,
+  writeExtractedFiles,
+} from "../src/cli-utils.js";
 
 function main() {
   const packedScriptPath = process.argv[2];
 
   if (!packedScriptPath) {
     console.error(
-      "❌ Error: Path to the packed Node.js generator script is required.",
+      "❌ Error: Path to the generated Markdown project file is required.",
     );
-    console.error("Usage: scad-gltf play <path_to_generated_project.js>");
+    console.error("Usage: scad-gltf play <path_to_generated_project.md>");
     process.exit(1);
   }
 
@@ -25,7 +29,7 @@ function main() {
 
   // 1. Create a unique temporary directory
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "scad-play-"));
-  console.log(`📦 Unpacking script to temporary directory...\n   ${tempDir}`);
+  console.log(`📦 Unpacking project to temporary directory...\n   ${tempDir}`);
 
   let appProcess = null;
 
@@ -54,11 +58,38 @@ function main() {
   });
 
   try {
-    // 2. Execute the packed Node.js script inside the temp directory
-    console.log(
-      `\n⚙️  Running generator script: ${path.basename(absScriptPath)}`,
-    );
-    execSync(`node "${absScriptPath}"`, { cwd: tempDir, stdio: "inherit" });
+    const ext = path.extname(absScriptPath).toLowerCase();
+
+    // 2. Extract files based on extension
+    if (ext === ".js") {
+      // Legacy support for older node.js script generations
+      console.log(
+        `\n⚙️  Running legacy generator script: ${path.basename(absScriptPath)}`,
+      );
+      execSync(`node "${absScriptPath}"`, { cwd: tempDir, stdio: "inherit" });
+    } else if (ext === ".md") {
+      console.log(
+        `\n⚙️  Extracting Markdown project: ${path.basename(absScriptPath)}`,
+      );
+      const mdContent = fs.readFileSync(absScriptPath, "utf-8");
+      const files = extractFilesFromMarkdown(mdContent);
+
+      if (Object.keys(files).length === 0) {
+        console.error(
+          "\n❌ Error: No files could be extracted from the Markdown. Make sure it uses '### filepath' headers followed by code blocks.",
+        );
+        cleanup();
+        process.exit(1);
+      }
+
+      writeExtractedFiles(files, tempDir);
+    } else {
+      console.error(
+        "\n❌ Error: Unsupported file type. Please provide a .md or .js generated project file.",
+      );
+      cleanup();
+      process.exit(1);
+    }
 
     // 3. Find the resulting project folder and determine its type
     let projectDir = null;
@@ -87,14 +118,14 @@ function main() {
     if (!projectDir || !projectType) {
       console.error("\n❌ Error: Could not find a valid generated project.");
       console.error(
-        "The script did not produce a folder containing 'project.godot', 'package.json', or 'Cargo.toml'.",
+        "The project did not contain a root folder holding 'project.godot', 'package.json', or 'Cargo.toml'.",
       );
       cleanup();
       process.exit(1);
     }
 
     console.log(
-      `\n✔️  Found generated ${projectType.toUpperCase()} project: ${path.basename(projectDir)}`,
+      `\n✔️  Found extracted ${projectType.toUpperCase()} project: ${path.basename(projectDir)}`,
     );
 
     // 4. Boot the corresponding environment

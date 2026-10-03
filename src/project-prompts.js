@@ -97,20 +97,29 @@ ${promptRules}
        : ""
    }
 
-3. Delivery Format (Single Node.js Script):
-   - Output exactly ONE self-contained Node.js script. Do not output manual setup instructions.
-   - CRITICAL: The generated Node.js script MUST first create a root project folder (named using a slugified version of the project name) and output all files and folders inside this newly created project folder.
-   - CRITICAL: You MUST use \`process.cwd()\` (and NOT \`__dirname\`) when defining the target directory path (e.g. \`const rootDir = path.join(process.cwd(), "my_project");\`). This ensures the script extracts correctly into whatever temporary folder it is executed from.
-   - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
-   - The script must embed and write:
+3. Delivery Format (Single Markdown File):
+   - Output exactly ONE Markdown response containing all project files.
+   - Format EACH file with a Markdown header specifying the relative file path (using snake_case directories), followed immediately by a code block containing the file's contents.
+   - Example Format:
+     ### my_project/Cargo.toml
+     \`\`\`toml
+     [package]
+     name = "my_project"
+     ...
+     \`\`\`
+     ### my_project/src/main.rs
+     \`\`\`rust
+     fn main() {}
+     \`\`\`
+   - The project files must be placed inside a root project folder (e.g., \`my_project/\`).
+   - You must include and write:
      - Your generated \`.scad\` 3D assets.
      - Your generated Rust ${frameworkName} project files (\`Cargo.toml\`, \`src/main.rs\`).
      - The exact source code of the provided \`build.rs\` file, placed in the project root.${
        hasUserScadFiles
          ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
          : ""
-     }
-   - Ensure all string file contents inside the Node.js script are properly escaped.`;
+     }`;
 
         let systemClipboardOutput = `${systemPrompt}\n\n`;
 
@@ -164,20 +173,28 @@ ${promptRules}
      \`"prebuild": "scad-gltf convert ./scad ./public/models --cache"\`
    - Write the core application logic to load and display the converted \`.glb\` files interactively.
 
-3. Delivery Format (Single Node.js Script):
-   - Output exactly ONE self-contained Node.js script. Do not output manual setup instructions.
-   - CRITICAL: The generated Node.js script MUST first create a root project folder (named using a slugified version of the project name) and output all files and folders inside this newly created project folder.
-   - CRITICAL: You MUST use \`process.cwd()\` (and NOT \`__dirname\`) when defining the target directory path (e.g. \`const rootDir = path.join(process.cwd(), "my_project");\`). This ensures the script extracts correctly into whatever temporary folder it is executed from.
-   - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
-   - The script must embed and write:
+3. Delivery Format (Single Markdown File):
+   - Output exactly ONE Markdown response containing all project files.
+   - Format EACH file with a Markdown header specifying the relative file path (using snake_case directories), followed immediately by a code block containing the file's contents.
+   - Example Format:
+     ### my_project/package.json
+     \`\`\`json
+     {
+       "name": "my_project"
+     }
+     \`\`\`
+     ### my_project/main.js
+     \`\`\`javascript
+     console.log("Started");
+     \`\`\`
+   - The project files must be placed inside a root project folder (e.g., \`my_project/\`).
+   - You must include and write:
      - Your generated \`.scad\` 3D assets.
      - Your generated Vite web project files.${
        hasUserScadFiles
          ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
          : ""
-     }
-   - Ensure all string file contents inside the Node.js script are properly escaped.` +
-          appendUserScadFiles(options)
+     }` + appendUserScadFiles(options)
         );
       },
       buildInputRequest: (task) =>
@@ -229,20 +246,27 @@ ${promptRules}
      * Natural Model Alignment: Because OpenSCAD models face +Y (Forward), they automatically import facing Godot's Forward direction (-Z). Built-in Godot methods like \`look_at()\` orient the node's -Z axis toward the target, which perfectly aligns with the model's front. Do NOT apply compensation rotations (e.g., \`rotate_y(PI)\`) in GDScript to compensate for model orientation.
    - Generate a \`project.godot\` file. It must configure the project and automatically enable the \`scad_importer\` plugin.
 
-3. Delivery Format (Single Node.js Script):
-   - Output exactly ONE self-contained Node.js script. Do not output manual setup instructions.
-   - CRITICAL: The generated Node.js script MUST first create a root project folder (named using snake_case with underscores, e.g., \`my_project\`) and output all files and folders inside this newly created project folder.
-   - CRITICAL: You MUST use \`process.cwd()\` (and NOT \`__dirname\`) when defining the target directory path (e.g. \`const rootDir = path.join(process.cwd(), "my_project");\`). This ensures the script extracts correctly into whatever temporary folder it is executed from.
-   - When executed, this script must programmatically create the entire project directory structure and write all the files to disk using the \`fs\` module.
-   - The script must embed and write:
+3. Delivery Format (Single Markdown File):
+   - Output exactly ONE Markdown response containing all project files.
+   - Format EACH file with a Markdown header specifying the relative file path (using snake_case directories), followed immediately by a code block containing the file's contents.
+   - Example Format:
+     ### my_project/project.godot
+     \`\`\`ini
+     config_version=5
+     \`\`\`
+     ### my_project/main.gd
+     \`\`\`gdscript
+     extends Node
+     \`\`\`
+   - The project files must be placed inside a root project folder (e.g., \`my_project/\`).
+   - You must include and write:
      - Your generated \`.scad\` assets.
      - Your generated Godot project files.
      - The exact source code of the provided \`addons/scad_importer/*\` files, placed in their correct respective paths.${
        hasUserScadFiles
          ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
          : ""
-     }
-   - Ensure all string file contents inside the Node.js script are properly escaped.`;
+     }`;
 
         let systemClipboardOutput = `${systemPrompt}\n\n`;
 

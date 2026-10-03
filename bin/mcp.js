@@ -15,7 +15,11 @@ import { convertScadToGltf } from "../src/convert.js";
 import { generatePrompt } from "../src/prompt.js";
 import { getProjectPrompts } from "../src/project-prompts.js";
 import { runGodotAsync } from "../src/godot-utils.js";
-import { generateScadPreviewUrl } from "../src/cli-utils.js";
+import {
+  generateScadPreviewUrl,
+  extractFilesFromMarkdown,
+  writeExtractedFiles,
+} from "../src/cli-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,7 +47,7 @@ global.fetch = async (url, options) => {
 const server = new Server(
   {
     name: "scad-mcp-server",
-    version: "1.3.0",
+    version: "1.4.0",
   },
   {
     capabilities: {
@@ -216,19 +220,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "test_godot_project",
         description:
-          "Runs a specified Godot project for a short duration to detect script errors, missing resources, or runtime crashes. Returns the console output logs and a visual screenshot of the running project.",
+          "Extracts a Godot project from a Markdown format and runs it for a short duration to detect script errors, missing resources, or runtime crashes. Returns the console output logs and a visual screenshot.",
         inputSchema: {
           type: "object",
           properties: {
-            project_dir: {
+            project_markdown: {
               type: "string",
               description:
-                "The relative or absolute path to the directory containing project.godot. Use this if the project is already extracted on disk.",
-            },
-            nodejs_script: {
-              type: "string",
-              description:
-                "The complete self-contained Node.js script that generates the Godot project. If provided, the tool will execute this script in a temporary directory to extract the project before testing it. Use this during the generation phase to test your code before providing the final answer.",
+                "The complete markdown string containing all project files formatted with '### filepath' headers and code blocks.",
             },
             run_time: {
               type: "number",
@@ -238,29 +237,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             return_images: {
               type: "boolean",
               description:
-                "Capture a screenshot of the project. Set to false for text-only logs (faster). Default is true.",
+                "Capture a screenshot of the project. Set to false for text-only logs. Default is true.",
             },
           },
+          required: ["project_markdown"],
         },
       },
       {
         name: "compile_rust_project",
         description:
-          "Compiles a specified Rust project to detect syntax errors, missing dependencies, or compilation failures. Returns the cargo console output logs.",
+          "Extracts a Rust project from a Markdown format and compiles it to detect syntax errors, missing dependencies, or compilation failures. Returns the cargo console output logs.",
         inputSchema: {
           type: "object",
           properties: {
-            project_dir: {
+            project_markdown: {
               type: "string",
               description:
-                "The relative or absolute path to the directory containing Cargo.toml. Use this if the project is already extracted on disk.",
-            },
-            nodejs_script: {
-              type: "string",
-              description:
-                "The complete self-contained Node.js script that generates the Rust project. If provided, the tool will execute this script in a temporary directory to extract the project before compiling it. Use this during the generation phase to test your code before providing the final answer.",
+                "The complete markdown string containing all project files formatted with '### filepath' headers and code blocks.",
             },
           },
+          required: ["project_markdown"],
         },
       },
     ],
@@ -786,81 +782,60 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     try {
       let projectDir = null;
       const runTime = args.run_time || 5.0;
+      const markdown = args.project_markdown;
 
-      if (args.nodejs_script) {
-        // Create a unique temporary directory
-        const tempBase = fs.mkdtempSync(
-          path.join(os.tmpdir(), "scad-godot-test-"),
-        );
-        cleanupDir = tempBase;
-
-        const scriptPath = path.join(tempBase, "generate.js");
-        fs.writeFileSync(scriptPath, args.nodejs_script, "utf-8");
-
-        try {
-          execSync(`node generate.js`, {
-            cwd: tempBase,
-            stdio: "pipe",
-            timeout: 15000, // Time out after 15 seconds if it hangs
-          });
-        } catch (err) {
-          const stderr = err.stderr ? err.stderr.toString() : "";
-          const stdout = err.stdout ? err.stdout.toString() : "";
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Error: The Node.js script failed to execute properly.\n\nSTDERR:\n${stderr}\n\nSTDOUT:\n${stdout}\n\nException: ${err.message}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        // Find the generated folder containing project.godot
-        const items = fs.readdirSync(tempBase);
-        for (const item of items) {
-          const itemPath = path.join(tempBase, item);
-          if (
-            fs.statSync(itemPath).isDirectory() &&
-            fs.existsSync(path.join(itemPath, "project.godot"))
-          ) {
-            projectDir = itemPath;
-            break;
-          }
-        }
-
-        if (!projectDir) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Error: The Node.js script finished running, but NO Godot project was found. A valid Godot project requires a 'project.godot' file. Ensure your script creates a root project directory and places 'project.godot' inside it.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-      } else if (args.project_dir) {
-        projectDir = path.resolve(process.cwd(), args.project_dir);
-      } else {
+      if (!markdown) {
         return {
           content: [
             {
               type: "text",
-              text: `Error: Invalid arguments. You must provide either 'project_dir' or 'nodejs_script'.`,
+              text: `Error: 'project_markdown' is required.`,
             },
           ],
           isError: true,
         };
       }
 
-      if (!fs.existsSync(path.join(projectDir, "project.godot"))) {
+      // Create a unique temporary directory
+      const tempBase = fs.mkdtempSync(
+        path.join(os.tmpdir(), "scad-godot-test-"),
+      );
+      cleanupDir = tempBase;
+
+      const files = extractFilesFromMarkdown(markdown);
+      if (Object.keys(files).length === 0) {
         return {
           content: [
             {
               type: "text",
-              text: `Error: The specified directory is not a valid Godot project. 'project.godot' was not found in: ${projectDir}`,
+              text: `Error: No files could be extracted from the Markdown text. Make sure you use '### filepath' headers followed by code blocks.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      writeExtractedFiles(files, tempBase);
+
+      // Find the generated folder containing project.godot
+      const items = fs.readdirSync(tempBase);
+      for (const item of items) {
+        const itemPath = path.join(tempBase, item);
+        if (
+          fs.statSync(itemPath).isDirectory() &&
+          fs.existsSync(path.join(itemPath, "project.godot"))
+        ) {
+          projectDir = itemPath;
+          break;
+        }
+      }
+
+      if (!projectDir) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: The extracted Markdown output did not contain a valid Godot project. A valid Godot project requires a 'project.godot' file placed inside a root directory block.`,
             },
           ],
           isError: true,
@@ -1081,81 +1056,60 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     let cleanupDir = null;
     try {
       let projectDir = null;
+      const markdown = args.project_markdown;
 
-      if (args.nodejs_script) {
-        // Create a unique temporary directory
-        const tempBase = fs.mkdtempSync(
-          path.join(os.tmpdir(), "scad-rust-compile-"),
-        );
-        cleanupDir = tempBase;
-
-        const scriptPath = path.join(tempBase, "generate.js");
-        fs.writeFileSync(scriptPath, args.nodejs_script, "utf-8");
-
-        try {
-          execSync(`node generate.js`, {
-            cwd: tempBase,
-            stdio: "pipe",
-            timeout: 15000, // Time out after 15 seconds if it hangs
-          });
-        } catch (err) {
-          const stderr = err.stderr ? err.stderr.toString() : "";
-          const stdout = err.stdout ? err.stdout.toString() : "";
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Error: The Node.js script failed to execute properly.\n\nSTDERR:\n${stderr}\n\nSTDOUT:\n${stdout}\n\nException: ${err.message}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-
-        // Find the generated folder containing Cargo.toml
-        const items = fs.readdirSync(tempBase);
-        for (const item of items) {
-          const itemPath = path.join(tempBase, item);
-          if (
-            fs.statSync(itemPath).isDirectory() &&
-            fs.existsSync(path.join(itemPath, "Cargo.toml"))
-          ) {
-            projectDir = itemPath;
-            break;
-          }
-        }
-
-        if (!projectDir) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Error: The Node.js script finished running, but NO Rust project was found. A valid Rust project requires a 'Cargo.toml' file. Ensure your script creates a root project directory and places 'Cargo.toml' inside it.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-      } else if (args.project_dir) {
-        projectDir = path.resolve(process.cwd(), args.project_dir);
-      } else {
+      if (!markdown) {
         return {
           content: [
             {
               type: "text",
-              text: `Error: Invalid arguments. You must provide either 'project_dir' or 'nodejs_script'.`,
+              text: `Error: 'project_markdown' is required.`,
             },
           ],
           isError: true,
         };
       }
 
-      if (!fs.existsSync(path.join(projectDir, "Cargo.toml"))) {
+      // Create a unique temporary directory
+      const tempBase = fs.mkdtempSync(
+        path.join(os.tmpdir(), "scad-rust-compile-"),
+      );
+      cleanupDir = tempBase;
+
+      const files = extractFilesFromMarkdown(markdown);
+      if (Object.keys(files).length === 0) {
         return {
           content: [
             {
               type: "text",
-              text: `Error: The specified directory is not a valid Rust project. 'Cargo.toml' was not found in: ${projectDir}`,
+              text: `Error: No files could be extracted from the Markdown text. Make sure you use '### filepath' headers followed by code blocks.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      writeExtractedFiles(files, tempBase);
+
+      // Find the generated folder containing Cargo.toml
+      const items = fs.readdirSync(tempBase);
+      for (const item of items) {
+        const itemPath = path.join(tempBase, item);
+        if (
+          fs.statSync(itemPath).isDirectory() &&
+          fs.existsSync(path.join(itemPath, "Cargo.toml"))
+        ) {
+          projectDir = itemPath;
+          break;
+        }
+      }
+
+      if (!projectDir) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: The extracted Markdown output did not contain a valid Rust project. A valid Rust project requires a 'Cargo.toml' file placed inside a root directory block.`,
             },
           ],
           isError: true,

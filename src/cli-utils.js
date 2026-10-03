@@ -157,6 +157,54 @@ export function generateScadPreviewUrl(
   }
 }
 
+export function extractFilesFromMarkdown(md) {
+  const files = {};
+  const lines = md.split(/\r?\n/);
+  let currentFile = null;
+  let inCodeBlock = false;
+  let content = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    const headerMatch = line.match(/^###\s+([a-zA-Z0-9_\-\.\/\\\~]+)/);
+    if (headerMatch && !inCodeBlock) {
+      currentFile = headerMatch[1].trim();
+      continue;
+    }
+
+    if (line.startsWith("```")) {
+      if (!inCodeBlock && currentFile) {
+        inCodeBlock = true;
+        content = [];
+        continue;
+      } else if (inCodeBlock && currentFile) {
+        inCodeBlock = false;
+        files[currentFile] = content.join("\n");
+        currentFile = null;
+        continue;
+      }
+    }
+
+    if (inCodeBlock) {
+      content.push(line);
+    }
+  }
+  return files;
+}
+
+export function writeExtractedFiles(files, targetDir) {
+  for (const [filepath, content] of Object.entries(files)) {
+    // Prevent directory traversal attacks
+    const safePath = path.normalize(filepath).replace(/^(\.\.(\/|\\|$))+/, "");
+    const absPath = path.resolve(targetDir, safePath);
+    if (!absPath.startsWith(path.resolve(targetDir))) continue;
+
+    fs.mkdirSync(path.dirname(absPath), { recursive: true });
+    fs.writeFileSync(absPath, content, "utf-8");
+  }
+}
+
 export async function runAutomatedAIFlow(
   apiKey,
   baseUrl,
@@ -177,7 +225,9 @@ export async function runAutomatedAIFlow(
     process.argv.includes("-v") ||
     process.env.VERBOSE,
   );
-  const outputFilename = `generate_${projectType}_project.js`;
+
+  // Output a Markdown file for non-raw scad projects instead of a JS script
+  const outputFilename = `generate_${projectType}_project.${isRawScad ? "scad" : "md"}`;
   const isRawScad = projectType === "scad";
   const modelTag = modelName ? ` (${modelName})` : "";
 
@@ -462,10 +512,9 @@ export async function runAutomatedAIFlow(
         const finalText = message.content || "";
         console.log("\n✅ AI proposed a final code version.");
 
-        let finalCode = "";
+        let finalCode = finalText.trim();
         let extractedFilename = outputFilename;
 
-        // Extract the code payload based on the project type target
         if (isRawScad) {
           const match = finalText.match(
             /```(?:openscad|scad)?\n([\s\S]*?)```/i,
@@ -484,11 +533,6 @@ export async function runAutomatedAIFlow(
             if (!safeName.endsWith(".scad")) safeName += ".scad";
             extractedFilename = safeName;
           }
-        } else {
-          const match = finalText.match(
-            /```(?:javascript|js|node)?\n([\s\S]*?)```/i,
-          );
-          finalCode = match ? match[1].trim() : finalText.trim();
         }
 
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "scad-preview-"));
@@ -509,14 +553,16 @@ export async function runAutomatedAIFlow(
             }
           } else {
             console.log(
-              `   Generating project files to preview in a temporary folder...`,
+              `   Extracting Markdown project files to temporary folder...`,
             );
-            console.log(`   Temp script: ${tempFilePath}`);
+            const files = extractFilesFromMarkdown(finalCode);
 
-            execSync(`node "${tempFilePath}"`, {
-              cwd: tempDir,
-              stdio: "pipe",
-            });
+            if (Object.keys(files).length === 0) {
+              throw new Error(
+                "No files could be extracted from the AI's Markdown output. Ensure it uses the '### filepath' format.",
+              );
+            }
+            writeExtractedFiles(files, tempDir);
 
             let projectDir = null;
             let latestTime = 0;
@@ -558,7 +604,7 @@ export async function runAutomatedAIFlow(
                     : "package.json";
               messages.push({
                 role: "user",
-                content: `Your script successfully executed, but no valid project directory was found. Make sure your script creates a root folder and generates the correct required files (like ${expectedFile}) inside it.`,
+                content: `Your generated output successfully parsed, but no valid project directory was found. Make sure you place the required files (like ${expectedFile}) inside a root project folder block.`,
               });
               continue;
             }
@@ -632,7 +678,7 @@ export async function runAutomatedAIFlow(
 
             if (!isRawScad) {
               console.log(
-                `▶️  Run it again later to unpack the final project with: node ${extractedFilename}`,
+                `▶️  Run it again later to unpack and play the final project with: scad-gltf play ${extractedFilename}`,
               );
             }
 
@@ -641,7 +687,7 @@ export async function runAutomatedAIFlow(
             console.log("\n🔄 Sending your feedback back to the LLM...");
             messages.push({
               role: "user",
-              content: `I reviewed the current version. Here is my feedback to improve it:\n\n${feedback}\n\nPlease implement these fixes and output an updated ${isRawScad ? "OpenSCAD block" : "Node.js script"}.`,
+              content: `I reviewed the current version. Here is my feedback to improve it:\n\n${feedback}\n\nPlease implement these fixes and output an updated ${isRawScad ? "OpenSCAD block" : "Markdown project file"}.`,
             });
           }
         } catch (err) {
@@ -651,7 +697,7 @@ export async function runAutomatedAIFlow(
           );
           messages.push({
             role: "user",
-            content: `Your generated code threw an error when I tried to run/preview it locally:\n${stderr}\n\nPlease fix the ${isRawScad ? "OpenSCAD code" : "Node.js script"}.`,
+            content: `Your generated code threw an error when I tried to run/preview it locally:\n${stderr}\n\nPlease fix the ${isRawScad ? "OpenSCAD code" : "Markdown output format"}.`,
           });
         } finally {
           if (runProc) {
