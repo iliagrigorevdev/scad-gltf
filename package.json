@@ -44,9 +44,10 @@
     "./openscad.wasm": "./src/ext/openscad.wasm"
   },
   "scripts": {
+    "test": "node --test 'test/**/*.test.js'",
     "format": "prettier --write .",
     "mcp": "npx @modelcontextprotocol/inspector node ./bin/mcp.js",
-    "prepublishOnly": "npm install --prefix editor && npm run build --prefix editor"
+    "prepublishOnly": "npm test && npm install --prefix editor && npm run build --prefix editor"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.31.0",

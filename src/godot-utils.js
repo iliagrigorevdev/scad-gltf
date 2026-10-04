@@ -1,8 +1,8 @@
-import fs from "fs";
-import path from "path";
-import os from "os";
-import { execSync, spawn } from "child_process";
-import { fileURLToPath } from "url";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import cp from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,7 +37,7 @@ export function ensureExportTemplates() {
     fs.mkdirSync(BIN_DIR, { recursive: true });
 
     const tpzPath = path.join(BIN_DIR, "templates.tpz");
-    execSync(
+    cp.execSync(
       `curl -fL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_export_templates.tpz" -o "${tpzPath}"`,
       { stdio: "inherit" },
     );
@@ -46,9 +46,11 @@ export function ensureExportTemplates() {
     fs.mkdirSync(extractTemp, { recursive: true });
 
     if (os.platform() === "win32") {
-      execSync(`tar -xf "${tpzPath}" -C "${extractTemp}"`, { stdio: "ignore" });
+      cp.execSync(`tar -xf "${tpzPath}" -C "${extractTemp}"`, {
+        stdio: "ignore",
+      });
     } else {
-      execSync(`unzip -q -o "${tpzPath}" -d "${extractTemp}"`, {
+      cp.execSync(`unzip -q -o "${tpzPath}" -d "${extractTemp}"`, {
         stdio: "ignore",
       });
     }
@@ -67,7 +69,7 @@ export function ensureExportTemplates() {
 
 export function getGodotBin(withTemplates = false) {
   try {
-    execSync("godot --version", { stdio: "ignore" });
+    cp.execSync("godot --version", { stdio: "ignore" });
     if (withTemplates) ensureExportTemplates();
     return "godot";
   } catch {
@@ -101,12 +103,14 @@ export function getGodotBin(withTemplates = false) {
       }
 
       const zipPath = path.join(BIN_DIR, "godot.zip");
-      execSync(`curl -fL "${zipUrl}" -o "${zipPath}"`, { stdio: "ignore" });
+      cp.execSync(`curl -fL "${zipUrl}" -o "${zipPath}"`, { stdio: "ignore" });
 
       if (isWin) {
-        execSync(`tar -xf "${zipPath}" -C "${BIN_DIR}"`, { stdio: "ignore" });
+        cp.execSync(`tar -xf "${zipPath}" -C "${BIN_DIR}"`, {
+          stdio: "ignore",
+        });
       } else {
-        execSync(`unzip -q -o "${zipPath}" -d "${BIN_DIR}"`, {
+        cp.execSync(`unzip -q -o "${zipPath}" -d "${BIN_DIR}"`, {
           stdio: "ignore",
         });
       }
@@ -153,7 +157,7 @@ export function runGodotAsync(args, cwd, timeoutMs) {
       spawnBin = "xvfb-run";
     }
 
-    const godotProcess = spawn(spawnBin, spawnArgs, { cwd, env });
+    const godotProcess = cp.spawn(spawnBin, spawnArgs, { cwd, env });
 
     godotProcess.stdout.on("data", (data) => {
       output += data.toString();

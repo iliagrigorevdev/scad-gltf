@@ -157,39 +157,44 @@ export function generateScadPreviewUrl(
   }
 }
 
-export function extractFilesFromMarkdown(md) {
+export function extractFilesFromMarkdown(mdContent) {
   const files = {};
-  const lines = md.split(/\r?\n/);
+  const lines = mdContent.split("\n");
   let currentFile = null;
   let inCodeBlock = false;
-  let content = [];
+  let currentContent = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  // \S+ ensures the header is a single continuous path without spaces,
+  // preventing regular English markdown headers from being parsed as files.
+  const headerMatchRegex = /^###\s+(\S+)\s*$/;
 
-    const headerMatch = line.match(/^###\s+([a-zA-Z0-9_\-\.\/\\\~]+)/);
-    if (headerMatch && !inCodeBlock) {
-      currentFile = headerMatch[1].trim();
+  for (const line of lines) {
+    const headerMatch = line.match(headerMatchRegex);
+    if (headerMatch) {
+      currentFile = headerMatch[1];
+      inCodeBlock = false;
+      currentContent = [];
       continue;
     }
 
-    if (line.startsWith("```")) {
-      if (!inCodeBlock && currentFile) {
-        inCodeBlock = true;
-        content = [];
-        continue;
-      } else if (inCodeBlock && currentFile) {
-        inCodeBlock = false;
-        files[currentFile] = content.join("\n");
-        currentFile = null;
-        continue;
+    if (currentFile) {
+      if (line.startsWith("```")) {
+        if (inCodeBlock) {
+          // Close block and save
+          files[currentFile] = currentContent.join("\n");
+          currentFile = null;
+          inCodeBlock = false;
+        } else {
+          // Open block
+          inCodeBlock = true;
+          currentContent = [];
+        }
+      } else if (inCodeBlock) {
+        currentContent.push(line);
       }
     }
-
-    if (inCodeBlock) {
-      content.push(line);
-    }
   }
+
   return files;
 }
 
