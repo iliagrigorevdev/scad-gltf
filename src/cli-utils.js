@@ -227,8 +227,8 @@ export async function runAutomatedAIFlow(
   );
 
   // Output a Markdown file for non-raw scad projects instead of a JS script
-  const outputFilename = `generate_${projectType}_project.${isRawScad ? "scad" : "md"}`;
   const isRawScad = projectType === "scad";
+  const outputFilename = `generate_${projectType}_project.${isRawScad ? "scad" : "md"}`;
   const modelTag = modelName ? ` (${modelName})` : "";
 
   console.log(`\n🚀 Starting automated AI generation${modelTag}...`);
