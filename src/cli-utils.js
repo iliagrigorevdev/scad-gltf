@@ -291,10 +291,12 @@ export async function runAutomatedAIFlow(
     );
   }
 
-  let messages = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: inputRequest },
-  ];
+  let messages = isRawScad
+    ? [{ role: "user", content: systemPrompt }]
+    : [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: inputRequest },
+      ];
 
   let iterations = 0;
   const maxIterations = 30;
