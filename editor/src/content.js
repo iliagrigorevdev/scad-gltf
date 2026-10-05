@@ -87,7 +87,7 @@ const observer = new MutationObserver(() => {
 
       const codeElement = block.querySelector("code");
       if (codeElement) {
-        openPreviewPanel(codeElement.innerText);
+        openPreviewPanel(codeElement.textContent);
       }
     };
 
