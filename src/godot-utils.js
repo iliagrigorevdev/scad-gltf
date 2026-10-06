@@ -148,10 +148,6 @@ export function runGodotAsync(args, cwd, timeoutMs) {
     let spawnBin = godotBin;
     let spawnArgs = args;
 
-    // ---------------------------------------------------------
-    // CRITICAL: Do not use real display on Linux. Run inside Xvfb
-    // to avoid popping up windows or failing in headless server environments.
-    // ---------------------------------------------------------
     if (process.platform === "linux") {
       spawnArgs = ["-a", "-s", "-screen 0 1024x768x24", spawnBin, ...args];
       spawnBin = "xvfb-run";
@@ -159,25 +155,43 @@ export function runGodotAsync(args, cwd, timeoutMs) {
 
     const godotProcess = cp.spawn(spawnBin, spawnArgs, { cwd, env });
 
-    godotProcess.stdout.on("data", (data) => {
-      output += data.toString();
-    });
-    godotProcess.stderr.on("data", (data) => {
-      output += data.toString();
-    });
+    godotProcess.stdout.on("data", (data) => (output += data.toString()));
+    godotProcess.stderr.on("data", (data) => (output += data.toString()));
+
+    // 1. Add a flag to prevent resolving the promise multiple times
+    let isResolved = false;
 
     const timer = setTimeout(() => {
-      godotProcess.kill();
+      if (isResolved) return;
+      isResolved = true;
+      try {
+        godotProcess.kill("SIGKILL"); // 2. Attempt a harder kill
+      } catch (e) {}
+
+      // 3. EXPLICITLY resolve the promise here so the MCP server doesn't hang
+      resolve({ code: 124, output: output + "\n--- KILLED BY TIMEOUT ---" });
     }, timeoutMs);
 
     godotProcess.on("close", (code) => {
+      if (isResolved) return;
+      isResolved = true;
       clearTimeout(timer);
       resolve({ code, output });
     });
 
     godotProcess.on("error", (err) => {
+      if (isResolved) return;
+      isResolved = true;
       clearTimeout(timer);
-      resolve({ code: -1, output: `Process error: ${err.message}` });
+
+      let errorMsg = `Process error: ${err.message}`;
+
+      // Notify Linux users that xvfb is required
+      if (err.code === "ENOENT" && spawnBin === "xvfb-run") {
+        errorMsg = `Error: 'xvfb-run' is missing. To test Godot projects on headless Linux, you must install Xvfb.\n\nPlease run: sudo apt-get install xvfb`;
+      }
+
+      resolve({ code: -1, output: errorMsg });
     });
   });
 }
