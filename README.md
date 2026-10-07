@@ -8,6 +8,8 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 
 **✨ Launch Scadify:** Open the web editor and real-time 3D viewer: [https://iliagrigorevdev.github.io/scad-gltf/](https://iliagrigorevdev.github.io/scad-gltf/)
 
+**🎮 Godot AI Generated Examples:** Play AI-generated Godot examples in your browser: [https://iliagrigorevdev.github.io/scad-godot/](https://iliagrigorevdev.github.io/scad-godot/)
+
 ![Editor Screenshot](https://raw.githubusercontent.com/iliagrigorevdev/scad-gltf/main/screenshot.png)
 
 ## Features
