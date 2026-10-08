@@ -862,14 +862,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 \t\tif tex != null:
 \t\t\tvar img = tex.get_image()
 \t\t\tif img != null and not img.is_empty():
-\t\t\t\tvar w = img.get_width()
-\t\t\t\tvar h = img.get_height()
-\t\t\t\tvar size = mini(w, h)
-\t\t\t\tvar x = (w - size) / 2
-\t\t\t\tvar y = (h - size) / 2
-\t\t\t\tvar cropped = img.get_region(Rect2i(x, y, size, size))
 \t\t\t\tvar path = ProjectSettings.globalize_path("res://screenshot_mcp.png")
-\t\t\t\tvar err = cropped.save_png(path)
+\t\t\t\tvar err = img.save_png(path)
 \t\t\t\tprint("[MCP] Save PNG to ", path, " returned error code: ", err)
 \t\t\telse:
 \t\t\t\tprint("[MCP] Error: Image is null or empty.")
@@ -901,8 +895,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // Windowed first to get the screenshot
         let playArgs = [
           "--windowed",
-          "--resolution",
-          "512x512",
           "--audio-driver",
           "Dummy",
           "--path",
