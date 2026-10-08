@@ -16,7 +16,6 @@ import { generatePrompt } from "../src/prompt.js";
 import { getProjectPrompts } from "../src/project-prompts.js";
 import { runGodotAsync } from "../src/godot-utils.js";
 import {
-  generateScadPreviewUrl,
   extractFilesFromMarkdown,
   writeExtractedFiles,
 } from "../src/cli-utils.js";
@@ -173,7 +172,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "render_scad_model",
         description:
-          "Converts OpenSCAD code to GLTF and uses a 3D renderer to capture images from requested camera angles. Analyze these returned images to verify your design. The tool response will also include a GitHub-hosted Live Editor Preview URL—you MUST share this URL with the user so they can view the model interactively.",
+          "Converts OpenSCAD code to GLTF and uses a 3D renderer to capture images from requested camera angles. Analyze these returned images to verify your design, including specific frames of your animations.",
         inputSchema: {
           type: "object",
           properties: {
@@ -337,14 +336,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const animIndex = args.animation_index || 0;
       const returnImages = args.return_images !== false;
 
-      // 1. Generate the public GitHub Scadify URL
-      const previewUrl =
-        generateScadPreviewUrl(
-          scadCode,
-          "https://iliagrigorevdev.github.io/scad-gltf",
-        ) || "Failed to generate URL";
-
-      // 2. Convert SCAD to GLB ArrayBuffer
+      // 1. Convert SCAD to GLB ArrayBuffer
       const glbDataArray = await convertScadToGltf(scadCode, {
         wasmUrl: `file://${wasmPath}`,
       });
@@ -354,7 +346,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: "text",
-              text: `Successfully compiled SCAD without syntax errors. (Visual rendering skipped because return_images is false).\n\nLive Editor Preview URL: ${previewUrl}`,
+              text: `Successfully compiled SCAD without syntax errors. (Visual rendering skipped because return_images is false).`,
             },
           ],
         };
@@ -741,7 +733,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const content = [
         {
           type: "text",
-          text: `Successfully compiled SCAD and rendered ${snapshots.length} camera angle(s)${appliedAnimStr}. Please analyze these visual results to determine your next adjustments.\n\nLive Editor Preview URL: ${previewUrl}`,
+          text: `Successfully compiled SCAD and rendered ${snapshots.length} camera angle(s)${appliedAnimStr}. Please analyze these visual results to determine your next adjustments.`,
         },
       ];
 
