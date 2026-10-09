@@ -19,6 +19,7 @@ export function generatePrompt(description, options = {}) {
     emissive: options.emissive ?? true,
     specular: options.specular ?? true,
     iridescence: options.iridescence ?? true,
+    unlit: options.unlit ?? true,
     bakeColors: options.bakeColors ?? false,
     bakeNormals: options.bakeNormals ?? false,
     bakeOrm: options.bakeOrm ?? false,
@@ -54,6 +55,7 @@ export function generatePrompt(description, options = {}) {
   if (opts.emissive) attrs.push("'emissive'", "'emissiveIntensity'");
   if (opts.specular) attrs.push("'specularColor'", "'specularIntensity'");
   if (opts.iridescence) attrs.push("'iridescence'", "'iridescenceIOR'");
+  if (opts.unlit) attrs.push("'unlit'");
 
   if (attrs.length > 0 || opts.autoSmoothAngle) {
     if (attrs.length > 0) {
@@ -89,6 +91,9 @@ export function generatePrompt(description, options = {}) {
     if (opts.iridescence) {
       prompt += `\n- Iridescence & Iridescence IOR: Simulates thin-film interference like soap bubbles, oil spills, or pearlescent surfaces. (Defaults: 0.0 and 1.3)`;
     }
+    if (opts.unlit) {
+      prompt += `\n- Unlit: Makes the material shadeless (unaffected by lighting), rendering exactly its base color. Accepts true or false. (Default: false)`;
+    }
     if (opts.autoSmoothAngle) {
       prompt += `\n- Auto Smooth Angle: Generates smooth vertex normals for adjoining faces with an angle difference less than this value (in degrees). Use > 0 (e.g., 30 or 45) for curved/smooth surfaces, 0.0 for flat shading. Can be set globally using the special variable \`$asa\` (e.g., \`$asa=30;\`), or overridden per-material via the \`$asa\` parameter INSIDE the color() module. IMPORTANT: \`$asa\` ONLY affects surface shading (normals). It DOES NOT alter the actual geometry or polygon count. You must still use standard variables like \`$fn\` to increase geometric resolution. DO NOT pass \`$asa\` directly to geometry modules like sphere() or cylinder(). (Default: 0.0)`;
     }
@@ -99,6 +104,7 @@ export function generatePrompt(description, options = {}) {
     if (opts.clearcoat) exampleParams.push("clearcoat=1.0");
     if (opts.sheen) exampleParams.push("sheen=1.0");
     if (opts.iridescence) exampleParams.push("iridescence=1.0");
+    if (opts.unlit) exampleParams.push("unlit=true");
     if (opts.emissive)
       exampleParams.push("emissive=[0.0, 0.5, 1.0]", "emissiveIntensity=2.0");
     if (opts.specular) exampleParams.push("specularIntensity=1.0");

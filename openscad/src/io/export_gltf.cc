@@ -570,7 +570,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     std::vector<unsigned char> bin_data;
 
     bool use_clearcoat = false, use_sheen = false, use_transmission = false, use_thickness = false;
-    bool use_ior = false, use_emissive_strength = false, use_specular = false, use_iridescence = false;
+    bool use_ior = false, use_emissive_strength = false, use_specular = false, use_iridescence = false, use_unlit = false;
 
     model.buffers.emplace_back();
 
@@ -1351,6 +1351,11 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     use_iridescence = true;
                 }
 
+                if (mkey.props.unlit) {
+                    mat.extensions["KHR_materials_unlit"] = tinygltf::Value(tinygltf::Value::Object());
+                    use_unlit = true;
+                }
+
                 if (mkey.color.a() < 1.0f) mat.alphaMode = "BLEND";
 
                 mat_idx = model.materials.size();
@@ -1522,6 +1527,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     if (use_emissive_strength) model.extensionsUsed.push_back("KHR_materials_emissive_strength");
     if (use_specular) model.extensionsUsed.push_back("KHR_materials_specular");
     if (use_iridescence) model.extensionsUsed.push_back("KHR_materials_iridescence");
+    if (use_unlit) model.extensionsUsed.push_back("KHR_materials_unlit");
 
     if (!gltf_lights.empty()) {
         tinygltf::Value::Object khr_lights;

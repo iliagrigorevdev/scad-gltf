@@ -117,6 +117,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                   description:
                     "Include rules for thin-film interference. (Default: false)",
                 },
+                unlit: {
+                  type: "boolean",
+                  description:
+                    "Include rules for unlit/shadeless materials. (Default: true)",
+                },
                 autoSmoothAngle: {
                   type: "boolean",
                   description:

@@ -18,6 +18,7 @@ export const PROMPT_UI_HTML = `
       <label><input type="checkbox" class="pbr-child" id="opt-pbr-emissive" checked /> Emissive</label>
       <label><input type="checkbox" class="pbr-child" id="opt-pbr-specular" checked /> Specular</label>
       <label><input type="checkbox" class="pbr-child" id="opt-pbr-iridescence" checked /> Iridescence</label>
+      <label><input type="checkbox" class="pbr-child" id="opt-pbr-unlit" checked /> Unlit</label>
     </div>
   </div>
 
@@ -123,6 +124,7 @@ export function getPromptOptions(containerElement) {
       containerElement.querySelector("#opt-pbr-specular")?.checked ?? true,
     iridescence:
       containerElement.querySelector("#opt-pbr-iridescence")?.checked ?? true,
+    unlit: containerElement.querySelector("#opt-pbr-unlit")?.checked ?? true,
     autoSmoothAngle:
       containerElement.querySelector("#opt-pbr-autosmooth")?.checked ?? true,
     bakeColors:

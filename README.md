@@ -15,7 +15,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 ## Features
 
 - **Direct SCAD to GLB conversion:** Compile geometry directly to web-ready binary glTF.
-- **Extended PBR Material Support:** Native extensions to the OpenSCAD `color()` module supporting `metalness`, `roughness`, `transmission` (glass), `thickness`, `ior`, `attenuationColor`, `attenuationDistance`, `clearcoat`, `sheen`, `emissive`, `specular`, and `iridescence`, plus a `$asa` special variable for auto smooth shading.
+- **Extended PBR Material Support:** Native extensions to the OpenSCAD `color()` module supporting `metalness`, `roughness`, `transmission` (glass), `thickness`, `ior`, `attenuationColor`, `attenuationDistance`, `clearcoat`, `sheen`, `emissive`, `specular`, `iridescence`, and `unlit`, plus a `$asa` special variable for auto smooth shading.
 - **Hierarchical Node Animation:** Define articulated, rigid-body hierarchies and keyframe animations using `armature()` and `bone()` modules. Exports proper glTF node transform tracks (rigid parenting rather than vertex-weighted skinning—ideal for robots, mechanical parts, vehicles, and articulated components).
 - **Texture Baking:** Automatically generate UVs and bake high-poly details (colors, normals, ORM) onto low-poly meshes using the new `bake()` module.
 - **Scene Lighting:** Spawn precise light sources within your hierarchy (point, directional, spot) using the `light()` module, exporting directly to glTF.
@@ -417,6 +417,7 @@ color(
     specularIntensity = 1.0,             // Strength of specular reflections
     iridescence = 0.0,                   // Thin-film interference (soap bubbles, oil sheen)
     iridescenceIOR = 1.3,
+    unlit = false,                       // Shadeless material unaffected by lighting
     $asa = 45.0                          // Generates smooth vertex normals below this angle threshold.
                                          // Surface shading only; does NOT alter polygon count.
 ) {
@@ -509,6 +510,7 @@ const promptContext = generatePrompt(description, {
   emissive: true, // Glow parameters
   specular: true, // Specular overrides
   iridescence: true, // Thin-film interference
+  unlit: true, // Shadeless unlit material rules
   autoSmoothAngle: true, // $asa rules
   animation: true, // Armature & bone syntax
   lights: false, // Light rules
