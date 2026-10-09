@@ -31,6 +31,8 @@ struct MaterialProperties {
   float iridescenceIOR = 1.3f;
   float autoSmoothAngle = 0.0f;
   bool unlit = false;
+  std::shared_ptr<const class Value> colormap;
+  std::shared_ptr<const class Value> normalmap;
 
   MaterialProperties() {
     Vector4f defBlack; defBlack[0]=0.0f; defBlack[1]=0.0f; defBlack[2]=0.0f; defBlack[3]=1.0f;
@@ -48,7 +50,7 @@ struct MaterialProperties {
         transmission, thickness, attenuationColor.r(), attenuationColor.g(), attenuationColor.b(), attenuationColor.a(), attenuationDistance,
         ior, emissive.r(), emissive.g(), emissive.b(), emissive.a(), emissiveIntensity,
         specularColor.r(), specularColor.g(), specularColor.b(), specularColor.a(), specularIntensity,
-        iridescence, iridescenceIOR, autoSmoothAngle, unlit
+        iridescence, iridescenceIOR, autoSmoothAngle, unlit, colormap, normalmap
     );
   }
 

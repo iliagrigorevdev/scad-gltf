@@ -32,6 +32,8 @@ export const PROMPT_UI_HTML = `
       <label><input type="checkbox" class="bake-child" id="opt-bake-normals" /> Bake Normals</label>
       <label><input type="checkbox" class="bake-child" id="opt-bake-orm" /> Bake ORM</label>
       <label><input type="checkbox" class="bake-child" id="opt-bake-uvs" /> Bake UVs/Tangents</label>
+      <label><input type="checkbox" class="bake-child" id="opt-pbr-colormap" /> Colormap</label>
+      <label><input type="checkbox" class="bake-child" id="opt-pbr-normalmap" /> Normalmap</label>
     </div>
   </div>
 `;
@@ -133,6 +135,10 @@ export function getPromptOptions(containerElement) {
       containerElement.querySelector("#opt-bake-normals")?.checked ?? false,
     bakeOrm: containerElement.querySelector("#opt-bake-orm")?.checked ?? false,
     bakeUvs: containerElement.querySelector("#opt-bake-uvs")?.checked ?? false,
+    colormap:
+      containerElement.querySelector("#opt-pbr-colormap")?.checked ?? false,
+    normalmap:
+      containerElement.querySelector("#opt-pbr-normalmap")?.checked ?? false,
     animation: containerElement.querySelector("#opt-anim")?.checked ?? true,
     lights: containerElement.querySelector("#opt-lights")?.checked ?? false,
   };

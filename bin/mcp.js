@@ -122,6 +122,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                   description:
                     "Include rules for unlit/shadeless materials. (Default: true)",
                 },
+                colormap: {
+                  type: "boolean",
+                  description:
+                    "Include rules for procedural colormap functions. (Default: false)",
+                },
+                normalmap: {
+                  type: "boolean",
+                  description:
+                    "Include rules for procedural normalmap functions. (Default: false)",
+                },
                 autoSmoothAngle: {
                   type: "boolean",
                   description:
@@ -283,6 +293,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         clearcoat: false,
         sheen: false,
         iridescence: false,
+        colormap: false,
+        normalmap: false,
         ...(args.options || {}),
       };
 

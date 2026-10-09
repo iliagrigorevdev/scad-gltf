@@ -20,6 +20,8 @@ export function generatePrompt(description, options = {}) {
     specular: options.specular ?? true,
     iridescence: options.iridescence ?? true,
     unlit: options.unlit ?? true,
+    colormap: options.colormap ?? false,
+    normalmap: options.normalmap ?? false,
     bakeColors: options.bakeColors ?? false,
     bakeNormals: options.bakeNormals ?? false,
     bakeOrm: options.bakeOrm ?? false,
@@ -56,12 +58,18 @@ export function generatePrompt(description, options = {}) {
   if (opts.specular) attrs.push("'specularColor'", "'specularIntensity'");
   if (opts.iridescence) attrs.push("'iridescence'", "'iridescenceIOR'");
   if (opts.unlit) attrs.push("'unlit'");
+  if (opts.colormap) attrs.push("'colormap'");
+  if (opts.normalmap) attrs.push("'normalmap'");
 
   if (attrs.length > 0 || opts.autoSmoothAngle) {
     if (attrs.length > 0) {
       prompt += `\n\nPlease utilize extended color attributes, specifically including ${attrs.join(", ")} parameters.`;
     }
     prompt += `\n\nImportant PBR & Shading rules:`;
+
+    if (opts.colormap || opts.normalmap) {
+      prompt += `\n- Passing Functions: OpenSCAD separates function and variable namespaces. You CANNOT pass a function by its name directly (e.g., \`map=my_func\` will fail and evaluate to undef). If you define a custom function, you MUST wrap it in a function literal (lambda) when passing it. Example: \`map=function(x,y,z) my_func(x,y,z)\`.`;
+    }
 
     if (opts.basic) {
       prompt += `\n- Metalness: For solid metallic materials (e.g., gold, steel), use metalness near 1.0. High metalness blocks light transmission. (Default: 0.0)`;
@@ -94,6 +102,16 @@ export function generatePrompt(description, options = {}) {
     if (opts.unlit) {
       prompt += `\n- Unlit: Makes the material shadeless (unaffected by lighting), rendering exactly its base color. Accepts true or false. (Default: false)`;
     }
+    if (opts.colormap) {
+      prompt += `\n- Colormap: Accepts a user-defined function to procedurally generate surface textures. The function MUST take 3 parameters (x, y, z) representing the 3D local coordinates of the surface, and return a color vector [r, g, b, a]. The exporter automatically unwraps the geometry and bakes this function into a 2D base color texture map (default resolution is 512x512 and atlas index is 0). To change the texture resolution and atlas index, wrap the object in a \`bake(resolution=256, index=0)\` module. Example inline: \`colormap=function(x,y,z) [sin(x*10)/2+0.5, cos(y*10)/2+0.5, z/10, 1.0]\`.`;
+    }
+    if (opts.normalmap) {
+      prompt += `\n- Normalmap: Accepts a user-defined function to procedurally generate surface normals. The function takes 3 parameters (x, y, z) representing the 3D local coordinates, but it MUST return a color vector [r, g, b, a] representing a TANGENT-SPACE normal map. (Default texture resolution is 512x512 and atlas index is 0, wrap in \`bake(resolution=256, index=0)\` to increase).
+  - RGB encodes the normal vector mapped to 0-1.
+  - [0.5, 0.5, 1.0, 1.0] represents a flat, unmodified surface (the standard blue color).
+  - To create bumps, perturb the R and G channels around 0.5 based on the x/y/z coordinates.
+  - Example inline: \`normalmap=function(x,y,z) [0.5 + cos(x*10)*0.1, 0.5 + sin(y*10)*0.1, 1.0, 1.0]\`.`;
+    }
     if (opts.autoSmoothAngle) {
       prompt += `\n- Auto Smooth Angle: Generates smooth vertex normals for adjoining faces with an angle difference less than this value (in degrees). Use > 0 (e.g., 30 or 45) for curved/smooth surfaces, 0.0 for flat shading. Can be set globally using the special variable \`$asa\` (e.g., \`$asa=30;\`), or overridden per-material via the \`$asa\` parameter INSIDE the color() module. IMPORTANT: \`$asa\` ONLY affects surface shading (normals). It DOES NOT alter the actual geometry or polygon count. You must still use standard variables like \`$fn\` to increase geometric resolution. DO NOT pass \`$asa\` directly to geometry modules like sphere() or cylinder(). (Default: 0.0)`;
     }
@@ -108,6 +126,14 @@ export function generatePrompt(description, options = {}) {
     if (opts.emissive)
       exampleParams.push("emissive=[0.0, 0.5, 1.0]", "emissiveIntensity=2.0");
     if (opts.specular) exampleParams.push("specularIntensity=1.0");
+    if (opts.colormap)
+      exampleParams.push(
+        "colormap=function(x,y,z) [sin(x)/2+0.5, 0.5, 0.5, 1.0]",
+      );
+    if (opts.normalmap)
+      exampleParams.push(
+        "normalmap=function(x,y,z) [0.5+sin(x)/2, 0.5, 1.0, 1.0]",
+      );
     if (opts.autoSmoothAngle) exampleParams.push("$asa=45.0");
 
     let exampleStr =
@@ -180,7 +206,7 @@ armature(animations=anim_data) {
     if (opts.bakeColors) {
       flags.push("colors=true");
       explanations.push(
-        "- Set 'colors=true' (default false) to project and bake the high-poly's solid colors onto the low-poly mesh.",
+        `- Set 'colors=true' (default false) to project and bake the high-poly's solid colors${opts.colormap ? " and procedural 'colormap' functions" : ""} onto the low-poly mesh.`,
       );
     }
     if (opts.bakeNormals) {
@@ -198,7 +224,7 @@ armature(animations=anim_data) {
     if (opts.bakeUvs) {
       flags.push("uvs=true");
       explanations.push(
-        "- Set 'uvs=true' (default false) when you only want to generate UV coordinates and Tangent vectors without baking any image textures. Note that UVs and Tangents are automatically generated whenever 'colors', 'normals', or 'orm' are enabled, so 'uvs=true' is only explicitly needed for textureless UV-only exports.",
+        "- Single-child usage: Wrap an object in `bake(uvs=true, resolution=1024, index=0)` (providing only 1 child) to control the texture resolution and atlas index for procedural `colormap` / `normalmap` textures, or simply to force UV/Tangent generation without baking from a high-poly source.",
       );
     }
     explanations.push(
@@ -216,6 +242,11 @@ armature(animations=anim_data) {
         ? explanations.join("\n")
         : "- You can toggle what gets baked using the 'colors', 'normals', 'orm', and 'uvs' boolean parameters (all default to false).";
 
+    let child1Source = `color("white") sphere(r=10, $fn=100); // Child 1: High Poly`;
+    if (opts.colormap) {
+      child1Source = `color("white", colormap=function(x,y,z) [sin(x*10)/2+0.5, cos(y*10)/2+0.5, 0.5, 1.0]) sphere(r=10, $fn=100); // Child 1: High Poly`;
+    }
+
     prompt += `\n\nImportant Texture Baking rules:
 - Baking: Use the 'bake()' module to project details from a high-resolution mesh onto a low-resolution mesh.
 - UV Unwrapping: The engine automatically generates UV coordinates and bakes the textures for the low-poly child mesh; you do not need to manually map textures.
@@ -224,10 +255,15 @@ ${explanationText}
 
 Example Baking Usage:
 \`\`\`openscad
-// Bake the selected details of a high-resolution sphere onto a low-resolution one
+// 1. Bake the selected details of a high-resolution sphere onto a low-resolution one
 ${bakeSig} {
   color("white") sphere(r=10, $fn=100); // Child 1: High Poly
   color("white", roughness=0.5, $asa=45) sphere(r=10, $fn=20); // Child 2: Low Poly
+}
+
+// 2. Alternatively, control texture resolution for a procedural colormap (1 child)
+bake(resolution=256, index=0) {
+  color("white", colormap=function(x,y,z) [sin(x*10)/2+0.5, cos(y*10)/2+0.5, 0.5, 1.0]) cube([10, 10, 10]);
 }
 
 // Alternatively, generate UVs/Tangents for a mesh WITHOUT a high-poly source by providing only 1 child

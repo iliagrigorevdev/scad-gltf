@@ -781,6 +781,8 @@ export async function runCliApp({
     clearcoat: false,
     sheen: false,
     iridescence: false,
+    colormap: false,
+    normalmap: false,
   };
 
   if (optionsStr) {
