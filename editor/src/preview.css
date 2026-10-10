@@ -223,3 +223,18 @@ body {
   -webkit-appearance: none;
   margin-top: -4px;
 }
+
+.render-time-overlay {
+  display: none;
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+}

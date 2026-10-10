@@ -46,6 +46,7 @@ const minifyShareCb = document.getElementById("minify-share-cb");
 
 const viewerEl = document.getElementById("viewer");
 const rightPanel = document.getElementById("right-panel");
+const renderTimeEl = document.getElementById("render-time");
 
 const backendUrlEl = document.getElementById("backend-url");
 const backendConnectBtn = document.getElementById("backend-connect-btn");
@@ -154,6 +155,7 @@ async function compileAndRender(scadCode) {
 
   if (scadCode.trim() === "") {
     clearCurrentMesh();
+    if (renderTimeEl) renderTimeEl.style.display = "none";
     return;
   }
 
@@ -171,6 +173,13 @@ async function compileAndRender(scadCode) {
 
   isCompiling = true;
 
+  if (renderTimeEl) {
+    renderTimeEl.style.display = "block";
+    renderTimeEl.innerText = "Compiling...";
+  }
+
+  const startTime = performance.now();
+
   try {
     const additionalFiles = await fetchDependenciesWrapper(scadCode);
     const opts = {
@@ -180,8 +189,16 @@ async function compileAndRender(scadCode) {
 
     currentGltfData = await convertScadToGltf(scadCode, opts);
     await rebuildSceneFromGLTF(currentGltfData);
+
+    if (renderTimeEl) {
+      const endTime = performance.now();
+      renderTimeEl.innerText = `Rendered in ${((endTime - startTime) / 1000).toFixed(2)}s`;
+    }
   } catch (e) {
     console.error(e);
+    if (renderTimeEl) {
+      renderTimeEl.innerText = "Compilation failed";
+    }
   } finally {
     isCompiling = false;
     if (pendingCode !== null) {

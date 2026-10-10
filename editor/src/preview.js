@@ -21,6 +21,7 @@ import {
 
 const viewerContainer = document.getElementById("viewer-container");
 const viewerEl = document.getElementById("viewer");
+const renderTimeEl = document.getElementById("render-time");
 const filenameInput = document.getElementById("filename-input");
 const saveBtn = document.getElementById("save-btn");
 const openEditorBtn = document.getElementById("open-editor-btn");
@@ -454,6 +455,13 @@ async function compileAndRender(scadCode) {
   }
   isCompiling = true;
 
+  if (renderTimeEl) {
+    renderTimeEl.style.display = "block";
+    renderTimeEl.innerText = "Compiling...";
+  }
+
+  const startTime = performance.now();
+
   try {
     const additionalFiles = await fetchDependenciesWrapper(scadCode);
     const gltfData = await convertScadToGltf(scadCode, {
@@ -462,8 +470,16 @@ async function compileAndRender(scadCode) {
     });
 
     await renderGLTF(gltfData);
+
+    if (renderTimeEl) {
+      const endTime = performance.now();
+      renderTimeEl.innerText = `Rendered in ${((endTime - startTime) / 1000).toFixed(2)}s`;
+    }
   } catch (e) {
     console.error(e);
+    if (renderTimeEl) {
+      renderTimeEl.innerText = "Compilation failed";
+    }
   } finally {
     isCompiling = false;
     if (pendingCode !== null) {
