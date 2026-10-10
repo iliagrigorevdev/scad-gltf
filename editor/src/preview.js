@@ -28,6 +28,7 @@ const openEditorBtn = document.getElementById("open-editor-btn");
 
 const showGridCb = document.getElementById("show-grid-cb");
 const wireframeCb = document.getElementById("wireframe-cb");
+const lightsCb = document.getElementById("lights-cb");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const screenshotBtn = document.getElementById("screenshot-btn");
 const cameraSelect = document.getElementById("camera-select");
@@ -49,6 +50,9 @@ let mixer = null;
 let captureNextFrame = false;
 
 let gltfCameras = [];
+let gltfLights = [];
+let sceneHasLights = false;
+let currentOptimalExposure = 1.0;
 let activeCamera = null;
 
 // --- Setup Three.js Scene ---
@@ -140,6 +144,16 @@ if (wireframeCb) {
     if (currentMesh) {
       setupMeshShadowsAndWireframe(currentMesh, isWireframe);
     }
+  });
+}
+
+if (lightsCb) {
+  lightsCb.addEventListener("change", () => {
+    const useLights = lightsCb.checked;
+    gltfLights.forEach((l) => (l.visible = useLights));
+    scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
+    renderer.toneMappingExposure =
+      sceneHasLights && useLights ? currentOptimalExposure : 1.0;
   });
 }
 
@@ -332,10 +346,20 @@ function renderGLTF(outputArray) {
 
         const extracted = extractCamerasAndLights(currentMesh);
         gltfCameras = extracted.gltfCameras;
+        gltfLights = extracted.gltfLights;
+        sceneHasLights = extracted.sceneHasLights;
+        currentOptimalExposure = extracted.optimalExposure || 1.0;
 
-        // Force disable custom lights in previewer
-        extracted.gltfLights.forEach((l) => (l.visible = false));
-        scene.environmentIntensity = 0.8;
+        const lightsCbLabel = document.getElementById("lights-cb-label");
+        if (lightsCbLabel) {
+          lightsCbLabel.style.display = sceneHasLights ? "flex" : "none";
+        }
+
+        const useLights = lightsCb ? lightsCb.checked : true;
+        gltfLights.forEach((l) => (l.visible = useLights));
+        scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
+        renderer.toneMappingExposure =
+          sceneHasLights && useLights ? currentOptimalExposure : 1.0;
 
         let hasAnimOrCamera = false;
 

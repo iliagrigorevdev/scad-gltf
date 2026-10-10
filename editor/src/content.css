@@ -35,8 +35,8 @@
   position: fixed;
   bottom: 20px;
   right: 20px;
-  width: 600px;
-  height: 550px;
+  width: 800px;
+  height: 700px;
   max-width: calc(100vw - 40px);
   max-height: calc(100vh - 40px);
   z-index: 999999;

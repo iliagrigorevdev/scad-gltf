@@ -17,27 +17,34 @@
             ><input type="checkbox" id="show-grid-cb" checked /> Grid</label
           >
           <label><input type="checkbox" id="wireframe-cb" /> Wireframe</label>
+          <label id="lights-cb-label" style="display: none"
+            ><input type="checkbox" id="lights-cb" checked /> Lights</label
+          >
           <button id="screenshot-btn" title="Take Screenshot & Add to Chat">
             📷
           </button>
           <button id="fullscreen-btn" title="Toggle Full Screen">⛶</button>
         </div>
       </div>
-      <div id="anim-controls" style="display: none">
-        <button id="anim-play-btn">⏸ Pause</button>
-        <select id="anim-select"></select>
-        <select id="camera-select" style="display: none"></select>
-        <input
-          type="range"
-          id="anim-slider"
-          min="0"
-          max="1"
-          step="0.001"
-          value="0"
-        />
+      <div id="bottom-center-ui">
+        <div id="anim-controls" style="display: none">
+          <button id="anim-play-btn">⏸ Pause</button>
+          <select id="anim-select"></select>
+          <select id="camera-select" style="display: none"></select>
+          <input
+            type="range"
+            id="anim-slider"
+            min="0"
+            max="1"
+            step="0.001"
+            value="0"
+          />
+        </div>
+      </div>
+      <div id="bottom-right-ui">
+        <div id="render-time" class="render-time-overlay"></div>
       </div>
       <div id="viewer"></div>
-      <div id="render-time" class="render-time-overlay"></div>
     </div>
     <script type="module" src="/src/preview.js"></script>
   </body>
