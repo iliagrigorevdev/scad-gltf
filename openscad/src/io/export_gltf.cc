@@ -37,18 +37,28 @@ struct MapEvaluator {
     const Expression* expr;
     std::shared_ptr<AssignmentList> params;
 
+    // Cache strings
+    std::string p0, p1, p2;
+
     MapEvaluator(const FunctionType& func)
         : body_context(Context::create<Context>(func.getContext())),
           expr(func.getExpr().get()),
-          params(func.getParameters()) {}
+          params(func.getParameters()) {
+        if (params) {
+            if (params->size() > 0 && (*params)[0]) p0 = (*params)[0]->getName();
+            if (params->size() > 1 && (*params)[1]) p1 = (*params)[1]->getName();
+            if (params->size() > 2 && (*params)[2]) p2 = (*params)[2]->getName();
+        }
+    }
 
     Color4f eval(const Vector3d& p3d, const Color4f& default_color) {
         Color4f c = default_color;
         try {
             if (params) {
-                if (params->size() > 0 && (*params)[0]) body_context->set_variable((*params)[0]->getName(), Value(p3d.x()));
-                if (params->size() > 1 && (*params)[1]) body_context->set_variable((*params)[1]->getName(), Value(p3d.y()));
-                if (params->size() > 2 && (*params)[2]) body_context->set_variable((*params)[2]->getName(), Value(p3d.z()));
+                // Use cached strings
+                if (!p0.empty()) body_context->set_variable(p0, Value(p3d.x()));
+                if (!p1.empty()) body_context->set_variable(p1, Value(p3d.y()));
+                if (!p2.empty()) body_context->set_variable(p2, Value(p3d.z()));
             }
 
             Value res = expr->evaluate(*body_context);
