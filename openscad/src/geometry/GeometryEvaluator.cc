@@ -71,7 +71,7 @@ static bool is_unmergeable(const std::shared_ptr<const Geometry>& geom) {
   if (std::dynamic_pointer_cast<const ArmatureGeometry>(geom)) return true;
   if (std::dynamic_pointer_cast<const LightGeometry>(geom)) return true;
   if (auto ps = std::dynamic_pointer_cast<const PolySet>(geom)) {
-    if (ps->high_poly_bake) return true;
+    if (ps->high_poly_bake || ps->bake_params.is_baked) return true;
   }
   if (auto gl = std::dynamic_pointer_cast<const GeometryList>(geom)) {
     for (const auto& item : gl->getChildren()) {
