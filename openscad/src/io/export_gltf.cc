@@ -700,6 +700,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
     };
 
     std::map<int, AtlasGroup> atlas_groups;
+    int unique_atlas_counter = -1;
 
     for (size_t m_idx = 0; m_idx < meshes_info.size(); ++m_idx) {
         auto& minfo = meshes_info[m_idx];
@@ -710,6 +711,9 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                              (prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION);
             if (prim.bake_params.bake_uvs || bake_maps) {
                 int t_idx = prim.bake_params.index;
+                if (t_idx <= 0) {
+                    t_idx = unique_atlas_counter--;
+                }
                 auto& group = atlas_groups[t_idx];
                 int a_idx = group.prims.size();
                 group.prims.push_back({(int)m_idx, (int)p_idx, a_idx});
@@ -732,7 +736,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
     for (auto& kv : atlas_groups) {
         auto& group = kv.second;
-        if (group.resolution <= 0) group.resolution = 512;
+        if (group.resolution <= 0) group.resolution = 256;
         if (group.msaa < 0) group.msaa = 2;
         if (group.msaa < 1) group.msaa = 1;
         if (group.max_dilation < 0) group.max_dilation = 2;

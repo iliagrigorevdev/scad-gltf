@@ -103,10 +103,10 @@ export function generatePrompt(description, options = {}) {
       prompt += `\n- Unlit: Makes the material shadeless (unaffected by lighting), rendering exactly its base color. Accepts true or false. (Default: false)`;
     }
     if (opts.colormap) {
-      prompt += `\n- Colormap: Accepts a user-defined function to procedurally generate surface textures. The function MUST take 3 parameters (x, y, z) representing the 3D local coordinates of the surface, and return a color vector [r, g, b, a]. The exporter automatically unwraps the geometry and bakes this function into a 2D base color texture map (default resolution is 512x512 and atlas index is 0). To change the texture resolution and atlas index, wrap the object in a \`bake(resolution=256, index=0)\` module. Example inline: \`colormap=function(x,y,z) [sin(x*10)/2+0.5, cos(y*10)/2+0.5, z/10, 1.0]\`.`;
+      prompt += `\n- Colormap: Accepts a user-defined function to procedurally generate surface textures. The function MUST take 3 parameters (x, y, z) representing the 3D local coordinates of the surface, and return a color vector [r, g, b, a]. The exporter automatically unwraps the geometry and bakes this function into a 2D base color texture map (default resolution is 256x256, unique atlas per object). To change resolution, wrap the object in a \`bake(resolution=512)\` module. To group multiple objects into a shared atlas, assign them the same index: \`bake(index=1)\`. Example inline: \`colormap=function(x,y,z) [sin(x*10)/2+0.5, cos(y*10)/2+0.5, z/10, 1.0]\`.`;
     }
     if (opts.normalmap) {
-      prompt += `\n- Normalmap: Accepts a user-defined function to procedurally generate surface normals. The function takes 3 parameters (x, y, z) representing the 3D local coordinates, but it MUST return a color vector [r, g, b, a] representing a TANGENT-SPACE normal map. (Default texture resolution is 512x512 and atlas index is 0, wrap in \`bake(resolution=256, index=0)\` to increase).
+      prompt += `\n- Normalmap: Accepts a user-defined function to procedurally generate surface normals. The function takes 3 parameters (x, y, z) representing the 3D local coordinates, but it MUST return a color vector [r, g, b, a] representing a TANGENT-SPACE normal map. (Default texture resolution is 256x256 and unique atlas per object. Wrap in \`bake(resolution=512)\` to increase resolution, or add \`index=1\` to share an atlas with other objects).
   - RGB encodes the normal vector mapped to 0-1.
   - [0.5, 0.5, 1.0, 1.0] represents a flat, unmodified surface (the standard blue color).
   - To create bumps, perturb the R and G channels around 0.5 based on the x/y/z coordinates.
@@ -224,17 +224,17 @@ armature(animations=anim_data) {
     if (opts.bakeUvs) {
       flags.push("uvs=true");
       explanations.push(
-        "- Single-child usage: Wrap an object in `bake(uvs=true, resolution=1024, index=0)` (providing only 1 child) to control the texture resolution and atlas index for procedural `colormap` / `normalmap` textures, or simply to force UV/Tangent generation without baking from a high-poly source.",
+        "- Single-child usage: Wrap an object in `bake(uvs=true, resolution=512)` (providing only 1 child) to control the texture resolution (add `index=1` to share atlases) for procedural `colormap` / `normalmap` textures, or simply to force UV/Tangent generation without baking from a high-poly source.",
       );
     }
     explanations.push(
-      "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 2), 'resolution' (texture dimensions, default: 512), 'msaa' (super-sampling anti-aliasing level, default: 2), 'index' (atlas group identifier, default: 0), and 'rotate_uvs' (allow UV islands to be rotated for better packing, default: true).",
+      "- You can customize the baking process using 'distance' (max ray length, default: 2.0), 'bias' (ray origin offset, default: 1e-4), 'dilation' (pixel padding around UV islands, default: 2), 'resolution' (texture dimensions, default: 256), 'msaa' (super-sampling anti-aliasing level, default: 2), 'index' (atlas group identifier, default: 0), and 'rotate_uvs' (allow UV islands to be rotated for better packing, default: true).",
     );
     explanations.push(
-      "- The 'index' parameter enables multi-atlas texture baking. Low-poly meshes configured with the same 'index' will be packed together into a shared texture atlas, while meshes with distinct indices will be split into separate output image maps.",
+      "- The 'index' parameter enables multi-atlas texture baking. By default (index=0), every baked mesh gets a unique separate texture atlas. Low-poly meshes configured with the same 'index' > 0 will be packed together into a shared texture atlas.",
     );
 
-    flags.push("resolution=1024");
+    flags.push("resolution=512");
     const bakeSig = flags.length > 0 ? `bake(${flags.join(", ")})` : "bake()";
 
     const explanationText =
@@ -262,7 +262,7 @@ ${bakeSig} {
 }
 
 // 2. Alternatively, control texture resolution for a procedural colormap (1 child)
-bake(resolution=256, index=0) {
+bake(resolution=512) {
   color("white", colormap=function(x,y,z) [sin(x*10)/2+0.5, cos(y*10)/2+0.5, 0.5, 1.0]) cube([10, 10, 10]);
 }
 
