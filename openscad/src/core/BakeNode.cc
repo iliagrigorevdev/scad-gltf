@@ -6,8 +6,10 @@
 #include "core/Parameters.h"
 
 std::shared_ptr<AbstractNode> builtin_bake(const ModuleInstantiation *inst, Arguments arguments, const Children& children) {
-    Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"colors", "normals", "orm", "uvs", "distance", "bias", "dilation", "resolution", "msaa", "index", "rotate_uvs"});
+    Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"colors", "normals", "orm", "distance", "bias", "dilation", "resolution", "msaa", "index", "rotate_uvs"});
     auto node = std::make_shared<BakeNode>(inst);
+
+    node->bake_params.is_baked = true;
 
     if (parameters["colors"].type() == Value::Type::BOOL) {
         node->bake_params.bake_colors = parameters["colors"].toBool();
@@ -25,12 +27,6 @@ std::shared_ptr<AbstractNode> builtin_bake(const ModuleInstantiation *inst, Argu
         node->bake_params.bake_orm = parameters["orm"].toBool();
     } else if (parameters["orm"].type() == Value::Type::NUMBER) {
         node->bake_params.bake_orm = parameters["orm"].toDouble() != 0.0;
-    }
-
-    if (parameters["uvs"].type() == Value::Type::BOOL) {
-        node->bake_params.bake_uvs = parameters["uvs"].toBool();
-    } else if (parameters["uvs"].type() == Value::Type::NUMBER) {
-        node->bake_params.bake_uvs = parameters["uvs"].toDouble() != 0.0;
     }
 
     if (parameters["distance"].type() == Value::Type::NUMBER) {
@@ -62,5 +58,5 @@ std::shared_ptr<AbstractNode> builtin_bake(const ModuleInstantiation *inst, Argu
 }
 
 void register_builtin_bake() {
-    Builtins::init("bake", new BuiltinModule(builtin_bake), {"bake(colors=false, normals=false, orm=false, uvs=false, distance=2.0, bias=0.0001, dilation=undef, resolution=undef, msaa=undef, index=0, rotate_uvs=true)"});
+    Builtins::init("bake", new BuiltinModule(builtin_bake), {"bake(colors=false, normals=false, orm=false, distance=2.0, bias=0.0001, dilation=undef, resolution=undef, msaa=undef, index=0, rotate_uvs=true)"});
 }

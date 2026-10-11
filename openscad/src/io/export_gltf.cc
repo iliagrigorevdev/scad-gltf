@@ -709,7 +709,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             bool bake_maps = prim.bake_params.bake_colors || prim.bake_params.bake_normals || prim.bake_params.bake_orm ||
                              (prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) ||
                              (prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION);
-            if (prim.bake_params.bake_uvs || bake_maps) {
+            if (prim.bake_params.is_baked || bake_maps) {
                 int t_idx = prim.bake_params.index;
                 if (t_idx <= 0) {
                     t_idx = unique_atlas_counter--;

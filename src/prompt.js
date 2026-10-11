@@ -222,9 +222,8 @@ armature(animations=anim_data) {
       );
     }
     if (opts.bakeUvs) {
-      flags.push("uvs=true");
       explanations.push(
-        "- Single-child usage: Wrap an object in `bake(uvs=true, resolution=512)` (providing only 1 child) to control the texture resolution (add `index=1` to share atlases) for procedural `colormap` / `normalmap` textures, or simply to force UV/Tangent generation without baking from a high-poly source.",
+        "- Single-child usage: Wrap an object in a \`bake()\` module (providing only 1 child) to automatically generate UV coordinates and Tangents (useful for standard texturing without a high-poly source). You can optionally override resolution or share atlases: \`bake(resolution=512, index=1)\`.",
       );
     }
     explanations.push(
@@ -240,7 +239,7 @@ armature(animations=anim_data) {
     const explanationText =
       explanations.length > 0
         ? explanations.join("\n")
-        : "- You can toggle what gets baked using the 'colors', 'normals', 'orm', and 'uvs' boolean parameters (all default to false).";
+        : "- You can toggle what gets baked using the 'colors', 'normals', and 'orm' boolean parameters (all default to false).";
 
     let child1Source = `color("white") sphere(r=10, $fn=100); // Child 1: High Poly`;
     if (opts.colormap) {
@@ -267,7 +266,7 @@ bake(resolution=512) {
 }
 
 // Alternatively, generate UVs/Tangents for a mesh WITHOUT a high-poly source by providing only 1 child
-bake(uvs=true) {
+bake() {
   color("white") cube([10, 10, 10]);
 }
 \`\`\``;
