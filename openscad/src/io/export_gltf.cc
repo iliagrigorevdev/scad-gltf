@@ -281,7 +281,6 @@ struct PrimitiveInfo {
     std::vector<float> uvs;
     std::vector<int> orig_v_idx;
     std::shared_ptr<const class Value> colormap;
-    std::shared_ptr<const class Value> normalmap;
     std::shared_ptr<SimpleBVH> high_poly_bvh;
     BakeParameters bake_params;
     std::string base_color_uri;
@@ -510,17 +509,14 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
 
                 float autoSmoothAngle = 0.0f;
                 std::shared_ptr<const Value> colormap = nullptr;
-                std::shared_ptr<const Value> normalmap = nullptr;
                 if (color_idx >= 0 && color_idx < (int)ps->materials.size()) {
                     autoSmoothAngle = ps->materials[color_idx].autoSmoothAngle;
                     colormap = ps->materials[color_idx].colormap;
-                    normalmap = ps->materials[color_idx].normalmap;
                 }
 
                 PrimitiveInfo prim;
                 prim.color_idx = color_idx;
                 prim.colormap = colormap;
-                prim.normalmap = normalmap;
                 prim.high_poly_bvh = high_poly_bvh;
                 prim.bake_params = bake_params;
                 prim.ps = ps;
@@ -707,8 +703,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
         for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
             auto& prim = minfo.primitives[p_idx];
             bool bake_maps = prim.bake_params.bake_colors || prim.bake_params.bake_normals || prim.bake_params.bake_orm ||
-                             (prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) ||
-                             (prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION);
+                             (prim.colormap && prim.colormap->type() == Value::Type::FUNCTION);
             if (prim.bake_params.is_baked || bake_maps) {
                 int t_idx = prim.bake_params.index;
                 if (t_idx <= 0) {
@@ -728,7 +723,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 }
                 if (!prim.bake_params.rotate_uvs) group.rotate_uvs = false;
                 if (prim.bake_params.bake_colors || (prim.colormap && prim.colormap->type() == Value::Type::FUNCTION)) group.has_colormap = true;
-                if (prim.bake_params.bake_normals || (prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION)) group.has_normalmap = true;
+                if (prim.bake_params.bake_normals) group.has_normalmap = true;
                 if (prim.bake_params.bake_orm) group.has_ormmap = true;
             }
         }
@@ -796,9 +791,6 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
                 std::unique_ptr<MapEvaluator> ceval;
                 if (group.has_colormap && prim.colormap && prim.colormap->type() == Value::Type::FUNCTION) ceval = std::make_unique<MapEvaluator>(prim.colormap->toFunction());
-
-                std::unique_ptr<MapEvaluator> neval;
-                if (group.has_normalmap && prim.normalmap && prim.normalmap->type() == Value::Type::FUNCTION) neval = std::make_unique<MapEvaluator>(prim.normalmap->toFunction());
 
                 auto get_pos = [&](uint32_t orig_idx) -> Vector3d {
                     int v_idx = prim.orig_v_idx[orig_idx];
@@ -1019,40 +1011,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                     }
 
                                     if (group.has_normalmap) {
-                                        if (neval) {
-                                            Color4f n_col = neval->eval(p3d, Color4f(0.5f, 0.5f, 1.0f, 1.0f));
-
-                                            Vector3d T_uv = (T_interp - n3d_c * n3d_c.dot(T_interp));
-                                            if (T_uv.norm() > 1e-8f) {
-                                                T_uv.normalize();
-                                            } else {
-                                                T_uv = Vector3d(0, 1, 0).cross(n3d_c);
-                                                if (T_uv.norm() < 1e-4f) T_uv = Vector3d(1, 0, 0).cross(n3d_c);
-                                                T_uv.normalize();
-                                            }
-
-                                            Vector3d B_uv = n3d_c.cross(T_uv).normalized() * w_interp;
-
-                                            Vector3d T_can = Vector3d(0, 1, 0).cross(n3d_c);
-                                            if (T_can.norm() < 1e-4f) T_can = Vector3d(1, 0, 0).cross(n3d_c);
-                                            T_can.normalize();
-                                            Vector3d B_can = n3d_c.cross(T_can).normalized();
-
-                                            float dx = n_col.r() * 2.0f - 1.0f;
-                                            float dy = n_col.g() * 2.0f - 1.0f;
-                                            float dz = n_col.b() * 2.0f - 1.0f;
-
-                                            Vector3d N_ws = (T_can * dx + B_can * dy + n3d_c * dz).normalized();
-
-                                            float dx_uv = N_ws.dot(T_uv);
-                                            float dy_uv = N_ws.dot(B_uv);
-                                            float dz_uv = N_ws.dot(n3d_c);
-
-                                            npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)((dx_uv * 0.5f + 0.5f) * 255.0f)));
-                                            npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((dy_uv * 0.5f + 0.5f) * 255.0f)));
-                                            npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((dz_uv * 0.5f + 0.5f) * 255.0f)));
-                                            npixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(n_col.a() * 255.0f)));
-                                        } else if (prim.bake_params.bake_normals) {
+                                        if (prim.bake_params.bake_normals) {
                                             if (hit_count > 0) {
                                                 Vector3d avg_n = accum_n / hit_count;
                                                 if (avg_n.norm() > 1e-8) avg_n.normalize();
@@ -1129,43 +1088,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                                         }
                                     }
                                     if (group.has_normalmap) {
-                                        if (neval) {
-                                            Color4f n_col = neval->eval(p3d, Color4f(0.5f, 0.5f, 1.0f, 1.0f));
-
-                                            Vector3d T_interp = (cu * t0.head<3>() + cv * t1.head<3>() + cw * t2.head<3>()).normalized();
-                                            float w_interp = t0.w();
-                                            Vector3d n3d_c = (cu * n0 + cv * n1 + cw * n2).normalized();
-
-                                            Vector3d T_uv = (T_interp - n3d_c * n3d_c.dot(T_interp));
-                                            if (T_uv.norm() > 1e-8f) {
-                                                T_uv.normalize();
-                                            } else {
-                                                T_uv = Vector3d(0, 1, 0).cross(n3d_c);
-                                                if (T_uv.norm() < 1e-4f) T_uv = Vector3d(1, 0, 0).cross(n3d_c);
-                                                T_uv.normalize();
-                                            }
-                                            Vector3d B_uv = n3d_c.cross(T_uv).normalized() * w_interp;
-
-                                            Vector3d T_can = Vector3d(0, 1, 0).cross(n3d_c);
-                                            if (T_can.norm() < 1e-4f) T_can = Vector3d(1, 0, 0).cross(n3d_c);
-                                            T_can.normalize();
-                                            Vector3d B_can = n3d_c.cross(T_can).normalized();
-
-                                            float dx = n_col.r() * 2.0f - 1.0f;
-                                            float dy = n_col.g() * 2.0f - 1.0f;
-                                            float dz = n_col.b() * 2.0f - 1.0f;
-
-                                            Vector3d N_ws = (T_can * dx + B_can * dy + n3d_c * dz).normalized();
-
-                                            float dx_uv = N_ws.dot(T_uv);
-                                            float dy_uv = N_ws.dot(B_uv);
-                                            float dz_uv = N_ws.dot(n3d_c);
-
-                                            npixels[pixel_idx + 0] = (uint8_t)std::max(0, std::min(255, (int)((dx_uv * 0.5f + 0.5f) * 255.0f)));
-                                            npixels[pixel_idx + 1] = (uint8_t)std::max(0, std::min(255, (int)((dy_uv * 0.5f + 0.5f) * 255.0f)));
-                                            npixels[pixel_idx + 2] = (uint8_t)std::max(0, std::min(255, (int)((dz_uv * 0.5f + 0.5f) * 255.0f)));
-                                            npixels[pixel_idx + 3] = (uint8_t)std::max(0, std::min(255, (int)(n_col.a() * 255.0f)));
-                                        } else if (prim.bake_params.bake_normals) {
+                                        if (prim.bake_params.bake_normals) {
                                             npixels[pixel_idx + 0] = 128;
                                             npixels[pixel_idx + 1] = 128;
                                             npixels[pixel_idx + 2] = 255;

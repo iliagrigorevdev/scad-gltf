@@ -21,7 +21,6 @@ export function generatePrompt(description, options = {}) {
     iridescence: options.iridescence ?? true,
     unlit: options.unlit ?? true,
     colormap: options.colormap ?? false,
-    normalmap: options.normalmap ?? false,
     bakeColors: options.bakeColors ?? false,
     bakeNormals: options.bakeNormals ?? false,
     bakeOrm: options.bakeOrm ?? false,
@@ -59,7 +58,6 @@ export function generatePrompt(description, options = {}) {
   if (opts.iridescence) attrs.push("'iridescence'", "'iridescenceIOR'");
   if (opts.unlit) attrs.push("'unlit'");
   if (opts.colormap) attrs.push("'colormap'");
-  if (opts.normalmap) attrs.push("'normalmap'");
 
   if (attrs.length > 0 || opts.autoSmoothAngle) {
     if (attrs.length > 0) {
@@ -67,7 +65,7 @@ export function generatePrompt(description, options = {}) {
     }
     prompt += `\n\nImportant PBR & Shading rules:`;
 
-    if (opts.colormap || opts.normalmap) {
+    if (opts.colormap) {
       prompt += `\n- Passing Functions: OpenSCAD separates function and variable namespaces. You CANNOT pass a function by its name directly (e.g., \`map=my_func\` will fail and evaluate to undef). If you define a custom function, you MUST wrap it in a function literal (lambda) when passing it. Example: \`map=function(x,y,z) my_func(x,y,z)\`.`;
     }
 
@@ -105,13 +103,6 @@ export function generatePrompt(description, options = {}) {
     if (opts.colormap) {
       prompt += `\n- Colormap: Accepts a user-defined function to procedurally generate surface textures. The function MUST take 3 parameters (x, y, z) representing the 3D local coordinates of the surface, and return a color vector [r, g, b, a]. The exporter automatically unwraps the geometry and bakes this function into a 2D base color texture map (default resolution is 256x256, unique atlas per object). To change resolution, wrap the object in a \`bake(resolution=512)\` module. To group multiple objects into a shared atlas, assign them the same index: \`bake(index=1)\`. Example inline: \`colormap=function(x,y,z) [sin(x*10)/2+0.5, cos(y*10)/2+0.5, z/10, 1.0]\`.`;
     }
-    if (opts.normalmap) {
-      prompt += `\n- Normalmap: Accepts a user-defined function to procedurally generate surface normals. The function takes 3 parameters (x, y, z) representing the 3D local coordinates, but it MUST return a color vector [r, g, b, a] representing a TANGENT-SPACE normal map. (Default texture resolution is 256x256 and unique atlas per object. Wrap in \`bake(resolution=512)\` to increase resolution, or add \`index=1\` to share an atlas with other objects).
-  - RGB encodes the normal vector mapped to 0-1.
-  - [0.5, 0.5, 1.0, 1.0] represents a flat, unmodified surface (the standard blue color).
-  - To create bumps, perturb the R and G channels around 0.5 based on the x/y/z coordinates.
-  - Example inline: \`normalmap=function(x,y,z) [0.5 + cos(x*10)*0.1, 0.5 + sin(y*10)*0.1, 1.0, 1.0]\`.`;
-    }
     if (opts.autoSmoothAngle) {
       prompt += `\n- Auto Smooth Angle: Generates smooth vertex normals for adjoining faces with an angle difference less than this value (in degrees). Use > 0 (e.g., 30 or 45) for curved/smooth surfaces, 0.0 for flat shading. Can be set globally using the special variable \`$asa\` (e.g., \`$asa=30;\`), or overridden per-material via the \`$asa\` parameter INSIDE the color() module. IMPORTANT: \`$asa\` ONLY affects surface shading (normals). It DOES NOT alter the actual geometry or polygon count. You must still use standard variables like \`$fn\` to increase geometric resolution. DO NOT pass \`$asa\` directly to geometry modules like sphere() or cylinder(). (Default: 0.0)`;
     }
@@ -129,10 +120,6 @@ export function generatePrompt(description, options = {}) {
     if (opts.colormap)
       exampleParams.push(
         "colormap=function(x,y,z) [sin(x)/2+0.5, 0.5, 0.5, 1.0]",
-      );
-    if (opts.normalmap)
-      exampleParams.push(
-        "normalmap=function(x,y,z) [0.5+sin(x)/2, 0.5, 1.0, 1.0]",
       );
     if (opts.autoSmoothAngle) exampleParams.push("$asa=45.0");
 
