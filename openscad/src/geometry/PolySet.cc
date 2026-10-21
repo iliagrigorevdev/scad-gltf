@@ -124,6 +124,13 @@ void PolySet::setColor(const Color4f& c, const MaterialProperties& properties)
   color_indices.assign(indices.size(), 0);
 }
 
+void PolySet::setSkin(const std::vector<std::string>& bones, const std::shared_ptr<const class Value>& weights)
+{
+  SkinData sd{bones, weights};
+  skins = {sd};
+  skin_indices.assign(indices.size(), 0);
+}
+
 bool PolySet::isConvex() const
 {
   if (convex_ || this->isEmpty()) return true;

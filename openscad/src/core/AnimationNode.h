@@ -44,4 +44,15 @@ public:
     }
 };
 
+class SkinNode : public AbstractNode {
+public:
+    VISITABLE();
+    std::vector<std::string> bones;
+    std::shared_ptr<const Value> weights;
+
+    SkinNode(const ModuleInstantiation *mi, std::vector<std::string> b, std::shared_ptr<const Value> w)
+      : AbstractNode(mi), bones(std::move(b)), weights(std::move(w)) {}
+    std::string name() const override { return "skin"; }
+};
+
 void register_builtin_animation();

@@ -71,7 +71,7 @@ static bool is_unmergeable(const std::shared_ptr<const Geometry>& geom) {
   if (std::dynamic_pointer_cast<const ArmatureGeometry>(geom)) return true;
   if (std::dynamic_pointer_cast<const LightGeometry>(geom)) return true;
   if (auto ps = std::dynamic_pointer_cast<const PolySet>(geom)) {
-    if (ps->high_poly_bake || ps->bake_params.is_baked) return true;
+    if (ps->high_poly_bake || ps->bake_params.is_baked || !ps->skin_indices.empty()) return true;
   }
   if (auto gl = std::dynamic_pointer_cast<const GeometryList>(geom)) {
     for (const auto& item : gl->getChildren()) {
@@ -706,6 +706,42 @@ Response GeometryEvaluator::visit(State& state, const LightNode& node)
           }
       }
       geom = lightGeom;
+    } else {
+      geom = smartCacheGet(node, state.preferNef());
+    }
+    addToParent(state, node, geom);
+    node.progress_report();
+  }
+  return Response::ContinueTraversal;
+}
+
+Response GeometryEvaluator::visit(State& state, const SkinNode& node)
+{
+  if (state.isPrefix()) {
+    if (isSmartCached(node)) return Response::PruneTraversal;
+    state.setPreferNef(true);
+  }
+  if (state.isPostfix()) {
+    std::shared_ptr<const Geometry> geom;
+    if (!isSmartCached(node)) {
+      ResultObject res = applyToChildren(node, OpenSCADOperator::UNION);
+      if ((geom = res.constptr())) {
+        auto mutableGeom = res.asMutableGeometry();
+        if (mutableGeom) {
+            if (!std::dynamic_pointer_cast<PolySet>(mutableGeom) && !std::dynamic_pointer_cast<GeometryList>(mutableGeom)) {
+                auto ps = PolySetUtils::getGeometryAsPolySet(mutableGeom);
+                if (ps) {
+                    mutableGeom = std::make_shared<PolySet>(*ps);
+                }
+            }
+            if (auto ps = std::dynamic_pointer_cast<PolySet>(mutableGeom)) {
+                ps->setSkin(node.bones, node.weights);
+            } else if (auto gl = std::dynamic_pointer_cast<GeometryList>(mutableGeom)) {
+                gl->setSkin(node.bones, node.weights);
+            }
+        }
+        geom = mutableGeom;
+      }
     } else {
       geom = smartCacheGet(node, state.preferNef());
     }

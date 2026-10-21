@@ -378,6 +378,14 @@ Response CSGTreeEvaluator::visit(State& state, const LightNode& node) {
   return Response::ContinueTraversal;
 }
 
+Response CSGTreeEvaluator::visit(State& state, const SkinNode& node) {
+  if (state.isPostfix()) {
+    applyToChildren(state, node, OpenSCADOperator::UNION);
+    addToParent(state, node);
+  }
+  return Response::ContinueTraversal;
+}
+
 /*!
    Adds ourself to out parent's list of traversed children.
    Call this for _every_ node which affects output during traversal.

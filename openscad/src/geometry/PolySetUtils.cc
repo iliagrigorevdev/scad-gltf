@@ -96,6 +96,15 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     result->colors = polyset.colors;
     result->materials = polyset.materials;
   }
+
+  std::vector<int32_t> polygon_skin_indices;
+  auto has_skins = !polyset.skin_indices.empty();
+  if (has_skins) {
+    assert(polyset.skin_indices.size() == polyset.indices.size());
+    polygon_skin_indices.reserve(polyset.skin_indices.size());
+    result->skins = polyset.skins;
+  }
+
   for (size_t i = 0, n = polyset.indices.size(); i < n; i++) {
     const auto& pgon = polyset.indices[i];
     if (pgon.size() < 3) {
@@ -117,6 +126,9 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
     }
     if (has_colors) {
       polygon_color_indices.push_back(polyset.color_indices[i]);
+    }
+    if (has_skins) {
+      polygon_skin_indices.push_back(polyset.skin_indices[i]);
     }
     for (const auto& ind : currface) used[ind] = true;
   }
@@ -147,6 +159,7 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
       // trivial case - triangles cannot be concave or have holes
       result->indices.push_back({face[0], face[1], face[2]});
       if (has_colors) result->color_indices.push_back(polygon_color_indices[i]);
+      if (has_skins) result->skin_indices.push_back(polygon_skin_indices[i]);
     }
     // Quads seem trivial, but can be concave, and can have degenerate cases.
     // So everything more complex than triangles goes into the general case.
@@ -158,6 +171,7 @@ std::unique_ptr<PolySet> tessellate_faces(const PolySet& polyset)
         for (const auto& t : triangles) {
           result->indices.push_back({t[0], t[1], t[2]});
           if (has_colors) result->color_indices.push_back(polygon_color_indices[i]);
+          if (has_skins) result->skin_indices.push_back(polygon_skin_indices[i]);
         }
       }
     }

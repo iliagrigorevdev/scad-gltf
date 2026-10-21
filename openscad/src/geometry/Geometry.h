@@ -104,6 +104,7 @@ public:
   [[nodiscard]] unsigned int getConvexity() const { return convexity; }
   void setConvexity(int c) { this->convexity = c; }
   virtual void setColor(const Color4f& c, const MaterialProperties& properties) {}
+  virtual void setSkin(const std::vector<std::string>& bones, const std::shared_ptr<const class Value>& weights) {}
 
   virtual void transform(const Transform3d& /*mat*/) { assert(!"transform not implemented!"); }
   virtual void resize(const Vector3d& /*newsize*/, const Eigen::Matrix<bool, 3, 1>& /*autosize*/)
@@ -181,6 +182,16 @@ public:
       if (item.second) {
         auto new_geom = item.second->copy();
         new_geom->setColor(c, properties);
+        item.second = std::move(new_geom);
+      }
+    }
+  }
+
+  void setSkin(const std::vector<std::string>& bones, const std::shared_ptr<const class Value>& weights) override {
+    for (auto& item : children) {
+      if (item.second) {
+        auto new_geom = item.second->copy();
+        new_geom->setSkin(bones, weights);
         item.second = std::move(new_geom);
       }
     }

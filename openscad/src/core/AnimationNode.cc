@@ -78,8 +78,29 @@ std::shared_ptr<AbstractNode> builtin_bone(const ModuleInstantiation *inst, Argu
     return children.instantiate(std::make_shared<BoneNode>(inst, name, mat));
 }
 
+std::shared_ptr<AbstractNode> builtin_skin(const ModuleInstantiation *inst, Arguments arguments, const Children& children) {
+    Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"bones", "weights"});
+
+    std::vector<std::string> bones;
+    if (parameters["bones"].type() == Value::Type::VECTOR) {
+        for (const auto& v : parameters["bones"].toVector()) {
+            if (v.type() == Value::Type::STRING) {
+                bones.push_back(v.toStrUtf8Wrapper().toString());
+            }
+        }
+    }
+
+    std::shared_ptr<const Value> weights;
+    if (parameters["weights"].type() == Value::Type::FUNCTION || parameters["weights"].type() == Value::Type::VECTOR) {
+        weights = std::make_shared<const Value>(parameters["weights"].clone());
+    }
+
+    return children.instantiate(std::make_shared<SkinNode>(inst, bones, weights));
+}
+
 void register_builtin_animation() {
     Builtins::init("armature", new BuiltinModule(builtin_armature), {"armature(animations=array)"});
     Builtins::init("bone", new BuiltinModule(builtin_bone), {"bone(name=\"\", t=[x,y,z], r=[x,y,z])"});
+    Builtins::init("skin", new BuiltinModule(builtin_skin), {"skin(bones=[\"Bone1\", \"Bone2\"], weights=function(x,y,z) [1.0, 0.0])"});
     Builtins::init("light", new BuiltinModule(builtin_light), {"light(type=\"point\", color=[1,1,1], intensity=1.0, range=0.0, innerConeAngle=0.0, outerConeAngle=45.0)"});
 }

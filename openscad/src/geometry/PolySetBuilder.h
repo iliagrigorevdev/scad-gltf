@@ -11,6 +11,8 @@
 #include "geometry/linalg.h"
 #include "utils/boost-utils.h"
 
+#include "geometry/PolySet.h"
+
 class PolySet;
 
 class PolySetBuilder
@@ -39,6 +41,7 @@ public:
 
   void addColor(const Color4f& color, const MaterialProperties& properties);
   void addColorIndex(int idx);  // should be paired with begin/endPolygon()
+  void addSkinIndex(int idx);
 
   std::unique_ptr<PolySet> build();
 
@@ -48,6 +51,8 @@ private:
   std::vector<int32_t> color_indices_;
   std::vector<Color4f> colors_;
   std::vector<MaterialProperties> materials_;
+  std::vector<int32_t> skin_indices_;
+  std::vector<SkinData> skins_;
   int convexity_{1};
   int dim_;
   boost::tribool convex_;

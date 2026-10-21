@@ -339,6 +339,8 @@ std::unique_ptr<PolySet> createSortedPolySet(const PolySet& ps)
   out->color_indices = ps.color_indices;
   out->colors = ps.colors;
   out->materials = ps.materials;
+  out->skin_indices = ps.skin_indices;
+  out->skins = ps.skins;
 
   out->high_poly_bake = ps.high_poly_bake;
   out->bake_params = ps.bake_params;
@@ -359,24 +361,28 @@ std::unique_ptr<PolySet> createSortedPolySet(const PolySet& ps)
     std::rotate(polygon.begin(), std::min_element(polygon.begin(), polygon.end()), polygon.end());
     poly = polygon;
   }
-  if (ps.color_indices.empty()) {
+  if (ps.color_indices.empty() && ps.skin_indices.empty()) {
     std::sort(out->indices.begin(), out->indices.end());
   } else {
     struct ColoredFace {
       IndexedFace face;
       int32_t color_index;
+      int32_t skin_index;
     };
     std::vector<ColoredFace> faces;
     faces.reserve(ps.indices.size());
     for (size_t i = 0, n = ps.indices.size(); i < n; i++) {
-      faces.push_back({out->indices[i], out->color_indices[i]});
+      faces.push_back({out->indices[i],
+                       ps.color_indices.empty() ? -1 : out->color_indices[i],
+                       ps.skin_indices.empty() ? -1 : out->skin_indices[i]});
     }
     std::sort(faces.begin(), faces.end(),
               [](const ColoredFace& a, const ColoredFace& b) { return a.face < b.face; });
     for (size_t i = 0, n = faces.size(); i < n; i++) {
       auto& face = faces[i];
       out->indices[i] = face.face;
-      out->color_indices[i] = face.color_index;
+      if (!ps.color_indices.empty()) out->color_indices[i] = face.color_index;
+      if (!ps.skin_indices.empty()) out->skin_indices[i] = face.skin_index;
     }
   }
   return out;

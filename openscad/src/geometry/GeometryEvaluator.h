@@ -56,6 +56,7 @@ public:
   Response visit(State& state, const BoneNode& node) override;
   Response visit(State& state, const BakeNode& node) override;
   Response visit(State& state, const LightNode& node) override;
+  Response visit(State& state, const SkinNode& node) override;
 
   [[nodiscard]] const Tree& getTree() const { return this->tree; }
 

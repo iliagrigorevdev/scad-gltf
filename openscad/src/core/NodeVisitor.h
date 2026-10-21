@@ -30,7 +30,8 @@ class NodeVisitor : public BaseVisitor,
                     public Visitor<class ArmatureNode>,
                     public Visitor<class BoneNode>,
                     public Visitor<class BakeNode>,
-                    public Visitor<class LightNode>
+                    public Visitor<class LightNode>,
+                    public Visitor<class SkinNode>
 {
 public:
   NodeVisitor() = default;
@@ -128,6 +129,10 @@ public:
     return visit(state, (const AbstractNode&)node);
   }
   Response visit(State& state, const LightNode& node) override
+  {
+    return visit(state, (const AbstractNode&)node);
+  }
+  Response visit(State& state, const SkinNode& node) override
   {
     return visit(state, (const AbstractNode&)node);
   }

@@ -14,6 +14,14 @@
 
 class PolySetBuilder;
 
+struct SkinData {
+    std::vector<std::string> bones;
+    std::shared_ptr<const class Value> weights;
+    bool operator==(const SkinData& other) const {
+        return bones == other.bones && weights == other.weights;
+    }
+};
+
 class PolySet : public Geometry
 {
   friend class PolySetBuilder;
@@ -28,6 +36,8 @@ public:
   std::vector<int32_t> color_indices;
   std::vector<Color4f> colors;
   std::vector<MaterialProperties> materials;
+  std::vector<int32_t> skin_indices;
+  std::vector<SkinData> skins;
 
   PolySet(unsigned int dim, boost::tribool convex = unknown);
 
@@ -43,6 +53,7 @@ public:
   void transform(const Transform3d& mat) override;
   void resize(const Vector3d& newsize, const Eigen::Matrix<bool, 3, 1>& autosize) override;
   void setColor(const Color4f& c, const MaterialProperties& properties) override;
+  void setSkin(const std::vector<std::string>& bones, const std::shared_ptr<const class Value>& weights) override;
 
   bool isConvex() const;
   boost::tribool convexValue() const { return convex_; }

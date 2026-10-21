@@ -2,7 +2,7 @@
 
 A powerful WebAssembly (WASM) build of a custom OpenSCAD fork that enables direct compilation of OpenSCAD (`.scad`) scripts to **glTF/GLB** formats natively in JavaScript (Node.js and Browser).
 
-Unlike standard OpenSCAD, this custom engine supports **Physically Based Rendering (PBR)** materials, **Hierarchical Node Animations**, and **Texture Baking**, making it a perfect bridge between procedural CAD generation and modern 3D web rendering engines (like Three.js or Babylon.js).
+Unlike standard OpenSCAD, this custom engine supports **Physically Based Rendering (PBR)** materials, **Hierarchical Node Animations**, **Skeletal Skinning & Mesh Deformation**, and **Texture Baking**, making it a perfect bridge between procedural CAD generation and modern 3D web rendering engines (like Three.js or Babylon.js).
 
 The C++ source code for this custom OpenSCAD version is included directly in this repository within the `openscad/` subfolder.
 
@@ -16,7 +16,9 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 
 - **Direct SCAD to GLB conversion:** Compile geometry directly to web-ready binary glTF.
 - **Extended PBR Material Support:** Native extensions to the OpenSCAD `color()` module supporting `metalness`, `roughness`, `transmission` (glass), `thickness`, `ior`, `attenuationColor`, `attenuationDistance`, `clearcoat`, `sheen`, `emissive`, `specular`, `iridescence`, `unlit`, `colormap`, and `normalmap`, plus a `$asa` special variable for auto smooth shading.
-- **Hierarchical Node Animation:** Define articulated, rigid-body hierarchies and keyframe animations using `armature()` and `bone()` modules. Exports proper glTF node transform tracks (rigid parenting rather than vertex-weighted skinning—ideal for robots, mechanical parts, vehicles, and articulated components).
+- **Hierarchical Node Animation & Skeletal Skinning:**
+  - **Rigid Parenting:** Define articulated rigid hierarchies and keyframe animations using `armature()` and `bone()` modules (ideal for robots, mechanical parts, vehicles, and articulated components).
+  - **Smooth Skinning / Soft-Body Deformation:** Bind flexible meshes to multiple bones using the `skin()` module with procedural 3D vertex weight functions. Exports standard glTF joints, weights, and inverse bind matrices.
 - **Texture Baking:** Automatically generate UVs and bake high-poly details (colors, normals, ORM) onto low-poly meshes using the new `bake()` module.
 - **Scene Lighting:** Spawn precise light sources within your hierarchy (point, directional, spot) using the `light()` module, exporting directly to glTF.
 - **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, video/image export, URL sharing, and `.scad` / `.hdr` drag-and-drop.
@@ -39,7 +41,7 @@ The built-in web editor (**Scadify**) provides a full-featured development envir
 - **Real-Time 3D Viewport:** Instant WebAssembly compilation with auto-rendering, camera auto-framing, wireframe view, grid/axes toggles, ACES Filmic tone mapping, and full-screen mode.
 - **Photorealistic GPU Path Tracing:** Built-in hardware-accelerated path tracer with HDR environment lighting for realistic reflections, shadows, and glass refraction. Supports custom `.hdr` environment maps via drag-and-drop.
 - **Interactive Animation Controls:** Multi-animation selector, playback controls (play/pause), and smooth timeline scrubbing for animated hierarchies.
-- **Modular AI Prompt Generator:** Built-in UI with fine-grained feature toggles (Basic PBR, Auto Smooth, Animations, Extended PBR, Texture Baking) and persistent local settings to generate optimized prompts for LLMs.
+- **Modular AI Prompt Generator:** Built-in UI with fine-grained feature toggles (Basic PBR, Auto Smooth, Animations & Skinning, Extended PBR, Texture Baking) and persistent local settings to generate optimized prompts for LLMs.
 - **Image & Video Capture:**
   - **📷 PNG Snapshots:** Export high-resolution renders with a single click.
   - **🎥 Video Recording:** Record animation loops directly to MP4/WebM. When Path Tracing is enabled, frames are rendered deterministically for jitter-free, ultra-high-quality animated video captures.
@@ -224,7 +226,7 @@ When asking an LLM (like Gemini) to generate OpenSCAD code, the extension automa
 
 - **Instant 3D Preview:** Injects a **"Preview 3D"** button on any OpenSCAD code block to compile and render the model in an embedded 3D viewer with grid, wireframe, and full-screen support.
 - **Visual Chat Feedback (📷):** Click the snapshot button inside the 3D preview window to capture a PNG snapshot of the model and **automatically paste it into the AI Studio chat input**, allowing Gemini to visually evaluate and fix geometry.
-- **Smart Prompt Injection:** Click the floating **"✨ SCAD"** button to open the configuration modal. Select your desired engine feature set (PBR, auto-smooth, animations, baking) to automatically generate and inject the prompt rules into your chat input.
+- **Smart Prompt Injection:** Click the floating **"✨ SCAD"** button to open the configuration modal. Select your desired engine feature set (PBR, auto-smooth, animations & skinning, baking) to automatically generate and inject the prompt rules into your chat input.
 - **Local Model Refinement:** Connect to your local `scad-gltf serve` workspace directly from the prompt modal. Select an existing `.scad` file to automatically append its source code to your prompt as a reference, enabling seamless AI iteration and refinement of your existing local designs.
 - **Open in Scadify:** Click **"Edit"** in the preview window to immediately transfer the current script into the full standalone Scadify editor via compressed URL hash.
 - **Local Workspace Saving:** Directly save and overwrite models to your local directory when running `scad-gltf serve`.
@@ -425,9 +427,13 @@ color(
 }
 ```
 
-### 2. Hierarchical Node Animations (Rigid Parenting)
+### 2. Hierarchical Node Animations & Skeletal Skinning
 
-Define hierarchical armatures, resting positions, and keyframe animations for rigid parts:
+Define armatures, hierarchical bone trees, keyframe animations, and soft-body mesh skinning.
+
+#### A. Rigid Parenting
+
+Meshes placed directly inside a `bone()` module are rigidly attached to that bone's transform:
 
 ```openscad
 anim_data = [
@@ -447,6 +453,39 @@ armature(animations = anim_data) {
         color("silver", metalness=0.9, roughness=0.1)
         cylinder(h=10, r=1, center=false);
     }
+}
+```
+
+#### B. Skeletal Skinning (Smooth Mesh Deformation)
+
+To bind a soft mesh to multiple bones, wrap geometry in the `skin()` module directly inside `armature()`. Pass an array of bone names and a 3-argument weight function `function(x, y, z)` computing bone weights from localized vertex positions. Weights are automatically normalized and capped to the 4 strongest influences per vertex:
+
+```openscad
+anim_data = [
+  ["Bend", [
+    ["TopBone", [
+      [0.0, [0, 0, 0]],
+      [1.0, [0, 45, 0]],
+      [2.0, [0, 0, 0]]
+    ]]
+  ]]
+];
+
+armature(animations = anim_data) {
+  // Skinned Soft Mesh (Must be placed directly in armature, outside bone hierarchy)
+  // Blends smoothly from BottomBone (Z=0) to TopBone (Z=10)
+  skin(bones=["BottomBone", "TopBone"], weights=function(x, y, z) [1.0 - (z / 10), z / 10]) {
+    color([0.2, 0.6, 1.0]) cylinder(h=10, r=2, $fn=32);
+  }
+
+  // Bone Hierarchy
+  bone(name="BottomBone", t=[0, 0, 0], r=[0, 0, 0]) {
+    color("gray") cube([8, 8, 2], center=true); // Rigid base
+
+    bone(name="TopBone", t=[0, 0, 10], r=[0, 0, 0]) {
+      // Child bones inherit parent transforms
+    }
+  }
 }
 ```
 
@@ -493,7 +532,7 @@ translate([0, 0, 50]) rotate([0, 30, 0])
 
 ## AI Integration (`prompt.js`)
 
-Because LLMs (like Gemini or Claude) only know standard OpenSCAD syntax up to their training cutoff, we've included a helper function to generate LLM prompts. This injects the rules for PBR, animations, and baking directly into your prompt context.
+Because LLMs (like Gemini or Claude) only know standard OpenSCAD syntax up to their training cutoff, we've included a helper function to generate LLM prompts. This injects the rules for PBR, animations, skinning, and baking directly into your prompt context.
 
 **Usage:**
 
@@ -501,7 +540,7 @@ Because LLMs (like Gemini or Claude) only know standard OpenSCAD syntax up to th
 import { generatePrompt } from "scad-gltf/prompt";
 
 const description =
-  "a futuristic glass sword with a glowing metallic handle, animated to spin 360 degrees";
+  "a futuristic robot arm with flexible rubber joints and glowing metallic plating, animated to bend";
 const promptContext = generatePrompt(description, {
   basic: true, // Metalness and roughness
   transmission: true, // Glass, transmission, ior, thickness
@@ -512,7 +551,7 @@ const promptContext = generatePrompt(description, {
   iridescence: true, // Thin-film interference
   unlit: true, // Shadeless unlit material rules
   autoSmoothAngle: true, // $asa rules
-  animation: true, // Armature & bone syntax
+  animation: true, // Armature, bone & skinning syntax
   lights: false, // Light rules
   bakeColors: false, // Texture baking flags
   bakeNormals: false,

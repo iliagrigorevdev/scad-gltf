@@ -76,6 +76,11 @@ void PolySetBuilder::addColorIndex(const int32_t idx)
   color_indices_.push_back(idx);
 }
 
+void PolySetBuilder::addSkinIndex(const int32_t idx)
+{
+  skin_indices_.push_back(idx);
+}
+
 int PolySetBuilder::numVertices() const
 {
   return vertices_.size();
@@ -193,6 +198,7 @@ void PolySetBuilder::endPolygon(const Color4f& color, const MaterialProperties& 
 void PolySetBuilder::appendPolySet(const PolySet& ps)
 {
   std::vector<uint32_t> color_map;
+  std::vector<uint32_t> skin_map;
 
   // Copy color indices lazily.
   if (!ps.color_indices.empty()) {
@@ -225,6 +231,34 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
     }
   }
 
+  // Copy skin indices lazily.
+  if (!ps.skin_indices.empty()) {
+    if (skin_indices_.empty() && !indices_.empty()) {
+      skin_indices_.resize(indices_.size(), -1);
+    }
+    skin_indices_.reserve(skin_indices_.size() + ps.skin_indices.size());
+
+    auto nSkins = ps.skins.size();
+    skin_map.resize(nSkins);
+    for (size_t i = 0; i < nSkins; i++) {
+      const auto& skin = ps.skins[i];
+
+      int match_idx = -1;
+      for (size_t j = 0; j < skins_.size(); ++j) {
+        if (skins_[j] == skin) {
+          match_idx = j;
+          break;
+        }
+      }
+      if (match_idx == -1) {
+        skin_map[i] = skins_.size();
+        skins_.push_back(skin);
+      } else {
+        skin_map[i] = match_idx;
+      }
+    }
+  }
+
   reserve(numVertices() + ps.vertices.size(), numPolygons() + ps.indices.size());
   for (size_t p_idx = 0; p_idx < ps.indices.size(); ++p_idx) {
     const auto& poly = ps.indices[p_idx];
@@ -253,6 +287,23 @@ void PolySetBuilder::appendPolySet(const PolySet& ps)
       } else if (!color_indices_.empty()) {
         color_indices_.push_back(-1);
       }
+
+      int mapped_s_idx = -1;
+      if (!ps.skin_indices.empty()) {
+        int original_s_idx = ps.skin_indices[p_idx];
+        if (original_s_idx >= 0 && original_s_idx < skin_map.size()) {
+          mapped_s_idx = skin_map[original_s_idx];
+        }
+      }
+
+      if (mapped_s_idx != -1) {
+        if (skin_indices_.empty() && indices_.size() > 1) {
+          skin_indices_.resize(indices_.size() - 1, -1);
+        }
+        skin_indices_.push_back(mapped_s_idx);
+      } else if (!skin_indices_.empty()) {
+        skin_indices_.push_back(-1);
+      }
     }
     current_polygon_.clear();
   }
@@ -268,6 +319,8 @@ std::unique_ptr<PolySet> PolySetBuilder::build()
   polyset->color_indices = std::move(color_indices_);
   polyset->colors = std::move(colors_);
   polyset->materials = std::move(materials_);
+  polyset->skin_indices = std::move(skin_indices_);
+  polyset->skins = std::move(skins_);
   polyset->setConvexity(convexity_);
   bool is_triangular = true;
   for (const auto& face : polyset->indices) {

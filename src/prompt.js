@@ -134,11 +134,15 @@ export function generatePrompt(description, options = {}) {
   }
 
   if (opts.animation) {
-    prompt += `\n\nImportant Animation rules:
+    prompt += `\n\nImportant Animation & Skinning rules:
 - Wrapping: Use the 'armature(animations=...)' module at the root to wrap all animated components.
 - Hierarchies: Use the 'bone(name="BoneName", t=[x,y,z], r=[x,y,z])' module to define hierarchical animated parts.
+- Skinning / Soft-Body Deformation: To bind a soft mesh to multiple bones, wrap the geometry in a 'skin(bones=["Bone1", "Bone2"], weights=function(x,y,z) [...])' module.
+  * Placement: The 'skin()' module MUST be placed directly inside the 'armature()', OUTSIDE of the 'bone()' hierarchy.
+  * Weight Function: The 'weights' parameter takes a 3-parameter function evaluating the localized 3D coordinates (x,y,z) of each vertex, returning an array of weights corresponding to the 'bones' array. Example: \`function(x,y,z) [1.0 - (z/10), z/10]\`. The exporter automatically normalizes weights and limits to the 4 strongest bones.
+  * Geometry: Meshes must have enough vertices to bend smoothly! Always use a sufficiently high '$fn' (e.g., $fn=32) for curved geometries.
+- Rigid Attachment (Auto-Unioning): Any child meshes placed directly inside a 'bone()' node are rigidly attached to that bone.
 - Camera Animation: You can create an animated glTF camera by naming a bone "Camera" or "camera". You can append numbers or separators to the name (e.g., "Camera1", "Camera_fov60" for Perspective 60 deg FOV, or "Camera_ortho_mag10" for Orthographic, scale 10). Physical parts like "CameraMount" are safely ignored. It will animate just like any other bone! Note: The camera looks forward along the +Y axis, with +Z as its UP direction.
-- Auto-Unioning: Any child meshes (e.g., cube, cylinder, imported objects) placed directly inside an 'armature()' or 'bone()' node are automatically unioned together by the engine and rigidly attached to that bone's transform node. Child bones remain separate nodes in the hierarchy.
 - Animation Data: The 'animations' property is an array of named animation sequences. Each sequence contains an array of tracks defining keyframes for each bone. Format:
   animations = [
     ["AnimationName", [
@@ -152,35 +156,43 @@ export function generatePrompt(description, options = {}) {
 - Rotation Keyframes: Due to glTF Quaternion shortest-path interpolation, NEVER rotate more than 90 degrees between consecutive keyframes. To perform a full 360-degree rotation, you MUST manually subdivide it into 90-degree increments (e.g., 0, 90, 180, 270, 360).
 - Translational & Rotational Keyframes: Keyframe translations and rotations are ABSOLUTE in local space. They completely replace the bone's resting 't' and 'r' attributes during the animation. If a bone's resting translation is [0, 0, 2] and it needs to move 10 units up, the keyframe translation must be [0, 0, 12]. If translation is omitted, it defaults to the resting position.
 
-Example Animation Usage:
+Example Animation & Skinning Usage:
 \`\`\`openscad
 anim_data = [
   ["Action 1", [
-    ["BaseSpinner", [
+    ["TopBone", [
       [0.0, [0, 0, 0]],
-      [1.0, [0, 0, 90]],
-      [2.0, [0, 0, 180]],
-      [3.0, [0, 0, 270]],
-      [4.0, [0, 0, 360]]
+      [1.0, [0, 45, 0]],
+      [2.0, [0, 0, 0]]
     ]],
-    ["ChildSlider", [
-      [0.0, [0, 0, 0], [0, 0, 2]],
-      [2.0, [0, 0, 0], [0, 0, 12]],
-      [4.0, [0, 0, 0], [0, 0, 2]]
+    ["Spinner", [
+      [0.0, [0, 0, 0]],
+      [1.0, [0, 0, 180]],
+      [2.0, [0, 0, 360]]
     ]]
   ]]
 ];
 
 armature(animations=anim_data) {
-  // Root bone
-  bone(name="BaseSpinner", t=[0, 0, 0], r=[0, 0, 0]) {
-    // Mesh attached to BaseSpinner
-    color([0.2, 0.5, 0.8]) cube([10, 10, 2], center=true);
+  // Skinned Soft Mesh (Placed at armature root, outside the bone hierarchy)
+  // Blends smoothly from BottomBone (at Z=0) to TopBone (at Z=10)
+  skin(bones=["BottomBone", "TopBone"], weights=function(x,y,z) [1.0 - (z/10), z/10]) {
+    color([0.2, 0.6, 1.0]) cylinder(h=10, r=2, $fn=32);
+  }
 
-    // Nested child bone (inherits parent's transform)
-    bone(name="ChildSlider", t=[0, 0, 2], r=[0, 0, 0]) {
-      // Mesh attached to ChildSlider
-      color([0.8, 0.2, 0.2]) cylinder(h=5, r=2);
+  // Bone Hierarchy
+  bone(name="BottomBone", t=[0, 0, 0], r=[0, 0, 0]) {
+
+    // Rigid mesh attached to BottomBone
+    color("gray") cube([10, 10, 2], center=true);
+
+    // Child Bone
+    bone(name="TopBone", t=[0, 0, 10], r=[0, 0, 0]) {
+
+      // Spinner attached to TopBone
+      bone(name="Spinner", t=[0, 0, 0], r=[0, 0, 0]) {
+        color("red") cylinder(h=2, r=4);
+      }
     }
   }
 }
