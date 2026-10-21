@@ -379,21 +379,14 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         int node_idx = model.nodes.size();
 
         Transform3d M_gltf = C * bone->local_matrix * C.inverse();
-        Eigen::Matrix3d R_and_S = M_gltf.linear();
-        Eigen::Vector3d s(R_and_S.col(0).norm(), R_and_S.col(1).norm(), R_and_S.col(2).norm());
-        Eigen::Matrix3d R;
-        for(int i=0; i<3; ++i) R.col(i) = R_and_S.col(i) / (s[i] > 1e-8 ? s[i] : 1.0);
-        if (R.determinant() < 0) { s.x() *= -1; R.col(0) *= -1; }
-
         Eigen::Vector3d t = M_gltf.translation();
-        Eigen::Quaterniond q(R);
+        Eigen::Quaterniond q(M_gltf.rotation());
         q.normalize(); // glTF strictly requires normalized quaternions
 
         tinygltf::Node node;
         node.name = bone->name;
         node.translation = {t.x(), t.y(), t.z()};
         node.rotation = {q.x(), q.y(), q.z(), q.w()};
-        node.scale = {s.x(), s.y(), s.z()};
 
         auto is_camera_bone = [](const std::string& name) {
             if (name.rfind("Camera", 0) != 0 && name.rfind("camera", 0) != 0) return false;
@@ -469,18 +462,12 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         R_intrinsic.rotate(Eigen::AngleAxisd(-M_PI/2.0, Vector3d::UnitX()));
 
         Transform3d M_gltf = C * light->local_matrix * C.inverse() * R_intrinsic;
-        Eigen::Matrix3d R_and_S = M_gltf.linear();
-        Eigen::Vector3d s(R_and_S.col(0).norm(), R_and_S.col(1).norm(), R_and_S.col(2).norm());
-        Eigen::Matrix3d R;
-        for(int i=0; i<3; ++i) R.col(i) = R_and_S.col(i) / (s[i] > 1e-8 ? s[i] : 1.0);
-        if (R.determinant() < 0) { s.x() *= -1; R.col(0) *= -1; }
-
         Eigen::Vector3d t = M_gltf.translation();
-        Eigen::Quaterniond q(R);
+        Eigen::Quaterniond q(M_gltf.rotation());
+        q.normalize(); // glTF strictly requires normalized quaternions
 
         lnode.translation = {t.x(), t.y(), t.z()};
         lnode.rotation = {q.x(), q.y(), q.z(), q.w()};
-        lnode.scale = {s.x(), s.y(), s.z()};
 
         tinygltf::Value::Object l_obj;
         l_obj["type"] = tinygltf::Value(light->light_type);
