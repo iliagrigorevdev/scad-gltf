@@ -387,6 +387,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
 
         Eigen::Vector3d t = M_gltf.translation();
         Eigen::Quaterniond q(R);
+        q.normalize(); // glTF strictly requires normalized quaternions
 
         tinygltf::Node node;
         node.name = bone->name;
@@ -1722,29 +1723,32 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                         kf[1].getVec3(rx, ry, rz);
                     }
 
-                    Transform3d rot = Transform3d::Identity();
-                    rot.rotate(Eigen::AngleAxisd(rz * M_PI/180.0, Vector3d::UnitZ()) *
-                               Eigen::AngleAxisd(ry * M_PI/180.0, Vector3d::UnitY()) *
-                               Eigen::AngleAxisd(rx * M_PI/180.0, Vector3d::UnitX()));
+                    // Calculate pure 3x3 rotational matrix to avoid numerical drift or SVD overhead
+                    Eigen::Matrix3d rot;
+                    rot = Eigen::AngleAxisd(rz * M_PI/180.0, Vector3d::UnitZ()) *
+                          Eigen::AngleAxisd(ry * M_PI/180.0, Vector3d::UnitY()) *
+                          Eigen::AngleAxisd(rx * M_PI/180.0, Vector3d::UnitX());
 
-                    Transform3d rot_gltf = C * rot * C.inverse();
-                    Eigen::Quaterniond q(rot_gltf.rotation());
+                    Eigen::Matrix3d rot_gltf = C.linear() * rot * C.inverse().linear();
 
-                    rotations.push_back(q.x()); rotations.push_back(q.y());
-                    rotations.push_back(q.z()); rotations.push_back(q.w());
+                    Eigen::Quaterniond q(rot_gltf);
+                    q.normalize(); // glTF strictly requires normalized quaternions
+
+                    rotations.push_back((float)q.x()); rotations.push_back((float)q.y());
+                    rotations.push_back((float)q.z()); rotations.push_back((float)q.w());
 
                     if (has_translation) {
                         if (kf.size() > 2) {
                             double tx=0, ty=0, tz=0;
                             kf[2].getVec3(tx, ty, tz);
                             Vector3d trans_gltf = C * Vector3d(tx, ty, tz);
-                            translations.push_back(trans_gltf.x());
-                            translations.push_back(trans_gltf.y());
-                            translations.push_back(trans_gltf.z());
+                            translations.push_back((float)trans_gltf.x());
+                            translations.push_back((float)trans_gltf.y());
+                            translations.push_back((float)trans_gltf.z());
                         } else {
-                            translations.push_back(model.nodes[node_idx].translation[0]);
-                            translations.push_back(model.nodes[node_idx].translation[1]);
-                            translations.push_back(model.nodes[node_idx].translation[2]);
+                            translations.push_back((float)model.nodes[node_idx].translation[0]);
+                            translations.push_back((float)model.nodes[node_idx].translation[1]);
+                            translations.push_back((float)model.nodes[node_idx].translation[2]);
                         }
                     }
                 }
