@@ -432,6 +432,7 @@ function renderGLTF(outputArray) {
         setupMeshShadowsAndWireframe(currentMesh, isWireframe);
 
         scene.add(currentMesh);
+        currentMesh.updateMatrixWorld(true);
         fitCamera();
         resolve();
       },

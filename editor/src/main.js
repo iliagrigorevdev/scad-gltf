@@ -1381,6 +1381,7 @@ function rebuildSceneFromGLTF(gltfData) {
           pathTracer.updateCamera();
         }
       }
+      currentMesh.updateMatrixWorld(true);
       oldBox = computeModelBounds(currentMesh, currentAnimations);
     }
 
@@ -1484,6 +1485,7 @@ function rebuildSceneFromGLTF(gltfData) {
         setupMeshShadowsAndWireframe(currentMesh, isWireframe);
 
         scene.add(currentMesh);
+        currentMesh.updateMatrixWorld(true);
 
         let geometryChanged = true;
         let newBox = null;

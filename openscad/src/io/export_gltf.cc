@@ -1292,6 +1292,15 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             tangents.reserve(xmesh.vertexCount * 4);
             new_ind.reserve(xmesh.indexCount);
 
+            std::vector<uint16_t> new_local_joints_0;
+            std::vector<float> new_weights_0;
+            bool has_skin = !prim.local_joints_0.empty();
+
+            if (has_skin) {
+                new_local_joints_0.reserve(xmesh.vertexCount * 4);
+                new_weights_0.reserve(xmesh.vertexCount * 4);
+            }
+
             for (uint32_t i = 0; i < xmesh.vertexCount; ++i) {
                 const xatlas::Vertex& v = xmesh.vertexArray[i];
                 new_pos.push_back(prim.positions[v.xref * 3 + 0]);
@@ -1310,6 +1319,17 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                     tangents.push_back((float)t.z());
                     tangents.push_back((float)t.w());
                 }
+
+                if (has_skin) {
+                    new_local_joints_0.push_back(prim.local_joints_0[v.xref * 4 + 0]);
+                    new_local_joints_0.push_back(prim.local_joints_0[v.xref * 4 + 1]);
+                    new_local_joints_0.push_back(prim.local_joints_0[v.xref * 4 + 2]);
+                    new_local_joints_0.push_back(prim.local_joints_0[v.xref * 4 + 3]);
+                    new_weights_0.push_back(prim.weights_0[v.xref * 4 + 0]);
+                    new_weights_0.push_back(prim.weights_0[v.xref * 4 + 1]);
+                    new_weights_0.push_back(prim.weights_0[v.xref * 4 + 2]);
+                    new_weights_0.push_back(prim.weights_0[v.xref * 4 + 3]);
+                }
             }
 
             for (uint32_t i = 0; i < xmesh.indexCount; ++i) {
@@ -1321,6 +1341,11 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             prim.indices = std::move(new_ind);
             prim.uvs = std::move(uvs);
             prim.tangents = std::move(tangents);
+
+            if (has_skin) {
+                prim.local_joints_0 = std::move(new_local_joints_0);
+                prim.weights_0 = std::move(new_weights_0);
+            }
         }
 
         xatlas::Destroy(group.atlas);
