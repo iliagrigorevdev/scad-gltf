@@ -1,14 +1,9 @@
 import { convertScadToGltf } from "scad-gltf/convert";
 import wasmUrl from "scad-gltf/openscad.wasm?url";
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { initThreeJS, setupFullscreenAndScreenshot } from "./viewer-shared.js";
 import {
   updateCameraAspect,
   computeModelBounds,
@@ -59,71 +54,21 @@ let currentOptimalExposure = 1.0;
 let activeCamera = null;
 
 // --- Setup Three.js Scene ---
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x222222);
-
-const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  2000,
-);
-camera.position.set(50, 50, -50);
+const {
+  scene,
+  camera,
+  renderer,
+  composer,
+  renderPass,
+  bloomPass,
+  controls,
+  lightGroup,
+  dirLight,
+  floor,
+  gridHelper,
+  axesHelper,
+} = initThreeJS(viewerEl, true);
 activeCamera = camera;
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
-
-viewerEl.appendChild(renderer.domElement);
-
-// --- Post-processing: Bloom for Emissive Glow ---
-const composer = new EffectComposer(renderer);
-const renderPass = new RenderPass(scene, activeCamera);
-composer.addPass(renderPass);
-
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.1, // strength
-  0.1, // radius
-  2.0, // threshold
-);
-bloomPass.enabled = false;
-composer.addPass(bloomPass);
-
-const outputPass = new OutputPass();
-composer.addPass(outputPass);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.1;
-
-// --- Add Room Environment for IBL ---
-const pmremGenerator = new THREE.PMREMGenerator(renderer);
-scene.environment = pmremGenerator.fromScene(
-  new RoomEnvironment(),
-  0.04,
-).texture;
-scene.environmentIntensity = 0.8;
-
-const lightGroup = new THREE.Group();
-scene.add(lightGroup);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 2048;
-dirLight.shadow.mapSize.height = 2048;
-dirLight.shadow.bias = -0.0005;
-lightGroup.add(dirLight);
-lightGroup.add(dirLight.target);
-
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-hemiLight.position.set(0, 20, 0);
-lightGroup.add(hemiLight);
 
 let environmentTexture = null;
 new HDRLoader().load(
@@ -155,26 +100,6 @@ if (cameraSelect) {
     renderPass.camera = activeCamera;
   });
 }
-
-// Environment Helpers
-const floorGeo = new THREE.PlaneGeometry(2000, 2000);
-const floorMat = new THREE.MeshStandardMaterial({
-  color: 0x222222,
-  roughness: 0.8,
-  metalness: 0.1,
-});
-const floor = new THREE.Mesh(floorGeo, floorMat);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
-
-const gridHelper = new THREE.GridHelper(2000, 100, 0x555555, 0x333333);
-gridHelper.material.transparent = true;
-gridHelper.material.opacity = 0.5;
-scene.add(gridHelper);
-
-const axesHelper = new THREE.AxesHelper(100);
-scene.add(axesHelper);
 
 // --- Viewer Toggles Logic ---
 if (wireframeCb) {
@@ -209,34 +134,14 @@ if (lightsCb) {
   });
 }
 
-if (fullscreenBtn && viewerContainer) {
-  fullscreenBtn.addEventListener("click", () => {
-    if (!document.fullscreenElement) {
-      viewerContainer.requestFullscreen().catch((err) => {
-        console.warn(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen().catch((err) => {
-        console.warn(`Error attempting to exit fullscreen: ${err.message}`);
-      });
-    }
-  });
-
-  document.addEventListener("fullscreenchange", () => {
-    setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
-  });
-}
-
-if (screenshotBtn) {
-  screenshotBtn.addEventListener("click", () => {
+setupFullscreenAndScreenshot(
+  fullscreenBtn,
+  screenshotBtn,
+  viewerContainer,
+  () => {
     captureNextFrame = true;
-    const originalText = screenshotBtn.innerText;
-    screenshotBtn.innerText = "✅";
-    setTimeout(() => {
-      screenshotBtn.innerText = originalText;
-    }, 1000);
-  });
-}
+  },
+);
 
 function pauseAnimation() {
   if (!currentAction) return;
