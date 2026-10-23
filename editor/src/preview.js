@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
@@ -109,6 +110,33 @@ scene.environment = pmremGenerator.fromScene(
 ).texture;
 scene.environmentIntensity = 0.8;
 
+const lightGroup = new THREE.Group();
+scene.add(lightGroup);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.bias = -0.0005;
+lightGroup.add(dirLight);
+lightGroup.add(dirLight.target);
+
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+hemiLight.position.set(0, 20, 0);
+lightGroup.add(hemiLight);
+
+let environmentTexture = null;
+new HDRLoader().load(
+  "./aristea_wreck_puresky_2k.hdr",
+  (texture) => {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    scene.environment = texture;
+    environmentTexture = texture;
+  },
+  undefined,
+  (err) => console.warn("Error loading HDR:", err),
+);
+
 if (cameraSelect) {
   cameraSelect.addEventListener("change", (e) => {
     const val = e.target.value;
@@ -175,6 +203,9 @@ if (lightsCb) {
     scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
     renderer.toneMappingExposure =
       sceneHasLights && useLights ? currentOptimalExposure : 1.0;
+    if (typeof lightGroup !== "undefined") {
+      lightGroup.visible = !sceneHasLights || !useLights;
+    }
   });
 }
 
@@ -383,6 +414,9 @@ function renderGLTF(outputArray) {
         scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
         renderer.toneMappingExposure =
           sceneHasLights && useLights ? currentOptimalExposure : 1.0;
+        if (typeof lightGroup !== "undefined") {
+          lightGroup.visible = !sceneHasLights || !useLights;
+        }
 
         let hasAnimOrCamera = false;
 
@@ -476,7 +510,13 @@ function fitCamera() {
   gridHelper.position.y = floor.position.y + 0.001;
   axesHelper.position.y = floor.position.y + 0.002;
 
-  const { maxDim } = fitCameraToBox(camera, controls, null, scene, worldBox);
+  const { maxDim } = fitCameraToBox(
+    camera,
+    controls,
+    typeof dirLight !== "undefined" ? dirLight : null,
+    scene,
+    worldBox,
+  );
 
   applyDynamicBoundsToLights(currentMesh, maxDim * 1.5);
 }
