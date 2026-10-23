@@ -7,6 +7,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import {
   updateCameraAspect,
   computeModelBounds,
@@ -28,6 +29,7 @@ const openEditorBtn = document.getElementById("open-editor-btn");
 
 const showGridCb = document.getElementById("show-grid-cb");
 const wireframeCb = document.getElementById("wireframe-cb");
+const bloomCb = document.getElementById("bloom-cb");
 const lightsCb = document.getElementById("lights-cb");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const screenshotBtn = document.getElementById("screenshot-btn");
@@ -82,6 +84,15 @@ viewerEl.appendChild(renderer.domElement);
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, activeCamera);
 composer.addPass(renderPass);
+
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.1, // strength
+  0.1, // radius
+  2.0, // threshold
+);
+bloomPass.enabled = false;
+composer.addPass(bloomPass);
 
 const outputPass = new OutputPass();
 composer.addPass(outputPass);
@@ -141,9 +152,19 @@ scene.add(axesHelper);
 if (wireframeCb) {
   wireframeCb.addEventListener("change", () => {
     const isWireframe = wireframeCb.checked;
+    const isBloom = bloomCb ? bloomCb.checked : false;
+    bloomPass.enabled = isBloom && !isWireframe;
     if (currentMesh) {
       setupMeshShadowsAndWireframe(currentMesh, isWireframe);
     }
+  });
+}
+
+if (bloomCb) {
+  bloomCb.addEventListener("change", () => {
+    const isBloom = bloomCb.checked;
+    const isWireframe = wireframeCb ? wireframeCb.checked : false;
+    bloomPass.enabled = isBloom && !isWireframe;
   });
 }
 
@@ -343,6 +364,8 @@ function renderGLTF(outputArray) {
         currentMesh = gltf.scene;
         currentAnimations = gltf.animations || [];
         const isWireframe = wireframeCb ? wireframeCb.checked : false;
+        const isBloom = bloomCb ? bloomCb.checked : false;
+        bloomPass.enabled = isBloom && !isWireframe;
 
         const extracted = extractCamerasAndLights(currentMesh);
         gltfCameras = extracted.gltfCameras;
