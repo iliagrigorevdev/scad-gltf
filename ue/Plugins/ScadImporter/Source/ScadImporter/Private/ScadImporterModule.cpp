@@ -30,7 +30,7 @@ void FScadImporterModule::ShutdownModule()
 #endif
 }
 
-void FScadImporterModule::OnEditorInitialized()
+void FScadImporterModule::OnEditorInitialized(double Duration)
 {
 	// Auto-import .scad files in the Content directory that don't have .uassets yet
 	FString ContentDir = FPaths::ProjectContentDir();

@@ -9,5 +9,5 @@ public:
 	virtual void ShutdownModule() override;
 
 private:
-	void OnEditorInitialized();
+	void OnEditorInitialized(double Duration);
 };
