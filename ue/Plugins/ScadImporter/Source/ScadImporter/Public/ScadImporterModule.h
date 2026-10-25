@@ -1,5 +1,4 @@
 #pragma once
-
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
@@ -10,5 +9,5 @@ public:
 	virtual void ShutdownModule() override;
 
 private:
-	void OnEditorInitialized(double Duration);
+	void OnEditorInitialized();
 };
