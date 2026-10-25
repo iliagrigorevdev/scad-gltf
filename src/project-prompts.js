@@ -335,15 +335,15 @@ ${promptRules}
 
 2. Unreal Engine 5 Project Files:
    - Create the necessary C++ files (.h and .cpp), a \`.uproject\` file, and Unreal build system files (\`.Target.cs\`, \`.Build.cs\`) to implement the game logic, responsive player input controls, and a core gameplay loop.
+   - Configure the project to automatically enable the \`ScadImporter\` plugin and the \`Interchange\` framework in the \`.uproject\` file.
    - UE C++ Coordinate, Forward, and Left/Right Conventions:
      * Forward is +X: \`FVector::ForwardVector\` or \`GetActorForwardVector()\`.
      * Right is +Y: \`FVector::RightVector\` or \`GetActorRightVector()\`.
      * Up is +Z: \`FVector::UpVector\` or \`GetActorUpVector()\`.
-   - Asset loading & Automation: To convert the \`.scad\` files into Unreal assets, you MUST automate the conversion by adding a \`PreBuildSteps\` instruction to both the \`.Target.cs\` and \`Editor.Target.cs\` files. For example:
-     \`PreBuildSteps.Add("scad-gltf convert \\"$(ProjectDir)/ScadModels\\" \\"$(ProjectDir)/Content/Models\\" --cache");\`
-   - When the project builds, \`.glb\` files are generated. Unreal Engine 5's native Interchange framework will automatically detect and import these \`.glb\` files into \`.uasset\` meshes on editor startup.
-   - CRITICAL C++ ASSET LOADING RULE: Because the meshes are dynamically imported, NEVER use \`ConstructorHelpers::FObjectFinder\` or \`FClassFinder\` to reference them in C++ constructors! This will crash or fail initialization.
-     * INSTEAD, expose the meshes as \`UPROPERTY(EditAnywhere)\` and tell the user to assign them in a derived Blueprint, OR load them dynamically at runtime in \`BeginPlay()\` using \`LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Models/YourModel.YourModel"))\`.
+   - Asset loading: The ScadImporter plugin will automatically compile and import the .scad files into .uasset files (UStaticMesh / USkeletalMesh) on the FIRST launch of the editor.
+     - CRITICAL C++ ASSET LOADING RULE: Because the .scad files are compiled to .uasset dynamically during the editor's initial startup, the .uasset files DO NOT EXIST when C++ Class Default Objects (CDO) are constructed.
+       * NEVER use \`ConstructorHelpers::FObjectFinder\` or \`FClassFinder\` to reference your generated meshes in C++ constructors! This will crash or fail initialization.
+       * INSTEAD, expose the meshes as \`UPROPERTY(EditAnywhere)\` and tell the user to assign them in a derived Blueprint, OR load them dynamically at runtime in \`BeginPlay()\` using \`LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Models/YourModel.YourModel"))\`.
 
 3. Delivery Format (Single Markdown File):
    - Output exactly ONE Markdown response containing all project files.
@@ -355,28 +355,62 @@ ${promptRules}
        "FileVersion": 3
      }
      \`\`\`
-     ### MyGameProject/Source/MyGameProject.Target.cs
-     \`\`\`csharp
-     using UnrealBuildTool;
-     public class MyGameProjectTarget : TargetRules
-     {
-         public MyGameProjectTarget(TargetInfo Target) : base(Target)
-         {
-             Type = TargetType.Game;
-             PreBuildSteps.Add("scad-gltf convert \\"$(ProjectDir)/ScadModels\\" \\"$(ProjectDir)/Content/Models\\" --cache");
-         }
-     }
+     ### MyGameProject/Source/MyGameProject/MyGameProject.cpp
+     \`\`\`cpp
+     #include "MyGameProject.h"
      \`\`\`
    - The project files must be placed inside a root project folder (e.g., \`MyGameProject/\`).
    - You must include and write:
-     - Your generated \`.scad\` game assets inside a \`ScadModels/\` directory.
-     - Your generated Unreal project files (\`Source\`, \`Config\`, \`.uproject\`).${
+     - Your generated \`.scad\` game assets inside a \`Content/Models/\` directory.
+     - Your generated Unreal project files (\`Source\`, \`Config\`, \`.uproject\`).
+     - The exact source code of the provided \`ue/Plugins/ScadImporter/*\` files, which must be mapped and placed into the generated project's \`Plugins/ScadImporter/\` directory.${
        hasUserScadFiles
          ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
          : ""
      }`;
 
         let systemClipboardOutput = `${systemPrompt}\n\n`;
+
+        // Gather Plugin Files content recursively
+        const pluginDir = path.join(DIR, "ue", "Plugins", "ScadImporter");
+
+        function readDirRecursive(currentDir) {
+          if (!fs.existsSync(currentDir)) return;
+          const files = fs.readdirSync(currentDir);
+          for (const file of files) {
+            const fullPath = path.join(currentDir, file);
+            if (fs.statSync(fullPath).isDirectory()) {
+              readDirRecursive(fullPath);
+            } else {
+              if (/\.(uplugin|cs|cpp|h)$/i.test(file)) {
+                const content = readFile(fullPath);
+                if (content !== null) {
+                  const relativePath = path
+                    .relative(DIR, fullPath)
+                    .replace(/\\/g, "/");
+                  let lang = "text";
+                  if (file.endsWith(".cpp") || file.endsWith(".h"))
+                    lang = "cpp";
+                  else if (file.endsWith(".cs")) lang = "csharp";
+                  else if (file.endsWith(".uplugin")) lang = "json";
+
+                  systemClipboardOutput += formatMarkdownFile(
+                    relativePath,
+                    lang,
+                    content,
+                  );
+                }
+              }
+            }
+          }
+        }
+
+        try {
+          readDirRecursive(pluginDir);
+        } catch (e) {
+          console.error("Warning: Could not read plugin directory.", e);
+        }
+
         systemClipboardOutput += appendUserScadFiles(options);
 
         return systemClipboardOutput.trimEnd() + "\n";
