@@ -30,16 +30,16 @@ UObject* UScadImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParen
 	FString GlobalSource = FPaths::ConvertRelativePathToFull(Filename);
 	FPaths::NormalizeFilename(GlobalSource);
 
-	// Using standard scad-convert directly from system PATH
-	FString Command = TEXT("scad-convert");
-	FString Args = FString::Printf(TEXT("\"%s\" \"%s\""), *GlobalSource, *TempGlbPath);
+	// Using standard `scad-gltf convert` directly from system PATH
+	FString Command = TEXT("scad-gltf");
+	FString Args = FString::Printf(TEXT("convert \"%s\" \"%s\""), *GlobalSource, *TempGlbPath);
 
 #if PLATFORM_WINDOWS
 	Command = TEXT("cmd.exe");
-	Args = FString::Printf(TEXT("/c scad-convert \"%s\" \"%s\""), *GlobalSource, *TempGlbPath);
+	Args = FString::Printf(TEXT("/c scad-gltf convert \"%s\" \"%s\""), *GlobalSource, *TempGlbPath);
 #endif
 
-	UE_LOG(LogTemp, Log, TEXT("Importing %s via scad-convert..."), *FPaths::GetCleanFilename(Filename));
+	UE_LOG(LogTemp, Log, TEXT("Importing %s via scad-gltf..."), *FPaths::GetCleanFilename(Filename));
 
 	int32 ReturnCode = -1;
 	FString StdOut, StdErr;
@@ -47,8 +47,8 @@ UObject* UScadImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParen
 
 	if (ReturnCode != 0 || !FPaths::FileExists(TempGlbPath))
 	{
-		UE_LOG(LogTemp, Error, TEXT("scad-convert conversion failed for %s."), *FPaths::GetCleanFilename(Filename));
-		UE_LOG(LogTemp, Error, TEXT("scad-convert output:\n%s"), *StdErr);
+		UE_LOG(LogTemp, Error, TEXT("scad-gltf conversion failed for %s."), *FPaths::GetCleanFilename(Filename));
+		UE_LOG(LogTemp, Error, TEXT("scad-gltf output:\n%s"), *StdErr);
 		return nullptr;
 	}
 
