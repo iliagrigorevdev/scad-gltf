@@ -590,8 +590,11 @@ export async function runAutomatedAIFlow(
                 const isWgpu =
                   projectType === "wgpu" &&
                   fs.existsSync(path.join(itemPath, "Cargo.toml"));
+                const isUe =
+                  projectType === "ue" &&
+                  fs.readdirSync(itemPath).some((f) => f.endsWith(".uproject"));
 
-                if (isGodot || isWeb || isBevy || isWgpu) {
+                if (isGodot || isWeb || isBevy || isWgpu || isUe) {
                   const mtime = fs.statSync(itemPath).mtimeMs;
                   if (mtime > latestTime) {
                     latestTime = mtime;
@@ -608,7 +611,9 @@ export async function runAutomatedAIFlow(
                   ? "project.godot"
                   : projectType === "bevy" || projectType === "wgpu"
                     ? "Cargo.toml"
-                    : "package.json";
+                    : projectType === "ue"
+                      ? ".uproject"
+                      : "package.json";
               messages.push({
                 role: "user",
                 content: `Your generated output successfully parsed, but no valid project directory was found. Make sure you place the required files (like ${expectedFile}) inside a root project folder block.`,
@@ -661,6 +666,14 @@ export async function runAutomatedAIFlow(
                 stdio: "inherit",
                 detached: false,
               });
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+            } else if (projectType === "ue") {
+              console.log(
+                `\n⚙️  Unreal Engine project generated: ${path.basename(projectDir)}`,
+              );
+              console.log(
+                `   (Auto-launch is skipped for UE projects due to heavy compilation requirements.)`,
+              );
               await new Promise((resolve) => setTimeout(resolve, 2000));
             }
           }

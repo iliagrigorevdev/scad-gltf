@@ -93,7 +93,7 @@ function main() {
 
     // 3. Find the resulting project folder and determine its type
     let projectDir = null;
-    let projectType = null; // 'godot' | 'web' | 'rust'
+    let projectType = null; // 'godot' | 'web' | 'rust' | 'ue'
     let latestTime = 0;
 
     const items = fs.readdirSync(tempDir);
@@ -103,13 +103,22 @@ function main() {
         const isGodot = fs.existsSync(path.join(itemPath, "project.godot"));
         const isWeb = fs.existsSync(path.join(itemPath, "package.json"));
         const isRust = fs.existsSync(path.join(itemPath, "Cargo.toml"));
+        const isUe = fs
+          .readdirSync(itemPath)
+          .some((f) => f.endsWith(".uproject"));
 
-        if (isGodot || isWeb || isRust) {
+        if (isGodot || isWeb || isRust || isUe) {
           const mtime = fs.statSync(itemPath).mtimeMs;
           if (mtime > latestTime) {
             latestTime = mtime;
             projectDir = itemPath;
-            projectType = isGodot ? "godot" : isRust ? "rust" : "web";
+            projectType = isGodot
+              ? "godot"
+              : isRust
+                ? "rust"
+                : isUe
+                  ? "ue"
+                  : "web";
           }
         }
       }
@@ -118,7 +127,7 @@ function main() {
     if (!projectDir || !projectType) {
       console.error("\n❌ Error: Could not find a valid generated project.");
       console.error(
-        "The project did not contain a root folder holding 'project.godot', 'package.json', or 'Cargo.toml'.",
+        "The project did not contain a root folder holding 'project.godot', 'package.json', 'Cargo.toml', or a '.uproject' file.",
       );
       cleanup();
       process.exit(1);
@@ -177,6 +186,16 @@ function main() {
         cwd: projectDir,
         stdio: "inherit",
       });
+    } else if (projectType === "ue") {
+      console.log(
+        `\n⚙️  Unreal Engine projects cannot be automatically launched via 'play' because they require heavy compilation.`,
+      );
+      console.log(
+        `   Please extract the project locally using the 'extract' command instead:`,
+      );
+      console.log(`   scad-gltf extract "${packedScriptPath}"`);
+      cleanup();
+      process.exit(0);
     }
 
     // 5. Handle lifecycle events

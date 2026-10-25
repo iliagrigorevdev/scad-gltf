@@ -300,5 +300,126 @@ ${getDeliveryFormat(projectType, null, hasUserScadFiles)}`;
     };
   }
 
+  if (projectType === "ue") {
+    return {
+      buildSystemPrompt: (promptRules, options = {}) => {
+        const hasUserScadFiles =
+          Array.isArray(options.scadFiles) && options.scadFiles.length > 0;
+
+        const systemPrompt = `You are an expert Unreal Engine 5 C++ game developer and procedural 3D technical artist.
+
+NAMING CONVENTION REQUIREMENT:
+- All generated files, directories, C++ classes, and structs MUST strictly use standard Unreal Engine PascalCase naming conventions (e.g., \`MyGameMode.cpp\`, \`AMyPlayerCharacter\`).
+- Use standard UE prefixes: 'A' for Actors, 'U' for UObjects, 'F' for Structs.
+- 3D asset files (.scad) should use PascalCase (e.g., \`PlayerCharacter.scad\`).
+- NEVER use hyphens/minus signs (\`-\`) or spaces in any file or folder names.
+
+What to generate:
+1. 3D Game Assets (.scad):
+   - Generate procedural 3D models for the game using OpenSCAD.
+   - Scale & Units: 1 OpenSCAD unit = 1 Meter. (Unreal's GLTF importer automatically scales this to Unreal Units / centimeters). Design your models using realistic meter-based scales (e.g., a character should be ~1.8 units tall).
+   - Coordinate System & Forward Convention: Write standard OpenSCAD Z-up code (+Z is UP, XY plane is ground). Build objects standing upright and facing Front (Positive Y-axis).
+   - Left/Right Convention: Always name and position "left" and "right" components (e.g., LeftArm, RightEye) based on the object's anatomical point of view (facing Forward towards +Y).
+   - CRITICAL Coordinate Mapping: The SCAD to glTF converter combined with Unreal's GLTF importer automatically maps OpenSCAD's coordinate system to Unreal Engine's coordinate system (Z-Up, X-Forward, Y-Right). Design your models naturally in OpenSCAD using this exact mapping:
+     * OpenSCAD +Y (Forward) -> Unreal +X (Forward)
+     * OpenSCAD -Y (Back)    -> Unreal -X (Back)
+     * OpenSCAD +X (Right)   -> Unreal +Y (Right)
+     * OpenSCAD -X (Left)    -> Unreal -Y (Left)
+     * OpenSCAD +Z (Up)      -> Unreal +Z (Up)
+     DO NOT manually apply root rotations in OpenSCAD to compensate for Unreal.
+   - CRITICAL: You must use the custom OpenSCAD glTF extensions for PBR materials (e.g., \`roughness\`, \`metalness\`, \`emissive\`) and Skeletal Animations (\`armature()\`, \`bone()\`). The rules and syntax for these features are provided below:
+
+=== OPENSCAD SYNTAX RULES ===
+${promptRules}
+=============================
+
+2. Unreal Engine 5 Project Files:
+   - Create the necessary C++ files (.h and .cpp), a \`.uproject\` file, and Unreal build system files (\`.Target.cs\`, \`.Build.cs\`) to implement the game logic, responsive player input controls, and a core gameplay loop.
+   - Configure the project to automatically enable the \`ScadImporter\` plugin and the \`Interchange\` framework in the \`.uproject\` file.
+   - UE C++ Coordinate, Forward, and Left/Right Conventions:
+     * Forward is +X: \`FVector::ForwardVector\` or \`GetActorForwardVector()\`.
+     * Right is +Y: \`FVector::RightVector\` or \`GetActorRightVector()\`.
+     * Up is +Z: \`FVector::UpVector\` or \`GetActorUpVector()\`.
+   - Asset loading: The ScadImporter plugin will automatically compile and import the .scad files into .uasset files (UStaticMesh / USkeletalMesh) on the FIRST launch of the editor.
+     - CRITICAL C++ ASSET LOADING RULE: Because the .scad files are compiled to .uasset dynamically during the editor's initial startup, the .uasset files DO NOT EXIST when C++ Class Default Objects (CDO) are constructed.
+       * NEVER use \`ConstructorHelpers::FObjectFinder\` or \`FClassFinder\` to reference your generated meshes in C++ constructors! This will crash or fail initialization.
+       * INSTEAD, expose the meshes as \`UPROPERTY(EditAnywhere)\` and tell the user to assign them in a derived Blueprint, OR load them dynamically at runtime in \`BeginPlay()\` using \`LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Models/YourModel.YourModel"))\`.
+
+3. Delivery Format (Single Markdown File):
+   - Output exactly ONE Markdown response containing all project files.
+   - Format EACH file with a Markdown header specifying the relative file path, followed immediately by a code block containing the file's contents.
+   - Example Format:
+     ### MyGameProject/MyGameProject.uproject
+     \`\`\`json
+     {
+       "FileVersion": 3
+     }
+     \`\`\`
+     ### MyGameProject/Source/MyGameProject/MyGameProject.cpp
+     \`\`\`cpp
+     #include "MyGameProject.h"
+     \`\`\`
+   - The project files must be placed inside a root project folder (e.g., \`MyGameProject/\`).
+   - You must include and write:
+     - Your generated \`.scad\` game assets inside a \`Content/Models/\` directory.
+     - Your generated Unreal project files (\`Source\`, \`Config\`, \`.uproject\`).
+     - The exact source code of the provided \`ue/Plugins/ScadImporter/*\` files, which must be mapped and placed into the generated project's \`Plugins/ScadImporter/\` directory.${
+       hasUserScadFiles
+         ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
+         : ""
+     }`;
+
+        let systemClipboardOutput = `${systemPrompt}\n\n`;
+
+        // Gather Plugin Files content recursively
+        const pluginDir = path.join(DIR, "ue", "Plugins", "ScadImporter");
+
+        function readDirRecursive(currentDir) {
+          if (!fs.existsSync(currentDir)) return;
+          const files = fs.readdirSync(currentDir);
+          for (const file of files) {
+            const fullPath = path.join(currentDir, file);
+            if (fs.statSync(fullPath).isDirectory()) {
+              readDirRecursive(fullPath);
+            } else {
+              if (/\.(uplugin|cs|cpp|h)$/i.test(file)) {
+                const content = readFile(fullPath);
+                if (content !== null) {
+                  const relativePath = path
+                    .relative(DIR, fullPath)
+                    .replace(/\\/g, "/");
+                  let lang = "text";
+                  if (file.endsWith(".cpp") || file.endsWith(".h"))
+                    lang = "cpp";
+                  else if (file.endsWith(".cs")) lang = "csharp";
+                  else if (file.endsWith(".uplugin")) lang = "json";
+
+                  systemClipboardOutput += formatMarkdownFile(
+                    relativePath,
+                    lang,
+                    content,
+                  );
+                }
+              }
+            }
+          }
+        }
+
+        try {
+          readDirRecursive(pluginDir);
+        } catch (e) {
+          console.error("Warning: Could not read plugin directory.", e);
+        }
+
+        systemClipboardOutput += appendUserScadFiles(options);
+
+        return systemClipboardOutput.trimEnd() + "\n";
+      },
+      buildInputRequest: (task) =>
+        `Design and implement an Unreal Engine 5 project for the following game concept: "${task}"`,
+      allowedTools: ["render_scad_model"],
+    };
+  }
+
   throw new Error(`Unknown project type: ${projectType}`);
 }
