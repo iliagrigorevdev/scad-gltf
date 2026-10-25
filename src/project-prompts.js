@@ -339,9 +339,15 @@ ${promptRules}
      * Forward is +X: \`FVector::ForwardVector\` or \`GetActorForwardVector()\`.
      * Right is +Y: \`FVector::RightVector\` or \`GetActorRightVector()\`.
      * Up is +Z: \`FVector::UpVector\` or \`GetActorUpVector()\`.
-   - Asset loading & Automation: To convert the \`.scad\` files into Unreal assets, you MUST automate the conversion by adding a \`PreBuildSteps\` instruction to both the \`.Target.cs\` and \`Editor.Target.cs\` files. For example:
-     \`PreBuildSteps.Add("scad-gltf convert \\"$(ProjectDir)/ScadModels\\" \\"$(ProjectDir)/Content/Models\\" --cache");\`
-   - When the project builds, \`.glb\` files are generated. Unreal Engine 5's native Interchange framework will automatically detect and import these \`.glb\` files into \`.uasset\` meshes on editor startup.
+   - Asset loading & Automation: To convert the \`.scad\` files into Unreal assets, automate the conversion by adding a \`PreBuildSteps\` instruction to both the \`.Target.cs\` and \`Editor.Target.cs\` files. Output the files to a directory OUTSIDE of Content (e.g., \`SourceModels\`). For example:
+     \`PreBuildSteps.Add("scad-gltf convert \\"$(ProjectDir)/ScadModels\\" \\"$(ProjectDir)/SourceModels\\" --cache");\`
+   - CRITICAL: To force Unreal Engine to automatically and silently import these \`.glb\` files into \`.uasset\` meshes on startup, you MUST generate a \`Config/DefaultEditor.ini\` file that configures the Auto Reimport directory settings. Include exactly this:
+     \`\`\`ini
+     [/Script/UnrealEd.EditorLoadingSavingSettings]
+     bMonitorContentDirectories=True
+     bAutoReimport=True
+     +AutoReimportDirectorySettings=(SourceDirectory="../SourceModels/",MountPoint="/Game/Models/",bCrossCheckWithMetaFiles=True,bIsMonitoring=True)
+     \`\`\`
    - CRITICAL C++ ASSET LOADING RULE: Because the meshes are dynamically imported, NEVER use \`ConstructorHelpers::FObjectFinder\` or \`FClassFinder\` to reference them in C++ constructors! This will crash or fail initialization.
      * INSTEAD, expose the meshes as \`UPROPERTY(EditAnywhere)\` and tell the user to assign them in a derived Blueprint, OR load them dynamically at runtime in \`BeginPlay()\` using \`LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Models/YourModel.YourModel"))\`.
 
@@ -363,7 +369,7 @@ ${promptRules}
          public MyGameProjectTarget(TargetInfo Target) : base(Target)
          {
              Type = TargetType.Game;
-             PreBuildSteps.Add("scad-gltf convert \\"$(ProjectDir)/ScadModels\\" \\"$(ProjectDir)/Content/Models\\" --cache");
+             PreBuildSteps.Add("scad-gltf convert \\"$(ProjectDir)/ScadModels\\" \\"$(ProjectDir)/SourceModels\\" --cache");
          }
      }
      \`\`\`
