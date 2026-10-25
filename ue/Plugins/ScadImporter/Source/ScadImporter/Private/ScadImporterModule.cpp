@@ -6,6 +6,7 @@
 #include "AutomatedAssetImportData.h"
 #if WITH_EDITOR
 #include "Editor.h"
+#include "FileHelpers.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "FScadImporterModule"
@@ -15,7 +16,14 @@ void FScadImporterModule::StartupModule()
 #if WITH_EDITOR
 	if (GIsEditor)
 	{
-		FEditorDelegates::OnEditorInitialized.AddRaw(this, &FScadImporterModule::OnEditorInitialized);
+		if (GEngine && GEngine->IsInitialized())
+		{
+			OnEditorInitialized(0.0);
+		}
+		else
+		{
+			FEditorDelegates::OnEditorInitialized.AddRaw(this, &FScadImporterModule::OnEditorInitialized);
+		}
 	}
 #endif
 }
@@ -30,35 +38,44 @@ void FScadImporterModule::ShutdownModule()
 #endif
 }
 
-void FScadImporterModule::OnEditorInitialized()
+void FScadImporterModule::OnEditorInitialized(double Duration)
 {
-	// Auto-import .scad files in the Content directory that don't have .uassets yet
+	// Auto-import .scad files in Content directory that don't have .uassets yet or were modified
 	FString ContentDir = FPaths::ProjectContentDir();
+	FPaths::NormalizeFilename(ContentDir);
+
 	TArray<FString> ScadFiles;
 	IFileManager::Get().FindFilesRecursive(ScadFiles, *ContentDir, TEXT("*.scad"), true, false);
 
 	TArray<FString> FilesToImport;
 	for (const FString& File : ScadFiles)
 	{
-		FString BaseName = FPaths::GetBaseFilename(File);
-		FString AssetPath = FPaths::GetPath(File) / BaseName + TEXT(".uasset");
+		FString NormalizedFile = File;
+		FPaths::NormalizeFilename(NormalizedFile);
+		FString BaseName = FPaths::GetBaseFilename(NormalizedFile);
+		FString AssetPath = FPaths::GetPath(NormalizedFile) / (BaseName + TEXT(".uasset"));
 
-		if (!FPaths::FileExists(AssetPath))
+		if (!FPaths::FileExists(AssetPath) ||
+			IFileManager::Get().GetTimeStamp(*NormalizedFile) > IFileManager::Get().GetTimeStamp(*AssetPath))
 		{
-			FilesToImport.Add(File);
+			FilesToImport.Add(NormalizedFile);
 		}
 	}
 
 	if (FilesToImport.Num() > 0)
 	{
 		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
+		TArray<UPackage*> PackagesToSave;
 
 		for (const FString& File : FilesToImport)
 		{
-			FString DestinationPath = FPaths::GetPath(File);
-			FString PackagePath = DestinationPath;
-			FPaths::MakePathRelativeTo(PackagePath, *ContentDir);
-			PackagePath = TEXT("/Game/") + PackagePath;
+			FString DestinationDir = FPaths::GetPath(File);
+			FString RelPath = DestinationDir;
+			FPaths::MakePathRelativeTo(RelPath, *ContentDir);
+			RelPath.RemoveFromStart(TEXT("/"));
+			RelPath.RemoveFromEnd(TEXT("/"));
+
+			FString PackagePath = RelPath.IsEmpty() ? TEXT("/Game") : (TEXT("/Game/") + RelPath);
 
 			// AutomatedAssetImportData prevents the Editor from showing annoying popup dialogs
 			UAutomatedAssetImportData* ImportData = NewObject<UAutomatedAssetImportData>();
@@ -66,7 +83,19 @@ void FScadImporterModule::OnEditorInitialized()
 			ImportData->DestinationPath = PackagePath;
 			ImportData->Filenames.Add(File);
 
-			AssetToolsModule.Get().ImportAssetsAutomated(ImportData);
+			TArray<UObject*> ImportedAssets = AssetToolsModule.Get().ImportAssetsAutomated(ImportData);
+			for (UObject* Asset : ImportedAssets)
+			{
+				if (Asset && Asset->GetOutermost())
+				{
+					PackagesToSave.AddUnique(Asset->GetOutermost());
+				}
+			}
+		}
+
+		if (PackagesToSave.Num() > 0)
+		{
+			UEditorLoadingAndSavingUtils::SavePackages(PackagesToSave, false);
 		}
 	}
 }
