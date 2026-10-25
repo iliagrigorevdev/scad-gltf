@@ -306,7 +306,7 @@ ${getDeliveryFormat(projectType, null, hasUserScadFiles)}`;
         const hasUserScadFiles =
           Array.isArray(options.scadFiles) && options.scadFiles.length > 0;
 
-        const systemPrompt = `You are an expert Unreal Engine 5 C++ game developer and procedural 3D technical artist.
+        const systemPrompt = `You are an expert Unreal Engine 5 C++ developer and procedural 3D technical artist.
 
 NAMING CONVENTION REQUIREMENT:
 - All generated files, directories, C++ classes, and structs MUST strictly use standard Unreal Engine PascalCase naming conventions (e.g., \`MyGameMode.cpp\`, \`AMyPlayerCharacter\`).
@@ -315,8 +315,8 @@ NAMING CONVENTION REQUIREMENT:
 - NEVER use hyphens/minus signs (\`-\`) or spaces in any file or folder names.
 
 What to generate:
-1. 3D Game Assets (.scad):
-   - Generate procedural 3D models for the game using OpenSCAD.
+1. 3D Assets (.scad):
+   - Generate procedural 3D models for the project using OpenSCAD.
    - Scale & Units: 1 OpenSCAD unit = 1 Meter. (Unreal's GLTF importer automatically scales this to Unreal Units / centimeters). Design your models using realistic meter-based scales (e.g., a character should be ~1.8 units tall).
    - Coordinate System & Forward Convention: Write standard OpenSCAD Z-up code (+Z is UP, XY plane is ground). Build objects standing upright and facing Front (Positive Y-axis).
    - Left/Right Convention: Always name and position "left" and "right" components (e.g., LeftArm, RightEye) based on the object's anatomical point of view (facing Forward towards +Y).
@@ -334,7 +334,7 @@ ${promptRules}
 =============================
 
 2. Unreal Engine 5 Project Files:
-   - Create the necessary C++ files (.h and .cpp), a \`.uproject\` file, and Unreal build system files (\`.Target.cs\`, \`.Build.cs\`) to implement the game logic, responsive player input controls, and a core gameplay loop.
+   - Create the necessary C++ files (.h and .cpp), a \`.uproject\` file, and Unreal build system files (\`.Target.cs\`, \`.Build.cs\`) to implement the project logic, responsive user input controls, and a core interaction loop.
    - Configure the project to automatically enable the \`ScadImporter\` plugin and the \`Interchange\` framework in the \`.uproject\` file.
    - UE C++ Coordinate, Forward, and Left/Right Conventions:
      * Forward is +X: \`FVector::ForwardVector\` or \`GetActorForwardVector()\`.
@@ -350,19 +350,19 @@ ${promptRules}
    - Output exactly ONE Markdown response containing all project files.
    - Format EACH file with a Markdown header specifying the relative file path, followed immediately by a code block containing the file's contents.
    - Example Format:
-     ### MyGameProject/MyGameProject.uproject
+     ### MyProject/MyProject.uproject
      \`\`\`json
      {
        "FileVersion": 3
      }
      \`\`\`
-     ### MyGameProject/Source/MyGameProject/MyGameProject.cpp
+     ### MyProject/Source/MyProject/MyProject.cpp
      \`\`\`cpp
-     #include "MyGameProject.h"
+     #include "MyProject.h"
      \`\`\`
-   - The project files must be placed inside a root project folder (e.g., \`MyGameProject/\`).
+   - The project files must be placed inside a root project folder (e.g., \`MyProject/\`).
    - You must include and write:
-     - Your generated \`.scad\` game assets inside a \`Content/Models/\` directory.
+     - Your generated \`.scad\` 3D assets inside a \`Content/Models/\` directory.
      - Your generated Unreal project files (\`Source\`, \`Config\`, \`.uproject\`).
      - The exact source code of the provided \`ue/Plugins/ScadImporter/*\` files, which must be mapped and placed into the generated project's \`Plugins/ScadImporter/\` directory.${
        hasUserScadFiles
@@ -417,7 +417,7 @@ ${promptRules}
         return systemClipboardOutput.trimEnd() + "\n";
       },
       buildInputRequest: (task) =>
-        `Design and implement an Unreal Engine 5 project for the following game concept: "${task}"`,
+        `Design and implement an Unreal Engine 5 project for the following concept: "${task}"`,
       allowedTools: ["render_scad_model"],
     };
   }
