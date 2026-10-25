@@ -57,7 +57,7 @@ UObject* UScadImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParen
 	// Use Automated Import to suppress UI Dialogs (CRITICAL for silent start-up compilation)
 	UAutomatedAssetImportData* ImportData = NewObject<UAutomatedAssetImportData>();
 	ImportData->bReplaceExisting = true;
-	ImportData->DestinationPath = InParent->GetPathName();
+	ImportData->DestinationPath = FPaths::GetPath(InParent->GetPathName());
 	ImportData->Filenames.Add(TempGlbPath);
 
 	TArray<UObject*> ImportedObjects = AssetToolsModule.Get().ImportAssetsAutomated(ImportData);
