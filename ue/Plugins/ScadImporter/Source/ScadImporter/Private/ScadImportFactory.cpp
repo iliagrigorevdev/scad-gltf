@@ -25,7 +25,7 @@ UObject* UScadImportFactory::FactoryCreateFile(UClass* InClass, UObject* InParen
 	IFileManager::Get().MakeDirectory(*TempDir, true);
 
 	FString UniqueID = FString::Printf(TEXT("%u"), GetTypeHash(Filename));
-	FString TempGlbPath = TempDir / (InName.ToString() + TEXT("_") + UniqueID + TEXT(".glb"));
+	FString TempGlbPath = TempDir / UniqueID / (InName.ToString() + TEXT(".glb"));
 	TempGlbPath = FPaths::ConvertRelativePathToFull(TempGlbPath);
 	FString GlobalSource = FPaths::ConvertRelativePathToFull(Filename);
 	FPaths::NormalizeFilename(GlobalSource);

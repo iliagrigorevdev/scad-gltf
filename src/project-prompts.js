@@ -343,7 +343,8 @@ ${promptRules}
    - Asset loading: The ScadImporter plugin will automatically compile and import the .scad files into .uasset files (UStaticMesh / USkeletalMesh) on the FIRST launch of the editor.
      - CRITICAL C++ ASSET LOADING RULE: Because the .scad files are compiled to .uasset dynamically during the editor's initial startup, the .uasset files DO NOT EXIST when C++ Class Default Objects (CDO) are constructed.
        * NEVER use \`ConstructorHelpers::FObjectFinder\` or \`FClassFinder\` to reference your generated meshes in C++ constructors! This will crash or fail initialization.
-       * INSTEAD, expose the meshes as \`UPROPERTY(EditAnywhere)\` and tell the user to assign them in a derived Blueprint, OR load them dynamically at runtime in \`BeginPlay()\` using \`LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Models/YourModel.YourModel"))\`.
+       * INSTEAD, expose the meshes as \`UPROPERTY(EditAnywhere)\` and tell the user to assign them in a derived Blueprint, OR load them dynamically at runtime in \`BeginPlay()\`.
+       * CRITICAL: When loading dynamically via \`LoadObject\`, you MUST account for the Interchange importer's folder structure. The path will always be: \`LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Models/YourModel/StaticMeshes/YourModel.YourModel"))\`.
 
 3. Delivery Format (Single Markdown File):
    - Output exactly ONE Markdown response containing all project files.
