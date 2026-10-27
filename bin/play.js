@@ -9,6 +9,7 @@ import {
   extractFilesFromMarkdown,
   writeExtractedFiles,
 } from "../src/cli-utils.js";
+import { getUePaths } from "../src/ue-utils.js";
 
 function main() {
   const packedScriptPath = process.argv[2];
@@ -187,15 +188,49 @@ function main() {
         stdio: "inherit",
       });
     } else if (projectType === "ue") {
+      if (!process.env.UE_ROOT) {
+        console.error(
+          `\n❌ Error: UE_ROOT environment variable is required to run Unreal Engine projects.`,
+        );
+        console.error(
+          `   Please set UE_ROOT to your Unreal Engine installation folder (e.g., export UE_ROOT="/UnrealEngine")`,
+        );
+        cleanup();
+        process.exit(1);
+      }
+
       console.log(
-        `\n⚙️  Unreal Engine projects cannot be automatically launched via 'play' because they require heavy compilation.`,
+        `\n⚙️  Compiling Unreal Engine C++ project (this may take a few minutes)...`,
       );
-      console.log(
-        `   Please extract the project locally using the 'extract' command instead:`,
-      );
-      console.log(`   scad-gltf extract "${packedScriptPath}"`);
-      cleanup();
-      process.exit(0);
+      const itemsInDir = fs.readdirSync(projectDir);
+      const uprojectFile = itemsInDir.find((f) => f.endsWith(".uproject"));
+      const uprojectPath = path.join(projectDir, uprojectFile);
+      const projectName = path.basename(uprojectFile, ".uproject");
+
+      try {
+        const { buildScript, platformName, editor } = getUePaths();
+
+        // Run UBT synchronously so the user sees the compiler logs
+        const buildArgs = [
+          `${projectName}Editor`,
+          platformName,
+          "Development",
+          uprojectPath,
+        ];
+
+        execSync(`"${buildScript}" ${buildArgs.join(" ")}`, {
+          stdio: "inherit",
+        });
+
+        console.log(`\n🎮 Launching Unreal Editor...`);
+        appProcess = spawn(editor, [uprojectPath, "-game", "-log"], {
+          stdio: "inherit",
+        });
+      } catch (err) {
+        console.error(`\n❌ Unreal Engine Execution Error:\n${err.message}`);
+        cleanup();
+        process.exit(1);
+      }
     }
 
     // 5. Handle lifecycle events

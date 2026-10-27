@@ -19,6 +19,11 @@ import {
   extractFilesFromMarkdown,
   writeExtractedFiles,
 } from "../src/cli-utils.js";
+import {
+  getUePaths,
+  buildUeProjectAsync,
+  runUeAsync,
+} from "../src/ue-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -263,6 +268,27 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "string",
               description:
                 "The complete markdown string containing all project files formatted with '### filepath' headers and code blocks.",
+            },
+          },
+          required: ["project_markdown"],
+        },
+      },
+      {
+        name: "test_ue_project",
+        description:
+          "Extracts an Unreal Engine project from a Markdown format, compiles the C++ code, and runs it to detect syntax errors, missing resources, or runtime crashes. Returns the compilation and runtime logs. (Requires UE_ROOT environment variable).",
+        inputSchema: {
+          type: "object",
+          properties: {
+            project_markdown: {
+              type: "string",
+              description:
+                "The complete markdown string containing all project files formatted with '### filepath' headers and code blocks.",
+            },
+            run_time: {
+              type: "number",
+              description:
+                "Time in seconds to run the project before terminating. Default is 5.0.",
             },
           },
           required: ["project_markdown"],
@@ -1194,6 +1220,170 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           {
             type: "text",
             text: `Error compiling Rust project: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
+    } finally {
+      if (cleanupDir && fs.existsSync(cleanupDir)) {
+        try {
+          fs.rmSync(cleanupDir, { recursive: true, force: true });
+        } catch (e) {
+          console.error(`Failed to clean up temp dir: ${cleanupDir}`, e);
+        }
+      }
+    }
+  }
+
+  // ------------------------------------------
+  // TOOL 5: test_ue_project
+  // ------------------------------------------
+  if (name === "test_ue_project") {
+    let cleanupDir = null;
+    try {
+      if (!process.env.UE_ROOT) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: The host machine does not have the 'UE_ROOT' environment variable set. Unreal Engine testing is currently unavailable.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      let projectDir = null;
+      const runTime = args.run_time || 5.0;
+      const markdown = args.project_markdown;
+
+      if (!markdown) {
+        return {
+          content: [
+            { type: "text", text: `Error: 'project_markdown' is required.` },
+          ],
+          isError: true,
+        };
+      }
+
+      // Create a unique temporary directory
+      const tempBase = fs.mkdtempSync(path.join(os.tmpdir(), "scad-ue-test-"));
+      cleanupDir = tempBase;
+
+      const files = extractFilesFromMarkdown(markdown);
+      if (Object.keys(files).length === 0) {
+        return {
+          content: [
+            { type: "text", text: `Error: No files could be extracted.` },
+          ],
+          isError: true,
+        };
+      }
+
+      writeExtractedFiles(files, tempBase);
+
+      // Find the folder containing the .uproject file
+      const items = fs.readdirSync(tempBase);
+      for (const item of items) {
+        const itemPath = path.join(tempBase, item);
+        if (fs.statSync(itemPath).isDirectory()) {
+          const uProj = fs
+            .readdirSync(itemPath)
+            .find((f) => f.endsWith(".uproject"));
+          if (uProj) {
+            projectDir = itemPath;
+            break;
+          }
+        }
+      }
+
+      if (!projectDir) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Error: Extracted Markdown did not contain a valid .uproject file inside a root directory block.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const uprojectFile = fs
+        .readdirSync(projectDir)
+        .find((f) => f.endsWith(".uproject"));
+      const uprojectPath = path.join(projectDir, uprojectFile);
+
+      // 1. Build Phase
+      const buildResult = await buildUeProjectAsync(uprojectPath, 240000); // 4-minute timeout for C++ compiler
+      const fullBuildOutput =
+        "--- UBT COMPILATION PHASE ---\n" + buildResult.output;
+
+      if (buildResult.code !== 0) {
+        let errorMsg = `🚨 C++ Compilation Failed (Code ${buildResult.code}):\n\n`;
+        const maxLen = 4000;
+        let trunc = fullBuildOutput;
+        if (trunc.length > maxLen) {
+          trunc = trunc.substring(trunc.length - maxLen);
+          errorMsg += `...[truncated]...\n`;
+        }
+        errorMsg += trunc;
+
+        return { content: [{ type: "text", text: errorMsg }] };
+      }
+
+      // 2. Play Phase
+      const safeNodeTimeout = runTime * 1000 + 5000;
+
+      // Run headless server/game instance to gather run logs without opening a GUI
+      const playArgs = ["-game", "-log", "-NullRHI", "-NoSound", "-unattended"];
+      const playResult = await runUeAsync(
+        uprojectPath,
+        playArgs,
+        safeNodeTimeout,
+      );
+
+      // Format Text Output
+      const fullOutput =
+        fullBuildOutput + "\n\n--- PLAY PHASE ---\n" + playResult.output;
+
+      const errorLines = fullOutput
+        .split("\n")
+        .filter(
+          (line) => line.includes("Error:") || line.includes("Fatal error"),
+        );
+
+      let responseText = `UE Build Exit Code: ${buildResult.code}\nUE Play Exit Code: ${playResult.code}\n\n`;
+
+      if (errorLines.length > 0) {
+        responseText +=
+          "🚨 Errors detected in Unreal Engine output:\n" +
+          errorLines.join("\n") +
+          "\n\n";
+      } else {
+        responseText +=
+          "✅ Project compiled and ran with no obvious fatal errors.\n\n";
+      }
+
+      const maxOutputLen = 4000;
+      let truncatedOutput = fullOutput;
+      if (fullOutput.length > maxOutputLen) {
+        truncatedOutput = fullOutput.substring(
+          fullOutput.length - maxOutputLen,
+        );
+        responseText += `...[truncated]...\n`;
+      }
+      responseText += truncatedOutput;
+
+      return {
+        content: [{ type: "text", text: responseText }],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error testing Unreal Engine project: ${error.message}`,
           },
         ],
         isError: true,
