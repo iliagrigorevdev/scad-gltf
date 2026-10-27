@@ -335,6 +335,7 @@ ${promptRules}
 
 2. Unreal Engine 5 Project Files:
    - Create the necessary C++ files (.h and .cpp), a \`.uproject\` file, and Unreal build system files (\`.Target.cs\`, \`.Build.cs\`) to implement the project logic, responsive user input controls, and a core interaction loop.
+   - For all \`.Target.cs\` files, you MUST set \`DefaultBuildSettings = BuildSettingsVersion.Latest;\` and \`IncludeOrderVersion = EngineIncludeOrderVersion.Latest;\`.
    - Configure the project to automatically enable the \`ScadImporter\` plugin and the \`Interchange\` framework in the \`.uproject\` file.
    - UE C++ Coordinate, Forward, and Left/Right Conventions:
      * Forward is +X: \`FVector::ForwardVector\` or \`GetActorForwardVector()\`.

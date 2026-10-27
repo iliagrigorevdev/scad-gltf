@@ -2,6 +2,7 @@
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
 #include "HAL/PlatformProcess.h"
+#include "HAL/FileManager.h"
 #include "AssetToolsModule.h"
 #include "IAssetTools.h"
 #include "AutomatedAssetImportData.h"
