@@ -30,6 +30,7 @@
     "src",
     "godot",
     "rust",
+    "ue",
     "editor/dist"
   ],
   "bin": {
