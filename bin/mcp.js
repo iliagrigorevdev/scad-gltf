@@ -19,11 +19,7 @@ import {
   extractFilesFromMarkdown,
   writeExtractedFiles,
 } from "../src/cli-utils.js";
-import {
-  getUePaths,
-  buildUeProjectAsync,
-  runUeAsync,
-} from "../src/ue-utils.js";
+import { getUePaths, buildUeProjectAsync } from "../src/ue-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -274,9 +270,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
-        name: "test_ue_project",
+        name: "compile_ue_project",
         description:
-          "Extracts an Unreal Engine project from a Markdown format, compiles the C++ code, and runs it to detect syntax errors, missing resources, or runtime crashes. Returns the compilation and runtime logs. (Requires UE_ROOT environment variable).",
+          "Extracts an Unreal Engine project from a Markdown format and compiles the C++ code to detect syntax errors or missing resources. Returns the compilation logs. (Requires UE_ROOT environment variable).",
         inputSchema: {
           type: "object",
           properties: {
@@ -284,11 +280,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "string",
               description:
                 "The complete markdown string containing all project files formatted with '### filepath' headers and code blocks.",
-            },
-            run_time: {
-              type: "number",
-              description:
-                "Time in seconds to run the project before terminating. Default is 5.0.",
             },
           },
           required: ["project_markdown"],
@@ -901,7 +892,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 \t\t\tif img != null and not img.is_empty():
 \t\t\t\tvar path = ProjectSettings.globalize_path("res://screenshot_mcp.png")
 \t\t\t\tvar err = img.save_png(path)
-\t\t\t\tprint("[MCP] Save PNG to ", path, " returned error code: ", err)
+\t\t\tprint("[MCP] Save PNG to ", path, " returned error code: ", err)
 \t\t\telse:
 \t\t\t\tprint("[MCP] Error: Image is null or empty.")
 \t\telse:
@@ -1236,9 +1227,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   // ------------------------------------------
-  // TOOL 5: test_ue_project
+  // TOOL 5: compile_ue_project
   // ------------------------------------------
-  if (name === "test_ue_project") {
+  if (name === "compile_ue_project") {
     let cleanupDir = null;
     try {
       if (!process.env.UE_ROOT) {
@@ -1246,7 +1237,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: "text",
-              text: `Error: The host machine does not have the 'UE_ROOT' environment variable set. Unreal Engine testing is currently unavailable.`,
+              text: `Error: The host machine does not have the 'UE_ROOT' environment variable set. Unreal Engine compilation is currently unavailable.`,
             },
           ],
           isError: true,
@@ -1254,7 +1245,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       let projectDir = null;
-      const runTime = args.run_time || 5.0;
       const markdown = args.project_markdown;
 
       if (!markdown) {
@@ -1267,7 +1257,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // Create a unique temporary directory
-      const tempBase = fs.mkdtempSync(path.join(os.tmpdir(), "scad-ue-test-"));
+      const tempBase = fs.mkdtempSync(
+        path.join(os.tmpdir(), "scad-ue-compile-"),
+      );
       cleanupDir = tempBase;
 
       const files = extractFilesFromMarkdown(markdown);
@@ -1319,57 +1311,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const fullBuildOutput =
         "--- UBT COMPILATION PHASE ---\n" + buildResult.output;
 
+      let responseText = `UE Build Exit Code: ${buildResult.code}\n\n`;
+
       if (buildResult.code !== 0) {
-        let errorMsg = `🚨 C++ Compilation Failed (Code ${buildResult.code}):\n\n`;
-        const maxLen = 4000;
-        let trunc = fullBuildOutput;
-        if (trunc.length > maxLen) {
-          trunc = trunc.substring(trunc.length - maxLen);
-          errorMsg += `...[truncated]...\n`;
-        }
-        errorMsg += trunc;
-
-        return { content: [{ type: "text", text: errorMsg }] };
-      }
-
-      // 2. Play Phase
-      const safeNodeTimeout = runTime * 1000 + 5000;
-
-      // Run headless server/game instance to gather run logs without opening a GUI
-      const playArgs = ["-game", "-log", "-NullRHI", "-NoSound", "-unattended"];
-      const playResult = await runUeAsync(
-        uprojectPath,
-        playArgs,
-        safeNodeTimeout,
-      );
-
-      // Format Text Output
-      const fullOutput =
-        fullBuildOutput + "\n\n--- PLAY PHASE ---\n" + playResult.output;
-
-      const errorLines = fullOutput
-        .split("\n")
-        .filter(
-          (line) => line.includes("Error:") || line.includes("Fatal error"),
-        );
-
-      let responseText = `UE Build Exit Code: ${buildResult.code}\nUE Play Exit Code: ${playResult.code}\n\n`;
-
-      if (errorLines.length > 0) {
-        responseText +=
-          "🚨 Errors detected in Unreal Engine output:\n" +
-          errorLines.join("\n") +
-          "\n\n";
+        responseText += `🚨 C++ Compilation Failed:\n\n`;
       } else {
-        responseText +=
-          "✅ Project compiled and ran with no obvious fatal errors.\n\n";
+        responseText += `✅ Project compiled successfully with no errors.\n\n`;
       }
 
       const maxOutputLen = 4000;
-      let truncatedOutput = fullOutput;
-      if (fullOutput.length > maxOutputLen) {
-        truncatedOutput = fullOutput.substring(
-          fullOutput.length - maxOutputLen,
+      let truncatedOutput = fullBuildOutput;
+      if (fullBuildOutput.length > maxOutputLen) {
+        truncatedOutput = fullBuildOutput.substring(
+          fullBuildOutput.length - maxOutputLen,
         );
         responseText += `...[truncated]...\n`;
       }
@@ -1383,7 +1337,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         content: [
           {
             type: "text",
-            text: `Error testing Unreal Engine project: ${error.message}`,
+            text: `Error compiling Unreal Engine project: ${error.message}`,
           },
         ],
         isError: true,

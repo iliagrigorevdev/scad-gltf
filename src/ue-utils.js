@@ -20,23 +20,53 @@ export function getUePaths() {
   let editor, buildScript, platformName;
 
   if (platform === "win32") {
-    editor = path.join(ueRoot, "Engine", "Binaries", "Win64", "UnrealEditor.exe");
-    buildScript = path.join(ueRoot, "Engine", "Build", "BatchFiles", "Build.bat");
+    editor = path.join(
+      ueRoot,
+      "Engine",
+      "Binaries",
+      "Win64",
+      "UnrealEditor.exe",
+    );
+    buildScript = path.join(
+      ueRoot,
+      "Engine",
+      "Build",
+      "BatchFiles",
+      "Build.bat",
+    );
     platformName = "Win64";
   } else if (platform === "darwin") {
     editor = path.join(ueRoot, "Engine", "Binaries", "Mac", "UnrealEditor");
-    buildScript = path.join(ueRoot, "Engine", "Build", "BatchFiles", "Mac", "Build.sh");
+    buildScript = path.join(
+      ueRoot,
+      "Engine",
+      "Build",
+      "BatchFiles",
+      "Mac",
+      "Build.sh",
+    );
     platformName = "Mac";
   } else if (platform === "linux") {
     editor = path.join(ueRoot, "Engine", "Binaries", "Linux", "UnrealEditor");
-    buildScript = path.join(ueRoot, "Engine", "Build", "BatchFiles", "Linux", "Build.sh");
+    buildScript = path.join(
+      ueRoot,
+      "Engine",
+      "Build",
+      "BatchFiles",
+      "Linux",
+      "Build.sh",
+    );
     platformName = "Linux";
   } else {
-    throw new Error(`Unsupported platform for Unreal Engine automation: ${platform}`);
+    throw new Error(
+      `Unsupported platform for Unreal Engine automation: ${platform}`,
+    );
   }
 
-  if (!fs.existsSync(editor)) throw new Error(`Unreal Editor missing at: ${editor}`);
-  if (!fs.existsSync(buildScript)) throw new Error(`Unreal Build Script missing at: ${buildScript}`);
+  if (!fs.existsSync(editor))
+    throw new Error(`Unreal Editor missing at: ${editor}`);
+  if (!fs.existsSync(buildScript))
+    throw new Error(`Unreal Build Script missing at: ${buildScript}`);
 
   return { editor, buildScript, platformName };
 }
@@ -70,7 +100,10 @@ export function buildUeProjectAsync(uprojectPath, timeoutMs = 240000) {
         try {
           proc.kill("SIGKILL");
         } catch (e) {}
-        resolve({ code: 124, output: output + "\n--- COMPILATION TIMED OUT ---" });
+        resolve({
+          code: 124,
+          output: output + "\n--- COMPILATION TIMED OUT ---",
+        });
       }, timeoutMs);
 
       proc.on("close", (code) => {
@@ -84,7 +117,10 @@ export function buildUeProjectAsync(uprojectPath, timeoutMs = 240000) {
         if (isResolved) return;
         isResolved = true;
         clearTimeout(timer);
-        resolve({ code: -1, output: output + `\nProcess error: ${err.message}` });
+        resolve({
+          code: -1,
+          output: output + `\nProcess error: ${err.message}`,
+        });
       });
     } catch (err) {
       resolve({ code: -1, output: `Initialization error: ${err.message}` });
@@ -128,7 +164,10 @@ export function runUeAsync(uprojectPath, extraArgs, timeoutMs) {
         if (isResolved) return;
         isResolved = true;
         clearTimeout(timer);
-        resolve({ code: -1, output: output + `\nProcess error: ${err.message}` });
+        resolve({
+          code: -1,
+          output: output + `\nProcess error: ${err.message}`,
+        });
       });
     } catch (err) {
       resolve({ code: -1, output: `Initialization error: ${err.message}` });
