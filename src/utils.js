@@ -59,3 +59,30 @@ export function extractFilesFromMarkdown(mdContent) {
 
   return files;
 }
+
+/**
+ * Extracts and sanitizes the model name from a SCAD block comment.
+ * e.g., /* Model Name: My Model */
+export function extractModelNameFromScad(scadCode) {
+  const nameMatch = scadCode.match(/\/\*\s*Model Name:\s*(.*?)\s*\*\//i);
+  if (nameMatch && nameMatch[1]) {
+    return nameMatch[1]
+      .trim()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9_-]/g, "");
+  }
+  return null;
+}
+
+/**
+ * Parses SCAD code to find all relative paths imported via 'include' or 'use'.
+ */
+export function extractScadDependencies(scadCode) {
+  const deps = [];
+  const includeRegex = /(?:include|use)\s*([<"])([^>"]+)([>"])/g;
+  let match;
+  while ((match = includeRegex.exec(scadCode)) !== null) {
+    deps.push(match[2]);
+  }
+  return deps;
+}

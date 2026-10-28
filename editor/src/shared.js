@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { extractScadDependencies } from "scad-gltf/utils";
 
 export function updateCameraAspect(cam, w, h) {
   if (!cam) return;
@@ -181,10 +182,8 @@ export async function fetchDependencies(code, backendUrl, serverFiles) {
   const visited = new Set();
 
   async function traverse(currentCode) {
-    const regex = /(?:include|use)\s*([<"])([^>"]+)([>"])/g;
-    let match;
-    while ((match = regex.exec(currentCode)) !== null) {
-      const relPath = match[2];
+    const deps = extractScadDependencies(currentCode);
+    for (const relPath of deps) {
       const baseName = relPath.split(/[/\\]/).pop();
 
       if (!visited.has(relPath)) {

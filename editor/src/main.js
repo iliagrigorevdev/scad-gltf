@@ -17,7 +17,10 @@ import {
   getPromptOptions,
 } from "./prompt-ui.js";
 import defaultScad from "./default.scad?raw";
-import { extractFilesFromMarkdown } from "scad-gltf/utils";
+import {
+  extractFilesFromMarkdown,
+  extractModelNameFromScad,
+} from "scad-gltf/utils";
 import {
   updateCameraAspect,
   computeModelBounds,
@@ -221,21 +224,15 @@ async function compileAndRender(scadCode) {
     currentEntryFile = null;
   }
 
-  const nameMatch = entryCode.match(/\/\*\s*Model Name:\s*(.*?)\s*\*\//i);
-  if (nameMatch && nameMatch[1]) {
-    const extractedName = nameMatch[1]
-      .trim()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-zA-Z0-9_-]/g, "");
-    if (extractedName) {
-      const newName =
-        isMd && !extractedName.toLowerCase().endsWith(".md")
-          ? extractedName + ".md"
-          : extractedName;
-      if (modelNameInputEl.value !== newName) {
-        modelNameInputEl.value = newName;
-        checkChanges();
-      }
+  const extractedName = extractModelNameFromScad(entryCode);
+  if (extractedName) {
+    const newName =
+      isMd && !extractedName.toLowerCase().endsWith(".md")
+        ? extractedName + ".md"
+        : extractedName;
+    if (modelNameInputEl.value !== newName) {
+      modelNameInputEl.value = newName;
+      checkChanges();
     }
   }
 

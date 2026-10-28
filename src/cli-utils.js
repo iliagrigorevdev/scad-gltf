@@ -6,7 +6,7 @@ import readline from "node:readline";
 import { execSync, spawn } from "node:child_process";
 import zlib from "node:zlib";
 import { getGodotBin } from "./godot-utils.js";
-import { extractFilesFromMarkdown } from "./utils.js";
+import { extractFilesFromMarkdown, extractModelNameFromScad } from "./utils.js";
 
 const __filename = fs.realpathSync(url.fileURLToPath(import.meta.url));
 const __dirname = path.dirname(__filename);
@@ -489,14 +489,9 @@ export async function runAutomatedAIFlow(
           finalCode = match ? match[1].trim() : finalText.trim();
 
           extractedFilename = "generated_model.scad";
-          const nameMatch = finalCode.match(
-            /\/\*\s*Model Name:\s*([^*]+)\s*\*\//i,
-          );
-          if (nameMatch) {
-            let safeName = nameMatch[1]
-              .trim()
-              .toLowerCase()
-              .replace(/[^a-z0-9_]/g, "_");
+          let safeName = extractModelNameFromScad(finalCode);
+          if (safeName) {
+            safeName = safeName.toLowerCase();
             if (!safeName.endsWith(".scad")) safeName += ".scad";
             extractedFilename = safeName;
           }

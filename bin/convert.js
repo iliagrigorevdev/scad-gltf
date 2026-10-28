@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import crypto from "crypto";
 import { convertScadToGltf } from "../src/convert.js";
+import { extractScadDependencies } from "../src/utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,10 +38,8 @@ function getDependencies(filePath, visited = new Map()) {
   visited.set(filePath, content);
 
   // Match include <...> or "..." and use <...> or "..."
-  const includeRegex = /(?:include|use)\s*([<"])([^>"]+)([>"])/g;
-  let match;
-  while ((match = includeRegex.exec(content)) !== null) {
-    const depRelativePath = match[2];
+  const deps = extractScadDependencies(content);
+  for (const depRelativePath of deps) {
     const depAbsolutePath = path.resolve(
       path.dirname(filePath),
       depRelativePath,

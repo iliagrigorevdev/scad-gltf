@@ -20,6 +20,7 @@ import {
   applyDynamicBoundsToLights,
   extractCamerasAndLights,
 } from "./shared.js";
+import { extractModelNameFromScad } from "scad-gltf/utils";
 
 const viewerContainer = document.getElementById("viewer-container");
 const viewerEl = document.getElementById("viewer");
@@ -583,17 +584,9 @@ window.addEventListener("message", async (event) => {
   if (event.data.type === "RENDER_SCAD") {
     latestScadCode = event.data.code;
 
-    const nameMatch = latestScadCode.match(
-      /\/\*\s*Model Name:\s*(.*?)\s*\*\//i,
-    );
-    if (nameMatch && nameMatch[1]) {
-      let extractedName = nameMatch[1]
-        .trim()
-        .replace(/\s+/g, "_")
-        .replace(/[^a-zA-Z0-9_-]/g, "");
-      if (extractedName) {
-        filenameInput.value = extractedName;
-      }
+    const extractedName = extractModelNameFromScad(entryCode);
+    if (extractedName) {
+      filenameInput.value = extractedName;
     }
 
     await compileAndRender(event.data.code);
