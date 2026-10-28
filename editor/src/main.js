@@ -125,6 +125,29 @@ modelNameInputEl.addEventListener("input", checkChanges);
 entryFileSelect.addEventListener("change", (e) => {
   currentEntryFile = e.target.value;
   compileAndRender(getEditorContent());
+
+  const content = editorEl.value;
+  const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = new RegExp(
+    `###\\s*\`?${escapeRegExp(currentEntryFile)}\`?`,
+    "i",
+  );
+  const match = content.match(regex);
+
+  if (match) {
+    const index = match.index;
+    editorEl.focus();
+    editorEl.setSelectionRange(index, index);
+
+    const textBefore = content.substring(0, index);
+    const linesBefore = textBefore.split("\n").length;
+    const totalLines = content.split("\n").length || 1;
+
+    // Proportional scroll relies on the browser's exact layout height
+    // which prevents overshooting caused by line-height estimation inaccuracies.
+    const targetLine = Math.max(0, linesBefore - 2);
+    editorEl.scrollTop = (targetLine / totalLines) * editorEl.scrollHeight;
+  }
 });
 
 // --- Prompt Logic ---
