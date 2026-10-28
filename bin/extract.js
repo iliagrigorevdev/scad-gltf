@@ -2,10 +2,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import {
-  extractFilesFromMarkdown,
-  writeExtractedFiles,
-} from "../src/cli-utils.js";
+import { writeExtractedFiles } from "../src/cli-utils.js";
+import { extractFilesFromMarkdown } from "../src/utils.js";
 
 const args = process.argv.slice(2);
 const mdPath = args[0];

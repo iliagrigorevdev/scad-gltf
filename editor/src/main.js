@@ -17,6 +17,7 @@ import {
   getPromptOptions,
 } from "./prompt-ui.js";
 import defaultScad from "./default.scad?raw";
+import { extractFilesFromMarkdown } from "scad-gltf/utils";
 import {
   updateCameraAspect,
   computeModelBounds,
@@ -34,6 +35,7 @@ import {
 const promptDescEl = document.getElementById("prompt-desc");
 const copyPromptBtn = document.getElementById("copy-prompt-btn");
 const modelNameInputEl = document.getElementById("model-name-input");
+const entryFileSelect = document.getElementById("entry-file-select");
 const editorEl = document.getElementById("editor");
 const renderBtn = document.getElementById("render-btn");
 const loadScadBtn = document.getElementById("load-scad-btn");
@@ -70,6 +72,7 @@ const screenshotBtn = document.getElementById("screenshot-btn");
 const cameraSelect = document.getElementById("camera-select");
 
 let currentSelectedModelIdx = "";
+let currentEntryFile = null;
 let currentMesh = null;
 let currentGltfData = null;
 let currentAnimations = [];
@@ -116,6 +119,10 @@ function getDownloadName() {
 }
 
 modelNameInputEl.addEventListener("input", checkChanges);
+entryFileSelect.addEventListener("change", (e) => {
+  currentEntryFile = e.target.value;
+  compileAndRender(getEditorContent());
+});
 
 // --- Prompt Logic ---
 if (promptUiContainer) {
@@ -159,15 +166,76 @@ async function compileAndRender(scadCode) {
     return;
   }
 
-  const nameMatch = scadCode.match(/\/\*\s*Model Name:\s*(.*?)\s*\*\//i);
+  let entryCode = scadCode;
+  let extractedAdditionalFiles = {};
+
+  const isMd =
+    modelNameInputEl.value.toLowerCase().endsWith(".md") ||
+    (scadCode.includes("```") && scadCode.includes("###"));
+
+  if (isMd) {
+    const files = extractFilesFromMarkdown(scadCode);
+    const scadFiles = Object.keys(files).filter((f) =>
+      f.toLowerCase().endsWith(".scad"),
+    );
+
+    if (scadFiles.length > 1) {
+      entryFileSelect.style.display = "flex";
+      const currentOptions = Array.from(entryFileSelect.options)
+        .map((o) => o.value)
+        .join(",");
+      const newOptions = scadFiles.join(",");
+
+      if (currentOptions !== newOptions) {
+        entryFileSelect.innerHTML = "";
+        scadFiles.forEach((f) => {
+          const opt = document.createElement("option");
+          opt.value = f;
+          opt.innerText = f;
+          entryFileSelect.appendChild(opt);
+        });
+      }
+
+      if (!scadFiles.includes(currentEntryFile)) {
+        currentEntryFile = scadFiles[0];
+      }
+      entryFileSelect.value = currentEntryFile;
+    } else {
+      entryFileSelect.style.display = "none";
+      currentEntryFile = scadFiles[0] || null;
+    }
+
+    if (scadFiles.length > 0) {
+      const targetFile = currentEntryFile || scadFiles[0];
+      entryCode = files[targetFile];
+      for (const [fName, fContent] of Object.entries(files)) {
+        if (fName !== targetFile) {
+          extractedAdditionalFiles[fName] = fContent;
+        }
+      }
+    } else if (files["main.scad"]) {
+      entryCode = files["main.scad"];
+    }
+  } else {
+    entryFileSelect.style.display = "none";
+    currentEntryFile = null;
+  }
+
+  const nameMatch = entryCode.match(/\/\*\s*Model Name:\s*(.*?)\s*\*\//i);
   if (nameMatch && nameMatch[1]) {
     const extractedName = nameMatch[1]
       .trim()
       .replace(/\s+/g, "_")
       .replace(/[^a-zA-Z0-9_-]/g, "");
-    if (extractedName && modelNameInputEl.value !== extractedName) {
-      modelNameInputEl.value = extractedName;
-      checkChanges();
+    if (extractedName) {
+      const newName =
+        isMd && !extractedName.toLowerCase().endsWith(".md")
+          ? extractedName + ".md"
+          : extractedName;
+      if (modelNameInputEl.value !== newName) {
+        modelNameInputEl.value = newName;
+        checkChanges();
+      }
     }
   }
 
@@ -181,13 +249,15 @@ async function compileAndRender(scadCode) {
   const startTime = performance.now();
 
   try {
-    const additionalFiles = await fetchDependenciesWrapper(scadCode);
+    const additionalFiles = await fetchDependenciesWrapper(entryCode);
+    Object.assign(additionalFiles, extractedAdditionalFiles);
+
     const opts = {
       wasmUrl: wasmUrl,
       additionalFiles: additionalFiles,
     };
 
-    currentGltfData = await convertScadToGltf(scadCode, opts);
+    currentGltfData = await convertScadToGltf(entryCode, opts);
     await rebuildSceneFromGLTF(currentGltfData);
 
     if (renderTimeEl) {
@@ -230,7 +300,7 @@ autoRenderCb.addEventListener("change", () => {
 loadScadBtn.onclick = () => {
   const input = document.createElement("input");
   input.type = "file";
-  input.accept = ".scad";
+  input.accept = ".scad,.md";
   input.onchange = async (e) => {
     if (e.target.files && e.target.files.length > 0) {
       try {
@@ -248,17 +318,28 @@ loadScadBtn.onclick = () => {
 
 downloadScadBtn.onclick = () => {
   const codeToSave = getEditorContent();
-  downloadBlob(
-    new Blob([codeToSave], { type: "text/plain" }),
-    `${getDownloadName()}.scad`,
-  );
+  let dlName = getDownloadName();
+  if (
+    !dlName.toLowerCase().endsWith(".scad") &&
+    !dlName.toLowerCase().endsWith(".md")
+  ) {
+    dlName +=
+      codeToSave.includes("```") && codeToSave.includes("###")
+        ? ".md"
+        : ".scad";
+  }
+  downloadBlob(new Blob([codeToSave], { type: "text/plain" }), dlName);
 };
 
 exportGltfBtn.onclick = () => {
   if (!currentGltfData) return;
+  let dlName = getDownloadName();
+  if (dlName.toLowerCase().endsWith(".md")) {
+    dlName = dlName.substring(0, dlName.length - 3);
+  }
   downloadBlob(
     new Blob([currentGltfData], { type: "application/octet-stream" }),
-    `${getDownloadName()}.glb`,
+    `${dlName}.glb`,
   );
 };
 
@@ -394,7 +475,11 @@ captureImageBtn.onclick = () => {
             const blob = new Blob(recordedChunks, {
               type: options.mimeType.split(";")[0],
             });
-            downloadBlob(blob, `${getDownloadName()}.${extension}`);
+            let dlName = getDownloadName();
+            if (dlName.toLowerCase().endsWith(".md")) {
+              dlName = dlName.substring(0, dlName.length - 3);
+            }
+            downloadBlob(blob, `${dlName}.${extension}`);
             isRecording = false;
 
             updateCameraAspect(
@@ -587,7 +672,10 @@ shareBtn.onclick = async () => {
 
   try {
     if (navigator.share) {
-      const rawName = modelNameInputEl.value.trim();
+      let rawName = modelNameInputEl.value.trim();
+      if (rawName.toLowerCase().endsWith(".md")) {
+        rawName = rawName.substring(0, rawName.length - 3);
+      }
       const displayTitle = rawName
         ? rawName.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
         : "Scadify";
@@ -675,6 +763,7 @@ window.addEventListener("drop", async (e) => {
       );
     } else if (
       fileName.endsWith(".scad") ||
+      fileName.endsWith(".md") ||
       !file.type ||
       file.type.includes("text")
     ) {
@@ -687,7 +776,7 @@ window.addEventListener("drop", async (e) => {
         alert("Failed to read file: " + err.message);
       }
     } else {
-      alert("Please drop a valid .scad or .hdr file.");
+      alert("Please drop a valid .scad, .md, or .hdr file.");
     }
   }
 });
@@ -725,12 +814,12 @@ function renderBackendSelect() {
 function getSanitizedNames() {
   let filename = modelNameInputEl.value.trim();
 
-  if (filename)
-    filename =
-      filename
-        .replace(/\.scad$/i, "")
-        .split(/[/\\]/)
-        .pop() + ".scad";
+  if (filename) {
+    filename = filename.split(/[/\\]/).pop();
+    if (!filename.endsWith(".scad") && !filename.endsWith(".md")) {
+      filename += ".scad";
+    }
+  }
 
   return { filename };
 }
@@ -745,7 +834,10 @@ function checkChanges() {
   let scadChanged = false;
 
   if (isNew) {
-    if ((filename && filename !== ".scad") || currentContent.trim() !== "") {
+    if (
+      (filename && filename !== ".scad" && filename !== ".md") ||
+      currentContent.trim() !== ""
+    ) {
       scadChanged = true;
     }
   } else {
@@ -839,7 +931,7 @@ backendSelectEl.addEventListener("change", async () => {
     checkChanges();
   } else {
     const filename = serverFiles[idx];
-    modelNameInputEl.value = filename.replace(/\.scad$/i, "");
+    modelNameInputEl.value = filename;
 
     try {
       const res = await fetch(
@@ -867,7 +959,7 @@ backendSelectEl.addEventListener("change", async () => {
 backendSingleSaveBtn.onclick = async () => {
   const { filename } = getSanitizedNames();
 
-  if (!filename || filename === ".scad") {
+  if (!filename || filename === ".scad" || filename === ".md") {
     const originalText = backendSingleSaveBtn.innerText;
     backendSingleSaveBtn.innerText = "⚠️ Name Required!";
     backendSingleSaveBtn.style.borderColor = "#ff4444";
@@ -883,7 +975,7 @@ backendSingleSaveBtn.onclick = async () => {
   if (isNew && serverFiles && serverFiles.includes(filename)) {
     if (
       !confirm(
-        `A model named "${filename}" already exists. Are you sure you want to overwrite it?`,
+        `A file named "${filename}" already exists. Are you sure you want to overwrite it?`,
       )
     ) {
       return;

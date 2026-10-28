@@ -68,7 +68,19 @@
 
         <div class="panel-section flex-grow">
           <h2>2. SCAD Editor</h2>
-          <input type="text" id="model-name-input" placeholder="Name" />
+          <div class="controls-row" style="margin-bottom: 8px">
+            <input
+              type="text"
+              id="model-name-input"
+              placeholder="Name"
+              style="flex: 1"
+            />
+            <select
+              id="entry-file-select"
+              style="display: none; max-width: 200px"
+            ></select>
+          </div>
+
           <textarea id="editor" spellcheck="false"></textarea>
 
           <div class="controls-row">
@@ -185,7 +197,7 @@
     </div>
 
     <!-- Drag and Drop Overlay -->
-    <div id="drag-overlay">Drop .scad or .hdr file here</div>
+    <div id="drag-overlay">Drop .scad, .md, or .hdr file here</div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

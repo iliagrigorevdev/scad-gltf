@@ -15,10 +15,8 @@ import { convertScadToGltf } from "../src/convert.js";
 import { generatePrompt } from "../src/prompt.js";
 import { getProjectPrompts } from "../src/project-prompts.js";
 import { runGodotAsync } from "../src/godot-utils.js";
-import {
-  extractFilesFromMarkdown,
-  writeExtractedFiles,
-} from "../src/cli-utils.js";
+import { writeExtractedFiles } from "../src/cli-utils.js";
+import { extractFilesFromMarkdown } from "../src/utils.js";
 import { getUePaths, buildUeProjectAsync } from "../src/ue-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);

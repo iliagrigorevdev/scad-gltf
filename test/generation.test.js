@@ -4,10 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-import {
-  extractFilesFromMarkdown,
-  writeExtractedFiles,
-} from "../src/cli-utils.js";
+import { writeExtractedFiles } from "../src/cli-utils.js";
+import { extractFilesFromMarkdown } from "../src/utils.js";
 import { getProjectPrompts } from "../src/project-prompts.js";
 import { generatePrompt } from "../src/prompt.js";
 

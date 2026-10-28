@@ -84,21 +84,25 @@ app.use((req, res, next) => {
 // Helper: Sanitize filename to prevent directory traversal attacks
 function sanitizeFilename(filename) {
   const safeName = path.basename(filename);
+  if (safeName.endsWith(".scad") || safeName.endsWith(".md")) {
+    return safeName;
+  }
   return safeName.endsWith(".scad") ? safeName : `${safeName}.scad`;
 }
 
 // ========================
-// SCAD File Management API
+// File Management API
 // ========================
 
-// 1. List all .scad files in the current directory
+// 1. List all .scad and .md files in the current directory
 app.get("/api/scads", (req, res) => {
   try {
     const files = fs
       .readdirSync(workDir)
       .filter(
         (file) =>
-          file.toLowerCase().endsWith(".scad") &&
+          (file.toLowerCase().endsWith(".scad") ||
+            file.toLowerCase().endsWith(".md")) &&
           fs.statSync(path.join(workDir, file)).isFile(),
       );
 
@@ -109,7 +113,7 @@ app.get("/api/scads", (req, res) => {
   }
 });
 
-// 2. Read specific .scad file content
+// 2. Read specific .scad or .md file content
 app.get("/api/scads/:filename", (req, res) => {
   const filename = sanitizeFilename(req.params.filename);
   const filePath = path.join(workDir, filename);
@@ -127,7 +131,7 @@ app.get("/api/scads/:filename", (req, res) => {
   }
 });
 
-// 3. Create or Update a .scad file
+// 3. Create or Update a .scad or .md file
 app.post("/api/scads", (req, res) => {
   const { filename: rawFilename, content } = req.body;
 
@@ -155,7 +159,7 @@ app.post("/api/scads", (req, res) => {
   }
 });
 
-// 4. Delete a .scad file
+// 4. Delete a .scad or .md file
 app.delete("/api/scads/:filename", (req, res) => {
   const filename = sanitizeFilename(req.params.filename);
   const filePath = path.join(workDir, filename);
@@ -221,5 +225,5 @@ app.listen(port, () => {
   if (fs.existsSync(editorDistDir)) {
     console.log(`🌐 Editor available at: http://localhost:${port}/`);
   }
-  console.log(`📁 Managing .scad files in directory: ${workDir}`);
+  console.log(`📁 Managing .scad and .md files in directory: ${workDir}`);
 });

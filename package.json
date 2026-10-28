@@ -42,6 +42,8 @@
     "./convert.js": "./src/convert.js",
     "./prompt": "./src/prompt.js",
     "./prompt.js": "./src/prompt.js",
+    "./utils": "./src/utils.js",
+    "./utils.js": "./src/utils.js",
     "./openscad.wasm": "./src/ext/openscad.wasm"
   },
   "scripts": {

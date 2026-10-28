@@ -6,6 +6,7 @@ import readline from "node:readline";
 import { execSync, spawn } from "node:child_process";
 import zlib from "node:zlib";
 import { getGodotBin } from "./godot-utils.js";
+import { extractFilesFromMarkdown } from "./utils.js";
 
 const __filename = fs.realpathSync(url.fileURLToPath(import.meta.url));
 const __dirname = path.dirname(__filename);
@@ -155,47 +156,6 @@ export function generateScadPreviewUrl(
   } catch (e) {
     return null;
   }
-}
-
-export function extractFilesFromMarkdown(mdContent) {
-  const files = {};
-  const lines = mdContent.split("\n");
-  let currentFile = null;
-  let inCodeBlock = false;
-  let currentContent = [];
-
-  // \S+ ensures the header is a single continuous path without spaces,
-  // preventing regular English markdown headers from being parsed as files.
-  const headerMatchRegex = /^###\s+(\S+)\s*$/;
-
-  for (const line of lines) {
-    const headerMatch = line.match(headerMatchRegex);
-    if (headerMatch) {
-      currentFile = headerMatch[1];
-      inCodeBlock = false;
-      currentContent = [];
-      continue;
-    }
-
-    if (currentFile) {
-      if (line.startsWith("```")) {
-        if (inCodeBlock) {
-          // Close block and save
-          files[currentFile] = currentContent.join("\n");
-          currentFile = null;
-          inCodeBlock = false;
-        } else {
-          // Open block
-          inCodeBlock = true;
-          currentContent = [];
-        }
-      } else if (inCodeBlock) {
-        currentContent.push(line);
-      }
-    }
-  }
-
-  return files;
 }
 
 export function writeExtractedFiles(files, targetDir) {

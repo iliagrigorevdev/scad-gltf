@@ -5,10 +5,8 @@ import path from "node:path";
 import os from "node:os";
 import { execSync, spawn } from "node:child_process";
 import { getGodotBin } from "../src/godot-utils.js";
-import {
-  extractFilesFromMarkdown,
-  writeExtractedFiles,
-} from "../src/cli-utils.js";
+import { writeExtractedFiles } from "../src/cli-utils.js";
+import { extractFilesFromMarkdown } from "../src/utils.js";
 import { getUePaths } from "../src/ue-utils.js";
 
 function main() {
