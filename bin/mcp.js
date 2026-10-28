@@ -890,7 +890,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 \t\t\tif img != null and not img.is_empty():
 \t\t\t\tvar path = ProjectSettings.globalize_path("res://screenshot_mcp.png")
 \t\t\t\tvar err = img.save_png(path)
-\t\t\tprint("[MCP] Save PNG to ", path, " returned error code: ", err)
+\t\t\t\tprint("[MCP] Save PNG to ", path, " returned error code: ", err)
 \t\t\telse:
 \t\t\t\tprint("[MCP] Error: Image is null or empty.")
 \t\telse:
