@@ -138,7 +138,7 @@ export function generatePrompt(description, options = {}) {
 - Wrapping: Use the 'armature(animations=...)' module at the root to wrap all animated components.
 - Hierarchies: Use the 'bone(name="BoneName", t=[x,y,z], r=[x,y,z])' module to define hierarchical animated parts.
 - Skinning / Soft-Body Deformation: To bind a soft mesh to multiple bones, wrap the geometry in a 'skin(bones=["Bone1", "Bone2"], weights=function(x,y,z) [...])' module.
-  * Placement: The 'skin()' module MUST be placed directly inside the 'armature()', OUTSIDE of the 'bone()' hierarchy.
+  * Placement: The 'skin()' module MUST be placed directly inside the 'armature()', OUTSIDE of the 'bone()' hierarchy. You may include multiple 'skin()' modules if your model has several separate soft-body parts.
   * Weight Function: The 'weights' parameter takes a 3-parameter function evaluating the localized 3D coordinates (x,y,z) of each vertex, returning an array of weights corresponding to the 'bones' array. Example: \`function(x,y,z) [1.0 - (z/10), z/10]\`. The exporter automatically normalizes weights and limits to the 4 strongest bones.
   * Geometry: Meshes must have enough vertices to bend smoothly! Always use a sufficiently high '$fn' (e.g., $fn=32) for curved geometries.
 - Rigid Attachment (Auto-Unioning): Any child meshes placed directly inside a 'bone()' node are rigidly attached to that bone.
