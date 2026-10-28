@@ -365,7 +365,7 @@ ${promptRules}
    - You must include and write:
      - Your generated \`.scad\` 3D assets inside a \`Content/Models/\` directory.
      - Your generated Unreal project files (\`Source\`, \`Config\`, \`.uproject\`).
-     - The exact source code of the provided \`ue/Plugins/ScadImporter/*\` files, which must be mapped and placed into the generated project's \`Plugins/ScadImporter/\` directory.${
+     - The exact source code of the provided \`Plugins/ScadImporter/*\` files, which must be placed into the generated project's \`Plugins/ScadImporter/\` directory.${
        hasUserScadFiles
          ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
          : ""
@@ -375,6 +375,7 @@ ${promptRules}
 
         // Gather Plugin Files content recursively
         const pluginDir = path.join(DIR, "ue", "Plugins", "ScadImporter");
+        const ueDir = path.join(DIR, "ue");
 
         function readDirRecursive(currentDir) {
           if (!fs.existsSync(currentDir)) return;
@@ -388,7 +389,7 @@ ${promptRules}
                 const content = readFile(fullPath);
                 if (content !== null) {
                   const relativePath = path
-                    .relative(DIR, fullPath)
+                    .relative(ueDir, fullPath)
                     .replace(/\\/g, "/");
                   let lang = "text";
                   if (file.endsWith(".cpp") || file.endsWith(".h"))
