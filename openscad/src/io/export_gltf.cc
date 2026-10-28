@@ -318,7 +318,7 @@ struct PrimitiveInfo {
     std::vector<float> tangents;
     std::vector<float> uvs;
     std::vector<int> orig_v_idx;
-    std::vector<uint16_t> local_joints_0;
+    std::vector<uint32_t> local_joints_0; // Changed to uint32_t to safely hold raw indices before mapping
     std::vector<uint16_t> joints_0;
     std::vector<float> weights_0;
     std::shared_ptr<const class Value> colormap;
@@ -335,7 +335,6 @@ struct PrimitiveInfo {
 struct MeshInfo {
     std::string name;
     std::vector<PrimitiveInfo> primitives;
-    std::shared_ptr<const PolySet> ps;
     int target_node = -1;
 };
 
@@ -356,7 +355,8 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                   std::vector<int>& scene_nodes, std::vector<tinygltf::Value>& gltf_lights,
                   std::vector<int>& global_skin_joints,
                   std::vector<Transform3d>& global_skin_inverse_bind_matrices,
-                  std::map<std::string, int>& global_bone_to_joint_idx)
+                  std::map<std::string, int>& global_bone_to_joint_idx,
+                  int armature_node_idx = -1, int current_bone_joint_idx = -1)
 {
     if (auto armature = std::dynamic_pointer_cast<const ArmatureGeometry>(geom)) {
         if (armature->animations.type() == Value::Type::VECTOR) {
@@ -370,7 +370,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         if (parent_node_idx < 0) scene_nodes.push_back(node_idx);
 
         for (const auto& item : armature->getChildren()) {
-            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes, gltf_lights, global_skin_joints, global_skin_inverse_bind_matrices, global_bone_to_joint_idx);
+            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes, gltf_lights, global_skin_joints, global_skin_inverse_bind_matrices, global_bone_to_joint_idx, node_idx, current_bone_joint_idx);
             if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
         }
         return node_idx;
@@ -442,13 +442,14 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             Transform3d ibm = (C * bone->world_matrix * C.inverse()).inverse();
             global_skin_inverse_bind_matrices.push_back(ibm);
         }
+        int my_joint_idx = global_bone_to_joint_idx[bone->name];
 
         if (parent_node_idx < 0) scene_nodes.push_back(node_idx);
 
         Transform3d next_M_accum = M_accum * bone->local_matrix;
 
         for (const auto& item : bone->getChildren()) {
-            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, next_M_accum, scene_nodes, gltf_lights, global_skin_joints, global_skin_inverse_bind_matrices, global_bone_to_joint_idx);
+            int child_idx = traverse_gltf(item.second, node_idx, model, meshes_info, bone_to_node, global_anims, C, next_M_accum, scene_nodes, gltf_lights, global_skin_joints, global_skin_inverse_bind_matrices, global_bone_to_joint_idx, armature_node_idx, my_joint_idx);
             if (child_idx >= 0) model.nodes[node_idx].children.push_back(child_idx);
         }
         return node_idx;
@@ -500,7 +501,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
         }
 
         for (const auto& item : light->getChildren()) {
-            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes, gltf_lights, global_skin_joints, global_skin_inverse_bind_matrices, global_bone_to_joint_idx);
+            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes, gltf_lights, global_skin_joints, global_skin_inverse_bind_matrices, global_bone_to_joint_idx, armature_node_idx, current_bone_joint_idx);
             if (child_idx >= 0 && parent_node_idx >= 0) {
                 model.nodes[parent_node_idx].children.push_back(child_idx);
             }
@@ -509,7 +510,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
     }
     else if (auto geomList = std::dynamic_pointer_cast<const GeometryList>(geom)) {
         for (const auto& item : geomList->getChildren()) {
-            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes, gltf_lights, global_skin_joints, global_skin_inverse_bind_matrices, global_bone_to_joint_idx);
+            int child_idx = traverse_gltf(item.second, parent_node_idx, model, meshes_info, bone_to_node, global_anims, C, M_accum, scene_nodes, gltf_lights, global_skin_joints, global_skin_inverse_bind_matrices, global_bone_to_joint_idx, armature_node_idx, current_bone_joint_idx);
             if (child_idx >= 0 && parent_node_idx >= 0) {
                 model.nodes[parent_node_idx].children.push_back(child_idx);
             }
@@ -525,16 +526,37 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
             BakeParameters bake_params = ps->bake_params;
             if (ps->high_poly_bake) {
                 auto high_tri = ps->high_poly_bake->isTriangular() ? std::make_shared<PolySet>(*ps->high_poly_bake) : PolySetUtils::tessellate_faces(*ps->high_poly_bake);
-                high_poly_bvh = std::make_shared<SimpleBVH>(*high_tri, C);
+                Transform3d hp_transform = C;
+                // Ensure baked high-poly follows the same armature bind pose transformation
+                if (armature_node_idx >= 0) {
+                    hp_transform = C * M_accum;
+                }
+                high_poly_bvh = std::make_shared<SimpleBVH>(*high_tri, hp_transform);
             }
 
-            MeshInfo minfo;
-            if (parent_node_idx >= 0 && parent_node_idx < (int)model.nodes.size()) {
-                const std::string& p_name = model.nodes[parent_node_idx].name;
-                if (!p_name.empty()) minfo.name = p_name;
+            int target = parent_node_idx;
+            if (armature_node_idx >= 0) {
+                target = armature_node_idx; // Group all armature meshes into a unified root node
             }
-            minfo.ps = ps;
-            minfo.target_node = parent_node_idx;
+
+            MeshInfo* target_minfo = nullptr;
+            for (auto& m : meshes_info) {
+                if (m.target_node == target) {
+                    target_minfo = &m;
+                    break;
+                }
+            }
+
+            if (!target_minfo) {
+                MeshInfo minfo;
+                if (target >= 0 && target < (int)model.nodes.size()) {
+                    const std::string& p_name = model.nodes[target].name;
+                    if (!p_name.empty()) minfo.name = p_name + "_Mesh";
+                }
+                minfo.target_node = target;
+                meshes_info.push_back(std::move(minfo));
+                target_minfo = &meshes_info.back();
+            }
 
             std::map<std::pair<int, int>, std::vector<int>> prim_faces;
             for (size_t i = 0; i < ps->indices.size(); ++i) {
@@ -567,7 +589,11 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
 
                 std::vector<Vector3d> gltf_vertices(ps->vertices.size());
                 for (size_t i = 0; i < ps->vertices.size(); ++i) {
-                    gltf_vertices[i] = C * ps->vertices[i];
+                    if (armature_node_idx >= 0) {
+                        gltf_vertices[i] = C * (M_accum * ps->vertices[i]);
+                    } else {
+                        gltf_vertices[i] = C * ps->vertices[i];
+                    }
                 }
 
                 MeshNormalCalculator normal_calc(*ps, gltf_vertices, face_indices);
@@ -657,6 +683,17 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                         prim.weights_0.push_back(wv[0]); prim.weights_0.push_back(wv[1]);
                         prim.weights_0.push_back(wv[2]); prim.weights_0.push_back(wv[3]);
                     }
+                    else if (armature_node_idx >= 0 && current_bone_joint_idx >= 0) {
+                        // Rigid meshes placed directly in bones get automatically weighted fully to their parent bone
+                        prim.local_joints_0.push_back(current_bone_joint_idx);
+                        prim.local_joints_0.push_back(0);
+                        prim.local_joints_0.push_back(0);
+                        prim.local_joints_0.push_back(0);
+                        prim.weights_0.push_back(1.0f);
+                        prim.weights_0.push_back(0.0f);
+                        prim.weights_0.push_back(0.0f);
+                        prim.weights_0.push_back(0.0f);
+                    }
 
                     vert_to_idx[key] = new_idx;
                     return new_idx;
@@ -679,10 +716,9 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
                 }
 
                 if (!prim.indices.empty()) {
-                    minfo.primitives.push_back(std::move(prim));
+                    target_minfo->primitives.push_back(std::move(prim));
                 }
             }
-            if (!minfo.primitives.empty()) meshes_info.push_back(std::move(minfo));
         }
         return -1;
     }
@@ -1292,7 +1328,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
             tangents.reserve(xmesh.vertexCount * 4);
             new_ind.reserve(xmesh.indexCount);
 
-            std::vector<uint16_t> new_local_joints_0;
+            std::vector<uint32_t> new_local_joints_0;
             std::vector<float> new_weights_0;
             bool has_skin = !prim.local_joints_0.empty();
 
@@ -1387,6 +1423,12 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 for (auto lj : prim.local_joints_0) {
                     prim.joints_0.push_back((uint16_t)joint_mapping[lj]);
                 }
+            } else if (!prim.local_joints_0.empty()) {
+                // Rigid meshes placed inside bones directly hold global joint IDs
+                prim.joints_0.reserve(prim.local_joints_0.size());
+                for (auto lj : prim.local_joints_0) {
+                    prim.joints_0.push_back((uint16_t)lj);
+                }
             }
         }
     }
@@ -1398,7 +1440,7 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
 
         for (size_t p_idx = 0; p_idx < minfo.primitives.size(); ++p_idx) {
             auto& prim = minfo.primitives[p_idx];
-            if (prim.skin_idx >= 0) has_skin = true;
+            if (!prim.joints_0.empty()) has_skin = true;
 
             int pos_accessor_idx = append_to_bin(bin_data, prim.positions, model,
                 TINYGLTF_TARGET_ARRAY_BUFFER, TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3,

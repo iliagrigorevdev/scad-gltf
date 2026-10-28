@@ -345,7 +345,11 @@ ${promptRules}
      - CRITICAL C++ ASSET LOADING RULE: Because the .scad files are compiled to .uasset dynamically during the editor's initial startup, the .uasset files DO NOT EXIST when C++ Class Default Objects (CDO) are constructed.
        * NEVER use \`ConstructorHelpers::FObjectFinder\` or \`FClassFinder\` to reference your generated meshes in C++ constructors! This will crash or fail initialization.
        * INSTEAD, expose the meshes as \`UPROPERTY(EditAnywhere)\` and tell the user to assign them in a derived Blueprint, OR load them dynamically at runtime in \`BeginPlay()\`.
-       * CRITICAL: When loading dynamically via \`LoadObject\`, you MUST account for the Interchange importer's folder structure. The path will always be: \`LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Models/YourModel/StaticMeshes/YourModel.YourModel"))\`.
+       * CRITICAL: When loading dynamically via \`LoadObject\`, you MUST account for the Interchange importer's folder structure based on your model type:
+         - For STATIC meshes: \`LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Models/YourModel/StaticMeshes/YourModel.YourModel"))\`
+         - For ANIMATED models (using \`armature()\`), the importer generates a single unified Skeletal Mesh and an Animation Sequence:
+           * Mesh: \`LoadObject<USkeletalMesh>(nullptr, TEXT("/Game/Models/YourModel/SkeletalMeshes/YourModel.YourModel"))\`
+           * Animation: \`LoadObject<UAnimSequence>(nullptr, TEXT("/Game/Models/YourModel/SkeletalMeshes/YourModel_Anim.YourModel_Anim"))\`
 
 3. Delivery Format (Single Markdown File):
    - Output exactly ONE Markdown response containing all project files.
