@@ -222,8 +222,10 @@ function main() {
           stdio: "inherit",
         });
 
-        console.log(`\n🎮 Launching Unreal Editor...`);
-        appProcess = spawn(editor, [uprojectPath, "-game", "-log"], {
+        console.log(
+          `\n🎮 Launching Unreal Editor (Press 'Play' in the editor to start)...`,
+        );
+        appProcess = spawn(editor, [uprojectPath, "-log"], {
           stdio: "inherit",
         });
       } catch (err) {
