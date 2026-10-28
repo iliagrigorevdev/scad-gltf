@@ -59,6 +59,21 @@ function getScadAssetsInstructions(promptRules, projectType) {
      * OpenSCAD -Y (Back)    -> Godot +Z (Back)
      * OpenSCAD +Z (Up)      -> Godot +Y (Up)
      DO NOT manually apply root rotations (e.g., \`rotate([90, 0, 0])\`) to compensate for Godot.`;
+  } else if (projectType === "ue") {
+    specificRules = `   - Scale & Units: 1 OpenSCAD unit = 1 Meter. (Unreal's GLTF importer automatically scales meters to Unreal centimeters). Design models using realistic meter-based dimensions (e.g., a person/robot ~1.8 units, an industrial machine ~2.5 units, a vehicle ~4.5 units).
+   - Coordinate System & Forward Convention: Unreal Engine uses a Left-Handed Z-Up coordinate system (+X Forward, +Y Right, +Z Up).
+   - CRITICAL Coordinate Mapping: The SCAD-to-glTF exporter converts Z-up to Y-up, and Unreal's Interchange importer converts Y-up back to Z-up, preserving the horizontal axes without a 90-degree yaw rotation. Therefore:
+     * OpenSCAD +X (Forward) -> Unreal +X (Forward)
+     * OpenSCAD -X (Back)    -> Unreal -X (Back)
+     * OpenSCAD -Y (Right)   -> Unreal +Y (Right)
+     * OpenSCAD +Y (Left)    -> Unreal -Y (Left)
+     * OpenSCAD +Z (Up)      -> Unreal +Z (Up)
+   - Modeling Rules for Unreal:
+     * Build objects standing upright on the XY plane (+Z is Up) and oriented with their primary front / functional direction facing POSITIVE X (+X).
+     * Any directional feature (front grill, sensor array, nozzle, cockpit, display screen, or heading) MUST face +X.
+     * Lateral components on the object's right side (e.g., RightWheel, RightArm) are positioned along -Y; components on the left side are positioned along +Y.
+     * Elongated pathways, tracks, conveyors, or primary axes of motion should run along the X-axis, with lateral spans or widths along the Y-axis.
+     * DO NOT apply manual rotation compensations in C++ (e.g., FRotator(0, -90, 0)); models built facing +X naturally align with Unreal's native FVector::ForwardVector.`;
   } else {
     specificRules = `   - CRITICAL: The SCAD to glTF converter automatically converts OpenSCAD's Z-up coordinate system to the standard glTF Y-up coordinate system. Design your models naturally in OpenSCAD.`;
   }
@@ -315,37 +330,21 @@ NAMING CONVENTION REQUIREMENT:
 - NEVER use hyphens/minus signs (\`-\`) or spaces in any file or folder names.
 
 What to generate:
-1. 3D Assets (.scad):
-   - Generate procedural 3D models for the project using OpenSCAD.
-   - Scale & Units: 1 OpenSCAD unit = 1 Meter. (Unreal's GLTF importer automatically scales this to Unreal Units / centimeters). Design your models using realistic meter-based scales (e.g., a character should be ~1.8 units tall).
-   - Coordinate System & Forward Convention: Write standard OpenSCAD Z-up code (+Z is UP, XY plane is ground). Build objects standing upright and facing Front (Positive Y-axis).
-   - Left/Right Convention: Always name and position "left" and "right" components (e.g., LeftArm, RightEye) based on the object's anatomical point of view (facing Forward towards +Y).
-   - CRITICAL Coordinate Mapping: The SCAD to glTF converter combined with Unreal's GLTF importer automatically maps OpenSCAD's coordinate system to Unreal Engine's coordinate system (Z-Up, X-Forward, Y-Right). Design your models naturally in OpenSCAD using this exact mapping:
-     * OpenSCAD +Y (Forward) -> Unreal +X (Forward)
-     * OpenSCAD -Y (Back)    -> Unreal -X (Back)
-     * OpenSCAD +X (Right)   -> Unreal +Y (Right)
-     * OpenSCAD -X (Left)    -> Unreal -Y (Left)
-     * OpenSCAD +Z (Up)      -> Unreal +Z (Up)
-     DO NOT manually apply root rotations in OpenSCAD to compensate for Unreal.
-   - CRITICAL: You must use the custom OpenSCAD glTF extensions for PBR materials (e.g., \`roughness\`, \`metalness\`, \`emissive\`) and Skeletal Animations (\`armature()\`, \`bone()\`). The rules and syntax for these features are provided below:
-
-=== OPENSCAD SYNTAX RULES ===
-${promptRules}
-=============================
+${getScadAssetsInstructions(promptRules, projectType)}
 
 2. Unreal Engine 5 Project Files:
    - Create the necessary C++ files (.h and .cpp), a \`.uproject\` file, and Unreal build system files (\`.Target.cs\`, \`.Build.cs\`) to implement the project logic, responsive user input controls, and a core interaction loop.
    - For all \`.Target.cs\` files, you MUST set \`DefaultBuildSettings = BuildSettingsVersion.Latest;\` and \`IncludeOrderVersion = EngineIncludeOrderVersion.Latest;\`.
    - Configure the project to automatically enable the \`ScadImporter\` plugin and the \`Interchange\` framework in the \`.uproject\` file.
-   - UE C++ Coordinate, Forward, and Left/Right Conventions:
+   - UE C++ Coordinate Conventions:
      * Forward is +X: \`FVector::ForwardVector\` or \`GetActorForwardVector()\`.
      * Right is +Y: \`FVector::RightVector\` or \`GetActorRightVector()\`.
      * Up is +Z: \`FVector::UpVector\` or \`GetActorUpVector()\`.
    - Asset loading: The ScadImporter plugin will automatically compile and import the .scad files into .uasset files (UStaticMesh / USkeletalMesh) on the FIRST launch of the editor.
      - CRITICAL C++ ASSET LOADING RULE: Because the .scad files are compiled to .uasset dynamically during the editor's initial startup, the .uasset files DO NOT EXIST when C++ Class Default Objects (CDO) are constructed.
-       * NEVER use \`ConstructorHelpers::FObjectFinder\` or \`FClassFinder\` to reference your generated meshes in C++ constructors! This will crash or fail initialization.
-       * INSTEAD, expose the meshes as \`UPROPERTY(EditAnywhere)\` and tell the user to assign them in a derived Blueprint, OR load them dynamically at runtime in \`BeginPlay()\`.
-       * CRITICAL: When loading dynamically via \`LoadObject\`, you MUST account for the Interchange importer's folder structure based on your model type:
+       * NEVER use \`ConstructorHelpers::FObjectFinder\` or \`FClassFinder\` to reference your generated meshes in C++ constructors! This will fail initialization.
+       * INSTEAD, expose the meshes as \`UPROPERTY(EditAnywhere)\` or load them dynamically at runtime in \`BeginPlay()\`.
+       * When loading dynamically via \`LoadObject\`, you MUST account for the Interchange importer's folder structure based on your model type:
          - For STATIC meshes: \`LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Models/YourModel/StaticMeshes/YourModel.YourModel"))\`
          - For ANIMATED models (using \`armature()\`), the importer generates a single unified Skeletal Mesh and an Animation Sequence:
            * Mesh: \`LoadObject<USkeletalMesh>(nullptr, TEXT("/Game/Models/YourModel/SkeletalMeshes/YourModel.YourModel"))\`
