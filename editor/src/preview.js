@@ -584,7 +584,7 @@ window.addEventListener("message", async (event) => {
   if (event.data.type === "RENDER_SCAD") {
     latestScadCode = event.data.code;
 
-    const extractedName = extractModelNameFromScad(entryCode);
+    const extractedName = extractModelNameFromScad(latestScadCode);
     if (extractedName) {
       filenameInput.value = extractedName;
     }
