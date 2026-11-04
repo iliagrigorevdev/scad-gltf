@@ -15,7 +15,10 @@ import { convertScadToGltf } from "../src/convert.js";
 import { generatePrompt } from "../src/prompt.js";
 import { getProjectPrompts } from "../src/project-prompts.js";
 import { runGodotAsync } from "../src/godot-utils.js";
-import { writeExtractedFiles } from "../src/cli-utils.js";
+import {
+  writeExtractedFiles,
+  generateScadPreviewUrl,
+} from "../src/cli-utils.js";
 import { extractFilesFromMarkdown } from "../src/utils.js";
 import { getUePaths, buildUeProjectAsync } from "../src/ue-utils.js";
 
@@ -281,6 +284,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
             },
           },
           required: ["project_markdown"],
+        },
+      },
+      {
+        name: "generate_scad_preview_link",
+        description:
+          "Generates a URL to preview OpenSCAD code in the browser. You can provide this link to the user so they can interactively view the 3D model.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            scad_code: {
+              type: "string",
+              description: "The raw OpenSCAD code.",
+            },
+          },
+          required: ["scad_code"],
         },
       },
     ],
@@ -1348,6 +1366,48 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           console.error(`Failed to clean up temp dir: ${cleanupDir}`, e);
         }
       }
+    }
+  }
+
+  // ------------------------------------------
+  // TOOL 6: generate_scad_preview_link
+  // ------------------------------------------
+  if (name === "generate_scad_preview_link") {
+    try {
+      const scadCode = args.scad_code;
+      const baseUrl = "https://iliagrigorevdev.github.io/scad-gltf";
+
+      if (!scadCode) {
+        return {
+          content: [{ type: "text", text: `Error: 'scad_code' is required.` }],
+          isError: true,
+        };
+      }
+
+      const link = generateScadPreviewUrl(scadCode, baseUrl);
+
+      if (!link) {
+        return {
+          content: [
+            { type: "text", text: `Error: Failed to generate preview link.` },
+          ],
+          isError: true,
+        };
+      }
+
+      return {
+        content: [{ type: "text", text: link }],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error generating preview link: ${error.message}`,
+          },
+        ],
+        isError: true,
+      };
     }
   }
 
