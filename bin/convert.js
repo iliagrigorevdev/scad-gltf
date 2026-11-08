@@ -8,7 +8,7 @@ import { extractScadDependencies } from "../src/utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const wasmPath = path.resolve(__dirname, "../src/ext/openscad.wasm");
+const wasmPath = path.resolve(__dirname, "../ext/openscad.wasm");
 
 global.fetch = async (url) => {
   const normalizedPath = url.toString().startsWith("file://")

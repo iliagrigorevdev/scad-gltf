@@ -9,7 +9,7 @@ import { convertScadToGltf } from "../src/convert.js";
 // Resolve the local paths
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const wasmPath = path.resolve(__dirname, "../src/ext/openscad.wasm");
+const wasmPath = path.resolve(__dirname, "../ext/openscad.wasm");
 const editorDir = path.resolve(__dirname, "../editor");
 const editorDistDir = path.join(editorDir, "dist");
 

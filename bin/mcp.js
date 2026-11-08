@@ -24,7 +24,7 @@ import { getUePaths, buildUeProjectAsync } from "../src/ue-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const wasmPath = path.resolve(__dirname, "../src/ext/openscad.wasm");
+const wasmPath = path.resolve(__dirname, "../ext/openscad.wasm");
 
 // Polyfill fetch so the WASM loader works natively in Node.js
 const originalFetch = global.fetch;

@@ -86,7 +86,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 // 1. Locate the WASM file inside node_modules
-const wasmPath = path.resolve("node_modules/scad-gltf/src/ext/openscad.wasm");
+const wasmPath = path.resolve("node_modules/scad-gltf/ext/openscad.wasm");
 
 // 2. Mock fetch to allow the WASM loader to read local files in Node.js
 global.fetch = async (url) => {
@@ -594,8 +594,8 @@ If you modify the C++ code inside the `openscad/` directory, you will need to re
    ```
 4. **Copy the compiled artifacts back to the JavaScript extension:**
    ```bash
-   cp build-web/openscad.js ../src/ext/
-   cp build-web/openscad.wasm ../src/ext/
+   cp build-web/openscad.js ../ext/
+   cp build-web/openscad.wasm ../ext/
    ```
 
 ### Updating the OpenSCAD Subtree

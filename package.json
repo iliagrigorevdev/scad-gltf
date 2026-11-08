@@ -3,7 +3,7 @@
   "version": "0.8.0",
   "description": "WASM build of a custom OpenSCAD fork that compiles .scad scripts directly to glTF/GLB with PBR and animation support",
   "type": "module",
-  "main": "./src/ext/openscad.js",
+  "main": "./ext/openscad.js",
   "author": "Ilia Grigorev",
   "license": "GPL-2.0-or-later",
   "repository": {
@@ -28,6 +28,7 @@
   "files": [
     "bin",
     "src",
+    "ext",
     "godot",
     "rust",
     "ue",
@@ -37,14 +38,14 @@
     "scad-gltf": "./bin/scad-gltf.js"
   },
   "exports": {
-    ".": "./src/ext/openscad.js",
+    ".": "./ext/openscad.js",
     "./convert": "./src/convert.js",
     "./convert.js": "./src/convert.js",
     "./prompt": "./src/prompt.js",
     "./prompt.js": "./src/prompt.js",
     "./utils": "./src/utils.js",
     "./utils.js": "./src/utils.js",
-    "./openscad.wasm": "./src/ext/openscad.wasm"
+    "./openscad.wasm": "./ext/openscad.wasm"
   },
   "scripts": {
     "test": "node --test 'test/**/*.test.js'",

@@ -8,7 +8,7 @@ import { convertScadToGltf } from "../src/convert.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const wasmPath = path.resolve(__dirname, "../src/ext/openscad.wasm");
+const wasmPath = path.resolve(__dirname, "../ext/openscad.wasm");
 
 // Polyfill fetch for Node.js (identical to bin/convert.js)
 const originalFetch = global.fetch;
