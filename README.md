@@ -27,7 +27,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **CLI Converter:** Bundled `scad-gltf convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
 - **MCP Server for AI Agents:** Bundled `scad-gltf mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering and animation frame evaluation.
 - **AI Studio Extension:** Chrome extension to natively preview, prompt, take chat snapshots, open in Scadify, and locally save AI-generated 3D models directly inside Google AI Studio.
-- **Godot 4, Rust Bevy & Web Integration:** Native Godot 4 importer addon and Rust Bevy compile-time `build.rs` integration.
+- **Unreal Engine 5, Godot 4, Rust Bevy & Web Integration:** Native Unreal Engine 5 C++ plugin, Godot 4 importer addon, and Rust Bevy compile-time `build.rs` integration.
 - **Automated AI Generation:** Pass an OpenAI-compatible base URL (and optional API key) to the `scad-gltf gen` CLI tool to automatically spawn a local MCP server, query the LLM via standard endpoints, allow it to visually iterate, and output a ready-to-run game project or raw 3D asset script.
 - **Project Runner:** Bundled `scad-gltf play` CLI utility to safely unpack, build, and launch generated Markdown projects in isolated temporary environments.
 - **Project Extractor:** Bundled `scad-gltf extract` CLI utility to permanently unpack AI-generated Markdown projects to your local filesystem.
@@ -268,7 +268,7 @@ Instead of generating code blindly, the AI can compile its script, render the 3D
 
 - `get_project_prompt`: Generates the specialized system prompt and user input request for creating full procedural 3D projects (Godot, Web, Rust, or pure SCAD).
 - `render_scad_model`: Compiles the generated `.scad` code to GLB and returns base64 images from requested camera angles (front, back, left, right, top, bottom, isometric) and specific animation keyframes.
-- `compile_rust_project` / `test_godot_project`: Tests the generated game projects for compilation and runtime errors.
+- `compile_rust_project` / `test_godot_project` / `compile_ue_project`: Tests the generated game projects for compilation and runtime errors. _(Note: UE compilation requires the `UE_ROOT` environment variable)._
 
 ### Setup
 
@@ -296,6 +296,7 @@ By default, the `scad-gltf gen` utility copies a heavily engineered system promp
 **Supported Generation Types:**
 
 - `scad`: Generate a single raw `.scad` asset file.
+- `ue`: Generate a fully packaged Unreal Engine 5 C++ project.
 - `godot`: Generate a fully packaged Godot 4 game project containing generated assets and GDScript logic.
 - `bevy`: Generate a Rust Bevy game project.
 - `wgpu`: Generate a Rust wgpu graphics project.
@@ -359,7 +360,7 @@ scad-gltf extract generate_godot_project.md
 
 ## Testing Generated Projects (`scad-gltf play`)
 
-The `scad-gltf play` utility is designed to quickly test the single-file Markdown projects produced by the `gen` command. Instead of cluttering your working directory, it unpacks the project into a temporary folder, automatically installs dependencies or builds the project (Godot, Rust Bevy, or Vite), and launches it. Once you close the application, the temporary folder is automatically cleaned up.
+The `scad-gltf play` utility is designed to quickly test the single-file Markdown projects produced by the `gen` command. Instead of cluttering your working directory, it unpacks the project into a temporary folder, automatically installs dependencies or builds the project (Unreal Engine 5, Godot, Rust Bevy, or Vite), and launches it. Once you close the application, the temporary folder is automatically cleaned up. _(Note: Running UE projects requires the `UE_ROOT` environment variable)._
 
 **Usage:**
 
