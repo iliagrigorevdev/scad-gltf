@@ -1758,6 +1758,28 @@ const isLocal = ["localhost", "127.0.0.1", ""].includes(
 );
 editorEl.placeholder = isLocal ? "Enter OpenSCAD code here..." : defaultScad;
 
+window.addEventListener("hashchange", async () => {
+  if (window.location.hash && window.location.hash.length > 1) {
+    try {
+      const hash = window.location.hash.substring(1);
+      const code = await decodeCode(hash);
+      if (code !== null && editorEl.value !== code) {
+        editorEl.value = code;
+        checkChanges();
+        compileAndRender(getEditorContent());
+      }
+    } catch (e) {
+      console.error("Failed to decode hash on change", e);
+    }
+  } else {
+    if (editorEl.value !== "") {
+      editorEl.value = "";
+      checkChanges();
+      compileAndRender(getEditorContent());
+    }
+  }
+});
+
 (async function init() {
   if (isLocal) {
     const url = backendUrlEl.value.trim();
