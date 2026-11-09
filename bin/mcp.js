@@ -192,6 +192,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "string",
               description: "The raw OpenSCAD code to convert and render.",
             },
+            dependencies: {
+              type: "object",
+              additionalProperties: { type: "string" },
+              description:
+                "A dictionary of additional OpenSCAD files where the key is the relative file path (e.g., 'lib.scad') and the value is the raw SCAD code. Used to resolve 'include' or 'use' statements.",
+            },
             camera_angles: {
               type: "array",
               items: {
@@ -379,10 +385,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const animTime = args.animation_time || 0.0;
       const animIndex = args.animation_index || 0;
       const returnImages = args.return_images !== false;
+      const additionalFiles = args.dependencies || {};
 
       // 1. Convert SCAD to GLB ArrayBuffer
       const glbDataArray = await convertScadToGltf(scadCode, {
         wasmUrl: `file://${wasmPath}`,
+        additionalFiles,
       });
 
       if (!returnImages) {
