@@ -632,65 +632,152 @@ captureImageBtn.onclick = () => {
 
 // --- Share Logic ---
 shareBtn.onclick = async () => {
-  let code = editorEl.value.trim();
-  const originalCode = code;
-  const url = new URL(window.location.href);
-  let finalUrl = "";
-
-  if (minifyShareCb && minifyShareCb.checked) {
-    let minified = "";
-    let inString = false;
-    let i = 0;
-    while (i < code.length) {
-      if (inString) {
-        minified += code[i];
-        if (code[i] === '"' && code[i - 1] !== "\\") inString = false;
-        i++;
-      } else {
-        if (code[i] === '"') {
-          inString = true;
-          minified += code[i];
-          i++;
-        } else if (code[i] === "/" && code[i + 1] === "/") {
-          i += 2;
-          while (i < code.length && code[i] !== "\n") i++;
-        } else if (code[i] === "/" && code[i + 1] === "*") {
-          i += 2;
-          while (i < code.length && !(code[i] === "*" && code[i + 1] === "/"))
-            i++;
-          i += 2;
-        } else if (/\s/.test(code[i])) {
-          if (
-            minified.length > 0 &&
-            !/\s/.test(minified[minified.length - 1])
-          ) {
-            minified += " ";
-          }
-          i++;
-        } else {
-          minified += code[i];
-          i++;
-        }
-      }
-    }
-    code = minified.trim();
-  }
-
-  if (!code || (!isServerConnected && originalCode === defaultScad.trim())) {
-    finalUrl = url.origin + url.pathname + url.search;
-  } else {
-    try {
-      const hash = await encodeCode(code);
-      url.hash = hash;
-      finalUrl = url.toString();
-    } catch (err) {
-      finalUrl = url.origin + url.pathname + url.search;
-    }
-  }
-
-  window.history.replaceState(null, "", finalUrl);
+  const originalText = shareBtn.innerText;
+  shareBtn.innerText = "⏳ Preparing...";
+  shareBtn.disabled = true;
 
   try {
+    let mainCode = editorEl.value.trim();
+    const originalCode = mainCode;
+    const url = new URL(window.location.href);
+    let finalUrl = "";
+
+    if (
+      !mainCode ||
+      (!isServerConnected && originalCode === defaultScad.trim())
+    ) {
+      finalUrl = url.origin + url.pathname + url.search;
+    } else {
+      // 1. Minifier helper (strips comments and whitespace safely)
+      const minifyScad = (codeStr) => {
+        let minified = "";
+        let inString = false;
+        let i = 0;
+        while (i < codeStr.length) {
+          if (inString) {
+            minified += codeStr[i];
+            if (codeStr[i] === '"' && codeStr[i - 1] !== "\\") inString = false;
+            i++;
+          } else {
+            if (codeStr[i] === '"') {
+              inString = true;
+              minified += codeStr[i];
+              i++;
+            } else if (codeStr[i] === "/" && codeStr[i + 1] === "/") {
+              i += 2;
+              while (i < codeStr.length && codeStr[i] !== "\n") i++;
+            } else if (codeStr[i] === "/" && codeStr[i + 1] === "*") {
+              i += 2;
+              while (
+                i < codeStr.length &&
+                !(codeStr[i] === "*" && codeStr[i + 1] === "/")
+              )
+                i++;
+              i += 2;
+            } else if (/\s/.test(codeStr[i])) {
+              if (
+                minified.length > 0 &&
+                !/\s/.test(minified[minified.length - 1])
+              ) {
+                minified += " ";
+              }
+              i++;
+            } else {
+              minified += codeStr[i];
+              i++;
+            }
+          }
+        }
+        return minified.trim();
+      };
+
+      // 2. Parse current editor content to see if it's already a bundle
+      let filesToShare = {};
+      const isMd = mainCode.includes("```") && mainCode.includes("###");
+
+      if (isMd) {
+        filesToShare = extractFilesFromMarkdown(mainCode);
+      } else {
+        let mainName = modelNameInputEl.value.trim() || "main.scad";
+        if (
+          !mainName.toLowerCase().endsWith(".scad") &&
+          !mainName.toLowerCase().endsWith(".md")
+        ) {
+          mainName += ".scad";
+        }
+        filesToShare[mainName] = mainCode;
+      }
+
+      // 3. Auto-fetch all dependencies automatically (if connected to local backend)
+      let allCode = Object.values(filesToShare).join("\n");
+      const additionalFiles = await fetchDependenciesWrapper(allCode);
+
+      // Merge fetched files into our sharing bundle
+      for (const [depPath, depContent] of Object.entries(additionalFiles)) {
+        if (!filesToShare[depPath]) {
+          filesToShare[depPath] = depContent;
+        }
+      }
+
+      // 4. Build the final string to encode
+      let finalCodeToEncode = "";
+      const fileNames = Object.keys(filesToShare);
+      const shouldBundle = fileNames.length > 1;
+
+      if (shouldBundle) {
+        // EXPLICIT SORTING LOGIC: Guarantee the primary file is at the top
+        let primaryFile = currentEntryFile;
+
+        // If currentEntryFile isn't set, try to use the input name
+        if (!primaryFile) {
+          primaryFile = modelNameInputEl.value.trim();
+          if (
+            primaryFile &&
+            !primaryFile.toLowerCase().endsWith(".scad") &&
+            !primaryFile.toLowerCase().endsWith(".md")
+          ) {
+            primaryFile += ".scad";
+          }
+        }
+
+        // Fallback to the first file found if it doesn't match
+        if (!primaryFile || !filesToShare[primaryFile]) {
+          primaryFile = fileNames[0];
+        }
+
+        // Create a sorted array with the primary file first
+        const sortedFileNames = [
+          primaryFile,
+          ...fileNames.filter((f) => f !== primaryFile),
+        ];
+
+        // Build Markdown project bundle in exact order
+        for (const fName of sortedFileNames) {
+          let processedContent = filesToShare[fName];
+          if (minifyShareCb && minifyShareCb.checked) {
+            processedContent = minifyScad(processedContent);
+          }
+          finalCodeToEncode += `### ${fName}\n\`\`\`openscad\n${processedContent}\n\`\`\`\n\n`;
+        }
+        finalCodeToEncode = finalCodeToEncode.trim();
+      } else {
+        // Just a single pure SCAD file
+        finalCodeToEncode = filesToShare[fileNames[0]];
+        if (minifyShareCb && minifyShareCb.checked) {
+          finalCodeToEncode = minifyScad(finalCodeToEncode);
+        }
+      }
+
+      // 5. Compress and apply hash to URL
+      const hash = await encodeCode(finalCodeToEncode);
+      url.hash = hash;
+      finalUrl = url.toString();
+    }
+
+    // Update History visually
+    window.history.replaceState(null, "", finalUrl);
+
+    // 6. Trigger native Share or Clipboard
     if (navigator.share) {
       let rawName = modelNameInputEl.value.trim();
       if (rawName.toLowerCase().endsWith(".md")) {
@@ -704,25 +791,26 @@ shareBtn.onclick = async () => {
         title: displayTitle,
         url: finalUrl,
       });
-      const originalText = shareBtn.innerText;
       shareBtn.innerText = "✅ Shared!";
-      setTimeout(() => (shareBtn.innerText = originalText), 2000);
     } else {
       await navigator.clipboard.writeText(finalUrl);
-      const originalText = shareBtn.innerText;
       shareBtn.innerText = "✅ Copied Link!";
-      setTimeout(() => (shareBtn.innerText = originalText), 2000);
     }
   } catch (err) {
     if (err.name !== "AbortError") {
       try {
-        await navigator.clipboard.writeText(finalUrl);
+        await navigator.clipboard.writeText(window.location.href);
         shareBtn.innerText = "✅ Copied Link!";
-        setTimeout(() => (shareBtn.innerText = "🔗 Share"), 2000);
       } catch (fallbackErr) {
         alert("Failed to share or copy link.");
       }
     }
+  } finally {
+    // Reset button after 2 seconds
+    setTimeout(() => {
+      shareBtn.innerText = originalText;
+      shareBtn.disabled = false;
+    }, 2000);
   }
 };
 
