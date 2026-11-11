@@ -57,9 +57,9 @@
     "@modelcontextprotocol/sdk": "^1.32.2",
     "clipboardy": "^5.3.2",
     "express": "^5.3.0",
-    "puppeteer": "^25.16.0"
+    "puppeteer": "^25.17.0"
   },
   "devDependencies": {
-    "prettier": "3.9.10"
+    "prettier": "3.10.0"
   }
 }
