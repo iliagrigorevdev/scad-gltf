@@ -35,6 +35,11 @@ import {
 } from "./shared.js";
 
 // --- UI Elements ---
+const tabEditorBtn = document.getElementById("tab-editor");
+const tabPromptBtn = document.getElementById("tab-prompt");
+const editorTabContent = document.getElementById("editor-tab-content");
+const promptPanel = document.getElementById("prompt-panel");
+
 const promptDescEl = document.getElementById("prompt-desc");
 const copyPromptBtn = document.getElementById("copy-prompt-btn");
 const modelNameInputEl = document.getElementById("model-name-input");
@@ -108,6 +113,22 @@ let gltfLights = [];
 let activeCamera = null;
 let sceneHasLights = false;
 let currentOptimalExposure = 1.0;
+
+// Tab logic
+if (tabEditorBtn && tabPromptBtn && editorTabContent && promptPanel) {
+  tabEditorBtn.addEventListener("click", () => {
+    tabEditorBtn.classList.add("active");
+    tabPromptBtn.classList.remove("active");
+    editorTabContent.style.display = "flex";
+    promptPanel.style.display = "none";
+  });
+  tabPromptBtn.addEventListener("click", () => {
+    tabPromptBtn.classList.add("active");
+    tabEditorBtn.classList.remove("active");
+    promptPanel.style.display = "flex";
+    editorTabContent.style.display = "none";
+  });
+}
 
 // Helper to determine what to render
 function getEditorContent() {
