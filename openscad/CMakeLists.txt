@@ -490,7 +490,10 @@ macro(find_graphics)
       set(GLEW_SOURCES src/glview/glew-utils.cc)
     endif()
 
-    find_package(OpenGL REQUIRED QUIET)
+    find_package(OpenGL QUIET COMPONENTS OpenGL)
+    if (NOT (OpenGL_FOUND OR OpenGL_OpenGL_FOUND))
+      message(FATAL_ERROR "OpenGL not found")
+    endif()
     target_link_libraries(OpenSCADLibInternal PUBLIC ${OPENGL_LIBRARIES})
     message(STATUS "OpenGL: ${OPENGL_LIBRARIES}")
   endif()
@@ -1664,6 +1667,7 @@ file(GLOB_RECURSE TEST_SOURCES
   "src/utils/*_test.cc"
   "src/core/*_test.cc"
   "src/io/*_test.cc"
+  "src/libsvg/*_test.cc"
 )
 file(GLOB_RECURSE GUI_TEST_SOURCES
   "src/gui/*_test.cc"
