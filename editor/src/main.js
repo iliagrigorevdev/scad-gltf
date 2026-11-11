@@ -1,6 +1,6 @@
 import { generatePrompt } from "scad-gltf/prompt";
 import wasmUrl from "scad-gltf/openscad.wasm?url";
-import { convertScadToGltf } from "scad-gltf/convert";
+import { convertScadToGltf, convertScadTo3MF } from "scad-gltf/convert";
 import * as THREE from "three";
 import { WebGLPathTracer } from "three-gpu-pathtracer";
 import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
@@ -49,6 +49,7 @@ const renderBtn = document.getElementById("render-btn");
 const loadScadBtn = document.getElementById("load-scad-btn");
 const downloadScadBtn = document.getElementById("download-scad-btn");
 const exportGltfBtn = document.getElementById("export-gltf-btn");
+const export3mfBtn = document.getElementById("export-3mf-btn");
 const captureImageBtn = document.getElementById("capture-image-btn");
 const shareBtn = document.getElementById("share-btn");
 const autoRenderCb = document.getElementById("auto-render-cb");
@@ -382,6 +383,70 @@ exportGltfBtn.onclick = () => {
     new Blob([currentGltfData], { type: "application/octet-stream" }),
     `${dlName}.glb`,
   );
+};
+
+export3mfBtn.onclick = async () => {
+  let scadCode = getEditorContent();
+  if (!scadCode || scadCode.trim() === "") return;
+
+  const originalText = export3mfBtn.innerText;
+  export3mfBtn.innerText = "⏳ Exporting...";
+  export3mfBtn.disabled = true;
+
+  let entryCode = scadCode;
+  let extractedAdditionalFiles = {};
+
+  const isMd =
+    modelNameInputEl.value.toLowerCase().endsWith(".md") ||
+    (scadCode.includes("```") && scadCode.includes("###"));
+
+  if (isMd) {
+    const files = extractFilesFromMarkdown(scadCode);
+    const scadFiles = Object.keys(files).filter((f) =>
+      f.toLowerCase().endsWith(".scad"),
+    );
+    const targetFile = currentEntryFile || scadFiles[0] || "main.scad";
+
+    if (files[targetFile]) {
+      entryCode = files[targetFile];
+    }
+    for (const [fName, fContent] of Object.entries(files)) {
+      if (fName !== targetFile) {
+        extractedAdditionalFiles[fName] = fContent;
+      }
+    }
+  }
+
+  try {
+    const additionalFiles = await fetchDependenciesWrapper(entryCode);
+    Object.assign(additionalFiles, extractedAdditionalFiles);
+
+    const opts = {
+      wasmUrl: wasmUrl,
+      additionalFiles: additionalFiles,
+      lazyUnion: true,
+    };
+
+    const threeMfData = await convertScadTo3MF(entryCode, opts);
+    let dlName = getDownloadName();
+
+    if (dlName.toLowerCase().endsWith(".md")) {
+      dlName = dlName.substring(0, dlName.length - 3);
+    } else if (dlName.toLowerCase().endsWith(".scad")) {
+      dlName = dlName.substring(0, dlName.length - 5);
+    }
+
+    downloadBlob(
+      new Blob([threeMfData], { type: "application/octet-stream" }),
+      `${dlName}.3mf`,
+    );
+  } catch (e) {
+    console.error(e);
+    alert("Failed to export 3MF: " + e.message);
+  } finally {
+    export3mfBtn.innerText = originalText;
+    export3mfBtn.disabled = false;
+  }
 };
 
 function updateCaptureButtonState() {

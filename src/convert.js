@@ -25,19 +25,8 @@ function mkdirp(fs, pathStr) {
   }
 }
 
-/**
- * Converts SCAD code to a GLTF/GLB Uint8Array using the OpenSCAD WASM compiler.
- * @param {string} scadCode - The OpenSCAD code to compile.
- * @param {Object} [options={}] - Options object.
- * @param {string} [options.wasmUrl] - Optional URL to the openscad.wasm file, useful for bundlers or extensions.
- * @param {boolean} [options.binary=true] - Whether to compile to a binary GLB (true) or normal GLTF (false).
- * @param {boolean} [options.lazyUnion=false] - Whether to apply the lazy union optimization (--enable=lazy-union).
- * @param {Object} [options.additionalFiles={}] - Key-value pair of relative file paths to their string contents for include/use resolution.
- * @returns {Promise<Uint8Array>} The resulting GLB/GLTF data.
- */
-export async function convertScadToGltf(scadCode, options = {}) {
+async function executeOpenScad(scadCode, outputExt, options = {}) {
   const wasmUrl = options.wasmUrl;
-  const isBinary = options.binary !== undefined ? options.binary : true;
   const lazyUnion = options.lazyUnion !== undefined ? options.lazyUnion : false;
 
   // Initialize a NEW instance every time because callMain terminates the WASM environment
@@ -67,14 +56,13 @@ export async function convertScadToGltf(scadCode, options = {}) {
     }
   }
 
-  const outputExt = isBinary ? "glb" : "gltf";
   const inputName = `${WORK_DIR}/input.scad`;
   const outputName = `${WORK_DIR}/output.${outputExt}`;
 
   // Write the input SCAD code
   instance.FS.writeFile(inputName, scadCode);
 
-  // Compile to GLTF/GLB
+  // Compile
   const args = [inputName, "-o", outputName];
   if (lazyUnion) {
     args.push("--enable=lazy-union");
@@ -91,4 +79,33 @@ export async function convertScadToGltf(scadCode, options = {}) {
   // Read the resulting byte array back from the virtual file system
   const outputArray = instance.FS.readFile(outputName);
   return outputArray;
+}
+
+/**
+ * Converts SCAD code to a GLTF/GLB Uint8Array using the OpenSCAD WASM compiler.
+ * @param {string} scadCode - The OpenSCAD code to compile.
+ * @param {Object} [options={}] - Options object.
+ * @param {string} [options.wasmUrl] - Optional URL to the openscad.wasm file, useful for bundlers or extensions.
+ * @param {boolean} [options.binary=true] - Whether to compile to a binary GLB (true) or normal GLTF (false).
+ * @param {boolean} [options.lazyUnion=false] - Whether to apply the lazy union optimization (--enable=lazy-union).
+ * @param {Object} [options.additionalFiles={}] - Key-value pair of relative file paths to their string contents for include/use resolution.
+ * @returns {Promise<Uint8Array>} The resulting GLB/GLTF data.
+ */
+export async function convertScadToGltf(scadCode, options = {}) {
+  const isBinary = options.binary !== undefined ? options.binary : true;
+  const outputExt = isBinary ? "glb" : "gltf";
+  return executeOpenScad(scadCode, outputExt, options);
+}
+
+/**
+ * Converts SCAD code to a 3MF Uint8Array using the OpenSCAD WASM compiler.
+ * @param {string} scadCode - The OpenSCAD code to compile.
+ * @param {Object} [options={}] - Options object.
+ * @param {string} [options.wasmUrl] - Optional URL to the openscad.wasm file.
+ * @param {boolean} [options.lazyUnion=false] - Whether to apply the lazy union optimization (--enable=lazy-union).
+ * @param {Object} [options.additionalFiles={}] - Key-value pair of relative file paths to their string contents for include/use resolution.
+ * @returns {Promise<Uint8Array>} The resulting 3MF data.
+ */
+export async function convertScadTo3MF(scadCode, options = {}) {
+  return executeOpenScad(scadCode, "3mf", options);
 }

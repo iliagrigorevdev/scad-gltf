@@ -21,7 +21,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
   - **Smooth Skinning / Soft-Body Deformation:** Bind flexible meshes to multiple bones using the `skin()` module with procedural 3D vertex weight functions. Exports standard glTF joints, weights, and inverse bind matrices.
 - **Texture Baking:** Automatically generate UVs and bake high-poly details (colors, normals, ORM) onto low-poly meshes using the new `bake()` module.
 - **Scene Lighting:** Spawn precise light sources within your hierarchy (point, directional, spot) using the `light()` module, exporting directly to glTF.
-- **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, video/image export, URL sharing, and `.scad` / `.hdr` drag-and-drop.
+- **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, 3MF export for 3D printing, video/image export, URL sharing, and `.scad` / `.hdr` drag-and-drop.
 - **LLM Friendly:** Includes a built-in modular prompt generator (`prompt.js` and Web UI) to help AI models (like Gemini, Claude, or ChatGPT) write compatible OpenSCAD scripts utilizing the new features.
 - **Local API Server & Editor:** Bundled `scad-gltf serve` CLI utility to manage local `.scad` files remotely via REST API with automatic `include`/`use` dependency resolution.
 - **CLI Converter:** Bundled `scad-gltf convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
@@ -46,7 +46,7 @@ The built-in web editor (**Scadify**) provides a full-featured development envir
   - **📷 PNG Snapshots:** Export high-resolution renders with a single click.
   - **🎥 Video Recording:** Record animation loops directly to MP4/WebM. When Path Tracing is enabled, frames are rendered deterministically for jitter-free, ultra-high-quality animated video captures.
 - **Compressed URL Sharing:** Share your designs instantly via URL hash using client-side raw Deflate compression with an optional **Minify Share** toggle to strip comments and whitespace. Integrates with the Web Share API on supported devices.
-- **File Management & Drag and Drop:** Load local `.scad` files, drop any `.scad` script or `.hdr` environment map directly onto the viewport, download `.scad` source code, or export `.glb` binaries.
+- **File Management & Drag and Drop:** Load local `.scad` files, drop any `.scad` script or `.hdr` environment map directly onto the viewport, download `.scad` source code, or export `.glb` binaries and `.3mf` files (with lazy-union enabled) for 3D printing.
 - **Automatic Model Naming:** Extracts model names automatically from `/* Model Name: ... */` header comments for file downloads and exports.
 - **Local Workspace Sync:** Connect to `scad-gltf serve` on localhost to load, edit, save, and delete `.scad` files with change detection and recursive dependency resolution (`include` / `use`).
 - **PWA Support:** Installable as a Progressive Web App for desktop and mobile.
@@ -80,7 +80,7 @@ The package provides a convenient `convert.js` wrapper to handle the Emscripten 
 _Note: Because the underlying WASM loader was compiled for the web, it expects the modern `fetch()` API. In Node.js, we provide the path to the `.wasm` file and polyfill `fetch` so it can read local files from disk._
 
 ```javascript
-import { convertScadToGltf } from "scad-gltf/convert";
+import { convertScadToGltf, convertScadTo3MF } from "scad-gltf/convert";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -123,6 +123,14 @@ async function buildModel() {
     // Save to disk (or send to a client, load into Three.js, etc.)
     fs.writeFileSync("output.glb", glbData);
     console.log("Successfully compiled to output.glb!");
+
+    // 4. Or compile directly to 3MF for 3D printing
+    const threeMfData = await convertScadTo3MF(scadCode, {
+      wasmUrl: `file://${wasmPath}`,
+      lazyUnion: true,
+    });
+    fs.writeFileSync("output.3mf", threeMfData);
+    console.log("Successfully compiled to output.3mf!");
   } catch (error) {
     console.error("Compilation failed:", error);
   }
@@ -138,6 +146,7 @@ buildModel();
 | `wasmUrl`         | `string`  | `undefined` | Absolute file URL or HTTP URL pointing to `openscad.wasm`.                                       |
 | `binary`          | `boolean` | `true`      | When `true`, outputs binary GLB. When `false`, outputs glTF text/JSON.                           |
 | `variables`       | `Object`  | `undefined` | Key-value pairs passed as `-D <key>=<value>` parameters to OpenSCAD.                             |
+| `lazyUnion`       | `boolean` | `false`     | Enables OpenSCAD `--enable=lazy-union` optimization.                                             |
 | `additionalFiles` | `Object`  | `{}`        | Map of relative virtual file paths to file contents for resolving `include <...>` / `use <...>`. |
 
 ### Using in Web Bundlers (Webpack / Vite)
