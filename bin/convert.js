@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import crypto from "crypto";
-import { convertScadToGltf } from "../src/convert.js";
+import { convertScadToGltf, convertScadTo3MF } from "../src/convert.js";
 import { extractScadDependencies } from "../src/utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -61,7 +61,7 @@ async function run() {
 
   if (!inputPath || !outputPath) {
     console.error(
-      "Usage: scad-gltf convert <input.scad | input_dir> <output.glb | output_dir> [options_json] [--cache]",
+      "Usage: scad-gltf convert <input.scad | input_dir> <output.glb | output.3mf | output_dir> [options_json] [--cache]",
     );
     process.exit(1);
   }
@@ -120,7 +120,7 @@ async function run() {
       finalOutputPath = path.join(outputPath, `${baseName}.glb`);
     } else {
       const ext = path.extname(outputPath).toLowerCase();
-      if (ext !== ".glb" && ext !== ".gltf") {
+      if (ext !== ".glb" && ext !== ".gltf" && ext !== ".3mf") {
         fs.mkdirSync(outputPath, { recursive: true });
         const baseName = path.basename(file, path.extname(file));
         finalOutputPath = path.join(outputPath, `${baseName}.glb`);
@@ -181,13 +181,15 @@ async function run() {
     }
 
     try {
-      const glbData = await convertScadToGltf(scadCode, {
+      const is3mf = path.extname(finalOutputPath).toLowerCase() === ".3mf";
+      const convertFn = is3mf ? convertScadTo3MF : convertScadToGltf;
+      const outputData = await convertFn(scadCode, {
         wasmUrl: pathToFileURL(wasmPath).href,
         additionalFiles,
         ...options,
       });
 
-      fs.writeFileSync(finalOutputPath, glbData);
+      fs.writeFileSync(finalOutputPath, outputData);
 
       if (useCache) {
         fs.writeFileSync(
