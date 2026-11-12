@@ -29,7 +29,7 @@ func _import_scene(path: String, flags: int, options: Dictionary) -> Object:
 		exit_code = OS.execute("scad-gltf", args, output, true)
 
 	if exit_code != 0:
-		push_error(Failed to compile SCAD file: %s. Ensure scad-gltf is installed." % path.get_file())
+		push_error("Failed to compile SCAD file: %s. Ensure scad-gltf is installed." % path.get_file())
 		push_error("scad-gltf convert output: ", "\n".join(output))
 		return null
 
