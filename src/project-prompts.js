@@ -272,6 +272,7 @@ ${getScadAssetsInstructions(promptRules, projectType)}
      * Left/Right Convention in Godot Script: Maintain anatomical consistency in scripts—character Right is along +X (\`transform.basis.x\`) and character Left is along -X (\`-transform.basis.x\`).
      * Natural Model Alignment: Because OpenSCAD models face +Y (Forward), they automatically import facing Godot's Forward direction (-Z). Built-in Godot methods like \`look_at()\` orient the node's -Z axis toward the target, which perfectly aligns with the model's front. Do NOT apply compensation rotations (e.g., \`rotate_y(PI)\`) in GDScript to compensate for model orientation.
    - Generate a \`project.godot\` file. It must configure the project and automatically enable the \`scad_importer\` plugin.
+   - Do NOT use \`preload("res://...scad")\` at the top of GDScript files, because Godot may parse scripts before the \`.scad\` importer finishes on the initial project scan. Instead, instance \`.scad\` files directly in \`.tscn\` scenes or load them dynamically with \`load("res://...scad")\` inside \`_ready()\`.
 
 ${getDeliveryFormat(projectType, null, hasUserScadFiles)}`;
 
