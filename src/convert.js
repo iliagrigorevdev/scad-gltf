@@ -81,6 +81,18 @@ async function executeOpenScad(scadCode, outputExt, options = {}) {
   return outputArray;
 }
 
+export const SUPPORTED_EXTENSIONS = new Set([
+  "glb",
+  "gltf",
+  "3mf",
+  "stl",
+  "obj",
+  "off",
+  "wrl",
+  "csg",
+  "svg",
+]);
+
 /**
  * Converts SCAD code to a GLTF/GLB Uint8Array using the OpenSCAD WASM compiler.
  * @param {string} scadCode - The OpenSCAD code to compile.
@@ -109,3 +121,28 @@ export async function convertScadToGltf(scadCode, options = {}) {
 export async function convertScadTo3MF(scadCode, options = {}) {
   return executeOpenScad(scadCode, "3mf", options);
 }
+
+/**
+ * Converts SCAD code to any OpenSCAD supported export format.
+ * @param {string} scadCode - The OpenSCAD code to compile.
+ * @param {string} format - Target format or file extension (e.g. "stl", "obj", "3mf", "svg", "glb", "gltf").
+ * @param {Object} [options={}] - Options object.
+ * @returns {Promise<Uint8Array>} The resulting file data.
+ */
+export async function convertScad(scadCode, format, options = {}) {
+  const ext = format.replace(/^\./, "").toLowerCase();
+  if (ext === "gltf") {
+    const isBinary = options.binary !== undefined ? options.binary : false;
+    return convertScadToGltf(scadCode, { ...options, binary: isBinary });
+  }
+  if (ext === "glb") {
+    const isBinary = options.binary !== undefined ? options.binary : true;
+    return convertScadToGltf(scadCode, { ...options, binary: isBinary });
+  }
+  if (ext === "3mf") {
+    return convertScadTo3MF(scadCode, options);
+  }
+  return executeOpenScad(scadCode, ext, options);
+}
+
+export const convertScadToFormat = convertScad;

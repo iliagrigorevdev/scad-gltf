@@ -14,7 +14,9 @@ const commands = {
 if (!command || !commands[command]) {
   console.error("Usage: scad-gltf <command> [options]");
   console.error("\nAvailable commands:");
-  console.error("  convert   Convert .scad files to .glb binaries");
+  console.error(
+    "  convert   Convert .scad files to 3D/2D export formats (.glb, .gltf, .3mf, .stl, .svg, etc.)",
+  );
   console.error("  serve     Start local API server and Web Editor");
   console.error("  mcp       Start the Model Context Protocol (MCP) server");
   console.error(

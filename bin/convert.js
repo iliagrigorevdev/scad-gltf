@@ -3,7 +3,12 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import crypto from "crypto";
-import { convertScadToGltf, convertScadTo3MF } from "../src/convert.js";
+import {
+  convertScad,
+  convertScadToGltf,
+  convertScadTo3MF,
+  SUPPORTED_EXTENSIONS,
+} from "../src/convert.js";
 import { extractScadDependencies } from "../src/utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -61,7 +66,10 @@ async function run() {
 
   if (!inputPath || !outputPath) {
     console.error(
-      "Usage: scad-gltf convert <input.scad | input_dir> <output.glb | output.gltf | output.3mf | output_dir> [options_json] [--cache]",
+      "Usage: scad-gltf convert <input.scad | input_dir> <output_file | output_dir> [options_json] [--cache]",
+    );
+    console.error(
+      "Supported formats: .glb, .gltf, .3mf, .stl, .obj, .off, .wrl, .csg, .svg",
     );
     process.exit(1);
   }
@@ -112,18 +120,22 @@ async function run() {
   for (const file of inputFiles) {
     let finalOutputPath = outputPath;
 
+    const defaultExt = (
+      options.format ? options.format.replace(/^\./, "") : "glb"
+    ).toLowerCase();
+
     if (
       isInputDirectory ||
       (fs.existsSync(outputPath) && fs.statSync(outputPath).isDirectory())
     ) {
       const baseName = path.basename(file, path.extname(file));
-      finalOutputPath = path.join(outputPath, `${baseName}.glb`);
+      finalOutputPath = path.join(outputPath, `${baseName}.${defaultExt}`);
     } else {
-      const ext = path.extname(outputPath).toLowerCase();
-      if (ext !== ".glb" && ext !== ".gltf" && ext !== ".3mf") {
+      const ext = path.extname(outputPath).toLowerCase().replace(/^\./, "");
+      if (!SUPPORTED_EXTENSIONS.has(ext)) {
         fs.mkdirSync(outputPath, { recursive: true });
         const baseName = path.basename(file, path.extname(file));
-        finalOutputPath = path.join(outputPath, `${baseName}.glb`);
+        finalOutputPath = path.join(outputPath, `${baseName}.${defaultExt}`);
       } else {
         const parentDir = path.dirname(outputPath);
         if (!fs.existsSync(parentDir))
@@ -181,18 +193,19 @@ async function run() {
     }
 
     try {
-      const outExt = path.extname(finalOutputPath).toLowerCase();
-      const is3mf = outExt === ".3mf";
-      const isGltf = outExt === ".gltf";
-      const convertFn = is3mf ? convertScadTo3MF : convertScadToGltf;
+      const outExt = path
+        .extname(finalOutputPath)
+        .toLowerCase()
+        .replace(/^\./, "");
+
       const convertOptions = {
         wasmUrl: pathToFileURL(wasmPath).href,
         additionalFiles,
-        ...(isGltf ? { binary: false } : {}),
+        ...(outExt === "gltf" ? { binary: false } : {}),
         ...options,
       };
 
-      const outputData = await convertFn(scadCode, convertOptions);
+      const outputData = await convertScad(scadCode, outExt, convertOptions);
 
       fs.writeFileSync(finalOutputPath, outputData);
 
