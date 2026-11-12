@@ -61,7 +61,7 @@ async function run() {
 
   if (!inputPath || !outputPath) {
     console.error(
-      "Usage: scad-gltf convert <input.scad | input_dir> <output.glb | output.3mf | output_dir> [options_json] [--cache]",
+      "Usage: scad-gltf convert <input.scad | input_dir> <output.glb | output.gltf | output.3mf | output_dir> [options_json] [--cache]",
     );
     process.exit(1);
   }
@@ -181,13 +181,18 @@ async function run() {
     }
 
     try {
-      const is3mf = path.extname(finalOutputPath).toLowerCase() === ".3mf";
+      const outExt = path.extname(finalOutputPath).toLowerCase();
+      const is3mf = outExt === ".3mf";
+      const isGltf = outExt === ".gltf";
       const convertFn = is3mf ? convertScadTo3MF : convertScadToGltf;
-      const outputData = await convertFn(scadCode, {
+      const convertOptions = {
         wasmUrl: pathToFileURL(wasmPath).href,
         additionalFiles,
+        ...(isGltf ? { binary: false } : {}),
         ...options,
-      });
+      };
+
+      const outputData = await convertFn(scadCode, convertOptions);
 
       fs.writeFileSync(finalOutputPath, outputData);
 
