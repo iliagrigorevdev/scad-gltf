@@ -9,6 +9,7 @@ const commands = {
   gen: "./gen.js",
   play: "./play.js",
   extract: "./extract.js",
+  pack: "./pack.js",
 };
 
 if (!command || !commands[command]) {
@@ -27,6 +28,9 @@ if (!command || !commands[command]) {
   );
   console.error(
     "  extract   Extract a generated Markdown project to your local filesystem",
+  );
+  console.error(
+    "  pack      Pack files in a directory into a single Markdown project file",
   );
   process.exit(1);
 }

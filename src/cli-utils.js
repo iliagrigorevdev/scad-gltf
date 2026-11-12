@@ -170,6 +170,84 @@ export function writeExtractedFiles(files, targetDir) {
   }
 }
 
+const DEFAULT_IGNORED_DIRS = new Set([
+  ".git",
+  "node_modules",
+  "target",
+  ".godot",
+  ".import",
+  "dist",
+  "build",
+  "__pycache__",
+  ".vs",
+  ".vscode",
+  "Binaries",
+  "Intermediate",
+  "Saved",
+]);
+
+function isBinaryBuffer(buffer) {
+  const checkLen = Math.min(buffer.length, 8192);
+  for (let i = 0; i < checkLen; i++) {
+    if (buffer[i] === 0) return true;
+  }
+  return false;
+}
+
+export function collectFilesFromDirectory(inputDir, options = {}) {
+  const absInputDir = path.resolve(inputDir);
+  const rootName = path.basename(absInputDir);
+  const includeRoot = options.includeRoot !== false;
+  const ignoredDirs = options.ignoredDirs || DEFAULT_IGNORED_DIRS;
+  const excludePath = options.excludePath
+    ? path.resolve(options.excludePath)
+    : null;
+
+  const files = {};
+  const skippedBinary = [];
+  const skippedInvalidPath = [];
+
+  function walk(currentDir) {
+    const entries = fs
+      .readdirSync(currentDir, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const entry of entries) {
+      const fullPath = path.join(currentDir, entry.name);
+
+      if (entry.isDirectory()) {
+        if (ignoredDirs.has(entry.name)) continue;
+        walk(fullPath);
+      } else if (entry.isFile()) {
+        if (excludePath && path.resolve(fullPath) === excludePath) {
+          continue;
+        }
+
+        const relPath = path
+          .relative(absInputDir, fullPath)
+          .replace(/\\/g, "/");
+        const displayPath = includeRoot ? `${rootName}/${relPath}` : relPath;
+
+        if (/\s/.test(displayPath)) {
+          skippedInvalidPath.push(displayPath);
+          continue;
+        }
+
+        const buffer = fs.readFileSync(fullPath);
+        if (isBinaryBuffer(buffer)) {
+          skippedBinary.push(displayPath);
+          continue;
+        }
+
+        files[displayPath] = buffer.toString("utf-8").replace(/\r\n/g, "\n");
+      }
+    }
+  }
+
+  walk(absInputDir);
+  return { files, skippedBinary, skippedInvalidPath };
+}
+
 export async function runAutomatedAIFlow(
   apiKey,
   baseUrl,
