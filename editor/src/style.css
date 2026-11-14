@@ -452,3 +452,120 @@ input[type="range"]::-webkit-slider-thumb {
   z-index: 10;
   backdrop-filter: blur(4px);
 }
+
+/* --- Godot Web Player --- */
+button.godot-btn {
+  background: #2b7a4b;
+  border-color: #21603b;
+}
+button.godot-btn:hover {
+  background: #35945b;
+}
+
+#godot-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #111;
+  z-index: 15;
+}
+
+#godot-viewport {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+}
+
+#godot-viewport iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+#godot-controls {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  display: flex;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 6px 10px;
+  border-radius: 6px;
+  z-index: 20;
+  align-items: center;
+  backdrop-filter: blur(4px);
+}
+
+#godot-controls button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 13px;
+  height: 28px;
+  padding: 0 8px;
+}
+
+#godot-controls button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #00aaff;
+}
+
+#godot-status-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 14px 20px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  font-size: 13px;
+  max-width: 80%;
+  text-align: center;
+  z-index: 25;
+  white-space: pre-wrap;
+}
+
+#godot-logs-drawer {
+  height: 180px;
+  background: #161616;
+  border-top: 1px solid #444;
+  display: flex;
+  flex-direction: column;
+  z-index: 20;
+}
+
+#godot-logs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 10px;
+  background: #222;
+  border-bottom: 1px solid #333;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+#godot-logs-header button {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+#godot-logs-output {
+  flex: 1;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #ccc;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

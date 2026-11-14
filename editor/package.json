@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "setup:godot": "node ./scripts/setup-godot-web.js",
+    "predev": "node ./scripts/setup-godot-web.js",
     "dev": "vite",
+    "prebuild": "node ./scripts/setup-godot-web.js",
     "build": "vite build",
     "preview": "vite preview"
   },

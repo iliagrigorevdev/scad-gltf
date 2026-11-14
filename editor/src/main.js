@@ -20,6 +20,7 @@ import defaultScad from "./default.scad?raw";
 import {
   extractFilesFromMarkdown,
   extractModelNameFromScad,
+  getMarkdownLangFromPath,
 } from "scad-gltf/utils";
 import {
   updateCameraAspect,
@@ -33,6 +34,10 @@ import {
   applyDynamicBoundsToLights,
   extractCamerasAndLights,
 } from "./shared.js";
+import {
+  parseGodotMarkdownProject,
+  compileGodotProjectToPck,
+} from "./godot-project.js";
 
 // --- UI Elements ---
 const tabEditorBtn = document.getElementById("tab-editor");
@@ -80,6 +85,20 @@ const fullscreenBtn = document.getElementById("fullscreen-btn");
 const screenshotBtn = document.getElementById("screenshot-btn");
 const cameraSelect = document.getElementById("camera-select");
 
+const playGodotBtn = document.getElementById("play-godot-btn");
+const godotPanel = document.getElementById("godot-panel");
+const godotViewport = document.getElementById("godot-viewport");
+const godotStatusOverlay = document.getElementById("godot-status-overlay");
+const godotRestartBtn = document.getElementById("godot-restart-btn");
+const godotStopBtn = document.getElementById("godot-stop-btn");
+const godotLogsBtn = document.getElementById("godot-logs-btn");
+const godotScreenshotBtn = document.getElementById("godot-screenshot-btn");
+const godotFullscreenBtn = document.getElementById("godot-fullscreen-btn");
+const godotLogsDrawer = document.getElementById("godot-logs-drawer");
+const godotLogsOutput = document.getElementById("godot-logs-output");
+const godotLogsClearBtn = document.getElementById("godot-logs-clear-btn");
+const viewerControlsEl = document.getElementById("viewer-controls");
+
 let currentSelectedModelIdx = "";
 let currentEntryFile = null;
 let currentMesh = null;
@@ -114,6 +133,12 @@ let gltfLights = [];
 let activeCamera = null;
 let sceneHasLights = false;
 let currentOptimalExposure = 1.0;
+
+let isGodotProject = false;
+let isGodotPlaying = false;
+let godotIframe = null;
+let godotRunToken = 0;
+const godotScadCache = new Map();
 
 // Tab logic
 if (tabEditorBtn && tabPromptBtn && editorTabContent && promptPanel) {
@@ -201,8 +226,67 @@ async function fetchDependenciesWrapper(code) {
   return fetchDependencies(code, currentBackendUrl, null);
 }
 
-async function compileAndRender(scadCode) {
+async function compileAndRender(scadCode, compileOptions = {}) {
+  const { autoLaunchGodot = false } = compileOptions;
   if (typeof scadCode !== "string") return;
+
+  const godotProject = parseGodotMarkdownProject(scadCode);
+  if (godotProject) {
+    isGodotProject = true;
+    if (playGodotBtn) {
+      playGodotBtn.style.display = "flex";
+      playGodotBtn.innerText = isGodotPlaying
+        ? "🔄 Restart Godot"
+        : "🎮 Play Godot";
+    }
+
+    const allFiles = Object.keys(godotProject.files);
+    const scadFiles = allFiles.filter((f) => f.toLowerCase().endsWith(".scad"));
+    const displayFiles = allFiles.map((f) => `${godotProject.rootPrefix}${f}`);
+
+    if (displayFiles.length > 0) {
+      entryFileSelect.style.display = "flex";
+      const currentOptions = Array.from(entryFileSelect.options)
+        .map((o) => o.value)
+        .join(",");
+      const newOptions = displayFiles.join(",");
+      if (currentOptions !== newOptions) {
+        entryFileSelect.innerHTML = "";
+        displayFiles.forEach((f) => {
+          const opt = document.createElement("option");
+          opt.value = f;
+          opt.innerText = f;
+          entryFileSelect.appendChild(opt);
+        });
+      }
+      if (!displayFiles.includes(currentEntryFile)) {
+        const defaultScadRel = scadFiles[0]
+          ? `${godotProject.rootPrefix}${scadFiles[0]}`
+          : displayFiles[0];
+        currentEntryFile = defaultScadRel;
+      }
+      entryFileSelect.value = currentEntryFile;
+    }
+
+    if (!modelNameInputEl.value.trim()) {
+      modelNameInputEl.value = `${godotProject.projectName}.md`;
+      checkChanges();
+    }
+
+    if (autoLaunchGodot) {
+      launchGodotProject(godotProject);
+      return;
+    }
+
+    if (isGodotPlaying) {
+      return;
+    }
+  } else {
+    isGodotProject = false;
+    if (playGodotBtn) playGodotBtn.style.display = "none";
+    if (isGodotPlaying) stopGodotPlayer();
+  }
+
   if (isCompiling) {
     pendingCode = scadCode;
     return;
@@ -269,7 +353,9 @@ async function compileAndRender(scadCode) {
     currentEntryFile = null;
   }
 
-  const extractedName = extractModelNameFromScad(entryCode);
+  const extractedName = !isGodotProject
+    ? extractModelNameFromScad(entryCode)
+    : null;
   if (extractedName) {
     const newName =
       isMd && !extractedName.toLowerCase().endsWith(".md")
@@ -349,7 +435,7 @@ loadScadBtn.onclick = () => {
         const text = await e.target.files[0].text();
         editorEl.value = text;
         checkChanges();
-        compileAndRender(text);
+        compileAndRender(text, { autoLaunchGodot: true });
       } catch (err) {
         alert("Failed to read file: " + err.message);
       }
@@ -840,12 +926,12 @@ shareBtn.onclick = async () => {
         // Build Markdown project bundle in exact order
         for (const fName of sortedFileNames) {
           let processedContent = filesToShare[fName];
-          if (minifyShareCb && minifyShareCb.checked) {
+          const lang = getMarkdownLangFromPath(fName);
+          if (lang === "openscad" && minifyShareCb && minifyShareCb.checked) {
             processedContent = minifyScad(processedContent);
           }
-          finalCodeToEncode += `### ${fName}\n\`\`\`openscad\n${processedContent}\n\`\`\`\n\n`;
+          finalCodeToEncode += `### ${fName}\n\`\`\`${lang}\n${processedContent}\n\`\`\`\n\n`;
         }
-        finalCodeToEncode = finalCodeToEncode.trim();
       } else {
         // Just a single pure SCAD file
         finalCodeToEncode = filesToShare[fileNames[0]];
@@ -899,6 +985,191 @@ shareBtn.onclick = async () => {
     }, 2000);
   }
 };
+
+function appendGodotLog(text, level = "info") {
+  if (!godotLogsOutput || !text) return;
+  const prefix = level === "error" ? "[ERR] " : "";
+  godotLogsOutput.textContent += `${prefix}${text}\n`;
+  godotLogsOutput.scrollTop = godotLogsOutput.scrollHeight;
+  if (level === "error" && godotLogsDrawer) {
+    godotLogsDrawer.style.display = "flex";
+  }
+}
+
+function stopGodotPlayer() {
+  godotRunToken++;
+  isGodotPlaying = false;
+  if (godotIframe) {
+    godotIframe.remove();
+    godotIframe = null;
+  }
+  if (godotStatusOverlay) godotStatusOverlay.style.display = "none";
+  if (godotPanel) godotPanel.style.display = "none";
+  if (viewerEl) viewerEl.style.display = "";
+  if (viewerControlsEl) viewerControlsEl.style.display = "";
+  if (playGodotBtn) playGodotBtn.innerText = "🎮 Play Godot";
+  window.dispatchEvent(new Event("resize"));
+}
+
+async function launchGodotProject(project) {
+  if (!project) return;
+  const token = ++godotRunToken;
+
+  if (godotIframe) {
+    godotIframe.remove();
+    godotIframe = null;
+  }
+
+  isGodotPlaying = true;
+  if (playGodotBtn) playGodotBtn.innerText = "🔄 Restart Godot";
+  if (viewerEl) viewerEl.style.display = "none";
+  if (viewerControlsEl) viewerControlsEl.style.display = "none";
+  if (godotPanel) godotPanel.style.display = "flex";
+  if (godotLogsOutput) godotLogsOutput.textContent = "";
+  if (godotStatusOverlay) {
+    godotStatusOverlay.style.display = "block";
+    godotStatusOverlay.innerText = "Preparing Godot project...";
+  }
+
+  try {
+    const { pckBuffer, logs, compiledCount } = await compileGodotProjectToPck(
+      project,
+      {
+        wasmUrl,
+        scadCache: godotScadCache,
+        onProgress: (msg) => {
+          if (token === godotRunToken && godotStatusOverlay) {
+            godotStatusOverlay.innerText = msg;
+          }
+        },
+      },
+    );
+
+    if (token !== godotRunToken) return;
+
+    logs.forEach((l) => appendGodotLog(l));
+    appendGodotLog(
+      `[Web] Packed ${project.projectName} (${compiledCount} SCAD model(s), ${(pckBuffer.byteLength / 1024).toFixed(1)} KB .pck)`,
+    );
+
+    if (godotStatusOverlay) {
+      godotStatusOverlay.innerText = "Starting Godot Web Runtime...";
+    }
+
+    const iframe = document.createElement("iframe");
+    iframe.src = "./godot-player.html";
+    iframe.allow = "fullscreen; autoplay";
+    iframe.allowFullscreen = true;
+    godotIframe = iframe;
+    godotViewport.innerHTML = "";
+    godotViewport.appendChild(iframe);
+
+    const pckArrayBuffer = pckBuffer.buffer.slice(
+      pckBuffer.byteOffset,
+      pckBuffer.byteOffset + pckBuffer.byteLength,
+    );
+
+    const onMessage = (event) => {
+      if (event.source !== iframe.contentWindow) return;
+      if (token !== godotRunToken) {
+        window.removeEventListener("message", onMessage);
+        return;
+      }
+
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+
+      if (data.type === "GODOT_PLAYER_READY") {
+        iframe.contentWindow.postMessage(
+          {
+            type: "START_GODOT",
+            pckBuffer: pckArrayBuffer,
+            godotBaseUrl: "./godot/godot",
+          },
+          "*",
+          [pckArrayBuffer],
+        );
+      } else if (data.type === "GODOT_STARTED") {
+        if (godotStatusOverlay) godotStatusOverlay.style.display = "none";
+      } else if (data.type === "GODOT_LOG") {
+        appendGodotLog(data.text, data.level);
+      } else if (data.type === "GODOT_ERROR") {
+        if (godotStatusOverlay) {
+          godotStatusOverlay.style.display = "block";
+          godotStatusOverlay.innerText = `Godot Error:\n${data.message}`;
+        }
+        appendGodotLog(data.message, "error");
+      } else if (data.type === "GODOT_EXIT") {
+        appendGodotLog(`[Godot] Process exited with code ${data.code}`);
+      } else if (data.type === "GODOT_SCREENSHOT" && data.dataUrl) {
+        fetch(data.dataUrl)
+          .then((r) => r.blob())
+          .then((blob) => {
+            let dlName = getDownloadName().replace(/\.(md|scad)$/i, "");
+            downloadBlob(blob, `${dlName}.png`);
+          });
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+  } catch (err) {
+    if (token !== godotRunToken) return;
+    const msg = err?.message || String(err);
+    if (godotStatusOverlay) {
+      godotStatusOverlay.style.display = "block";
+      godotStatusOverlay.innerText = `Build Failed:\n${msg}`;
+    }
+    appendGodotLog(msg, "error");
+  }
+}
+
+if (playGodotBtn) {
+  playGodotBtn.onclick = () => {
+    const project = parseGodotMarkdownProject(getEditorContent());
+    if (project) launchGodotProject(project);
+  };
+}
+if (godotRestartBtn) {
+  godotRestartBtn.onclick = () => {
+    const project = parseGodotMarkdownProject(getEditorContent());
+    if (project) launchGodotProject(project);
+  };
+}
+if (godotStopBtn) {
+  godotStopBtn.onclick = () => stopGodotPlayer();
+}
+if (godotLogsBtn && godotLogsDrawer) {
+  godotLogsBtn.onclick = () => {
+    godotLogsDrawer.style.display =
+      godotLogsDrawer.style.display === "none" ? "flex" : "none";
+  };
+}
+if (godotLogsClearBtn && godotLogsOutput) {
+  godotLogsClearBtn.onclick = () => {
+    godotLogsOutput.textContent = "";
+  };
+}
+if (godotScreenshotBtn) {
+  godotScreenshotBtn.onclick = () => {
+    if (godotIframe && godotIframe.contentWindow) {
+      godotIframe.contentWindow.postMessage(
+        { type: "CAPTURE_SCREENSHOT" },
+        "*",
+      );
+    }
+  };
+}
+if (godotFullscreenBtn && rightPanel) {
+  godotFullscreenBtn.onclick = () => {
+    if (!document.fullscreenElement) {
+      rightPanel.requestFullscreen().catch((err) => {
+        console.warn(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+}
 
 // --- Drag and Drop SCAD / HDR ---
 const dragOverlay = document.getElementById("drag-overlay");
@@ -965,7 +1236,7 @@ window.addEventListener("drop", async (e) => {
         const text = await file.text();
         editorEl.value = text;
         checkChanges();
-        compileAndRender(text);
+        compileAndRender(text, { autoLaunchGodot: true });
       } catch (err) {
         alert("Failed to read file: " + err.message);
       }
@@ -1137,7 +1408,7 @@ backendSelectEl.addEventListener("change", async () => {
       }
       const data = await res.json();
       editorEl.value = data.content;
-      compileAndRender(getEditorContent());
+      compileAndRender(getEditorContent(), { autoLaunchGodot: true });
 
       currentModelOriginalState = {
         isNew: false,
@@ -1940,7 +2211,7 @@ window.addEventListener("hashchange", async () => {
       if (code !== null && editorEl.value !== code) {
         editorEl.value = code;
         checkChanges();
-        compileAndRender(getEditorContent());
+        compileAndRender(getEditorContent(), { autoLaunchGodot: true });
       }
     } catch (e) {
       console.error("Failed to decode hash on change", e);
@@ -1974,5 +2245,8 @@ window.addEventListener("hashchange", async () => {
 
   checkChanges();
 
-  setTimeout(() => compileAndRender(getEditorContent()), 500);
+  setTimeout(
+    () => compileAndRender(getEditorContent(), { autoLaunchGodot: true }),
+    500,
+  );
 })();

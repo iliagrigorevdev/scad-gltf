@@ -21,7 +21,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
   - **Smooth Skinning / Soft-Body Deformation:** Bind flexible meshes to multiple bones using the `skin()` module with procedural 3D vertex weight functions. Exports standard glTF joints, weights, and inverse bind matrices.
 - **Texture Baking:** Automatically generate UVs and bake high-poly details (colors, normals, ORM) onto low-poly meshes using the new `bake()` module.
 - **Scene Lighting:** Spawn precise light sources within your hierarchy (point, directional, spot) using the `light()` module, exporting directly to glTF.
-- **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, 3MF export for 3D printing, video/image export, URL sharing, and `.scad` / `.hdr` drag-and-drop.
+- **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, 3MF export for 3D printing, video/image export, URL sharing, `.scad` / `.md` / `.hdr` drag-and-drop, and client-side Godot 4 `.md` project playback.
 - **LLM Friendly:** Includes a built-in modular prompt generator (`prompt.js` and Web UI) to help AI models (like Gemini, Claude, or ChatGPT) write compatible OpenSCAD scripts utilizing the new features.
 - **Local API Server & Editor:** Bundled `scad-gltf serve` CLI utility to manage local `.scad` files remotely via REST API with automatic `include`/`use` dependency resolution.
 - **CLI Converter:** Bundled `scad-gltf convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
@@ -46,7 +46,8 @@ The built-in web editor (**Scadify**) provides a full-featured development envir
   - **📷 PNG Snapshots:** Export high-resolution renders with a single click.
   - **🎥 Video Recording:** Record animation loops directly to MP4/WebM. When Path Tracing is enabled, frames are rendered deterministically for jitter-free, ultra-high-quality animated video captures.
 - **Compressed URL Sharing:** Share your designs instantly via URL hash using client-side raw Deflate compression with an optional **Minify Share** toggle to strip comments and whitespace. Integrates with the Web Share API on supported devices.
-- **File Management & Drag and Drop:** Load local `.scad` files, drop any `.scad` script or `.hdr` environment map directly onto the viewport, download `.scad` source code, or export `.glb` binaries and `.3mf` files (with lazy-union enabled) for 3D printing.
+- **In-Browser Godot Project Playback:** Open, paste, drop, or share single-file `.md` Godot 4 projects (such as outputs from `scad-gltf gen godot` or `scad-gltf pack`) and play them directly inside Scadify. The editor compiles all embedded `.scad` assets to `.glb` via OpenSCAD WASM, injects a runtime `ResourceFormatLoader` autoload, packs everything into an in-memory `.pck`, and executes the project in an isolated Godot WebAssembly runtime (`web_nothreads_release`) with restart/stop controls, console log drawer, PNG screenshot capture, and fullscreen mode.
+- **File Management & Drag and Drop:** Load local `.scad` or `.md` files, drop any `.scad` script, Godot `.md` project, or `.hdr` environment map directly onto the viewport, download `.scad` / `.md` source code, or export `.glb` binaries and `.3mf` files (with lazy-union enabled) for 3D printing.
 - **Automatic Model Naming:** Extracts model names automatically from `/* Model Name: ... */` header comments for file downloads and exports.
 - **Local Workspace Sync:** Connect to `scad-gltf serve` on localhost to load, edit, save, and delete `.scad` files with change detection and recursive dependency resolution (`include` / `use`).
 - **PWA Support:** Installable as a Progressive Web App for desktop and mobile.
@@ -632,12 +633,22 @@ This repository includes a custom fork of OpenSCAD in the `openscad/` subfolder 
    git commit
    ```
 
+### Godot Web Runtime Setup (Scadify)
+
+Playing `.md` Godot projects in Scadify uses Godot's single-threaded Web export libraries (`godot.js` and `godot.wasm` from `web_nothreads_release.zip`) placed in `editor/public/godot/`. These are installed automatically by `predev` / `prebuild` when running `npm run dev` or `npm run build` in `editor/`, or manually via:
+
+```bash
+cd editor
+npm run setup:godot
+```
+
 ---
 
 ## Architecture & Credits
 
 - **Core Engine:** Built on a custom fork of [OpenSCAD](https://openscad.org/) (source included in the `openscad/` directory).
 - **glTF Export:** Export mechanics utilize the [tinygltf](https://github.com/syoyo/tinygltf) library.
+- **Godot Web Runtime:** In-browser `.md` project playback uses the [Godot Engine](https://godotengine.org/).
 - **UV Unwrapping:** Texture baking utilizes the [xatlas](https://github.com/jpcy/xatlas) library for automatic UV parameterization.
 - **Path Tracing:** The web editor utilizes [three-gpu-pathtracer](https://github.com/gkjohnson/three-gpu-pathtracer) for high-quality rendering.
 - **Environment Map (HDR)**: [Aristea Wreck Puresky](https://polyhaven.com/a/aristea_wreck_puresky) by **Jarod Guest** via [Poly Haven](https://polyhaven.com/). Licensed under [CC0](https://polyhaven.com/license).

@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Godot Web Player</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #111;
+      }
+      #godot-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        outline: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="godot-canvas" tabindex="0"></canvas>
+
+    <script>
+      (function () {
+        const canvas = document.getElementById("godot-canvas");
+
+        // Ensure WebGL canvases preserve drawing buffer so screenshots work reliably
+        const origGetContext = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (type, attrs) {
+          if (type === "webgl2" || type === "webgl") {
+            attrs = Object.assign({}, attrs, { preserveDrawingBuffer: true });
+          }
+          return origGetContext.call(this, type, attrs);
+        };
+
+        let engine = null;
+        let isRunning = false;
+
+        function postToParent(payload) {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage(payload, "*");
+          }
+        }
+
+        function syncCanvasSize() {
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          const w = Math.max(1, Math.floor(document.body.clientWidth * dpr));
+          const h = Math.max(1, Math.floor(document.body.clientHeight * dpr));
+          if (canvas.width !== w || canvas.height !== h) {
+            canvas.width = w;
+            canvas.height = h;
+            window.dispatchEvent(new Event("resize"));
+          }
+        }
+
+        const resizeObserver = new ResizeObserver(syncCanvasSize);
+        resizeObserver.observe(document.body);
+        syncCanvasSize();
+
+        function loadGodotScript(scriptUrl) {
+          return new Promise((resolve, reject) => {
+            if (typeof window.Engine !== "undefined") {
+              resolve();
+              return;
+            }
+            const script = document.createElement("script");
+            script.src = scriptUrl;
+            script.onload = () => {
+              if (typeof window.Engine === "undefined") {
+                reject(
+                  new Error(
+                    "godot.js loaded, but global Engine class was not found.",
+                  ),
+                );
+              } else {
+                resolve();
+              }
+            };
+            script.onerror = () => {
+              reject(
+                new Error(
+                  `Failed to load Godot Web library at ${scriptUrl}. Run "npm run setup:godot" in editor/ to install Godot web export templates into editor/public/godot/.`,
+                ),
+              );
+            };
+            document.head.appendChild(script);
+          });
+        }
+
+        async function startGodot(pckBuffer, godotBaseUrl) {
+          if (isRunning) return;
+          isRunning = true;
+
+          const base = (godotBaseUrl || "./godot/godot").replace(/\/+$/, "");
+
+          try {
+            await loadGodotScript(`${base}.js`);
+            syncCanvasSize();
+
+            engine = new window.Engine({
+              canvas: canvas,
+              executable: base,
+              canvasResizePolicy: 0,
+              focusCanvas: true,
+              onPrint: function () {
+                const text = Array.from(arguments).join(" ");
+                postToParent({ type: "GODOT_LOG", level: "info", text });
+              },
+              onPrintError: function () {
+                const text = Array.from(arguments).join(" ");
+                postToParent({ type: "GODOT_LOG", level: "error", text });
+              },
+              onExit: function (code) {
+                postToParent({ type: "GODOT_EXIT", code });
+              },
+            });
+
+            await engine.init(base);
+            engine.copyToFS("/game.pck", new Uint8Array(pckBuffer));
+            await engine.start({
+              args: ["--main-pack", "/game.pck"],
+              canvas: canvas,
+            });
+
+            canvas.focus();
+            postToParent({ type: "GODOT_STARTED" });
+          } catch (err) {
+            postToParent({
+              type: "GODOT_ERROR",
+              message: err && err.message ? err.message : String(err),
+            });
+          }
+        }
+
+        window.addEventListener("message", (event) => {
+          const data = event.data;
+          if (!data || typeof data !== "object") return;
+
+          if (data.type === "START_GODOT" && data.pckBuffer) {
+            startGodot(data.pckBuffer, data.godotBaseUrl);
+          } else if (data.type === "CAPTURE_SCREENSHOT") {
+            try {
+              const dataUrl = canvas.toDataURL("image/png");
+              postToParent({ type: "GODOT_SCREENSHOT", dataUrl });
+            } catch (err) {
+              postToParent({
+                type: "GODOT_LOG",
+                level: "error",
+                text: "Screenshot capture failed: " + err.message,
+              });
+            }
+          }
+        });
+
+        canvas.addEventListener("mousedown", () => canvas.focus());
+        postToParent({ type: "GODOT_PLAYER_READY" });
+      })();
+    </script>
+  </body>
+</html>

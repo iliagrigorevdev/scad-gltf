@@ -93,6 +93,13 @@
 
             <div class="controls-row">
               <button id="render-btn" class="primary">▶ Render</button>
+              <button
+                id="play-godot-btn"
+                class="primary godot-btn"
+                style="display: none"
+              >
+                🎮 Play Godot
+              </button>
               <button id="load-scad-btn">📁 Load</button>
               <button id="download-scad-btn">⬇ SCAD</button>
               <button id="export-gltf-btn">⬇ GLTF</button>
@@ -203,6 +210,34 @@
         </div>
         <div id="viewer"></div>
         <div id="render-time" class="render-time-overlay"></div>
+
+        <!-- Godot Web Player Panel -->
+        <div id="godot-panel" style="display: none">
+          <div id="godot-controls">
+            <button id="godot-restart-btn" title="Restart Godot Project">
+              🔄 Restart
+            </button>
+            <button id="godot-stop-btn" title="Stop & Return to 3D Preview">
+              ⏹ Stop
+            </button>
+            <button id="godot-logs-btn" title="Toggle Console Logs">
+              📋 Logs
+            </button>
+            <button id="godot-screenshot-btn" title="Capture Image">📷</button>
+            <button id="godot-fullscreen-btn" title="Toggle Full Screen">
+              ⛶
+            </button>
+          </div>
+          <div id="godot-viewport"></div>
+          <div id="godot-status-overlay" style="display: none"></div>
+          <div id="godot-logs-drawer" style="display: none">
+            <div id="godot-logs-header">
+              <span>Godot Console</span>
+              <button id="godot-logs-clear-btn">Clear</button>
+            </div>
+            <pre id="godot-logs-output"></pre>
+          </div>
+        </div>
       </div>
     </div>
 

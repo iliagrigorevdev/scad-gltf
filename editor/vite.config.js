@@ -32,7 +32,7 @@ export default defineConfig({
       manifestFilename: "manifest.webmanifest",
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,wasm,hdr,scad}"],
-        maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
+        maximumFileSizeToCacheInBytes: 50 * 1024 * 1024,
         skipWaiting: true, // Forces the waiting service worker to become active
         clientsClaim: true, // Takes control of open clients immediately
       },

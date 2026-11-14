@@ -195,3 +195,34 @@ export function runGodotAsync(args, cwd, timeoutMs) {
     });
   });
 }
+
+export function ensureWebLibraries(destDir) {
+  ensureExportTemplates();
+  const templateDir = getTemplatesDir();
+  const candidates = [
+    "web_nothreads_release.zip",
+    "web_nothreads_debug.zip",
+    "web_release.zip",
+  ];
+
+  const zipName = candidates.find((name) =>
+    fs.existsSync(path.join(templateDir, name)),
+  );
+
+  if (!zipName) {
+    throw new Error(`No Godot Web export template zip found in ${templateDir}`);
+  }
+
+  const zipPath = path.join(templateDir, zipName);
+  fs.mkdirSync(destDir, { recursive: true });
+
+  if (os.platform() === "win32") {
+    cp.execSync(`tar -xf "${zipPath}" -C "${destDir}"`, { stdio: "ignore" });
+  } else {
+    cp.execSync(`unzip -q -o "${zipPath}" -d "${destDir}"`, {
+      stdio: "ignore",
+    });
+  }
+
+  return zipName;
+}
