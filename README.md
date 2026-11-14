@@ -22,7 +22,7 @@ The C++ source code for this custom OpenSCAD version is included directly in thi
 - **Texture Baking:** Automatically generate UVs and bake high-poly details (colors, normals, ORM) onto low-poly meshes using the new `bake()` module.
 - **Scene Lighting:** Spawn precise light sources within your hierarchy (point, directional, spot) using the `light()` module, exporting directly to glTF.
 - **Web Editor & Real-time Viewer (Scadify):** In-browser IDE with live WebAssembly compilation, GPU path tracing, animation timeline scrubbing, 3MF export for 3D printing, video/image export, URL sharing, `.scad` / `.md` / `.hdr` drag-and-drop, and client-side Godot 4 `.md` project playback.
-- **LLM Friendly:** Includes a built-in modular prompt generator (`prompt.js` and Web UI) to help AI models (like Gemini, Claude, or ChatGPT) write compatible OpenSCAD scripts utilizing the new features.
+- **LLM Friendly:** Includes a built-in modular prompt generator (`prompt.js`, `prompt-profiles.js`, and Web UI) with selectable target profiles (OpenSCAD Model, Godot 4, Vite Web 3D, Rust Bevy, Rust wgpu, Unreal Engine 5) to help AI models (like Gemini, Claude, or ChatGPT) generate compatible OpenSCAD scripts and full 3D projects.
 - **Local API Server & Editor:** Bundled `scad-gltf serve` CLI utility to manage local `.scad` files remotely via REST API with automatic `include`/`use` dependency resolution.
 - **CLI Converter:** Bundled `scad-gltf convert` CLI utility for single file and batch compiling `.scad` files with smart dependency hashing.
 - **MCP Server for AI Agents:** Bundled `scad-gltf mcp` server enables MCP clients to iteratively design, compile, and **visually inspect** 3D models via multi-angle headless rendering and animation frame evaluation.
@@ -41,7 +41,7 @@ The built-in web editor (**Scadify**) provides a full-featured development envir
 - **Real-Time 3D Viewport:** Instant WebAssembly compilation with auto-rendering, camera auto-framing, wireframe view, grid/axes toggles, ACES Filmic tone mapping, and full-screen mode.
 - **Photorealistic GPU Path Tracing:** Built-in hardware-accelerated path tracer with HDR environment lighting for realistic reflections, shadows, and glass refraction. Supports custom `.hdr` environment maps via drag-and-drop.
 - **Interactive Animation Controls:** Multi-animation selector, playback controls (play/pause), and smooth timeline scrubbing for animated hierarchies.
-- **Modular AI Prompt Generator:** Built-in UI with fine-grained feature toggles (Basic PBR, Auto Smooth, Animations & Skinning, Extended PBR, Texture Baking) and persistent local settings to generate optimized prompts for LLMs.
+- **Modular AI Prompt Generator:** Built-in UI with target **Prompt Profiles** (`OpenSCAD Model`, `Godot 4 Project`, `Vite Web 3D Project`, `Rust Bevy Project`, `Rust wgpu Project`, `Unreal Engine 5 Project`), fine-grained feature toggles (Basic PBR, Auto Smooth, Animations & Skinning, Extended PBR, Texture Baking), per-profile persistent local settings, a **↺ Reset** button for profile defaults, and automatic embedding of engine template files (Godot addon, Rust `build.rs`, UE5 `ScadImporter` plugin).
 - **Image & Video Capture:**
   - **📷 PNG Snapshots:** Export high-resolution renders with a single click.
   - **🎥 Video Recording:** Record animation loops directly to MP4/WebM. When Path Tracing is enabled, frames are rendered deterministically for jitter-free, ultra-high-quality animated video captures.
@@ -236,8 +236,8 @@ When asking an LLM (like Gemini) to generate OpenSCAD code, the extension automa
 
 - **Instant 3D Preview:** Injects a **"Preview 3D"** button on any OpenSCAD code block to compile and render the model in an embedded 3D viewer with grid, wireframe, and full-screen support.
 - **Visual Chat Feedback (📷):** Click the snapshot button inside the 3D preview window to capture a PNG snapshot of the model and **automatically paste it into the AI Studio chat input**, allowing Gemini to visually evaluate and fix geometry.
-- **Smart Prompt Injection:** Click the floating **"✨ SCAD"** button to open the configuration modal. Select your desired engine feature set (PBR, auto-smooth, animations & skinning, baking) to automatically generate and inject the prompt rules into your chat input.
-- **Local Model Refinement:** Connect to your local `scad-gltf serve` workspace directly from the prompt modal. Select an existing `.scad` file to automatically append its source code to your prompt as a reference, enabling seamless AI iteration and refinement of your existing local designs.
+- **Smart Prompt Injection:** Click the floating **"✨ SCAD"** button to open the configuration modal. Choose a target **Profile** (`OpenSCAD Model`, `Godot 4 Project`, `Vite Web 3D Project`, `Rust Bevy Project`, `Rust wgpu Project`, or `Unreal Engine 5 Project`), customize your feature toggles (PBR, auto-smooth, animations & skinning, baking) with per-profile persistence and **↺ Reset** to defaults, and automatically inject the complete prompt (including bundled engine templates) into your chat input.
+- **Local Model Refinement:** Connect to your local `scad-gltf serve` workspace directly from the prompt modal. Select an existing `.scad` file to automatically include its source code as a reference file—either for iterating on standalone OpenSCAD designs or incorporating/extending local models inside generated game/web projects.
 - **Open in Scadify:** Click **"Edit"** in the preview window to immediately transfer the current script into the full standalone Scadify editor via compressed URL hash.
 - **Local Workspace Saving:** Directly save and overwrite models to your local directory when running `scad-gltf serve`.
 
@@ -543,12 +543,12 @@ translate([0, 0, 50]) rotate([0, 30, 0])
 
 ## AI Integration (`prompt.js`)
 
-Because LLMs (like Gemini or Claude) only know standard OpenSCAD syntax up to their training cutoff, we've included a helper function to generate LLM prompts. This injects the rules for PBR, animations, skinning, and baking directly into your prompt context.
+Because LLMs (like Gemini or Claude) only know standard OpenSCAD syntax up to their training cutoff, `scad-gltf/prompt` provides helpers to generate both raw OpenSCAD syntax prompts (`generatePrompt`) and full target-engine project prompts (`buildProfilePrompt`, `PROMPT_PROFILES`, `getPromptProfile`, `getEditorPromptProfiles`). These inject the rules for PBR, animations, skinning, baking, and engine-specific conventions directly into your prompt context.
 
 **Usage:**
 
 ```javascript
-import { generatePrompt } from "scad-gltf/prompt";
+import { generatePrompt, buildProfilePrompt } from "scad-gltf/prompt";
 
 const description =
   "a futuristic robot arm with flexible rubber joints and glowing metallic plating, animated to bend";
@@ -573,6 +573,15 @@ const promptContext = generatePrompt(description, {
 // You can now pass this context string directly to an AI API
 // or print it to the console to paste into Gemini.
 console.log(promptContext);
+
+// Or build a complete system + user prompt for a specific target profile
+// ("scad", "godot", "web", "bevy", "wgpu", or "ue"):
+const projectPrompt = buildProfilePrompt("godot", {
+  task: "A third-person 3D robot platformer with animated collectibles",
+  promptOptions: { animation: true, emissive: true },
+});
+
+console.log(projectPrompt);
 ```
 
 ### Workflow

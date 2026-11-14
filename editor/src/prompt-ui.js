@@ -78,6 +78,14 @@ export const PROMPT_UI_HTML = `
   <div class="scad-prompt-profile-row">
     <label for="opt-prompt-profile">Profile</label>
     <select id="opt-prompt-profile"></select>
+    <button
+      type="button"
+      id="opt-prompt-reset"
+      class="scad-prompt-reset-btn"
+      title="Reset toggles to profile defaults"
+    >
+      ↺ Reset
+    </button>
   </div>
 
   <div class="scad-prompt-toggles">
@@ -220,6 +228,8 @@ export function setupPromptToggles(
         cb.checked = savedForProfile[cbId];
       } else if (profile.defaultPromptOptions?.[optKey] !== undefined) {
         cb.checked = profile.defaultPromptOptions[optKey];
+      } else {
+        cb.checked = cb.defaultChecked;
       }
     }
 
@@ -233,6 +243,17 @@ export function setupPromptToggles(
       descEl.placeholder = profile.descriptionPlaceholder;
     }
   };
+
+  const resetBtn = containerElement.querySelector("#opt-prompt-reset");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      const profileId = getSelectedPromptProfile(containerElement);
+      delete store.profiles[profileId];
+      store.activeProfile = profileId;
+      localStorage.setItem(storageKey, JSON.stringify(store));
+      applyProfileState(profileId);
+    });
+  }
 
   if (profileSelect) {
     const validIds = new Set(editorProfiles.map((p) => p.id));

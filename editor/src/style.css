@@ -587,3 +587,8 @@ button.godot-btn:hover {
   flex: 1;
   min-width: 0;
 }
+
+.scad-prompt-reset-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
