@@ -20,6 +20,41 @@ export const GODOT_ADDON_FILES = Object.entries(rawGodotAddonModules)
     };
   });
 
+const rawRustBuildModules = import.meta.glob("../../rust/build.rs", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+
+export const RUST_TEMPLATE_FILES = Object.entries(rawRustBuildModules).map(
+  ([, content]) => ({
+    path: "build.rs",
+    lang: "rust",
+    content,
+  }),
+);
+
+const rawUePluginModules = import.meta.glob(
+  "../../ue/Plugins/ScadImporter/**/*.{uplugin,cs,cpp,h}",
+  { query: "?raw", import: "default", eager: true },
+);
+
+export const UE_PLUGIN_FILES = Object.entries(rawUePluginModules)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([filePath, content]) => {
+    const relativePath = filePath.replace(/^(\.\.\/)+ue\//, "");
+    const lower = filePath.toLowerCase();
+    let lang = "text";
+    if (lower.endsWith(".cpp") || lower.endsWith(".h")) lang = "cpp";
+    else if (lower.endsWith(".cs")) lang = "csharp";
+    else if (lower.endsWith(".uplugin")) lang = "json";
+    return {
+      path: relativePath,
+      lang,
+      content,
+    };
+  });
+
 const OPTION_ID_MAP = {
   basic: "opt-pbr-basic",
   autoSmoothAngle: "opt-pbr-autosmooth",
@@ -250,6 +285,13 @@ export function getPromptOptions(containerElement) {
   };
 }
 
+function getTemplateFilesForProfile(profileId) {
+  if (profileId === "godot") return GODOT_ADDON_FILES;
+  if (profileId === "bevy" || profileId === "wgpu") return RUST_TEMPLATE_FILES;
+  if (profileId === "ue") return UE_PLUGIN_FILES;
+  return [];
+}
+
 export function buildPromptFromUI(
   containerElement,
   description,
@@ -258,7 +300,7 @@ export function buildPromptFromUI(
   const profileId = getSelectedPromptProfile(containerElement);
   const promptOptions = getPromptOptions(containerElement);
   const resolvedTemplates =
-    templateFiles ?? (profileId === "godot" ? GODOT_ADDON_FILES : []);
+    templateFiles ?? getTemplateFilesForProfile(profileId);
 
   return buildProfilePrompt(profileId, {
     task: description,
