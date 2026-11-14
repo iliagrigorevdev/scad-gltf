@@ -292,3 +292,10 @@ translate([0, 0, 50]) rotate([0, 30, 0])
 
   return prompt;
 }
+
+export {
+  PROMPT_PROFILES,
+  getPromptProfile,
+  getEditorPromptProfiles,
+  buildProfilePrompt,
+} from "./prompt-profiles.js";

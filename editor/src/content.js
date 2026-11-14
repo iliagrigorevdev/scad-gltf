@@ -2,7 +2,8 @@ import { generatePrompt } from "scad-gltf/prompt";
 import {
   PROMPT_UI_HTML,
   setupPromptToggles,
-  getPromptOptions,
+  getSelectedPromptProfile,
+  buildPromptFromUI,
 } from "./prompt-ui.js";
 
 console.log("🚀 SCAD Preview Extension loaded!");
@@ -193,10 +194,15 @@ function createPromptModal() {
 
   document.body.appendChild(modal);
 
-  // Setup generic shared UI toggles with persistent states
+  // Setup generic shared UI toggles with persistent per-profile states
   const uiContainer = document.getElementById("scad-prompt-ui-container");
+  const helpTextEl = modal.querySelector(".scad-help-text");
+  const descEl = document.getElementById("scad-prompt-desc");
   uiContainer.innerHTML = PROMPT_UI_HTML;
-  setupPromptToggles(uiContainer, "scad_prompt_settings");
+  setupPromptToggles(uiContainer, "scad_prompt_settings", {
+    helpTextEl,
+    descEl,
+  });
 
   // Event Listeners for the Modal
   document.getElementById("scad-prompt-close").onclick = () =>
@@ -260,33 +266,34 @@ function createPromptModal() {
       return;
     }
 
-    const options = getPromptOptions(uiContainer);
+    const profileId = getSelectedPromptProfile(uiContainer);
+    let referenceFiles = [];
     let promptText = "";
 
     try {
-      if (description) {
-        // 1. Generate the advanced LLM prompt via prompt.js
-        promptText = generatePrompt(description, options);
-      }
-
       if (selectedModel) {
         const res = await fetch(
           "http://localhost:3000/api/scads/" +
             encodeURIComponent(selectedModel),
         );
-        if (res.ok) {
-          const data = await res.json();
-          const content = data.content;
-          const codeBlock = "\`\`\`openscad\n" + content + "\n\`\`\`\n\n";
-
-          if (promptText) {
-            promptText += "\n\nReference code:\n" + codeBlock;
-          } else {
-            promptText = codeBlock;
-          }
-        } else {
+        if (!res.ok) {
           throw new Error("Failed to load local model");
         }
+        const data = await res.json();
+        referenceFiles.push({ path: selectedModel, content: data.content });
+      }
+
+      if (profileId === "scad" && !description && referenceFiles.length > 0) {
+        promptText = "```openscad\n" + referenceFiles[0].content + "\n```\n\n";
+      } else {
+        const effectiveDesc =
+          description ||
+          (referenceFiles.length > 0
+            ? "Build a project incorporating and extending the provided OpenSCAD model"
+            : "");
+        promptText = buildPromptFromUI(uiContainer, effectiveDesc, {
+          referenceFiles,
+        });
       }
 
       // 2. Target the exact AI Studio text area based on your provided HTML

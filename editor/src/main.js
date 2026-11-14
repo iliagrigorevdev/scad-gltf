@@ -14,7 +14,7 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   PROMPT_UI_HTML,
   setupPromptToggles,
-  getPromptOptions,
+  buildPromptFromUI,
 } from "./prompt-ui.js";
 import defaultScad from "./default.scad?raw";
 import {
@@ -198,15 +198,18 @@ entryFileSelect.addEventListener("change", (e) => {
 });
 
 // --- Prompt Logic ---
+const promptHelpTextEl = promptPanel?.querySelector(".help-text");
 if (promptUiContainer) {
   promptUiContainer.innerHTML = PROMPT_UI_HTML;
-  setupPromptToggles(promptUiContainer, "scad_editor_prompt_settings");
+  setupPromptToggles(promptUiContainer, "scad_editor_prompt_settings", {
+    helpTextEl: promptHelpTextEl,
+    descEl: promptDescEl,
+  });
 }
 
 copyPromptBtn.onclick = async () => {
-  const desc = promptDescEl.value.trim() || "an object";
-  const options = getPromptOptions(promptUiContainer);
-  const promptText = generatePrompt(desc, options);
+  const desc = promptDescEl.value.trim();
+  const promptText = buildPromptFromUI(promptUiContainer, desc);
 
   try {
     await navigator.clipboard.writeText(promptText);

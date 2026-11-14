@@ -569,3 +569,21 @@ button.godot-btn:hover {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+.scad-prompt-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.scad-prompt-profile-row label {
+  font-weight: bold;
+  color: #eee;
+}
+
+.scad-prompt-profile-row select {
+  flex: 1;
+  min-width: 0;
+}
