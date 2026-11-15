@@ -347,7 +347,11 @@ async function compileAndRender(scadCode, compileOptions = {}) {
   } else {
     isGodotProject = false;
     if (playGodotBtn) playGodotBtn.style.display = "none";
-    if (isGodotPlaying) stopGodotPlayer();
+    if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+  }
+
+  if (isGodotPlaying) {
+    return;
   }
 
   if (isCompiling) {
@@ -452,6 +456,7 @@ async function compileAndRender(scadCode, compileOptions = {}) {
 
   try {
     const additionalFiles = await fetchDependenciesWrapper(entryCode);
+    if (isGodotPlaying) return;
     Object.assign(additionalFiles, extractedAdditionalFiles);
 
     const opts = {
@@ -459,8 +464,11 @@ async function compileAndRender(scadCode, compileOptions = {}) {
       additionalFiles: additionalFiles,
     };
 
-    currentGltfData = await convertScadToGltf(entryCode, opts);
+    const gltfData = await convertScadToGltf(entryCode, opts);
+    if (isGodotPlaying) return;
+    currentGltfData = gltfData;
     await rebuildSceneFromGLTF(currentGltfData);
+    if (isGodotPlaying) return;
 
     if (renderTimeEl) {
       const endTime = performance.now();
@@ -468,7 +476,7 @@ async function compileAndRender(scadCode, compileOptions = {}) {
     }
   } catch (e) {
     console.error(e);
-    if (renderTimeEl) {
+    if (renderTimeEl && !isGodotPlaying) {
       renderTimeEl.innerText = "Compilation failed";
     }
   } finally {
@@ -476,7 +484,9 @@ async function compileAndRender(scadCode, compileOptions = {}) {
     if (pendingCode !== null) {
       const codeToCompile = pendingCode;
       pendingCode = null;
-      compileAndRender(codeToCompile);
+      if (!isGodotPlaying) {
+        compileAndRender(codeToCompile);
+      }
     }
   }
 }
@@ -487,16 +497,20 @@ let renderTimeout;
 editorEl.addEventListener("input", () => {
   checkChanges();
   clearTimeout(renderTimeout);
-  if (!autoRenderCb.checked) {
+  if (!autoRenderCb.checked || isGodotPlaying) {
     return;
   }
   renderTimeout = setTimeout(() => {
-    compileAndRender(getEditorContent());
+    if (!isGodotPlaying) {
+      compileAndRender(getEditorContent());
+    }
   }, 800);
 });
 
 autoRenderCb.addEventListener("change", () => {
-  if (autoRenderCb.checked) compileAndRender(getEditorContent());
+  if (autoRenderCb.checked && !isGodotPlaying) {
+    compileAndRender(getEditorContent());
+  }
 });
 
 loadScadBtn.onclick = () => {
@@ -1073,7 +1087,50 @@ function appendGodotLog(text, level = "info") {
   }
 }
 
-function stopGodotPlayer() {
+function setScadViewerUiVisible(visible) {
+  if (viewerEl) viewerEl.style.display = visible ? "" : "none";
+  if (viewerControlsEl) viewerControlsEl.style.display = visible ? "" : "none";
+  if (renderTimeEl && !visible) renderTimeEl.style.display = "none";
+  if (animControlsSection) {
+    animControlsSection.style.display =
+      visible &&
+      currentMesh &&
+      (currentAnimations.length > 0 || gltfCameras.length > 0)
+        ? "flex"
+        : "none";
+  }
+  if (renderBtn) renderBtn.style.display = visible ? "" : "none";
+  if (exportGltfBtn) exportGltfBtn.style.display = visible ? "" : "none";
+  if (export3mfBtn) export3mfBtn.style.display = visible ? "" : "none";
+  if (captureImageBtn) captureImageBtn.style.display = visible ? "" : "none";
+  if (autoRenderCb?.parentElement) {
+    autoRenderCb.parentElement.style.display = visible ? "" : "none";
+  }
+  if (pathTracingCb?.parentElement) {
+    pathTracingCb.parentElement.style.display = visible ? "" : "none";
+  }
+}
+
+function suspendScadViewer() {
+  clearTimeout(renderTimeout);
+  pendingCode = null;
+  captureNextFrame = false;
+  stopScadViewerLoop();
+  clearCurrentMesh();
+  currentAnimations = [];
+  currentGltfData = null;
+  gltfCameras = [];
+  gltfLights = [];
+  sceneHasLights = false;
+  activeCamera = camera;
+  controls.enabled = true;
+  const lightsCbLabel = document.getElementById("lights-cb-label");
+  if (lightsCbLabel) lightsCbLabel.style.display = "none";
+  if (renderer.renderLists) renderer.renderLists.dispose();
+}
+
+function stopGodotPlayer(options = {}) {
+  const { skipCompile = false } = options;
   godotRunToken++;
   isGodotPlaying = false;
   if (godotIframe) {
@@ -1082,10 +1139,20 @@ function stopGodotPlayer() {
   }
   if (godotStatusOverlay) godotStatusOverlay.style.display = "none";
   if (godotPanel) godotPanel.style.display = "none";
-  if (viewerEl) viewerEl.style.display = "";
-  if (viewerControlsEl) viewerControlsEl.style.display = "";
+  setScadViewerUiVisible(true);
   if (playGodotBtn) playGodotBtn.innerText = "🎮 Play Godot";
+  startScadViewerLoop();
   window.dispatchEvent(new Event("resize"));
+  if (!skipCompile && !currentMesh) {
+    const content = getEditorContent();
+    const project = parseGodotMarkdownProject(content);
+    const hasScad =
+      !project ||
+      Object.keys(project.files).some((f) => f.toLowerCase().endsWith(".scad"));
+    if (content.trim() && hasScad) {
+      compileAndRender(content);
+    }
+  }
 }
 
 async function launchGodotProject(project) {
@@ -1098,9 +1165,9 @@ async function launchGodotProject(project) {
   }
 
   isGodotPlaying = true;
+  suspendScadViewer();
+  setScadViewerUiVisible(false);
   if (playGodotBtn) playGodotBtn.innerText = "🔄 Restart Godot";
-  if (viewerEl) viewerEl.style.display = "none";
-  if (viewerControlsEl) viewerControlsEl.style.display = "none";
   if (godotPanel) godotPanel.style.display = "flex";
   if (godotLogsOutput) godotLogsOutput.textContent = "";
   if (godotStatusOverlay) {
@@ -1683,6 +1750,8 @@ new HDRLoader().load(
     scene.environment = texture;
     environmentTexture = texture;
 
+    if (isGodotPlaying) return;
+
     const isPT = pathTracingCb && pathTracingCb.checked;
     const showGrid = showGridCb ? showGridCb.checked : true;
     if (typeof floor !== "undefined") floor.visible = !isPT;
@@ -2041,6 +2110,10 @@ function rebuildSceneFromGLTF(gltfData) {
       parseData,
       "",
       (gltf) => {
+        if (isGodotPlaying) {
+          resolve();
+          return;
+        }
         currentMesh = gltf.scene;
         currentAnimations = gltf.animations || [];
         const isWireframe = wireframeCb ? wireframeCb.checked : false;
@@ -2213,8 +2286,27 @@ function fitCamera() {
 
 // Animation loop
 let lastTime = performance.now();
+let animateFrameId = null;
+
+function startScadViewerLoop() {
+  if (isGodotPlaying || animateFrameId !== null) return;
+  lastTime = performance.now();
+  animateFrameId = requestAnimationFrame(animate);
+}
+
+function stopScadViewerLoop() {
+  if (animateFrameId !== null) {
+    cancelAnimationFrame(animateFrameId);
+    animateFrameId = null;
+  }
+}
+
 function animate() {
-  requestAnimationFrame(animate);
+  if (isGodotPlaying) {
+    animateFrameId = null;
+    return;
+  }
+  animateFrameId = requestAnimationFrame(animate);
   const now = performance.now();
   const delta = (now - lastTime) / 1000;
   lastTime = now;
@@ -2266,10 +2358,9 @@ function animate() {
     }, "image/png");
   }
 }
-animate();
 
 window.addEventListener("resize", () => {
-  if (!viewerEl || isRecording) return;
+  if (!viewerEl || isRecording || isGodotPlaying) return;
   const w = viewerEl.clientWidth;
   const h = viewerEl.clientHeight;
 
@@ -2330,8 +2421,14 @@ window.addEventListener("hashchange", async () => {
 
   checkChanges();
 
-  setTimeout(
-    () => compileAndRender(getEditorContent(), { autoLaunchGodot: true }),
-    500,
-  );
+  const initialContent = getEditorContent();
+  if (parseGodotMarkdownProject(initialContent)) {
+    compileAndRender(initialContent, { autoLaunchGodot: true });
+  } else {
+    startScadViewerLoop();
+    setTimeout(
+      () => compileAndRender(getEditorContent(), { autoLaunchGodot: true }),
+      500,
+    );
+  }
 })();
