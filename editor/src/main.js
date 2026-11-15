@@ -100,6 +100,8 @@ const godotLogsClearBtn = document.getElementById("godot-logs-clear-btn");
 const viewerControlsEl = document.getElementById("viewer-controls");
 
 let currentSelectedModelIdx = "";
+let autoDerivedModelName = null;
+let pendingForceNameOverride = false;
 let currentEntryFile = null;
 let currentMesh = null;
 let currentGltfData = null;
@@ -168,7 +170,64 @@ function getDownloadName() {
   return modelNameInputEl.value.trim() || "model";
 }
 
-modelNameInputEl.addEventListener("input", checkChanges);
+function extractRootFolderFromMarkdownFiles(files) {
+  const paths = Object.keys(files)
+    .map((p) => p.replace(/\\/g, "/").replace(/^\/+/, ""))
+    .filter(Boolean);
+  if (paths.length === 0) return null;
+
+  let rootFolder = null;
+  for (const p of paths) {
+    const slashIdx = p.indexOf("/");
+    if (slashIdx <= 0) return null;
+    const top = p.slice(0, slashIdx);
+    if (rootFolder === null) {
+      rootFolder = top;
+    } else if (rootFolder !== top) {
+      return null;
+    }
+  }
+  return rootFolder;
+}
+
+function applyDerivedModelName(derivedName, forceOverride = false) {
+  const currentVal = modelNameInputEl.value;
+  const isUnsetOrAuto =
+    !currentVal.trim() ||
+    currentVal === autoDerivedModelName ||
+    (forceOverride && Boolean(derivedName));
+
+  if (derivedName) {
+    if (isUnsetOrAuto && currentVal !== derivedName) {
+      modelNameInputEl.value = derivedName;
+      autoDerivedModelName = derivedName;
+      checkChanges();
+    } else if (currentVal === autoDerivedModelName) {
+      autoDerivedModelName = derivedName;
+    }
+  } else if (currentVal === autoDerivedModelName) {
+    modelNameInputEl.value = "";
+    autoDerivedModelName = null;
+    checkChanges();
+  }
+}
+
+modelNameInputEl.addEventListener("input", () => {
+  if (!modelNameInputEl.value.trim()) {
+    autoDerivedModelName = null;
+  }
+  checkChanges();
+});
+
+editorEl.addEventListener("paste", () => {
+  if (
+    backendSelectEl.value === "" &&
+    editorEl.selectionStart === 0 &&
+    editorEl.selectionEnd === editorEl.value.length
+  ) {
+    pendingForceNameOverride = true;
+  }
+});
 entryFileSelect.addEventListener("change", (e) => {
   currentEntryFile = e.target.value;
   compileAndRender(getEditorContent());
@@ -271,10 +330,11 @@ async function compileAndRender(scadCode, compileOptions = {}) {
       entryFileSelect.value = currentEntryFile;
     }
 
-    if (!modelNameInputEl.value.trim()) {
-      modelNameInputEl.value = `${godotProject.projectName}.md`;
-      checkChanges();
-    }
+    applyDerivedModelName(
+      `${godotProject.projectName}.md`,
+      pendingForceNameOverride,
+    );
+    pendingForceNameOverride = false;
 
     if (autoLaunchGodot) {
       launchGodotProject(godotProject);
@@ -295,7 +355,13 @@ async function compileAndRender(scadCode, compileOptions = {}) {
     return;
   }
 
+  const forceNameOverride = pendingForceNameOverride;
+  pendingForceNameOverride = false;
+
   if (scadCode.trim() === "") {
+    if (!isGodotProject) {
+      applyDerivedModelName(null);
+    }
     clearCurrentMesh();
     if (renderTimeEl) renderTimeEl.style.display = "none";
     return;
@@ -303,13 +369,15 @@ async function compileAndRender(scadCode, compileOptions = {}) {
 
   let entryCode = scadCode;
   let extractedAdditionalFiles = {};
+  let extractedFiles = null;
 
   const isMd =
-    modelNameInputEl.value.toLowerCase().endsWith(".md") ||
-    (scadCode.includes("```") && scadCode.includes("###"));
+    (scadCode.includes("```") && scadCode.includes("###")) ||
+    /```(?:openscad|scad)?\r?\n/i.test(scadCode);
 
   if (isMd) {
     const files = extractFilesFromMarkdown(scadCode);
+    extractedFiles = files;
     const scadFiles = Object.keys(files).filter((f) =>
       f.toLowerCase().endsWith(".scad"),
     );
@@ -356,18 +424,21 @@ async function compileAndRender(scadCode, compileOptions = {}) {
     currentEntryFile = null;
   }
 
-  const extractedName = !isGodotProject
-    ? extractModelNameFromScad(entryCode)
-    : null;
-  if (extractedName) {
-    const newName =
-      isMd && !extractedName.toLowerCase().endsWith(".md")
-        ? extractedName + ".md"
-        : extractedName;
-    if (modelNameInputEl.value !== newName) {
-      modelNameInputEl.value = newName;
-      checkChanges();
+  if (!isGodotProject) {
+    const extractedName = extractModelNameFromScad(entryCode);
+    let derivedName = null;
+    if (extractedName) {
+      derivedName =
+        isMd && !extractedName.toLowerCase().endsWith(".md")
+          ? extractedName + ".md"
+          : extractedName;
+    } else if (isMd && extractedFiles) {
+      const rootFolder = extractRootFolderFromMarkdownFiles(extractedFiles);
+      if (rootFolder) {
+        derivedName = `${rootFolder}.md`;
+      }
     }
+    applyDerivedModelName(derivedName, forceNameOverride);
   }
 
   isCompiling = true;
@@ -437,6 +508,9 @@ loadScadBtn.onclick = () => {
       try {
         const text = await e.target.files[0].text();
         editorEl.value = text;
+        if (backendSelectEl.value === "") {
+          pendingForceNameOverride = true;
+        }
         checkChanges();
         compileAndRender(text, { autoLaunchGodot: true });
       } catch (err) {
@@ -486,8 +560,8 @@ export3mfBtn.onclick = async () => {
   let extractedAdditionalFiles = {};
 
   const isMd =
-    modelNameInputEl.value.toLowerCase().endsWith(".md") ||
-    (scadCode.includes("```") && scadCode.includes("###"));
+    (scadCode.includes("```") && scadCode.includes("###")) ||
+    /```(?:openscad|scad)?\r?\n/i.test(scadCode);
 
   if (isMd) {
     const files = extractFilesFromMarkdown(scadCode);
@@ -1238,6 +1312,9 @@ window.addEventListener("drop", async (e) => {
       try {
         const text = await file.text();
         editorEl.value = text;
+        if (backendSelectEl.value === "") {
+          pendingForceNameOverride = true;
+        }
         checkChanges();
         compileAndRender(text, { autoLaunchGodot: true });
       } catch (err) {
@@ -1387,6 +1464,9 @@ backendSelectEl.addEventListener("change", async () => {
     backendDeleteBtn.style.display = idx === "" ? "none" : "flex";
   }
 
+  autoDerivedModelName = null;
+  pendingForceNameOverride = false;
+
   if (idx === "") {
     modelNameInputEl.value = "";
     editorEl.value = "";
@@ -1523,6 +1603,8 @@ backendDeleteBtn.onclick = async () => {
     currentSelectedModelIdx = "";
     renderBackendSelect();
 
+    autoDerivedModelName = null;
+    pendingForceNameOverride = false;
     modelNameInputEl.value = "";
     editorEl.value = "";
     compileAndRender(getEditorContent());
