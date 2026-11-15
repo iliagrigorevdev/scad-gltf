@@ -38,6 +38,7 @@ import {
   parseGodotMarkdownProject,
   compileGodotProjectToPck,
   exportGodotProjectWebZip,
+  exportGodotProjectZip,
 } from "./godot-project.js";
 
 // --- UI Elements ---
@@ -92,6 +93,9 @@ const cameraSelect = document.getElementById("camera-select");
 
 const playGodotBtn = document.getElementById("play-godot-btn");
 const downloadGodotZipBtn = document.getElementById("download-godot-zip-btn");
+const downloadGodotProjectZipBtn = document.getElementById(
+  "download-godot-project-zip-btn",
+);
 const godotPanel = document.getElementById("godot-panel");
 const godotViewport = document.getElementById("godot-viewport");
 const godotStatusOverlay = document.getElementById("godot-status-overlay");
@@ -626,6 +630,9 @@ function syncMdFilesUi(code) {
   if (downloadGodotZipBtn) {
     downloadGodotZipBtn.style.display = ctx.isGodot ? "flex" : "none";
   }
+  if (downloadGodotProjectZipBtn) {
+    downloadGodotProjectZipBtn.style.display = ctx.isGodot ? "flex" : "none";
+  }
   updateEditorHighlights();
   return ctx;
 }
@@ -858,6 +865,9 @@ async function compileAndRender(scadCode) {
     if (downloadGodotZipBtn) {
       downloadGodotZipBtn.style.display = "flex";
     }
+    if (downloadGodotProjectZipBtn) {
+      downloadGodotProjectZipBtn.style.display = "flex";
+    }
 
     applyDerivedModelName(
       `${godotProject.projectName}.md`,
@@ -872,6 +882,8 @@ async function compileAndRender(scadCode) {
     isGodotProject = false;
     if (playGodotBtn) playGodotBtn.style.display = "none";
     if (downloadGodotZipBtn) downloadGodotZipBtn.style.display = "none";
+    if (downloadGodotProjectZipBtn)
+      downloadGodotProjectZipBtn.style.display = "none";
     if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
   }
 
@@ -1834,6 +1846,41 @@ if (downloadGodotZipBtn) {
     } finally {
       downloadGodotZipBtn.innerText = originalText;
       downloadGodotZipBtn.disabled = false;
+    }
+  };
+}
+if (downloadGodotProjectZipBtn) {
+  downloadGodotProjectZipBtn.onclick = async () => {
+    const project = parseGodotMarkdownProject(getEditorContent());
+    if (!project) return;
+
+    const originalText = downloadGodotProjectZipBtn.innerText;
+    downloadGodotProjectZipBtn.disabled = true;
+    downloadGodotProjectZipBtn.innerText = "⏳ Zipping...";
+
+    try {
+      let dlName = getDownloadName().replace(/\.(md|scad)$/i, "");
+      if (!dlName || dlName === "model") {
+        dlName = project.projectName || "godot_project";
+      }
+
+      const { zipBlob, rootFolderName } = await exportGodotProjectZip(project, {
+        folderName: dlName,
+        onProgress: (msg) => {
+          const pct = msg.match(/(\d+%)/);
+          if (pct) {
+            downloadGodotProjectZipBtn.innerText = `⏳ Zip ${pct[1]}`;
+          }
+        },
+      });
+
+      downloadBlob(zipBlob, `${rootFolderName}.zip`);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to export Godot project ZIP: " + (err?.message || err));
+    } finally {
+      downloadGodotProjectZipBtn.innerText = originalText;
+      downloadGodotProjectZipBtn.disabled = false;
     }
   };
 }

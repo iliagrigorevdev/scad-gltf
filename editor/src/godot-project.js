@@ -4,6 +4,7 @@ import {
   extractScadDependencies,
 } from "scad-gltf/utils";
 import { buildGodotPck } from "./godot-pck.js";
+import { GODOT_ADDON_FILES } from "./prompt-ui.js";
 import JSZip from "jszip";
 
 const RUNTIME_LOADER_PATH = "__scad_runtime_loader.gd";
@@ -798,4 +799,67 @@ export async function exportGodotProjectWebZip(project, options = {}) {
   );
 
   return { zipBlob, pckFileName, rootFolderName, compiledCount, logs };
+}
+
+/**
+ * Packages the raw Godot Markdown project files (including SCAD importer addon
+ * files if referenced and missing) into a downloadable .zip archive.
+ */
+export async function exportGodotProjectZip(project, options = {}) {
+  const { folderName, onProgress } = options;
+
+  if (!project || !project.files) {
+    throw new Error("Invalid Godot project.");
+  }
+
+  const sanitizeName = (name, fallback) =>
+    String(name || "")
+      .replace(/[^A-Za-z0-9_.-]+/g, "_")
+      .replace(/^[_.-]+|[_.-]+$/g, "") || fallback;
+
+  const safeProjectName = sanitizeName(project.projectName, "godot_project");
+  const rootFolderName = sanitizeName(folderName, safeProjectName);
+
+  const filesToPack = { ...project.files };
+  const needsScadAddon =
+    Object.keys(filesToPack).some((p) => p.toLowerCase().endsWith(".scad")) ||
+    /scad_importer/.test(filesToPack["project.godot"] || "");
+
+  if (needsScadAddon) {
+    for (const addonFile of GODOT_ADDON_FILES) {
+      if (filesToPack[addonFile.path] === undefined) {
+        filesToPack[addonFile.path] = addonFile.content;
+      }
+    }
+  }
+
+  if (onProgress) onProgress("Creating ZIP archive...");
+  const zip = new JSZip();
+  const rootFolder = zip.folder(rootFolderName);
+
+  const sortedPaths = Object.keys(filesToPack).sort((a, b) =>
+    a.localeCompare(b),
+  );
+  for (const relPath of sortedPaths) {
+    const cleanRel = relPath.replace(/\\/g, "/").replace(/^\/+/, "");
+    if (!cleanRel) continue;
+    rootFolder.file(cleanRel, filesToPack[relPath]);
+  }
+
+  const zipBlob = await zip.generateAsync(
+    {
+      type: "blob",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
+    },
+    (metadata) => {
+      if (onProgress) {
+        onProgress(
+          `Creating ZIP archive (${Math.round(metadata.percent)}%)...`,
+        );
+      }
+    },
+  );
+
+  return { zipBlob, rootFolderName, fileCount: sortedPaths.length };
 }
