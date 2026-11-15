@@ -20,24 +20,14 @@ import {
   applyDynamicBoundsToLights,
   extractCamerasAndLights,
 } from "./shared.js";
-import {
-  extractFilesFromMarkdown,
-  extractModelNameFromScad,
-} from "scad-gltf/utils";
+import { extractModelNameFromScad } from "scad-gltf/utils";
 
 const viewerContainer = document.getElementById("viewer-container");
 const viewerEl = document.getElementById("viewer");
 const renderTimeEl = document.getElementById("render-time");
 const filenameInput = document.getElementById("filename-input");
-const entryFileSelect = document.getElementById("entry-file-select");
-const toggleMdBtn = document.getElementById("toggle-md-btn");
 const saveBtn = document.getElementById("save-btn");
 const openEditorBtn = document.getElementById("open-editor-btn");
-const mdViewerOverlay = document.getElementById("md-viewer-overlay");
-const mdViewerTitle = document.getElementById("md-viewer-title");
-const mdViewerContent = document.getElementById("md-viewer-content");
-const mdCopyBtn = document.getElementById("md-copy-btn");
-const mdCloseBtn = document.getElementById("md-close-btn");
 
 const showGridCb = document.getElementById("show-grid-cb");
 const wireframeCb = document.getElementById("wireframe-cb");
@@ -60,12 +50,8 @@ let isPlaying = true;
 let isDraggingSlider = false;
 let currentAnimations = [];
 let latestScadCode = "";
-let isCurrentMd = false;
-let currentExtractedFiles = {};
-let currentEntryScadFile = null;
 let isCompiling = false;
-let pendingRender = null;
-let latestRenderRequestId = 0;
+let pendingCode = null;
 let mixer = null;
 let captureNextFrame = false;
 
@@ -410,42 +396,29 @@ window.addEventListener("resize", () => {
 });
 
 // --- GLTF Parsing & Rendering Logic ---
-function clearCurrentMesh() {
-  if (currentMesh) {
-    if (mixer) {
-      mixer.stopAllAction();
-      mixer.uncacheRoot(mixer.getRoot());
-      mixer = null;
-    }
-    currentAction = null;
-    currentAnimations = [];
-    scene.remove(currentMesh);
-    currentMesh.traverse((child) => {
-      if (child.isMesh) {
-        child.geometry.dispose();
-        if (Array.isArray(child.material)) {
-          child.material.forEach((m) => m.dispose());
-        } else if (child.material) {
-          child.material.dispose();
-        }
-      }
-    });
-    currentMesh = null;
-  }
-  if (animControls) {
-    animControls.style.display = "none";
-  }
-  if (cameraSelect) {
-    cameraSelect.style.display = "none";
-    cameraSelect.value = "";
-  }
-  activeCamera = camera;
-  controls.enabled = true;
-}
-
 function renderGLTF(outputArray) {
   return new Promise((resolve, reject) => {
-    clearCurrentMesh();
+    if (currentMesh) {
+      if (mixer) {
+        mixer.stopAllAction();
+        mixer.uncacheRoot(mixer.getRoot());
+        mixer = null;
+      }
+      currentAction = null;
+      currentAnimations = [];
+      scene.remove(currentMesh);
+      currentMesh.traverse((child) => {
+        if (child.isMesh) {
+          child.geometry.dispose();
+          if (Array.isArray(child.material)) {
+            child.material.forEach((m) => m.dispose());
+          } else if (child.material) {
+            child.material.dispose();
+          }
+        }
+      });
+      currentMesh = null;
+    }
 
     const arrayBuffer = outputArray.buffer.slice(
       outputArray.byteOffset,
@@ -601,59 +574,11 @@ async function fetchDependenciesWrapper(code) {
   return fetchDependencies(code, backendUrl, serverFiles);
 }
 
-function isMarkdownContent(code) {
-  if (typeof code !== "string") return false;
-  return (
-    (code.includes("```") && code.includes("###")) ||
-    /```(?:openscad|scad)?\r?\n/i.test(code)
-  );
-}
-
-function extractRootFolderFromMarkdownFiles(files) {
-  const paths = Object.keys(files)
-    .map((p) => p.replace(/\\/g, "/").replace(/^\/+/, ""))
-    .filter(Boolean);
-  if (paths.length === 0) return null;
-
-  let rootFolder = null;
-  for (const p of paths) {
-    const slashIdx = p.indexOf("/");
-    if (slashIdx <= 0) return null;
-    const top = p.slice(0, slashIdx);
-    if (rootFolder === null) {
-      rootFolder = top;
-    } else if (rootFolder !== top) {
-      return null;
-    }
-  }
-  return rootFolder;
-}
-
-function setMdOverlayVisible(visible) {
-  if (mdViewerOverlay) {
-    mdViewerOverlay.style.display = visible ? "flex" : "none";
-  }
-  if (toggleMdBtn) {
-    toggleMdBtn.classList.toggle("active", visible);
-  }
-}
-
-function buildAdditionalFilesForEntry(files, entryFile) {
-  const additionalFiles = {};
-  for (const [fName, fContent] of Object.entries(files)) {
-    if (fName !== entryFile) {
-      additionalFiles[fName] = fContent;
-    }
-  }
-  return additionalFiles;
-}
-
-async function compileAndRender(scadCode, extraAdditionalFiles = {}) {
+async function compileAndRender(scadCode) {
   if (isCompiling) {
-    pendingRender = { code: scadCode, additionalFiles: extraAdditionalFiles };
+    pendingCode = scadCode;
     return;
   }
-  const reqId = ++latestRenderRequestId;
   isCompiling = true;
 
   if (renderTimeEl) {
@@ -665,15 +590,10 @@ async function compileAndRender(scadCode, extraAdditionalFiles = {}) {
 
   try {
     const additionalFiles = await fetchDependenciesWrapper(scadCode);
-    Object.assign(additionalFiles, extraAdditionalFiles);
     const gltfData = await convertScadToGltf(scadCode, {
       wasmUrl,
       additionalFiles,
     });
-
-    if (reqId !== latestRenderRequestId) {
-      return;
-    }
 
     await renderGLTF(gltfData);
 
@@ -683,163 +603,30 @@ async function compileAndRender(scadCode, extraAdditionalFiles = {}) {
     }
   } catch (e) {
     console.error(e);
-    if (reqId === latestRenderRequestId && renderTimeEl) {
+    if (renderTimeEl) {
       renderTimeEl.innerText = "Compilation failed";
     }
   } finally {
     isCompiling = false;
-    if (pendingRender !== null) {
-      const next = pendingRender;
-      pendingRender = null;
-      compileAndRender(next.code, next.additionalFiles);
+    if (pendingCode !== null) {
+      const codeToCompile = pendingCode;
+      pendingCode = null;
+      compileAndRender(codeToCompile);
     }
   }
-}
-
-if (entryFileSelect) {
-  entryFileSelect.addEventListener("change", async () => {
-    const selectedFile = entryFileSelect.value;
-    if (!selectedFile || !currentExtractedFiles[selectedFile]) return;
-    currentEntryScadFile = selectedFile;
-    setMdOverlayVisible(false);
-    const additionalFiles = buildAdditionalFilesForEntry(
-      currentExtractedFiles,
-      selectedFile,
-    );
-    await compileAndRender(
-      currentExtractedFiles[selectedFile],
-      additionalFiles,
-    );
-  });
-}
-
-if (toggleMdBtn) {
-  toggleMdBtn.addEventListener("click", () => {
-    if (!mdViewerOverlay) return;
-    const isVisible = mdViewerOverlay.style.display !== "none";
-    setMdOverlayVisible(!isVisible);
-  });
-}
-
-if (mdCloseBtn) {
-  mdCloseBtn.addEventListener("click", () => {
-    setMdOverlayVisible(false);
-  });
-}
-
-if (mdCopyBtn) {
-  mdCopyBtn.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(latestScadCode || "");
-      const originalText = mdCopyBtn.innerText;
-      mdCopyBtn.innerText = "✅ Copied!";
-      setTimeout(() => {
-        mdCopyBtn.innerText = originalText;
-      }, 1500);
-    } catch (err) {
-      alert("Failed to copy Markdown: " + err.message);
-    }
-  });
 }
 
 // --- Listen for Messages ---
 window.addEventListener("message", async (event) => {
-  if (!event.data || typeof event.data !== "object") return;
-  if (event.data.type !== "RENDER_SCAD" && event.data.type !== "RENDER_MD") {
-    return;
-  }
-
-  const incomingCode = event.data.code || "";
-  latestScadCode = incomingCode;
-  pendingRender = null;
-
-  isCurrentMd =
-    event.data.type === "RENDER_MD" || isMarkdownContent(incomingCode);
-
-  if (mdViewerContent) {
-    mdViewerContent.textContent = incomingCode;
-  }
-
-  if (isCurrentMd) {
-    const files = extractFilesFromMarkdown(incomingCode);
-    currentExtractedFiles = files;
-    const allFiles = Object.keys(files);
-    const scadFiles = allFiles.filter((f) => f.toLowerCase().endsWith(".scad"));
-
-    if (mdViewerTitle) {
-      mdViewerTitle.textContent =
-        allFiles.length > 0
-          ? `Markdown Content (${allFiles.length} file${allFiles.length === 1 ? "" : "s"})`
-          : "Markdown Content";
-    }
-    if (toggleMdBtn) {
-      toggleMdBtn.style.display = "inline-block";
-    }
-
-    if (scadFiles.length > 0) {
-      currentEntryScadFile = scadFiles[0];
-      if (entryFileSelect) {
-        entryFileSelect.innerHTML = "";
-        scadFiles.forEach((f) => {
-          const opt = document.createElement("option");
-          opt.value = f;
-          opt.textContent = `🧊 ${f}`;
-          entryFileSelect.appendChild(opt);
-        });
-        entryFileSelect.value = currentEntryScadFile;
-        entryFileSelect.style.display = "inline-block";
-      }
-
-      const entryCode = files[currentEntryScadFile];
-      const extractedName = extractModelNameFromScad(entryCode);
-      const rootFolder = extractRootFolderFromMarkdownFiles(files);
-      if (extractedName) {
-        filenameInput.value = extractedName.toLowerCase().endsWith(".md")
-          ? extractedName
-          : `${extractedName}.md`;
-      } else if (rootFolder) {
-        filenameInput.value = `${rootFolder}.md`;
-      } else {
-        filenameInput.value = "";
-      }
-
-      setMdOverlayVisible(false);
-      const additionalFiles = buildAdditionalFilesForEntry(
-        files,
-        currentEntryScadFile,
-      );
-      await compileAndRender(entryCode, additionalFiles);
-    } else {
-      currentEntryScadFile = null;
-      if (entryFileSelect) {
-        entryFileSelect.innerHTML = "";
-        entryFileSelect.style.display = "none";
-      }
-      latestRenderRequestId++;
-      clearCurrentMesh();
-      if (renderTimeEl) {
-        renderTimeEl.style.display = "none";
-      }
-      const rootFolder = extractRootFolderFromMarkdownFiles(files);
-      filenameInput.value = rootFolder ? `${rootFolder}.md` : "";
-      setMdOverlayVisible(true);
-    }
-  } else {
-    currentExtractedFiles = {};
-    currentEntryScadFile = null;
-    if (entryFileSelect) {
-      entryFileSelect.innerHTML = "";
-      entryFileSelect.style.display = "none";
-    }
-    if (toggleMdBtn) {
-      toggleMdBtn.style.display = "none";
-    }
-    setMdOverlayVisible(false);
+  if (event.data.type === "RENDER_SCAD") {
+    latestScadCode = event.data.code;
 
     const extractedName = extractModelNameFromScad(latestScadCode);
-    filenameInput.value = extractedName || "";
+    if (extractedName) {
+      filenameInput.value = extractedName;
+    }
 
-    await compileAndRender(latestScadCode, {});
+    await compileAndRender(event.data.code);
   }
 });
 
@@ -862,12 +649,9 @@ saveBtn.addEventListener("click", async () => {
     if (!res.ok) throw new Error("Could not reach `scad-gltf serve`.");
 
     const data = await res.json();
-    const defaultExt = isCurrentMd ? ".md" : ".scad";
-    const lowerFilename = filename.toLowerCase();
-    const checkFilename =
-      lowerFilename.endsWith(".scad") || lowerFilename.endsWith(".md")
-        ? filename
-        : `${filename}${defaultExt}`;
+    const checkFilename = filename.toLowerCase().endsWith(".scad")
+      ? filename
+      : `${filename}.scad`;
     const fileExists = data.files && data.files.includes(checkFilename);
 
     if (fileExists) {
@@ -886,10 +670,7 @@ saveBtn.addEventListener("click", async () => {
     const saveRes = await fetch(`${backendUrl}/api/scads`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        filename: checkFilename,
-        content: latestScadCode || "",
-      }),
+      body: JSON.stringify({ filename, content: latestScadCode || "" }),
     });
 
     if (!saveRes.ok) {
@@ -909,12 +690,9 @@ saveBtn.addEventListener("click", async () => {
     );
 
     const blob = new Blob([latestScadCode || ""], { type: "text/plain" });
-    const defaultExt = isCurrentMd ? ".md" : ".scad";
-    const lowerFilename = filename.toLowerCase();
-    const checkFilename =
-      lowerFilename.endsWith(".scad") || lowerFilename.endsWith(".md")
-        ? filename
-        : `${filename}${defaultExt}`;
+    const checkFilename = filename.toLowerCase().endsWith(".scad")
+      ? filename
+      : `${filename}.scad`;
     downloadBlob(blob, checkFilename);
 
     saveBtn.innerText = "✅ Downloaded!";
