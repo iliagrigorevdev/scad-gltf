@@ -37,6 +37,7 @@ import {
 import {
   parseGodotMarkdownProject,
   compileGodotProjectToPck,
+  exportGodotProjectWebZip,
 } from "./godot-project.js";
 
 // --- UI Elements ---
@@ -90,6 +91,7 @@ const screenshotBtn = document.getElementById("screenshot-btn");
 const cameraSelect = document.getElementById("camera-select");
 
 const playGodotBtn = document.getElementById("play-godot-btn");
+const downloadGodotZipBtn = document.getElementById("download-godot-zip-btn");
 const godotPanel = document.getElementById("godot-panel");
 const godotViewport = document.getElementById("godot-viewport");
 const godotStatusOverlay = document.getElementById("godot-status-overlay");
@@ -618,6 +620,12 @@ function syncMdFilesUi(code) {
     currentEntryFile = null;
     currentEntryScadFile = null;
   }
+  if (playGodotBtn) {
+    playGodotBtn.style.display = ctx.isGodot ? "flex" : "none";
+  }
+  if (downloadGodotZipBtn) {
+    downloadGodotZipBtn.style.display = ctx.isGodot ? "flex" : "none";
+  }
   updateEditorHighlights();
   return ctx;
 }
@@ -847,6 +855,9 @@ async function compileAndRender(scadCode) {
         ? "🔄 Restart Godot"
         : "🎮 Play Godot";
     }
+    if (downloadGodotZipBtn) {
+      downloadGodotZipBtn.style.display = "flex";
+    }
 
     applyDerivedModelName(
       `${godotProject.projectName}.md`,
@@ -860,6 +871,7 @@ async function compileAndRender(scadCode) {
   } else {
     isGodotProject = false;
     if (playGodotBtn) playGodotBtn.style.display = "none";
+    if (downloadGodotZipBtn) downloadGodotZipBtn.style.display = "none";
     if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
   }
 
@@ -1777,6 +1789,52 @@ if (playGodotBtn) {
   playGodotBtn.onclick = () => {
     const project = parseGodotMarkdownProject(getEditorContent());
     if (project) launchGodotProject(project);
+  };
+}
+if (downloadGodotZipBtn) {
+  downloadGodotZipBtn.onclick = async () => {
+    const project = parseGodotMarkdownProject(getEditorContent());
+    if (!project) return;
+
+    const originalText = downloadGodotZipBtn.innerText;
+    downloadGodotZipBtn.disabled = true;
+    downloadGodotZipBtn.innerText = "⏳ Building...";
+
+    try {
+      let dlName = getDownloadName().replace(/\.(md|scad)$/i, "");
+      if (!dlName || dlName === "model") {
+        dlName = project.projectName || "godot_project";
+      }
+
+      const { zipBlob } = await exportGodotProjectWebZip(project, {
+        wasmUrl,
+        godotBaseUrl: "./godot/godot",
+        folderName: dlName,
+        scadCache: godotScadCache,
+        onProgress: (msg) => {
+          if (/SCAD/i.test(msg)) {
+            downloadGodotZipBtn.innerText = "⏳ Compiling...";
+          } else if (/Packing/i.test(msg)) {
+            downloadGodotZipBtn.innerText = "⏳ Packing...";
+          } else if (/runtime/i.test(msg)) {
+            downloadGodotZipBtn.innerText = "⏳ Runtime...";
+          } else if (/ZIP/i.test(msg)) {
+            const pct = msg.match(/(\d+%)/);
+            downloadGodotZipBtn.innerText = pct
+              ? `⏳ Zip ${pct[1]}`
+              : "⏳ Zipping...";
+          }
+        },
+      });
+
+      downloadBlob(zipBlob, `${dlName}_web.zip`);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to export Godot Web ZIP: " + (err?.message || err));
+    } finally {
+      downloadGodotZipBtn.innerText = originalText;
+      downloadGodotZipBtn.disabled = false;
+    }
   };
 }
 if (godotRestartBtn) {

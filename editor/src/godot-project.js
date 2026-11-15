@@ -4,6 +4,7 @@ import {
   extractScadDependencies,
 } from "scad-gltf/utils";
 import { buildGodotPck } from "./godot-pck.js";
+import JSZip from "jszip";
 
 const RUNTIME_LOADER_PATH = "__scad_runtime_loader.gd";
 const GLOBAL_SCRIPT_CLASS_CACHE_PATH = ".godot/global_script_class_cache.cfg";
@@ -465,4 +466,336 @@ export async function compileGodotProjectToPck(project, options = {}) {
 
   const pckBuffer = buildGodotPck(pckFiles);
   return { pckBuffer, logs, compiledCount };
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+async function fetchGodotRuntimeAsset(url, kind) {
+  const res = await fetch(url);
+  if (!res.ok) return null;
+
+  const contentType = (res.headers.get("content-type") || "").toLowerCase();
+  if (contentType.includes("text/html")) return null;
+
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.byteLength === 0) return null;
+
+  if (kind === "wasm") {
+    if (
+      bytes.byteLength < 4 ||
+      bytes[0] !== 0x00 ||
+      bytes[1] !== 0x61 ||
+      bytes[2] !== 0x73 ||
+      bytes[3] !== 0x6d
+    ) {
+      return null;
+    }
+  } else if (kind === "js") {
+    const head = new TextDecoder().decode(bytes.subarray(0, 64)).trimStart();
+    if (head.startsWith("<")) return null;
+  }
+
+  return bytes;
+}
+
+async function fetchGodotWebRuntimeFiles(godotBaseUrl) {
+  const normalizedBase = godotBaseUrl.replace(/\/+$/, "");
+  const lastSlash = normalizedBase.lastIndexOf("/");
+  const baseDir =
+    lastSlash === -1 ? "" : normalizedBase.slice(0, lastSlash + 1);
+  const baseName =
+    lastSlash === -1 ? normalizedBase : normalizedBase.slice(lastSlash + 1);
+
+  const requiredAssets = [
+    { name: `${baseName}.js`, kind: "js" },
+    { name: `${baseName}.wasm`, kind: "wasm" },
+  ];
+
+  const optionalAssets = [
+    { name: `${baseName}.audio.worklet.js`, kind: "js" },
+    { name: `${baseName}.audio.position.worklet.js`, kind: "js" },
+    { name: `${baseName}.worker.js`, kind: "js" },
+    { name: `${baseName}.side.wasm`, kind: "wasm" },
+  ];
+
+  const fetched = [];
+  for (const asset of requiredAssets) {
+    const data = await fetchGodotRuntimeAsset(
+      `${baseDir}${asset.name}`,
+      asset.kind,
+    );
+    if (!data) {
+      throw new Error(
+        `Missing Godot Web runtime file "${baseDir}${asset.name}". Make sure Godot Web templates are available.`,
+      );
+    }
+    fetched.push({ name: asset.name, data });
+  }
+
+  for (const asset of optionalAssets) {
+    const data = await fetchGodotRuntimeAsset(
+      `${baseDir}${asset.name}`,
+      asset.kind,
+    );
+    if (data) {
+      fetched.push({ name: asset.name, data });
+    }
+  }
+
+  return { baseName, files: fetched };
+}
+
+function buildGodotWebIndexHtml({
+  title,
+  executable,
+  mainPack,
+  fileSizes,
+  threads,
+}) {
+  const safeJson = (val) => JSON.stringify(val).replace(/<\//g, "<\\/");
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, user-scalable=no, initial-scale=1.0"
+    />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      html,
+      body,
+      #canvas {
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+      body {
+        color: #ffffff;
+        background-color: #000000;
+        overflow: hidden;
+        touch-action: none;
+        font-family: system-ui, sans-serif;
+      }
+      #canvas {
+        display: block;
+      }
+      #canvas:focus {
+        outline: none;
+      }
+      #status {
+        position: absolute;
+        inset: 0;
+        background-color: #1a1a1a;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 14px;
+        visibility: hidden;
+      }
+      #status-progress {
+        width: min(360px, 80vw);
+        height: 8px;
+        background-color: #333333;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+      #status-progress-inner {
+        height: 100%;
+        width: 0%;
+        background-color: #478cbf;
+        transition: width 0.1s linear;
+      }
+      #status-notice {
+        max-width: 80vw;
+        text-align: center;
+        font-size: 14px;
+        line-height: 1.4;
+        color: #ff6b6b;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas">
+      Your browser does not support the canvas tag.
+    </canvas>
+    <noscript>Your browser does not support JavaScript.</noscript>
+    <div id="status">
+      <div id="status-title">Loading ${escapeHtml(title)}...</div>
+      <div id="status-progress">
+        <div id="status-progress-inner"></div>
+      </div>
+      <div id="status-notice"></div>
+    </div>
+    <script src="${escapeHtml(executable)}.js"></script>
+    <script>
+      const GODOT_CONFIG = {
+        args: [],
+        canvasResizePolicy: 2,
+        emscriptenPoolSize: 8,
+        ensureCrossOriginIsolationHeaders: false,
+        executable: ${safeJson(executable)},
+        experimentalVK: false,
+        fileSizes: ${safeJson(fileSizes)},
+        focusCanvas: true,
+        gdextensionLibs: [],
+        godotPoolSize: 4,
+        mainPack: ${safeJson(mainPack)},
+      };
+      const engine = new Engine(GODOT_CONFIG);
+      (function () {
+        const statusOverlay = document.getElementById("status");
+        const statusProgress = document.getElementById("status-progress");
+        const statusProgressInner = document.getElementById(
+          "status-progress-inner",
+        );
+        const statusNotice = document.getElementById("status-notice");
+
+        let initializing = true;
+        function setStatusMode(mode) {
+          if (!initializing) return;
+          if (mode === "hidden") {
+            statusOverlay.style.visibility = "hidden";
+            initializing = false;
+            return;
+          }
+          statusOverlay.style.visibility = "visible";
+          statusProgress.style.display = mode === "progress" ? "block" : "none";
+          statusNotice.style.display = mode === "notice" ? "block" : "none";
+        }
+        function setStatusNotice(text) {
+          statusNotice.textContent = text;
+        }
+        function displayFailureNotice(err) {
+          console.error(err);
+          if (err instanceof Error) {
+            setStatusNotice(err.message);
+          } else if (typeof err === "string") {
+            setStatusNotice(err);
+          } else {
+            setStatusNotice("An unknown error occurred.");
+          }
+          setStatusMode("notice");
+          initializing = false;
+        }
+
+        const missing =
+          typeof Engine.getMissingFeatures === "function"
+            ? Engine.getMissingFeatures({ threads: ${safeJson(Boolean(threads))} })
+            : [];
+        if (missing.length !== 0) {
+          displayFailureNotice(
+            "Error\\nThe following features required to run Godot projects on the Web are missing:\\n" +
+              missing.join("\\n"),
+          );
+        } else {
+          setStatusMode("progress");
+          engine
+            .startGame({
+              canvas: document.getElementById("canvas"),
+              onProgress: function (current, total) {
+                if (current > 0 && total > 0) {
+                  statusProgressInner.style.width =
+                    Math.min(100, (current / total) * 100) + "%";
+                }
+              },
+            })
+            .then(function () {
+              setStatusMode("hidden");
+            }, displayFailureNotice);
+        }
+      })();
+    </script>
+  </body>
+</html>
+`;
+}
+
+/**
+ * Compiles the Godot Markdown project and packages a standalone,
+ * ready-to-deploy Web export (.zip containing <rootFolder>/index.html, .pck, and runtime files).
+ */
+export async function exportGodotProjectWebZip(project, options = {}) {
+  const {
+    wasmUrl,
+    godotBaseUrl = "./godot/godot",
+    folderName,
+    scadCache = new Map(),
+    onProgress,
+  } = options;
+
+  const { pckBuffer, logs, compiledCount } = await compileGodotProjectToPck(
+    project,
+    { wasmUrl, scadCache, onProgress },
+  );
+
+  if (onProgress) onProgress("Fetching Godot Web runtime...");
+  const { baseName, files: runtimeFiles } =
+    await fetchGodotWebRuntimeFiles(godotBaseUrl);
+
+  const sanitizeName = (name, fallback) =>
+    String(name || "")
+      .replace(/[^A-Za-z0-9_.-]+/g, "_")
+      .replace(/^[_.-]+|[_.-]+$/g, "") || fallback;
+
+  const safeProjectName = sanitizeName(project.projectName, "godot_project");
+  const rootFolderName = sanitizeName(folderName, safeProjectName);
+  const pckFileName = `${safeProjectName}.pck`;
+
+  const displayTitle =
+    (folderName && String(folderName).trim()) || rootFolderName;
+
+  const fileSizes = {
+    [pckFileName]: pckBuffer.byteLength,
+  };
+  const wasmFile = runtimeFiles.find(
+    (f) => f.name.endsWith(".wasm") && !f.name.includes(".side."),
+  );
+  if (wasmFile) {
+    fileSizes[wasmFile.name] = wasmFile.data.byteLength;
+  }
+  const hasWorker = runtimeFiles.some((f) => f.name.endsWith(".worker.js"));
+
+  const indexHtml = buildGodotWebIndexHtml({
+    title: displayTitle,
+    executable: baseName,
+    mainPack: pckFileName,
+    fileSizes,
+    threads: hasWorker,
+  });
+
+  if (onProgress) onProgress("Creating ZIP archive...");
+  const zip = new JSZip();
+  const rootFolder = zip.folder(rootFolderName);
+  rootFolder.file("index.html", indexHtml);
+  rootFolder.file(pckFileName, pckBuffer);
+  for (const file of runtimeFiles) {
+    rootFolder.file(file.name, file.data);
+  }
+
+  const zipBlob = await zip.generateAsync(
+    {
+      type: "blob",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
+    },
+    (metadata) => {
+      if (onProgress) {
+        onProgress(
+          `Creating ZIP archive (${Math.round(metadata.percent)}%)...`,
+        );
+      }
+    },
+  );
+
+  return { zipBlob, pckFileName, rootFolderName, compiledCount, logs };
 }

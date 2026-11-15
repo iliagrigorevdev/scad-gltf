@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "jszip": "^3.10.2",
     "scad-gltf": "file:..",
     "three": "^0.187.0",
     "three-gpu-pathtracer": "^0.0.28"
