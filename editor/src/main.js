@@ -834,8 +834,7 @@ async function fetchDependenciesWrapper(code) {
   return fetchDependencies(code, currentBackendUrl, null);
 }
 
-async function compileAndRender(scadCode, compileOptions = {}) {
-  const { autoLaunchGodot = false } = compileOptions;
+async function compileAndRender(scadCode) {
   if (typeof scadCode !== "string") return;
 
   const mdCtx = syncMdFilesUi(scadCode);
@@ -854,11 +853,6 @@ async function compileAndRender(scadCode, compileOptions = {}) {
       pendingForceNameOverride,
     );
     pendingForceNameOverride = false;
-
-    if (autoLaunchGodot) {
-      launchGodotProject(godotProject);
-      return;
-    }
 
     if (isGodotPlaying) {
       return;
@@ -1032,7 +1026,8 @@ loadScadBtn.onclick = () => {
           pendingForceNameOverride = true;
         }
         checkChanges();
-        compileAndRender(text, { autoLaunchGodot: true });
+        if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+        compileAndRender(text);
       } catch (err) {
         alert("Failed to read file: " + err.message);
       }
@@ -1894,7 +1889,8 @@ window.addEventListener("drop", async (e) => {
           pendingForceNameOverride = true;
         }
         checkChanges();
-        compileAndRender(text, { autoLaunchGodot: true });
+        if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+        compileAndRender(text);
       } catch (err) {
         alert("Failed to read file: " + err.message);
       }
@@ -2069,7 +2065,8 @@ backendSelectEl.addEventListener("change", async () => {
       }
       const data = await res.json();
       editorEl.value = data.content;
-      compileAndRender(getEditorContent(), { autoLaunchGodot: true });
+      if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+      compileAndRender(getEditorContent());
 
       currentModelOriginalState = {
         isNew: false,
@@ -2898,7 +2895,8 @@ window.addEventListener("hashchange", async () => {
       if (code !== null && editorEl.value !== code) {
         editorEl.value = code;
         checkChanges();
-        compileAndRender(getEditorContent(), { autoLaunchGodot: true });
+        if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+        compileAndRender(getEditorContent());
       }
     } catch (e) {
       console.error("Failed to decode hash on change", e);
@@ -2933,14 +2931,6 @@ window.addEventListener("hashchange", async () => {
   checkChanges();
   syncMdFilesUi(editorEl.value);
 
-  const initialContent = getEditorContent();
-  if (parseGodotMarkdownProject(initialContent)) {
-    compileAndRender(initialContent, { autoLaunchGodot: true });
-  } else {
-    startScadViewerLoop();
-    setTimeout(
-      () => compileAndRender(getEditorContent(), { autoLaunchGodot: true }),
-      500,
-    );
-  }
+  startScadViewerLoop();
+  setTimeout(() => compileAndRender(getEditorContent()), 500);
 })();
