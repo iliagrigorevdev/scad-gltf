@@ -235,6 +235,76 @@ select:focus {
     inset 0 -1px 0 rgba(255, 255, 255, 0.2);
 }
 
+.md-line.md-scad.md-block-even.md-body,
+.md-line.md-scad.md-block-even.md-preamble {
+  background: #182634;
+  color: #dcebf7;
+  box-shadow: inset 3px 0 0 rgba(0, 170, 255, 0.65);
+}
+
+.md-line.md-scad.md-block-odd.md-body,
+.md-line.md-scad.md-block-odd.md-preamble {
+  background: #1c2c3c;
+  color: #dcebf7;
+  box-shadow: inset 3px 0 0 rgba(0, 170, 255, 0.65);
+}
+
+.md-line.md-scad.md-header {
+  background: #1f3952;
+  color: #7dd3fc;
+  box-shadow:
+    inset 3px 0 0 rgba(0, 170, 255, 0.9),
+    inset 0 1px 0 rgba(56, 189, 248, 0.3);
+}
+
+.md-line.md-scad.md-block-even.md-fence-open {
+  background: #182634;
+  color: #5ea3cc;
+  box-shadow: inset 3px 0 0 rgba(0, 170, 255, 0.65);
+}
+
+.md-line.md-scad.md-block-odd.md-fence-open {
+  background: #1c2c3c;
+  color: #5ea3cc;
+  box-shadow: inset 3px 0 0 rgba(0, 170, 255, 0.65);
+}
+
+.md-line.md-scad.md-block-even.md-fence-close {
+  background: #182634;
+  color: #5ea3cc;
+  box-shadow:
+    inset 3px 0 0 rgba(0, 170, 255, 0.65),
+    inset 0 -1px 0 rgba(56, 189, 248, 0.22);
+}
+
+.md-line.md-scad.md-block-odd.md-fence-close {
+  background: #1c2c3c;
+  color: #5ea3cc;
+  box-shadow:
+    inset 3px 0 0 rgba(0, 170, 255, 0.65),
+    inset 0 -1px 0 rgba(56, 189, 248, 0.22);
+}
+
+.md-line.md-scad.md-header.md-active {
+  background: #254868;
+  color: #ffffff;
+  box-shadow:
+    inset 4px 0 0 #38bdf8,
+    inset 0 1px 0 rgba(125, 211, 252, 0.45);
+}
+
+.md-line.md-scad.md-body.md-active,
+.md-line.md-scad.md-preamble.md-active,
+.md-line.md-scad.md-fence-open.md-active {
+  box-shadow: inset 4px 0 0 #38bdf8;
+}
+
+.md-line.md-scad.md-fence-close.md-active {
+  box-shadow:
+    inset 4px 0 0 #38bdf8,
+    inset 0 -1px 0 rgba(125, 211, 252, 0.35);
+}
+
 #editor {
   position: relative;
   z-index: 1;
@@ -764,4 +834,26 @@ button.godot-btn:hover {
 #copy-md-file-btn,
 #paste-md-file-btn {
   flex-shrink: 0;
+}
+
+#entry-file-select.is-scad-file {
+  border-color: rgba(0, 170, 255, 0.65);
+  color: #7dd3fc;
+}
+
+#entry-file-select optgroup {
+  background: #1e1e1e;
+  color: #9ca3af;
+  font-style: normal;
+  font-weight: bold;
+}
+
+#entry-file-select option.file-opt-scad {
+  background: #182634;
+  color: #7dd3fc;
+}
+
+#entry-file-select option.file-opt-other {
+  background: #2a2a2a;
+  color: #d4d4d4;
 }

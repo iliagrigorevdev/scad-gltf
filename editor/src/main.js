@@ -341,6 +341,12 @@ function findMdBlockAtCursor(mdContent, cursorIndex) {
 let lastHighlightedText = null;
 let lastHighlightedActiveFile = null;
 
+function isScadFilePath(filePath) {
+  return (
+    typeof filePath === "string" && filePath.toLowerCase().endsWith(".scad")
+  );
+}
+
 function analyzeMdLines(content) {
   const lines = content.split("\n");
   const parsed = new Array(lines.length);
@@ -349,6 +355,8 @@ function analyzeMdLines(content) {
   let currentFile = null;
   let inCodeBlock = false;
   let genericInCodeBlock = false;
+  let genericFilePath = null;
+  let genericIsScad = false;
   let blockIdx = -1;
   let hasFileBlocks = false;
 
@@ -361,17 +369,21 @@ function analyzeMdLines(content) {
       currentFile = headerMatch[1];
       inCodeBlock = false;
       genericInCodeBlock = false;
+      genericFilePath = null;
+      genericIsScad = false;
       hasFileBlocks = true;
       parsed[i] = {
         line,
         role: "header",
         blockIdx,
         filePath: currentFile,
+        isScad: isScadFilePath(currentFile),
       };
       continue;
     }
 
     if (currentFile !== null) {
+      const isScad = isScadFilePath(currentFile);
       if (line.startsWith("```")) {
         if (!inCodeBlock) {
           inCodeBlock = true;
@@ -380,6 +392,7 @@ function analyzeMdLines(content) {
             role: "fence-open",
             blockIdx,
             filePath: currentFile,
+            isScad,
           };
         } else {
           parsed[i] = {
@@ -387,6 +400,7 @@ function analyzeMdLines(content) {
             role: "fence-close",
             blockIdx,
             filePath: currentFile,
+            isScad,
           };
           inCodeBlock = false;
           currentFile = null;
@@ -397,6 +411,7 @@ function analyzeMdLines(content) {
           role: "body",
           blockIdx,
           filePath: currentFile,
+          isScad,
         };
       } else {
         parsed[i] = {
@@ -404,6 +419,7 @@ function analyzeMdLines(content) {
           role: "preamble",
           blockIdx,
           filePath: currentFile,
+          isScad,
         };
       }
       continue;
@@ -411,6 +427,10 @@ function analyzeMdLines(content) {
 
     if (line.startsWith("```")) {
       if (!genericInCodeBlock) {
+        const fenceLang = line.slice(3).trim().toLowerCase();
+        genericIsScad =
+          fenceLang === "" || fenceLang === "openscad" || fenceLang === "scad";
+        genericFilePath = genericIsScad ? "main.scad" : null;
         blockIdx++;
         genericInCodeBlock = true;
         hasFileBlocks = true;
@@ -418,16 +438,20 @@ function analyzeMdLines(content) {
           line,
           role: "fence-open",
           blockIdx,
-          filePath: "main.scad",
+          filePath: genericFilePath,
+          isScad: genericIsScad,
         };
       } else {
         parsed[i] = {
           line,
           role: "fence-close",
           blockIdx,
-          filePath: "main.scad",
+          filePath: genericFilePath,
+          isScad: genericIsScad,
         };
         genericInCodeBlock = false;
+        genericFilePath = null;
+        genericIsScad = false;
       }
       continue;
     }
@@ -437,7 +461,8 @@ function analyzeMdLines(content) {
         line,
         role: "body",
         blockIdx,
-        filePath: "main.scad",
+        filePath: genericFilePath,
+        isScad: genericIsScad,
       };
       continue;
     }
@@ -447,6 +472,7 @@ function analyzeMdLines(content) {
       role: "plain",
       blockIdx: -1,
       filePath: null,
+      isScad: false,
     };
   }
 
@@ -509,6 +535,9 @@ function updateEditorHighlights() {
     const item = parsed[i];
     const div = document.createElement("div");
     let className = `md-line md-${item.role}`;
+    if (item.isScad) {
+      className += " md-scad";
+    }
     if (item.blockIdx >= 0) {
       className += item.blockIdx % 2 === 0 ? " md-block-even" : " md-block-odd";
     }
@@ -587,28 +616,60 @@ function getMdFilesContext(code) {
   };
 }
 
+function updateEntryFileSelectStyle(filePath) {
+  if (!entryFileSelect) return;
+  entryFileSelect.classList.toggle("is-scad-file", isScadFilePath(filePath));
+}
+
 function syncMdFilesUi(code) {
   const ctx = getMdFilesContext(code);
   if (ctx.isMd && ctx.allFiles.length > 0) {
     const allFiles = ctx.allFiles;
-    const scadFiles = allFiles.filter((f) => f.toLowerCase().endsWith(".scad"));
+    const scadFiles = allFiles.filter((f) => isScadFilePath(f));
+    const otherFiles = allFiles.filter((f) => !isScadFilePath(f));
 
     entryFileSelect.style.display = "flex";
     if (copyMdFileBtn) copyMdFileBtn.style.display = "flex";
     if (pasteMdFileBtn) pasteMdFileBtn.style.display = "flex";
 
+    const orderedFiles = [...scadFiles, ...otherFiles];
     const currentOptions = Array.from(entryFileSelect.options)
       .map((o) => o.value)
       .join(",");
-    const newOptions = allFiles.join(",");
+    const newOptions = orderedFiles.join(",");
     if (currentOptions !== newOptions) {
       entryFileSelect.innerHTML = "";
-      allFiles.forEach((f) => {
+
+      const createFileOption = (f, isScad) => {
         const opt = document.createElement("option");
         opt.value = f;
-        opt.innerText = f;
-        entryFileSelect.appendChild(opt);
-      });
+        opt.className = isScad ? "file-opt-scad" : "file-opt-other";
+        opt.innerText = isScad ? `🧊 ${f}` : `📄 ${f}`;
+        return opt;
+      };
+
+      if (scadFiles.length > 0 && otherFiles.length > 0) {
+        const scadGroup = document.createElement("optgroup");
+        scadGroup.label = `SCAD Models (${scadFiles.length})`;
+        scadFiles.forEach((f) =>
+          scadGroup.appendChild(createFileOption(f, true)),
+        );
+        entryFileSelect.appendChild(scadGroup);
+
+        const otherGroup = document.createElement("optgroup");
+        otherGroup.label = `Other Files (${otherFiles.length})`;
+        otherFiles.forEach((f) =>
+          otherGroup.appendChild(createFileOption(f, false)),
+        );
+        entryFileSelect.appendChild(otherGroup);
+      } else {
+        scadFiles.forEach((f) =>
+          entryFileSelect.appendChild(createFileOption(f, true)),
+        );
+        otherFiles.forEach((f) =>
+          entryFileSelect.appendChild(createFileOption(f, false)),
+        );
+      }
     }
 
     if (!allFiles.includes(currentEntryFile)) {
@@ -620,8 +681,10 @@ function syncMdFilesUi(code) {
         : scadFiles[0] || null;
     }
     entryFileSelect.value = currentEntryFile;
+    updateEntryFileSelectStyle(currentEntryFile);
   } else {
     entryFileSelect.style.display = "none";
+    updateEntryFileSelectStyle(null);
     if (copyMdFileBtn) copyMdFileBtn.style.display = "none";
     if (pasteMdFileBtn) pasteMdFileBtn.style.display = "none";
     currentEntryFile = null;
@@ -721,6 +784,7 @@ function handleEditorCursorChange() {
   if (currentEntryFile !== block.filePath) {
     currentEntryFile = block.filePath;
     entryFileSelect.value = block.filePath;
+    updateEntryFileSelectStyle(block.filePath);
     updateEditorHighlights();
   }
 
@@ -738,6 +802,7 @@ function handleEditorCursorChange() {
 entryFileSelect.addEventListener("change", (e) => {
   const selectedFile = e.target.value;
   currentEntryFile = selectedFile;
+  updateEntryFileSelectStyle(selectedFile);
   scrollEditorToMdFile(selectedFile);
   updateEditorHighlights();
 
