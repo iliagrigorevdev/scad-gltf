@@ -80,7 +80,10 @@ const backendDeleteBtn = document.getElementById("backend-delete-btn");
 const animControlsSection = document.getElementById("anim-controls-section");
 const animPlayBtn = document.getElementById("anim-play-btn");
 const animSelect = document.getElementById("anim-select");
+const animSliderRow = document.getElementById("anim-slider-row");
 const animSlider = document.getElementById("anim-slider");
+const animTimelineLabel = document.getElementById("anim-timeline-label");
+const animTimelineCb = document.getElementById("anim-timeline-cb");
 const promptUiContainer = document.getElementById("prompt-ui-container");
 
 const showGridCb = document.getElementById("show-grid-cb");
@@ -2573,6 +2576,33 @@ if (screenshotBtn) {
 }
 
 // --- Animation Controls ---
+function updateAnimTimelineVisibility() {
+  const hasAnims = currentAnimations.length > 0;
+  const showTimeline =
+    hasAnims && Boolean(animTimelineCb && animTimelineCb.checked);
+
+  if (animTimelineLabel) {
+    animTimelineLabel.style.display = hasAnims ? "flex" : "none";
+  }
+  if (animSliderRow) {
+    animSliderRow.style.display = showTimeline ? "" : "none";
+  }
+  if (showTimeline && currentAction && animSlider) {
+    const duration = currentAction.getClip().duration;
+    if (duration > 0) {
+      let currentClipTime = currentAction.time % duration;
+      if (currentClipTime < 0) currentClipTime += duration;
+      animSlider.value = currentClipTime / duration;
+    } else {
+      animSlider.value = 0;
+    }
+  }
+}
+
+if (animTimelineCb) {
+  animTimelineCb.addEventListener("change", updateAnimTimelineVisibility);
+}
+
 function pauseAnimation() {
   if (!currentAction) return;
   isPlaying = false;
@@ -2782,14 +2812,11 @@ function rebuildSceneFromGLTF(gltfData) {
         updateCameraAspect(activeCamera, w, h);
         renderPass.camera = activeCamera;
 
-        const animSliderRow = document.getElementById("anim-slider-row");
-
         if (currentAnimations.length) {
           mixer = new THREE.AnimationMixer(currentMesh);
           hasAnimOrCamera = true;
           if (animPlayBtn) animPlayBtn.style.display = "";
           if (animSelect) animSelect.style.display = "";
-          if (animSliderRow) animSliderRow.style.display = "";
           animSelect.innerHTML = "";
           currentAnimations.forEach((clip, i) => {
             const opt = document.createElement("option");
@@ -2801,10 +2828,11 @@ function rebuildSceneFromGLTF(gltfData) {
         } else {
           if (animPlayBtn) animPlayBtn.style.display = "none";
           if (animSelect) animSelect.style.display = "none";
-          if (animSliderRow) animSliderRow.style.display = "none";
           currentAction = null;
           updateCaptureButtonState();
         }
+
+        updateAnimTimelineVisibility();
 
         if (animControlsSection) {
           animControlsSection.style.display = hasAnimOrCamera ? "flex" : "none";
@@ -2929,7 +2957,12 @@ function animate() {
       mixer.update(delta);
     }
 
-    if (currentAction && isPlaying && !isDraggingSlider) {
+    if (
+      currentAction &&
+      isPlaying &&
+      !isDraggingSlider &&
+      (!animTimelineCb || animTimelineCb.checked)
+    ) {
       const duration = currentAction.getClip().duration;
       if (duration > 0) {
         let currentClipTime = currentAction.time % duration;

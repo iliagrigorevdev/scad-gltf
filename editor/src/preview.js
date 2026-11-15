@@ -41,6 +41,8 @@ const animControls = document.getElementById("anim-controls");
 const animPlayBtn = document.getElementById("anim-play-btn");
 const animSelect = document.getElementById("anim-select");
 const animSlider = document.getElementById("anim-slider");
+const animTimelineLabel = document.getElementById("anim-timeline-label");
+const animTimelineCb = document.getElementById("anim-timeline-cb");
 
 let currentMesh = null;
 let currentAction = null;
@@ -239,6 +241,36 @@ if (screenshotBtn) {
   });
 }
 
+function updateAnimTimelineVisibility() {
+  const hasAnims = currentAnimations.length > 0;
+  const showTimeline =
+    hasAnims && Boolean(animTimelineCb && animTimelineCb.checked);
+
+  if (animTimelineLabel) {
+    animTimelineLabel.style.display = hasAnims ? "flex" : "none";
+  }
+  if (animSlider) {
+    animSlider.style.display = showTimeline ? "" : "none";
+  }
+  if (animControls) {
+    animControls.classList.toggle("has-timeline", showTimeline);
+  }
+  if (showTimeline && currentAction && animSlider) {
+    const duration = currentAction.getClip().duration;
+    if (duration > 0) {
+      let currentClipTime = currentAction.time % duration;
+      if (currentClipTime < 0) currentClipTime += duration;
+      animSlider.value = currentClipTime / duration;
+    } else {
+      animSlider.value = 0;
+    }
+  }
+}
+
+if (animTimelineCb) {
+  animTimelineCb.addEventListener("change", updateAnimTimelineVisibility);
+}
+
 function pauseAnimation() {
   if (!currentAction) return;
   isPlaying = false;
@@ -321,7 +353,12 @@ function animate() {
 
   if (mixer) {
     mixer.update(delta);
-    if (currentAction && isPlaying && !isDraggingSlider) {
+    if (
+      currentAction &&
+      isPlaying &&
+      !isDraggingSlider &&
+      (!animTimelineCb || animTimelineCb.checked)
+    ) {
       const duration = currentAction.getClip().duration;
       if (duration > 0) {
         let currentClipTime = currentAction.time % duration;
@@ -457,7 +494,6 @@ function renderGLTF(outputArray) {
           if (animControls) {
             if (animPlayBtn) animPlayBtn.style.display = "";
             if (animSelect) animSelect.style.display = "";
-            if (animSlider) animSlider.style.display = "";
             animSelect.innerHTML = "";
             currentAnimations.forEach((clip, i) => {
               const opt = document.createElement("option");
@@ -466,6 +502,7 @@ function renderGLTF(outputArray) {
               animSelect.appendChild(opt);
             });
             playAnimation(0);
+            updateAnimTimelineVisibility();
           } else {
             currentAnimations.forEach((clip) => {
               const action = mixer.clipAction(clip);
@@ -478,9 +515,9 @@ function renderGLTF(outputArray) {
           if (animControls) {
             if (animPlayBtn) animPlayBtn.style.display = "none";
             if (animSelect) animSelect.style.display = "none";
-            if (animSlider) animSlider.style.display = "none";
           }
           currentAction = null;
+          updateAnimTimelineVisibility();
         }
 
         if (animControls) {

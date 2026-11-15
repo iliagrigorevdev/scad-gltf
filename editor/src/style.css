@@ -434,6 +434,15 @@ button.danger:hover {
   height: 24px;
 }
 
+#anim-timeline-label {
+  font-size: 13px;
+  user-select: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* --- Animation Slider --- */
 input[type="range"] {
   -webkit-appearance: none;

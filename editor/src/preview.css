@@ -192,8 +192,23 @@ body {
   border-radius: 8px;
   align-items: center;
   backdrop-filter: blur(4px);
-  width: 500px;
+  width: fit-content;
   max-width: 100%;
+}
+
+#anim-controls.has-timeline {
+  width: 400px;
+}
+
+#anim-controls label {
+  color: white;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  margin: 0;
 }
 
 #anim-controls select {
