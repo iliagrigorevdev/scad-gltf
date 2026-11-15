@@ -6,6 +6,7 @@ import {
 import { buildGodotPck } from "./godot-pck.js";
 
 const RUNTIME_LOADER_PATH = "__scad_runtime_loader.gd";
+const GLOBAL_SCRIPT_CLASS_CACHE_PATH = ".godot/global_script_class_cache.cfg";
 
 const RUNTIME_LOADER_GDSCRIPT = `extends Node
 
@@ -270,6 +271,117 @@ function patchProjectGodot(rawContent) {
   return content;
 }
 
+function escapeGdConfigString(str) {
+  return String(str)
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n");
+}
+
+function stripGdComment(line) {
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === "\\" && (inSingle || inDouble)) {
+      i++;
+      continue;
+    }
+    if (ch === "'" && !inDouble) inSingle = !inSingle;
+    else if (ch === '"' && !inSingle) inDouble = !inDouble;
+    else if (ch === "#" && !inSingle && !inDouble) {
+      return line.slice(0, i);
+    }
+  }
+  return line;
+}
+
+function parseGdScriptClassInfo(relPath, source) {
+  if (typeof source !== "string") return null;
+
+  let className = null;
+  let baseName = "RefCounted";
+  let icon = "";
+  let isTool = false;
+  let isAbstract = false;
+
+  const lines = source.replace(/\r\n/g, "\n").split("\n");
+  for (const rawLine of lines) {
+    // Only inspect unindented top-level statements so inner classes are ignored
+    if (/^[ \t]/.test(rawLine)) continue;
+
+    const line = stripGdComment(rawLine).trim();
+    if (!line) continue;
+
+    if (/^@tool\b/.test(line)) isTool = true;
+    if (/^@abstract\b/.test(line)) isAbstract = true;
+
+    const iconMatch = line.match(/^@icon\s*\(\s*"([^"]+)"\s*\)/);
+    if (iconMatch) {
+      icon = iconMatch[1];
+    }
+
+    const classMatch = line.match(
+      /^(?:@abstract\s+)?class_name\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+("([^"]+)"|([A-Za-z_][A-Za-z0-9_.]*)))?/,
+    );
+    if (classMatch) {
+      className = classMatch[1];
+      if (classMatch[3] || classMatch[4]) {
+        baseName = classMatch[3] || classMatch[4];
+      }
+      continue;
+    }
+
+    const extendsMatch = line.match(
+      /^extends\s+("([^"]+)"|([A-Za-z_][A-Za-z0-9_.]*))/,
+    );
+    if (extendsMatch) {
+      baseName = extendsMatch[2] || extendsMatch[3];
+    }
+  }
+
+  if (!className) return null;
+
+  return {
+    base: baseName,
+    class: className,
+    icon,
+    is_abstract: isAbstract,
+    is_tool: isTool,
+    language: "GDScript",
+    path: `res://${relPath}`,
+  };
+}
+
+function buildGlobalScriptClassCache(projectFiles) {
+  const entries = [];
+  for (const [relPath, content] of Object.entries(projectFiles)) {
+    if (!relPath.toLowerCase().endsWith(".gd")) continue;
+    if (relPath.startsWith("addons/scad_importer/")) continue;
+    const info = parseGdScriptClassInfo(relPath, content);
+    if (info) entries.push(info);
+  }
+
+  if (entries.length === 0) return null;
+
+  entries.sort((a, b) => a.class.localeCompare(b.class));
+
+  const formattedEntries = entries.map(
+    (entry) =>
+      `{\n` +
+      `"base": &"${escapeGdConfigString(entry.base)}",\n` +
+      `"class": &"${escapeGdConfigString(entry.class)}",\n` +
+      `"icon": "${escapeGdConfigString(entry.icon)}",\n` +
+      `"is_abstract": ${entry.is_abstract},\n` +
+      `"is_tool": ${entry.is_tool},\n` +
+      `"language": &"${escapeGdConfigString(entry.language)}",\n` +
+      `"path": "${escapeGdConfigString(entry.path)}"\n` +
+      `}`,
+  );
+
+  return `list=[${formattedEntries.join(", ")}]\n`;
+}
+
 /**
  * Compiles all .scad assets in the Godot project to .glb via OpenSCAD WASM,
  * injects the runtime SCAD loader, and builds an in-memory .pck buffer.
@@ -339,6 +451,13 @@ export async function compileGodotProjectToPck(project, options = {}) {
   }
 
   pckFiles.set(`res://${RUNTIME_LOADER_PATH}`, RUNTIME_LOADER_GDSCRIPT);
+
+  if (!project.files[GLOBAL_SCRIPT_CLASS_CACHE_PATH]) {
+    const classCache = buildGlobalScriptClassCache(project.files);
+    if (classCache) {
+      pckFiles.set(`res://${GLOBAL_SCRIPT_CLASS_CACHE_PATH}`, classCache);
+    }
+  }
 
   if (onProgress) {
     onProgress("Packing Godot project (.pck)...");
