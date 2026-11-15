@@ -49,6 +49,8 @@ const promptDescEl = document.getElementById("prompt-desc");
 const copyPromptBtn = document.getElementById("copy-prompt-btn");
 const modelNameInputEl = document.getElementById("model-name-input");
 const entryFileSelect = document.getElementById("entry-file-select");
+const copyMdFileBtn = document.getElementById("copy-md-file-btn");
+const pasteMdFileBtn = document.getElementById("paste-md-file-btn");
 const editorEl = document.getElementById("editor");
 const renderBtn = document.getElementById("render-btn");
 const loadScadBtn = document.getElementById("load-scad-btn");
@@ -103,6 +105,7 @@ let currentSelectedModelIdx = "";
 let autoDerivedModelName = null;
 let pendingForceNameOverride = false;
 let currentEntryFile = null;
+let currentEntryScadFile = null;
 let currentMesh = null;
 let currentGltfData = null;
 let currentAnimations = [];
@@ -228,33 +231,377 @@ editorEl.addEventListener("paste", () => {
     pendingForceNameOverride = true;
   }
 });
-entryFileSelect.addEventListener("change", (e) => {
-  currentEntryFile = e.target.value;
-  compileAndRender(getEditorContent());
-
-  const content = editorEl.value;
-  const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const regex = new RegExp(
-    `###\\s*\`?${escapeRegExp(currentEntryFile)}\`?`,
-    "i",
+function isMarkdownContent(code) {
+  if (typeof code !== "string") return false;
+  return (
+    (code.includes("```") && code.includes("###")) ||
+    /```(?:openscad|scad)?\r?\n/i.test(code)
   );
-  const match = content.match(regex);
+}
 
-  if (match) {
-    const index = match.index;
-    editorEl.focus();
-    editorEl.setSelectionRange(index, index);
+function parseMdFileBlocks(mdContent) {
+  const blocks = [];
+  if (typeof mdContent !== "string") return blocks;
 
-    const textBefore = content.substring(0, index);
-    const linesBefore = textBefore.split("\n").length;
-    const totalLines = content.split("\n").length || 1;
+  const headerMatchRegex = /^###\s+(\S+)\s*$/;
+  let pos = 0;
+  let currentFile = null;
+  let headerStart = -1;
+  let inCodeBlock = false;
+  let contentStart = -1;
 
-    // Proportional scroll relies on the browser's exact layout height
-    // which prevents overshooting caused by line-height estimation inaccuracies.
-    const targetLine = Math.max(0, linesBefore - 2);
-    editorEl.scrollTop = (targetLine / totalLines) * editorEl.scrollHeight;
+  while (pos <= mdContent.length) {
+    const nlIdx = mdContent.indexOf("\n", pos);
+    const lineEnd = nlIdx === -1 ? mdContent.length : nlIdx;
+    const rawLine = mdContent.slice(pos, lineEnd);
+    const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+
+    const headerMatch = line.match(headerMatchRegex);
+    if (headerMatch) {
+      currentFile = headerMatch[1];
+      headerStart = pos;
+      inCodeBlock = false;
+      contentStart = -1;
+    } else if (currentFile) {
+      if (line.startsWith("```")) {
+        if (!inCodeBlock) {
+          inCodeBlock = true;
+          contentStart = nlIdx === -1 ? lineEnd : nlIdx + 1;
+        } else {
+          const prevChar = pos >= 2 ? mdContent[pos - 2] : "";
+          const contentEnd =
+            pos > contentStart
+              ? prevChar === "\r"
+                ? pos - 2
+                : pos - 1
+              : contentStart;
+          blocks.push({
+            filePath: currentFile,
+            headerStart,
+            contentStart,
+            contentEnd,
+            blockEnd: lineEnd,
+          });
+          currentFile = null;
+          inCodeBlock = false;
+          contentStart = -1;
+        }
+      }
+    }
+
+    if (nlIdx === -1) break;
+    pos = nlIdx + 1;
+  }
+
+  if (blocks.length === 0) {
+    const genericRegex = /```(?:openscad|scad)?\r?\n([\s\S]*?)```/i;
+    const match = genericRegex.exec(mdContent);
+    if (match) {
+      const fullMatchStart = match.index;
+      const openNl = mdContent.indexOf("\n", fullMatchStart);
+      const rawStart = openNl === -1 ? fullMatchStart : openNl + 1;
+      const rawEnd = fullMatchStart + match[0].length - 3;
+      const bodySlice = mdContent.slice(rawStart, rawEnd);
+      const trimmedBody = bodySlice.trim();
+      const trimOffset = trimmedBody ? bodySlice.indexOf(trimmedBody) : 0;
+      blocks.push({
+        filePath: "main.scad",
+        headerStart: fullMatchStart,
+        contentStart: rawStart + trimOffset,
+        contentEnd: rawStart + trimOffset + trimmedBody.length,
+        blockEnd: fullMatchStart + match[0].length,
+      });
+    }
+  }
+
+  return blocks;
+}
+
+function findMdBlockAtCursor(mdContent, cursorIndex) {
+  const blocks = parseMdFileBlocks(mdContent);
+  for (const b of blocks) {
+    if (cursorIndex >= b.headerStart && cursorIndex <= b.blockEnd) {
+      return b;
+    }
+  }
+  return null;
+}
+
+function scrollEditorToMdFile(filePath) {
+  const content = editorEl.value;
+  const blocks = parseMdFileBlocks(content);
+  const block = blocks.find((b) => b.filePath === filePath);
+  if (!block) return;
+
+  editorEl.focus();
+  editorEl.setSelectionRange(block.headerStart, block.headerStart);
+
+  const textBefore = content.substring(0, block.headerStart);
+  const linesBefore = textBefore.split("\n").length;
+  const totalLines = content.split("\n").length || 1;
+  const targetLine = Math.max(0, linesBefore - 2);
+  editorEl.scrollTop = (targetLine / totalLines) * editorEl.scrollHeight;
+}
+
+function getMdFilesContext(code) {
+  const godotProject = parseGodotMarkdownProject(code);
+  if (godotProject) {
+    const filesMap = {};
+    for (const [relPath, content] of Object.entries(godotProject.files)) {
+      filesMap[`${godotProject.rootPrefix}${relPath}`] = content;
+    }
+    const allFiles = Object.keys(filesMap);
+    return {
+      isMd: true,
+      isGodot: true,
+      allFiles,
+      filesMap,
+      godotProject,
+    };
+  }
+
+  if (isMarkdownContent(code)) {
+    const filesMap = extractFilesFromMarkdown(code);
+    const allFiles = Object.keys(filesMap);
+    if (allFiles.length > 0) {
+      return {
+        isMd: true,
+        isGodot: false,
+        allFiles,
+        filesMap,
+        godotProject: null,
+      };
+    }
+  }
+
+  return {
+    isMd: false,
+    isGodot: false,
+    allFiles: [],
+    filesMap: {},
+    godotProject: null,
+  };
+}
+
+function syncMdFilesUi(code) {
+  const ctx = getMdFilesContext(code);
+  if (ctx.isMd && ctx.allFiles.length > 0) {
+    const allFiles = ctx.allFiles;
+    const scadFiles = allFiles.filter((f) => f.toLowerCase().endsWith(".scad"));
+
+    entryFileSelect.style.display = "flex";
+    if (copyMdFileBtn) copyMdFileBtn.style.display = "flex";
+    if (pasteMdFileBtn) pasteMdFileBtn.style.display = "flex";
+
+    const currentOptions = Array.from(entryFileSelect.options)
+      .map((o) => o.value)
+      .join(",");
+    const newOptions = allFiles.join(",");
+    if (currentOptions !== newOptions) {
+      entryFileSelect.innerHTML = "";
+      allFiles.forEach((f) => {
+        const opt = document.createElement("option");
+        opt.value = f;
+        opt.innerText = f;
+        entryFileSelect.appendChild(opt);
+      });
+    }
+
+    if (!allFiles.includes(currentEntryFile)) {
+      currentEntryFile = scadFiles[0] || allFiles[0];
+    }
+    if (!scadFiles.includes(currentEntryScadFile)) {
+      currentEntryScadFile = scadFiles.includes(currentEntryFile)
+        ? currentEntryFile
+        : scadFiles[0] || null;
+    }
+    entryFileSelect.value = currentEntryFile;
+  } else {
+    entryFileSelect.style.display = "none";
+    if (copyMdFileBtn) copyMdFileBtn.style.display = "none";
+    if (pasteMdFileBtn) pasteMdFileBtn.style.display = "none";
+    currentEntryFile = null;
+    currentEntryScadFile = null;
+  }
+  return ctx;
+}
+
+function replaceFileInMarkdown(mdContent, targetPath, newFileContent) {
+  const normalizedMd = String(mdContent ?? "").replace(/\r\n/g, "\n");
+  const normalizedNew = String(newFileContent ?? "").replace(/\r\n/g, "\n");
+  const lines = normalizedMd.split("\n");
+  const headerMatchRegex = /^###\s+(\S+)\s*$/;
+
+  let currentFile = null;
+  let inCodeBlock = false;
+  let openFenceIdx = -1;
+  let closeFenceIdx = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const headerMatch = line.match(headerMatchRegex);
+    if (headerMatch) {
+      currentFile = headerMatch[1];
+      inCodeBlock = false;
+      continue;
+    }
+
+    if (currentFile === targetPath) {
+      if (line.startsWith("```")) {
+        if (!inCodeBlock) {
+          inCodeBlock = true;
+          openFenceIdx = i;
+        } else {
+          closeFenceIdx = i;
+          break;
+        }
+      }
+    } else if (currentFile !== null) {
+      if (line.startsWith("```")) {
+        if (inCodeBlock) {
+          currentFile = null;
+          inCodeBlock = false;
+        } else {
+          inCodeBlock = true;
+        }
+      }
+    }
+  }
+
+  if (openFenceIdx !== -1 && closeFenceIdx !== -1) {
+    const replacementLines =
+      normalizedNew === "" ? [] : normalizedNew.split("\n");
+    const updatedLines = [
+      ...lines.slice(0, openFenceIdx + 1),
+      ...replacementLines,
+      ...lines.slice(closeFenceIdx),
+    ];
+    return updatedLines.join("\n");
+  }
+
+  if (targetPath === "main.scad") {
+    const genericRegex = /(```(?:openscad|scad)?\n)([\s\S]*?)(```)/i;
+    if (genericRegex.test(normalizedMd)) {
+      const body = normalizedNew === "" ? "" : `${normalizedNew}\n`;
+      return normalizedMd.replace(genericRegex, `$1${body}$3`);
+    }
+  }
+
+  const lang = getMarkdownLangFromPath(targetPath);
+  const sep = normalizedMd.endsWith("\n") ? "\n" : "\n\n";
+  return `${normalizedMd}${normalizedMd ? sep : ""}### ${targetPath}\n\`\`\`${lang}\n${normalizedNew}\n\`\`\`\n`;
+}
+
+function handleEditorCursorChange() {
+  const ctx = getMdFilesContext(editorEl.value);
+  if (!ctx.isMd || ctx.allFiles.length === 0) return;
+
+  const block = findMdBlockAtCursor(editorEl.value, editorEl.selectionStart);
+  if (!block) return;
+
+  const hasOption = Array.from(entryFileSelect.options).some(
+    (o) => o.value === block.filePath,
+  );
+  if (!hasOption) return;
+
+  if (currentEntryFile !== block.filePath) {
+    currentEntryFile = block.filePath;
+    entryFileSelect.value = block.filePath;
+  }
+
+  if (
+    block.filePath.toLowerCase().endsWith(".scad") &&
+    block.filePath !== currentEntryScadFile
+  ) {
+    currentEntryScadFile = block.filePath;
+    if (!isGodotPlaying) {
+      compileAndRender(getEditorContent());
+    }
+  }
+}
+
+entryFileSelect.addEventListener("change", (e) => {
+  const selectedFile = e.target.value;
+  currentEntryFile = selectedFile;
+  scrollEditorToMdFile(selectedFile);
+
+  if (selectedFile.toLowerCase().endsWith(".scad")) {
+    currentEntryScadFile = selectedFile;
+    if (!isGodotPlaying) {
+      compileAndRender(getEditorContent());
+    }
   }
 });
+
+editorEl.addEventListener("mouseup", handleEditorCursorChange);
+editorEl.addEventListener("keyup", handleEditorCursorChange);
+
+if (copyMdFileBtn) {
+  copyMdFileBtn.addEventListener("click", async () => {
+    const targetFile = entryFileSelect.value || currentEntryFile;
+    if (!targetFile) return;
+
+    const ctx = getMdFilesContext(editorEl.value);
+    const fileContent = ctx.filesMap[targetFile];
+    if (fileContent === undefined) return;
+
+    try {
+      await navigator.clipboard.writeText(fileContent);
+      const originalText = copyMdFileBtn.innerText;
+      copyMdFileBtn.innerText = "✅ Copied!";
+      setTimeout(() => {
+        copyMdFileBtn.innerText = originalText;
+      }, 1500);
+    } catch (err) {
+      alert("Failed to copy to clipboard: " + err);
+    }
+  });
+}
+
+if (pasteMdFileBtn) {
+  pasteMdFileBtn.addEventListener("click", async () => {
+    const targetFile = entryFileSelect.value || currentEntryFile;
+    if (!targetFile) return;
+
+    try {
+      const text = await navigator.clipboard.readText();
+      const updatedMd = replaceFileInMarkdown(editorEl.value, targetFile, text);
+      editorEl.value = updatedMd;
+      syncMdFilesUi(updatedMd);
+      checkChanges();
+
+      const updatedBlock = parseMdFileBlocks(updatedMd).find(
+        (b) => b.filePath === targetFile,
+      );
+      if (updatedBlock) {
+        editorEl.setSelectionRange(
+          updatedBlock.contentStart,
+          updatedBlock.contentStart,
+        );
+      }
+
+      if (
+        targetFile.toLowerCase().endsWith(".scad") &&
+        autoRenderCb.checked &&
+        !isGodotPlaying
+      ) {
+        compileAndRender(getEditorContent());
+      }
+
+      const originalText = pasteMdFileBtn.innerText;
+      pasteMdFileBtn.innerText = "✅ Pasted!";
+      setTimeout(() => {
+        pasteMdFileBtn.innerText = originalText;
+      }, 1500);
+    } catch (err) {
+      alert(
+        "Failed to read clipboard: " +
+          (err?.message ||
+            "Permission denied. Use Ctrl+V / Cmd+V directly in the editor."),
+      );
+    }
+  });
+}
 
 // --- Prompt Logic ---
 const promptHelpTextEl = promptPanel?.querySelector(".help-text");
@@ -292,7 +639,8 @@ async function compileAndRender(scadCode, compileOptions = {}) {
   const { autoLaunchGodot = false } = compileOptions;
   if (typeof scadCode !== "string") return;
 
-  const godotProject = parseGodotMarkdownProject(scadCode);
+  const mdCtx = syncMdFilesUi(scadCode);
+  const godotProject = mdCtx.godotProject;
   if (godotProject) {
     isGodotProject = true;
     if (playGodotBtn) {
@@ -300,34 +648,6 @@ async function compileAndRender(scadCode, compileOptions = {}) {
       playGodotBtn.innerText = isGodotPlaying
         ? "🔄 Restart Godot"
         : "🎮 Play Godot";
-    }
-
-    const allFiles = Object.keys(godotProject.files);
-    const scadFiles = allFiles.filter((f) => f.toLowerCase().endsWith(".scad"));
-    const displayFiles = allFiles.map((f) => `${godotProject.rootPrefix}${f}`);
-
-    if (displayFiles.length > 0) {
-      entryFileSelect.style.display = "flex";
-      const currentOptions = Array.from(entryFileSelect.options)
-        .map((o) => o.value)
-        .join(",");
-      const newOptions = displayFiles.join(",");
-      if (currentOptions !== newOptions) {
-        entryFileSelect.innerHTML = "";
-        displayFiles.forEach((f) => {
-          const opt = document.createElement("option");
-          opt.value = f;
-          opt.innerText = f;
-          entryFileSelect.appendChild(opt);
-        });
-      }
-      if (!displayFiles.includes(currentEntryFile)) {
-        const defaultScadRel = scadFiles[0]
-          ? `${godotProject.rootPrefix}${scadFiles[0]}`
-          : displayFiles[0];
-        currentEntryFile = defaultScadRel;
-      }
-      entryFileSelect.value = currentEntryFile;
     }
 
     applyDerivedModelName(
@@ -375,9 +695,7 @@ async function compileAndRender(scadCode, compileOptions = {}) {
   let extractedAdditionalFiles = {};
   let extractedFiles = null;
 
-  const isMd =
-    (scadCode.includes("```") && scadCode.includes("###")) ||
-    /```(?:openscad|scad)?\r?\n/i.test(scadCode);
+  const isMd = isMarkdownContent(scadCode);
 
   if (isMd) {
     const files = extractFilesFromMarkdown(scadCode);
@@ -386,34 +704,14 @@ async function compileAndRender(scadCode, compileOptions = {}) {
       f.toLowerCase().endsWith(".scad"),
     );
 
-    if (scadFiles.length > 1) {
-      entryFileSelect.style.display = "flex";
-      const currentOptions = Array.from(entryFileSelect.options)
-        .map((o) => o.value)
-        .join(",");
-      const newOptions = scadFiles.join(",");
-
-      if (currentOptions !== newOptions) {
-        entryFileSelect.innerHTML = "";
-        scadFiles.forEach((f) => {
-          const opt = document.createElement("option");
-          opt.value = f;
-          opt.innerText = f;
-          entryFileSelect.appendChild(opt);
-        });
-      }
-
-      if (!scadFiles.includes(currentEntryFile)) {
-        currentEntryFile = scadFiles[0];
-      }
-      entryFileSelect.value = currentEntryFile;
-    } else {
-      entryFileSelect.style.display = "none";
-      currentEntryFile = scadFiles[0] || null;
-    }
-
     if (scadFiles.length > 0) {
-      const targetFile = currentEntryFile || scadFiles[0];
+      const targetFile =
+        currentEntryFile && scadFiles.includes(currentEntryFile)
+          ? currentEntryFile
+          : currentEntryScadFile && scadFiles.includes(currentEntryScadFile)
+            ? currentEntryScadFile
+            : scadFiles[0];
+      currentEntryScadFile = targetFile;
       entryCode = files[targetFile];
       for (const [fName, fContent] of Object.entries(files)) {
         if (fName !== targetFile) {
@@ -422,10 +720,18 @@ async function compileAndRender(scadCode, compileOptions = {}) {
       }
     } else if (files["main.scad"]) {
       entryCode = files["main.scad"];
+    } else {
+      clearCurrentMesh();
+      if (renderTimeEl) renderTimeEl.style.display = "none";
+      if (!isGodotProject) {
+        const rootFolder = extractRootFolderFromMarkdownFiles(files);
+        applyDerivedModelName(
+          rootFolder ? `${rootFolder}.md` : null,
+          forceNameOverride,
+        );
+      }
+      return;
     }
-  } else {
-    entryFileSelect.style.display = "none";
-    currentEntryFile = null;
   }
 
   if (!isGodotProject) {
@@ -495,6 +801,7 @@ renderBtn.onclick = () => compileAndRender(getEditorContent());
 
 let renderTimeout;
 editorEl.addEventListener("input", () => {
+  syncMdFilesUi(editorEl.value);
   checkChanges();
   clearTimeout(renderTimeout);
   if (!autoRenderCb.checked || isGodotPlaying) {
@@ -582,7 +889,12 @@ export3mfBtn.onclick = async () => {
     const scadFiles = Object.keys(files).filter((f) =>
       f.toLowerCase().endsWith(".scad"),
     );
-    const targetFile = currentEntryFile || scadFiles[0] || "main.scad";
+    const targetFile =
+      (currentEntryFile && scadFiles.includes(currentEntryFile)
+        ? currentEntryFile
+        : currentEntryScadFile && scadFiles.includes(currentEntryScadFile)
+          ? currentEntryScadFile
+          : scadFiles[0]) || "main.scad";
 
     if (files[targetFile]) {
       entryCode = files[targetFile];
@@ -989,7 +1301,7 @@ shareBtn.onclick = async () => {
 
       if (shouldBundle) {
         // EXPLICIT SORTING LOGIC: Guarantee the primary file is at the top
-        let primaryFile = currentEntryFile;
+        let primaryFile = currentEntryScadFile || currentEntryFile;
 
         // If currentEntryFile isn't set, try to use the input name
         if (!primaryFile) {

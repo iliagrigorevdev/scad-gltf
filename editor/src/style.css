@@ -592,3 +592,7 @@ button.godot-btn:hover {
   flex-shrink: 0;
   white-space: nowrap;
 }
+#copy-md-file-btn,
+#paste-md-file-btn {
+  flex-shrink: 0;
+}
