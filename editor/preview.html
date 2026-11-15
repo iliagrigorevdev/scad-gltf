@@ -9,14 +9,6 @@
       <div id="top-ui">
         <div id="save-ui">
           <input type="text" id="filename-input" placeholder="Name" />
-          <select id="entry-file-select" style="display: none"></select>
-          <button
-            id="toggle-md-btn"
-            style="display: none"
-            title="View full Markdown content"
-          >
-            MD
-          </button>
           <button id="save-btn">Save</button>
           <button id="open-editor-btn">Edit</button>
         </div>
@@ -56,16 +48,6 @@
       </div>
       <div id="bottom-right-ui">
         <div id="render-time" class="render-time-overlay"></div>
-      </div>
-      <div id="md-viewer-overlay" style="display: none">
-        <div id="md-viewer-header">
-          <span id="md-viewer-title">Markdown Content</span>
-          <div id="md-viewer-actions">
-            <button id="md-copy-btn">📋 Copy MD</button>
-            <button id="md-close-btn">✕ Close</button>
-          </div>
-        </div>
-        <pre id="md-viewer-content"></pre>
       </div>
       <div id="viewer"></div>
     </div>

@@ -31,45 +31,6 @@
   flex-shrink: 0;
 }
 
-.md-preview-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  background: rgba(138, 43, 226, 0.16);
-  color: #c084fc;
-  border: 1px solid rgba(168, 85, 247, 0.45);
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 12px;
-  line-height: 1;
-  transition: all 0.2s ease;
-  height: 28px;
-  box-sizing: border-box;
-  margin: 0 4px;
-  vertical-align: middle;
-}
-
-.md-preview-btn:hover {
-  background: #8a2be2;
-  color: #ffffff;
-  border-color: #8a2be2;
-}
-
-.md-preview-btn svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-.md-preview-turn-bar {
-  display: flex;
-  justify-content: flex-end;
-  padding: 6px 0 2px;
-}
-
 #scad-preview-iframe {
   position: fixed;
   bottom: 20px;

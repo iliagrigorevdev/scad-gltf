@@ -54,363 +54,11 @@ async function addImageToChat(dataUrl) {
   }
 }
 
-function insertActionButtonIntoCodeBlock(block, btn) {
-  const existingActionBtn = block.querySelector(
-    'button[aria-label*="copy" i], button[aria-label*="download" i], button[aria-label*="collapse" i], button[mattooltip*="copy" i], button[mattooltip*="download" i], button[mattooltip*="collapse" i], button[title*="Copy" i], button[title*="Download" i]',
-  );
+// Watch the DOM for AI-generated code blocks and UI changes
+const observer = new MutationObserver(() => {
+  injectPromptButton();
+  createPromptModal(); // Ensure modal exists in DOM
 
-  const actionsContainer =
-    existingActionBtn?.parentElement ||
-    block.querySelector(".actions") ||
-    block.querySelector(".header-actions") ||
-    block.querySelector(".action-buttons") ||
-    block.querySelector(".buttons") ||
-    block.querySelector(".header") ||
-    block.querySelector(".code-header");
-
-  if (actionsContainer) {
-    if (existingActionBtn) {
-      actionsContainer.insertBefore(btn, existingActionBtn);
-    } else {
-      actionsContainer.prepend(btn);
-    }
-  } else {
-    const preElement = block.querySelector("pre");
-    if (preElement) {
-      preElement.parentNode.insertBefore(btn, preElement);
-    } else {
-      block.appendChild(btn);
-    }
-  }
-}
-
-function createMdPreviewButton(extraClass = "") {
-  const btn = document.createElement("button");
-  btn.className = extraClass
-    ? `md-preview-btn ${extraClass}`
-    : "md-preview-btn";
-  btn.title = "Preview Markdown";
-  btn.setAttribute("aria-label", "Preview Markdown");
-  btn.innerHTML = `
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-      <polyline points="14 2 14 8 20 8"></polyline>
-      <line x1="8" y1="13" x2="16" y2="13"></line>
-      <line x1="8" y1="17" x2="13" y2="17"></line>
-    </svg>
-    <span>Preview MD</span>
-  `;
-  btn.onpointerdown = (e) => e.stopPropagation();
-  btn.onmousedown = (e) => e.stopPropagation();
-  return btn;
-}
-
-function getCodeBlockText(codeEl) {
-  if (!codeEl) return "";
-  if (!codeEl.querySelector("br")) {
-    return codeEl.textContent || "";
-  }
-  const clone = codeEl.cloneNode(true);
-  clone.querySelectorAll("br").forEach((br) => br.replaceWith("\n"));
-  return clone.textContent || "";
-}
-
-function getCodeBlockLanguage(block, codeEl) {
-  const attrLang = (block.getAttribute("data-test-language") || "")
-    .trim()
-    .toLowerCase();
-  if (attrLang && attrLang !== "none" && attrLang !== "plaintext") {
-    return attrLang;
-  }
-
-  const classMatch = (codeEl?.className || "").match(/language-([^\s]+)/i);
-  if (classMatch) {
-    return classMatch[1].toLowerCase();
-  }
-
-  const headerLangEl = block.querySelector(
-    ".language, .code-language, .code-header span, .header span",
-  );
-  if (headerLangEl && !headerLangEl.closest("button")) {
-    const label = (headerLangEl.textContent || "").trim().toLowerCase();
-    if (label && label !== "code" && !label.includes(" ")) {
-      return label;
-    }
-  }
-  return "";
-}
-
-function maxBacktickRun(text) {
-  let maxRun = 0;
-  const matches = String(text || "").match(/`+/g);
-  if (matches) {
-    for (const m of matches) {
-      if (m.length > maxRun) maxRun = m.length;
-    }
-  }
-  return maxRun;
-}
-
-function shouldSkipTurnNode(el) {
-  if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
-  const tag = el.tagName;
-  if (
-    tag === "SCRIPT" ||
-    tag === "STYLE" ||
-    tag === "NOSCRIPT" ||
-    tag === "BUTTON" ||
-    tag === "MAT-ICON" ||
-    tag === "SVG" ||
-    tag === "MS-THOUGHT-CHUNK" ||
-    tag === "MS-CHAT-TURN-OPTIONS" ||
-    tag === "MS-GROUNDING-CHUNK"
-  ) {
-    return true;
-  }
-  const cls = el.classList;
-  if (
-    cls.contains("scad-preview-btn") ||
-    cls.contains("md-preview-btn") ||
-    cls.contains("md-preview-turn-bar") ||
-    cls.contains("turn-footer") ||
-    cls.contains("turn-header") ||
-    cls.contains("actions-container") ||
-    cls.contains("turn-actions") ||
-    cls.contains("thought-container") ||
-    cls.contains("thoughts-container") ||
-    cls.contains("thinking-process") ||
-    cls.contains("author-label") ||
-    cls.contains("role-label") ||
-    cls.contains("grounding-container")
-  ) {
-    return true;
-  }
-  return false;
-}
-
-function segmentsToMarkdown(segments) {
-  let result = "";
-  for (let i = 0; i < segments.length; i++) {
-    const seg = segments[i];
-    if (seg.kind === "code") {
-      if (result && !result.endsWith("\n")) {
-        result += "\n";
-      }
-      // Keep single newline directly after a ### file header
-      if (/\n###\s+[^\n]+\n\n$/.test(result)) {
-        result = result.slice(0, -1);
-      }
-      result += seg.text;
-      const next = segments[i + 1];
-      if (next && !next.text.startsWith("\n")) {
-        result += "\n\n";
-      }
-    } else {
-      const cleaned = seg.text.replace(/\n{3,}/g, "\n\n");
-      result += cleaned;
-    }
-  }
-  return result.replace(/^\n+|\n+$/g, "");
-}
-
-function nodeToSegments(node, listDepth = 0) {
-  if (!node) return [];
-  if (node.nodeType === Node.TEXT_NODE) {
-    const raw = node.nodeValue || "";
-    if (!raw) return [];
-    if (/^[\s\r\n]+$/.test(raw)) {
-      if (raw.includes("\n")) return [];
-      return [{ kind: "md", text: " " }];
-    }
-    return [{ kind: "md", text: raw.replace(/\s+/g, " ") }];
-  }
-
-  if (node.nodeType !== Node.ELEMENT_NODE) return [];
-  const el = node;
-  if (shouldSkipTurnNode(el)) return [];
-
-  const tag = el.tagName;
-
-  if (tag === "MS-CODE-BLOCK") {
-    const codeEl =
-      el.querySelector("pre code") ||
-      el.querySelector("code") ||
-      el.querySelector("pre");
-    const lang = getCodeBlockLanguage(el, codeEl);
-    const codeText = getCodeBlockText(codeEl).replace(/\n$/, "");
-    const fence = "`".repeat(Math.max(3, maxBacktickRun(codeText) + 1));
-    return [{ kind: "code", text: `${fence}${lang}\n${codeText}\n${fence}` }];
-  }
-
-  if (tag === "PRE") {
-    const codeEl = el.querySelector("code") || el;
-    const classMatch = (codeEl.className || "").match(/language-([^\s]+)/i);
-    const lang = classMatch ? classMatch[1].toLowerCase() : "";
-    const codeText = getCodeBlockText(codeEl).replace(/\n$/, "");
-    const fence = "`".repeat(Math.max(3, maxBacktickRun(codeText) + 1));
-    return [{ kind: "code", text: `${fence}${lang}\n${codeText}\n${fence}` }];
-  }
-
-  const childrenSegments = () => {
-    const out = [];
-    for (const child of el.childNodes) {
-      out.push(...nodeToSegments(child, listDepth));
-    }
-    return out;
-  };
-
-  if (/^H[1-6]$/.test(tag)) {
-    const level = parseInt(tag[1], 10);
-    const inner = segmentsToMarkdown(childrenSegments()).trim();
-    if (!inner) return [];
-    return [{ kind: "md", text: `\n\n${"#".repeat(level)} ${inner}\n\n` }];
-  }
-
-  if (tag === "P") {
-    const segs = childrenSegments();
-    const hasCode = segs.some((s) => s.kind === "code");
-    if (hasCode) return segs;
-    const inner = segmentsToMarkdown(segs).trim();
-    if (!inner) return [];
-    return [{ kind: "md", text: `\n\n${inner}\n\n` }];
-  }
-
-  if (tag === "BR") {
-    return [{ kind: "md", text: "\n" }];
-  }
-
-  if (tag === "HR") {
-    return [{ kind: "md", text: "\n\n---\n\n" }];
-  }
-
-  if (tag === "STRONG" || tag === "B") {
-    const inner = segmentsToMarkdown(childrenSegments());
-    if (!inner.trim()) return [{ kind: "md", text: inner }];
-    return [{ kind: "md", text: `**${inner.trim()}**` }];
-  }
-
-  if (tag === "EM" || tag === "I") {
-    const inner = segmentsToMarkdown(childrenSegments());
-    if (!inner.trim()) return [{ kind: "md", text: inner }];
-    return [{ kind: "md", text: `*${inner.trim()}*` }];
-  }
-
-  if (tag === "CODE") {
-    const text = el.textContent || "";
-    if (!text) return [];
-    if (text.includes("`")) {
-      return [{ kind: "md", text: "`` " + text + " ``" }];
-    }
-    return [{ kind: "md", text: "`" + text + "`" }];
-  }
-
-  if (tag === "A") {
-    const href = el.getAttribute("href") || "";
-    const inner = segmentsToMarkdown(childrenSegments()).trim();
-    if (href && !href.startsWith("javascript:")) {
-      return [{ kind: "md", text: `[${inner || href}](${href})` }];
-    }
-    return inner ? [{ kind: "md", text: inner }] : [];
-  }
-
-  if (tag === "BLOCKQUOTE") {
-    const inner = segmentsToMarkdown(childrenSegments()).trim();
-    if (!inner) return [];
-    const quoted = inner
-      .split("\n")
-      .map((line) => (line ? `> ${line}` : ">"))
-      .join("\n");
-    return [{ kind: "md", text: `\n\n${quoted}\n\n` }];
-  }
-
-  if (tag === "UL" || tag === "OL") {
-    const isOrdered = tag === "OL";
-    const items = [];
-    let idx = 0;
-    for (const child of el.children) {
-      if (child.tagName !== "LI") continue;
-      idx++;
-      const prefix = `${"  ".repeat(listDepth)}${isOrdered ? `${idx}. ` : "- "}`;
-      const liSegs = [];
-      for (const liChild of child.childNodes) {
-        liSegs.push(...nodeToSegments(liChild, listDepth + 1));
-      }
-      const liText = segmentsToMarkdown(liSegs);
-      if (liText) {
-        const lines = liText.split("\n");
-        const formatted = lines
-          .map((l, i) => (i === 0 ? `${prefix}${l}` : l))
-          .join("\n");
-        items.push(formatted);
-      }
-    }
-    if (items.length === 0) return [];
-    if (listDepth > 0) {
-      return [{ kind: "md", text: `\n${items.join("\n")}` }];
-    }
-    return [{ kind: "md", text: `\n\n${items.join("\n")}\n\n` }];
-  }
-
-  if (tag === "TABLE") {
-    const rows = Array.from(el.querySelectorAll("tr"));
-    if (rows.length === 0) return [];
-    const mdRows = rows.map((tr) => {
-      const cells = Array.from(tr.children).map((cell) =>
-        segmentsToMarkdown(nodeToSegments(cell, listDepth))
-          .replace(/\n+/g, " ")
-          .replace(/\|/g, "\\|")
-          .trim(),
-      );
-      return `| ${cells.join(" | ")} |`;
-    });
-    const colCount = rows[0].children.length || 1;
-    const sep = `| ${Array(colCount).fill("---").join(" | ")} |`;
-    const tableLines = [mdRows[0], sep, ...mdRows.slice(1)];
-    return [{ kind: "md", text: `\n\n${tableLines.join("\n")}\n\n` }];
-  }
-
-  return childrenSegments();
-}
-
-function getTurnContentRoot(turn) {
-  return (
-    turn.querySelector(".turn-content") ||
-    turn.querySelector(".model-prompt-container") ||
-    turn.querySelector(".chat-turn-container") ||
-    turn
-  );
-}
-
-function extractTurnMarkdown(turn) {
-  const root = getTurnContentRoot(turn);
-  if (!root) return "";
-
-  const allBlocks = Array.from(root.querySelectorAll("ms-code-block")).filter(
-    (b) => !b.closest("ms-thought-chunk"),
-  );
-  const mdBlocks = allBlocks.filter((b) => {
-    const lang = getCodeBlockLanguage(
-      b,
-      b.querySelector("pre code") || b.querySelector("code"),
-    );
-    return lang === "markdown" || lang === "md";
-  });
-
-  if (mdBlocks.length === 1 && allBlocks.length === 1) {
-    const codeEl =
-      mdBlocks[0].querySelector("pre code") ||
-      mdBlocks[0].querySelector("code") ||
-      mdBlocks[0].querySelector("pre");
-    const rawMd = getCodeBlockText(codeEl).trim();
-    if (rawMd && (rawMd.includes("###") || rawMd.includes("```"))) {
-      return rawMd;
-    }
-  }
-
-  return segmentsToMarkdown(nodeToSegments(root));
-}
-
-function injectScadCodeBlockButtons() {
   const codeBlocks = document.querySelectorAll(
     'ms-code-block[data-test-language="openscad" i], ms-code-block[data-test-language="scad" i]',
   );
@@ -438,144 +86,41 @@ function injectScadCodeBlockButtons() {
       e.preventDefault();
       e.stopPropagation();
 
-      const codeElement =
-        block.querySelector("pre code") || block.querySelector("code");
+      const codeElement = block.querySelector("code");
       if (codeElement) {
-        openPreviewPanel(getCodeBlockText(codeElement), "scad");
+        openPreviewPanel(codeElement.textContent);
       }
     };
 
-    insertActionButtonIntoCodeBlock(block, btn);
-  });
-}
-
-function injectMdCodeBlockButtons() {
-  const mdBlocks = document.querySelectorAll(
-    'ms-code-block[data-test-language="markdown" i], ms-code-block[data-test-language="md" i]',
-  );
-
-  mdBlocks.forEach((block) => {
-    if (block.querySelector(".md-preview-btn")) return;
-
-    const btn = createMdPreviewButton();
-    btn.onclick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const codeElement =
-        block.querySelector("pre code") ||
-        block.querySelector("code") ||
-        block.querySelector("pre");
-      if (codeElement) {
-        openPreviewPanel(getCodeBlockText(codeElement), "md");
-      }
-    };
-
-    insertActionButtonIntoCodeBlock(block, btn);
-  });
-}
-
-function isModelTurn(turn) {
-  if (turn.querySelector('[data-turn-role="User"], .user-prompt-container')) {
-    return false;
-  }
-  return Boolean(
-    turn.querySelector(
-      '[data-turn-role="Model"], .model-prompt-container, .chat-turn-container.model, ms-text-chunk, ms-cmark-node',
-    ),
-  );
-}
-
-function turnHasPreviewableContent(turn) {
-  const root = getTurnContentRoot(turn);
-  if (!root) return false;
-  if (root.querySelector("ms-code-block")) {
-    return true;
-  }
-  const chunks = root.querySelectorAll("ms-cmark-node, ms-text-chunk");
-  for (const chunk of chunks) {
-    if (chunk.closest("ms-thought-chunk")) continue;
-    if ((chunk.textContent || "").trim().length > 0) return true;
-  }
-  return false;
-}
-
-function injectTurnMdPreviewButtons() {
-  const turns = document.querySelectorAll("ms-chat-turn");
-  turns.forEach((turn) => {
-    if (!isModelTurn(turn) || !turnHasPreviewableContent(turn)) return;
-
-    const candidateButtons = Array.from(
-      turn.querySelectorAll(
-        'button[aria-label*="More options" i], button[aria-label*="Rerun" i], button[aria-label*="Good response" i], button[aria-label*="Copy" i], button[aria-label*="Edit" i], button[mattooltip*="More" i], button[mattooltip*="Rerun" i], button[mattooltip*="Copy" i]',
-      ),
-    ).filter(
-      (b) =>
-        !b.closest("ms-code-block, ms-thought-chunk, .md-preview-turn-bar"),
+    // Locate the header actions container near download, copy, and collapse icons
+    const existingActionBtn = block.querySelector(
+      'button[aria-label*="copy" i], button[aria-label*="download" i], button[aria-label*="collapse" i], button[mattooltip*="copy" i], button[mattooltip*="download" i], button[mattooltip*="collapse" i], button[title*="Copy" i], button[title*="Download" i]',
     );
 
-    const existingTurnActionBtn = candidateButtons[0] || null;
-    const turnActionsContainer =
-      existingTurnActionBtn?.parentElement ||
-      Array.from(
-        turn.querySelectorAll(
-          "ms-chat-turn-options, .turn-footer, .turn-actions, .actions-container",
-        ),
-      ).find((el) => !el.closest("ms-code-block, ms-thought-chunk")) ||
-      null;
+    const actionsContainer =
+      existingActionBtn?.parentElement ||
+      block.querySelector(".actions") ||
+      block.querySelector(".header-actions") ||
+      block.querySelector(".action-buttons") ||
+      block.querySelector(".buttons") ||
+      block.querySelector(".header") ||
+      block.querySelector(".code-header");
 
-    const existingBtn = turn.querySelector(".md-preview-turn-btn");
-    if (existingBtn) {
-      if (
-        turnActionsContainer &&
-        existingBtn.closest(".md-preview-turn-bar") &&
-        !turnActionsContainer.contains(existingBtn)
-      ) {
-        const oldBar = existingBtn.closest(".md-preview-turn-bar");
-        if (existingTurnActionBtn) {
-          turnActionsContainer.insertBefore(existingBtn, existingTurnActionBtn);
-        } else {
-          turnActionsContainer.prepend(existingBtn);
-        }
-        if (oldBar) oldBar.remove();
-      }
-      return;
-    }
-
-    const btn = createMdPreviewButton("md-preview-turn-btn");
-    btn.onclick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const mdContent = extractTurnMarkdown(turn);
-      if (mdContent && mdContent.trim()) {
-        openPreviewPanel(mdContent, "md");
-      }
-    };
-
-    if (turnActionsContainer) {
-      if (existingTurnActionBtn) {
-        turnActionsContainer.insertBefore(btn, existingTurnActionBtn);
+    if (actionsContainer) {
+      if (existingActionBtn) {
+        actionsContainer.insertBefore(btn, existingActionBtn);
       } else {
-        turnActionsContainer.prepend(btn);
+        actionsContainer.prepend(btn);
       }
     } else {
-      const bar = document.createElement("div");
-      bar.className = "md-preview-turn-bar";
-      bar.appendChild(btn);
-      const targetRoot = getTurnContentRoot(turn);
-      targetRoot.appendChild(bar);
+      const preElement = block.querySelector("pre");
+      if (preElement) {
+        preElement.parentNode.insertBefore(btn, preElement);
+      } else {
+        block.appendChild(btn);
+      }
     }
   });
-}
-
-// Watch the DOM for AI-generated code blocks and UI changes
-const observer = new MutationObserver(() => {
-  injectPromptButton();
-  createPromptModal(); // Ensure modal exists in DOM
-  injectScadCodeBlockButtons();
-  injectMdCodeBlockButtons();
-  injectTurnMdPreviewButtons();
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
@@ -802,15 +347,14 @@ function createPromptModal() {
   };
 }
 
-function openPreviewPanel(content, mode = "scad") {
-  const msgType = mode === "md" ? "RENDER_MD" : "RENDER_SCAD";
+function openPreviewPanel(scadCode) {
   let existingContainer = document.getElementById("scad-preview-iframe");
 
   // Reuse existing iframe
   if (existingContainer) {
     existingContainer
       .querySelector("iframe")
-      .contentWindow.postMessage({ type: msgType, code: content }, "*");
+      .contentWindow.postMessage({ type: "RENDER_SCAD", code: scadCode }, "*");
     return;
   }
 
@@ -837,8 +381,11 @@ function openPreviewPanel(content, mode = "scad") {
   container.appendChild(iframe);
   document.body.appendChild(container);
 
-  // Wait for iframe to load, then pass content
+  // Wait for iframe to load, then pass SCAD code
   iframe.onload = () => {
-    iframe.contentWindow.postMessage({ type: msgType, code: content }, "*");
+    iframe.contentWindow.postMessage(
+      { type: "RENDER_SCAD", code: scadCode },
+      "*",
+    );
   };
 }
