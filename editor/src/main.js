@@ -52,6 +52,8 @@ const entryFileSelect = document.getElementById("entry-file-select");
 const copyMdFileBtn = document.getElementById("copy-md-file-btn");
 const pasteMdFileBtn = document.getElementById("paste-md-file-btn");
 const editorEl = document.getElementById("editor");
+const editorContainerEl = document.getElementById("editor-container");
+const editorHighlightsEl = document.getElementById("editor-highlights");
 const renderBtn = document.getElementById("render-btn");
 const loadScadBtn = document.getElementById("load-scad-btn");
 const downloadScadBtn = document.getElementById("download-scad-btn");
@@ -327,6 +329,198 @@ function findMdBlockAtCursor(mdContent, cursorIndex) {
   return null;
 }
 
+let lastHighlightedText = null;
+let lastHighlightedActiveFile = null;
+
+function analyzeMdLines(content) {
+  const lines = content.split("\n");
+  const parsed = new Array(lines.length);
+  const headerMatchRegex = /^###\s+(\S+)\s*$/;
+
+  let currentFile = null;
+  let inCodeBlock = false;
+  let genericInCodeBlock = false;
+  let blockIdx = -1;
+  let hasFileBlocks = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const headerMatch = line.match(headerMatchRegex);
+
+    if (headerMatch) {
+      blockIdx++;
+      currentFile = headerMatch[1];
+      inCodeBlock = false;
+      genericInCodeBlock = false;
+      hasFileBlocks = true;
+      parsed[i] = {
+        line,
+        role: "header",
+        blockIdx,
+        filePath: currentFile,
+      };
+      continue;
+    }
+
+    if (currentFile !== null) {
+      if (line.startsWith("```")) {
+        if (!inCodeBlock) {
+          inCodeBlock = true;
+          parsed[i] = {
+            line,
+            role: "fence-open",
+            blockIdx,
+            filePath: currentFile,
+          };
+        } else {
+          parsed[i] = {
+            line,
+            role: "fence-close",
+            blockIdx,
+            filePath: currentFile,
+          };
+          inCodeBlock = false;
+          currentFile = null;
+        }
+      } else if (inCodeBlock) {
+        parsed[i] = {
+          line,
+          role: "body",
+          blockIdx,
+          filePath: currentFile,
+        };
+      } else {
+        parsed[i] = {
+          line,
+          role: "preamble",
+          blockIdx,
+          filePath: currentFile,
+        };
+      }
+      continue;
+    }
+
+    if (line.startsWith("```")) {
+      if (!genericInCodeBlock) {
+        blockIdx++;
+        genericInCodeBlock = true;
+        hasFileBlocks = true;
+        parsed[i] = {
+          line,
+          role: "fence-open",
+          blockIdx,
+          filePath: "main.scad",
+        };
+      } else {
+        parsed[i] = {
+          line,
+          role: "fence-close",
+          blockIdx,
+          filePath: "main.scad",
+        };
+        genericInCodeBlock = false;
+      }
+      continue;
+    }
+
+    if (genericInCodeBlock) {
+      parsed[i] = {
+        line,
+        role: "body",
+        blockIdx,
+        filePath: "main.scad",
+      };
+      continue;
+    }
+
+    parsed[i] = {
+      line,
+      role: "plain",
+      blockIdx: -1,
+      filePath: null,
+    };
+  }
+
+  return { parsed, hasFileBlocks };
+}
+
+function syncEditorBackdropScroll() {
+  if (!editorEl || !editorHighlightsEl) return;
+  editorHighlightsEl.style.transform = `translate3d(${-editorEl.scrollLeft}px, ${-editorEl.scrollTop}px, 0)`;
+}
+
+function updateEditorHighlights() {
+  if (!editorEl || !editorContainerEl || !editorHighlightsEl) return;
+
+  const text = editorEl.value;
+  const activeFile = currentEntryFile || null;
+
+  if (
+    text === lastHighlightedText &&
+    activeFile === lastHighlightedActiveFile
+  ) {
+    return;
+  }
+
+  if (!text || !isMarkdownContent(text)) {
+    if (editorContainerEl.classList.contains("md-highlighted")) {
+      editorContainerEl.classList.remove("md-highlighted");
+      editorHighlightsEl.replaceChildren();
+    }
+    lastHighlightedText = text;
+    lastHighlightedActiveFile = activeFile;
+    return;
+  }
+
+  if (
+    text === lastHighlightedText &&
+    activeFile !== lastHighlightedActiveFile
+  ) {
+    for (const node of editorHighlightsEl.children) {
+      const nodeFile = node.dataset.file;
+      if (nodeFile) {
+        node.classList.toggle("md-active", nodeFile === activeFile);
+      }
+    }
+    lastHighlightedActiveFile = activeFile;
+    return;
+  }
+
+  const { parsed, hasFileBlocks } = analyzeMdLines(text);
+  if (!hasFileBlocks) {
+    editorContainerEl.classList.remove("md-highlighted");
+    editorHighlightsEl.replaceChildren();
+    lastHighlightedText = text;
+    lastHighlightedActiveFile = activeFile;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < parsed.length; i++) {
+    const item = parsed[i];
+    const div = document.createElement("div");
+    let className = `md-line md-${item.role}`;
+    if (item.blockIdx >= 0) {
+      className += item.blockIdx % 2 === 0 ? " md-block-even" : " md-block-odd";
+    }
+    if (item.filePath) {
+      div.dataset.file = item.filePath;
+      if (item.filePath === activeFile) {
+        className += " md-active";
+      }
+    }
+    div.className = className;
+    div.textContent = item.line;
+    frag.appendChild(div);
+  }
+
+  editorHighlightsEl.replaceChildren(frag);
+  editorContainerEl.classList.add("md-highlighted");
+  lastHighlightedText = text;
+  lastHighlightedActiveFile = activeFile;
+  syncEditorBackdropScroll();
+}
+
 function scrollEditorToMdFile(filePath) {
   const content = editorEl.value;
   const blocks = parseMdFileBlocks(content);
@@ -341,6 +535,7 @@ function scrollEditorToMdFile(filePath) {
   const totalLines = content.split("\n").length || 1;
   const targetLine = Math.max(0, linesBefore - 2);
   editorEl.scrollTop = (targetLine / totalLines) * editorEl.scrollHeight;
+  syncEditorBackdropScroll();
 }
 
 function getMdFilesContext(code) {
@@ -423,6 +618,7 @@ function syncMdFilesUi(code) {
     currentEntryFile = null;
     currentEntryScadFile = null;
   }
+  updateEditorHighlights();
   return ctx;
 }
 
@@ -507,6 +703,7 @@ function handleEditorCursorChange() {
   if (currentEntryFile !== block.filePath) {
     currentEntryFile = block.filePath;
     entryFileSelect.value = block.filePath;
+    updateEditorHighlights();
   }
 
   if (
@@ -524,6 +721,7 @@ entryFileSelect.addEventListener("change", (e) => {
   const selectedFile = e.target.value;
   currentEntryFile = selectedFile;
   scrollEditorToMdFile(selectedFile);
+  updateEditorHighlights();
 
   if (selectedFile.toLowerCase().endsWith(".scad")) {
     currentEntryScadFile = selectedFile;
@@ -533,6 +731,7 @@ entryFileSelect.addEventListener("change", (e) => {
   }
 });
 
+editorEl.addEventListener("scroll", syncEditorBackdropScroll);
 editorEl.addEventListener("mouseup", handleEditorCursorChange);
 editorEl.addEventListener("keyup", handleEditorCursorChange);
 
@@ -2732,6 +2931,7 @@ window.addEventListener("hashchange", async () => {
   }
 
   checkChanges();
+  syncMdFilesUi(editorEl.value);
 
   const initialContent = getEditorContent();
   if (parseGodotMarkdownProject(initialContent)) {

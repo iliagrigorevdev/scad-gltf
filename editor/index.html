@@ -105,7 +105,12 @@
               </button>
             </div>
 
-            <textarea id="editor" spellcheck="false"></textarea>
+            <div id="editor-container">
+              <div id="editor-backdrop" aria-hidden="true">
+                <div id="editor-highlights"></div>
+              </div>
+              <textarea id="editor" spellcheck="false"></textarea>
+            </div>
 
             <div class="controls-row">
               <button id="render-btn" class="primary">▶ Render</button>

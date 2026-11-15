@@ -111,11 +111,171 @@ select:focus {
   border-color: #666;
 }
 
-#editor {
+#editor-container {
+  position: relative;
   flex-grow: 1;
   min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+#editor-container:focus-within {
+  border-color: #666;
+}
+
+#editor-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  display: none;
+}
+
+#editor-container.md-highlighted #editor-backdrop {
+  display: block;
+}
+
+#editor-highlights {
+  padding: 10px 0;
+  min-width: 100%;
+  min-height: 100%;
+  width: max-content;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 18px;
+  tab-size: 4;
+  letter-spacing: 0;
+  word-spacing: 0;
+  font-variant-ligatures: none;
+  white-space: pre;
+  will-change: transform;
+}
+
+.md-line {
+  height: 18px;
+  line-height: 18px;
+  padding: 0 10px 0 14px;
+}
+
+.md-line.md-plain {
+  color: #8f96a3;
+}
+
+.md-line.md-block-even.md-body,
+.md-line.md-block-even.md-preamble {
+  background: #202328;
+  color: #d4d4d4;
+  box-shadow: inset 3px 0 0 rgba(160, 170, 185, 0.35);
+}
+
+.md-line.md-block-odd.md-body,
+.md-line.md-block-odd.md-preamble {
+  background: #24282e;
+  color: #d4d4d4;
+  box-shadow: inset 3px 0 0 rgba(160, 170, 185, 0.35);
+}
+
+.md-line.md-header {
+  background: #31363f;
+  color: #f0f2f5;
+  box-shadow:
+    inset 3px 0 0 rgba(200, 208, 220, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.md-line.md-block-even.md-fence-open {
+  background: #202328;
+  color: #7e8794;
+  box-shadow: inset 3px 0 0 rgba(160, 170, 185, 0.45);
+}
+
+.md-line.md-block-odd.md-fence-open {
+  background: #24282e;
+  color: #7e8794;
+  box-shadow: inset 3px 0 0 rgba(160, 170, 185, 0.45);
+}
+
+.md-line.md-block-even.md-fence-close {
+  background: #202328;
+  color: #7e8794;
+  box-shadow:
+    inset 3px 0 0 rgba(160, 170, 185, 0.45),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.md-line.md-block-odd.md-fence-close {
+  background: #24282e;
+  color: #7e8794;
+  box-shadow:
+    inset 3px 0 0 rgba(160, 170, 185, 0.45),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.md-line.md-header.md-active {
+  background: #3a404b;
+  color: #ffffff;
+  box-shadow:
+    inset 3px 0 0 rgba(235, 240, 248, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.md-line.md-body.md-active,
+.md-line.md-preamble.md-active,
+.md-line.md-fence-open.md-active {
+  box-shadow: inset 3px 0 0 rgba(220, 228, 240, 0.75);
+}
+
+.md-line.md-fence-close.md-active {
+  box-shadow:
+    inset 3px 0 0 rgba(220, 228, 240, 0.75),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2);
+}
+
+#editor {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 10px 10px 14px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 18px;
+  tab-size: 4;
+  letter-spacing: 0;
+  word-spacing: 0;
+  font-variant-ligatures: none;
   white-space: pre;
   overflow: auto;
+  resize: none;
+  color: #d4d4d4;
+  caret-color: #d4d4d4;
+}
+
+#editor-container.md-highlighted #editor {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: #ffffff;
+}
+
+#editor-container.md-highlighted #editor::placeholder {
+  color: #777;
+  -webkit-text-fill-color: #777;
+  opacity: 1;
+}
+
+#editor-container.md-highlighted #editor::selection {
+  background: rgba(148, 163, 184, 0.35);
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 button {
