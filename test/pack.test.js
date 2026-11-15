@@ -67,15 +67,6 @@ test("collectFilesFromDirectory - Collects text files and skips ignored/binary f
     ]);
     assert.strictEqual(files["sample_proj/src/cube.scad"], "cube(5);\n");
     assert.deepStrictEqual(skippedBinary, ["sample_proj/bin.dat"]);
-
-    const { files: flatFiles } = collectFilesFromDirectory(projectDir, {
-      includeRoot: false,
-      excludePath: outPath,
-    });
-    assert.deepStrictEqual(Object.keys(flatFiles), [
-      "package.json",
-      "src/cube.scad",
-    ]);
   } finally {
     fs.rmSync(tempBase, { recursive: true, force: true });
   }

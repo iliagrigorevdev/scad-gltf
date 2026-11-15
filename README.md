@@ -425,11 +425,10 @@ Use `scad-gltf pack` to serialize an existing local project directory (such as a
 **Usage:**
 
 ```bash
-scad-gltf pack <input_directory> [output.md] [--no-root]
+scad-gltf pack <input_directory> [output.md]
 ```
 
 - **`[output.md]`**: Target `.md` file path or destination directory. Defaults to `<input_directory_name>.md` in the current working directory.
-- **`--no-root`**: Excludes the input directory's root folder name from `### filepath` headers.
 - **Automatic Filtering**: Automatically skips binary files, paths containing whitespace, the output file itself, and common build/cache directories.
 
 ---

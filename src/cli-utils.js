@@ -197,7 +197,6 @@ function isBinaryBuffer(buffer) {
 export function collectFilesFromDirectory(inputDir, options = {}) {
   const absInputDir = path.resolve(inputDir);
   const rootName = path.basename(absInputDir);
-  const includeRoot = options.includeRoot !== false;
   const ignoredDirs = options.ignoredDirs || DEFAULT_IGNORED_DIRS;
   const excludePath = options.excludePath
     ? path.resolve(options.excludePath)
@@ -226,7 +225,7 @@ export function collectFilesFromDirectory(inputDir, options = {}) {
         const relPath = path
           .relative(absInputDir, fullPath)
           .replace(/\\/g, "/");
-        const displayPath = includeRoot ? `${rootName}/${relPath}` : relPath;
+        const displayPath = `${rootName}/${relPath}`;
 
         if (/\s/.test(displayPath)) {
           skippedInvalidPath.push(displayPath);

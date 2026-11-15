@@ -5,18 +5,14 @@ import path from "node:path";
 import { collectFilesFromDirectory } from "../src/cli-utils.js";
 import { packFilesToMarkdown } from "../src/utils.js";
 
-const allArgs = process.argv.slice(2);
-const noRoot = allArgs.includes("--no-root");
-const args = allArgs.filter((arg) => arg !== "--no-root");
+const args = process.argv.slice(2);
 
 const inputDir = args[0];
 const outArg = args[1];
 
 if (!inputDir) {
   console.error("❌ Error: Path to the input directory is required.");
-  console.error(
-    "Usage: scad-gltf pack <input_directory> [output.md] [--no-root]",
-  );
+  console.error("Usage: scad-gltf pack <input_directory> [output.md]");
   process.exit(1);
 }
 
@@ -44,7 +40,6 @@ try {
 
   const { files, skippedBinary, skippedInvalidPath } =
     collectFilesFromDirectory(absInputDir, {
-      includeRoot: !noRoot,
       excludePath: absOutPath,
     });
 
