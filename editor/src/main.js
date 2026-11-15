@@ -16,7 +16,6 @@ import {
   setupPromptToggles,
   buildPromptFromUI,
 } from "./prompt-ui.js";
-import defaultScad from "./default.scad?raw";
 import {
   extractFilesFromMarkdown,
   extractModelNameFromScad,
@@ -174,10 +173,7 @@ if (tabEditorBtn && tabPromptBtn && editorTabContent && promptPanel) {
 
 // Helper to determine what to render
 function getEditorContent() {
-  if (isServerConnected) {
-    return editorEl.value;
-  }
-  return editorEl.value || defaultScad;
+  return editorEl.value;
 }
 
 function getDownloadName() {
@@ -1499,14 +1495,10 @@ shareBtn.onclick = async () => {
 
   try {
     let mainCode = editorEl.value.trim();
-    const originalCode = mainCode;
     const url = new URL(window.location.href);
     let finalUrl = "";
 
-    if (
-      !mainCode ||
-      (!isServerConnected && originalCode === defaultScad.trim())
-    ) {
+    if (!mainCode) {
       finalUrl = url.origin + url.pathname + url.search;
     } else {
       // 1. Minifier helper (strips comments and whitespace safely)
@@ -2178,7 +2170,7 @@ async function connectToServer(url, isAutoConnect = false) {
     backendConnectBtn.innerText = "Connect";
     backendUiEl.classList.remove("active");
     isServerConnected = false;
-    editorEl.placeholder = defaultScad;
+    editorEl.placeholder = "Enter OpenSCAD code here...";
 
     return false;
   }
@@ -3088,7 +3080,7 @@ setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
 const isLocal = ["localhost", "127.0.0.1", ""].includes(
   window.location.hostname,
 );
-editorEl.placeholder = isLocal ? "Enter OpenSCAD code here..." : defaultScad;
+editorEl.placeholder = "Enter OpenSCAD code here...";
 
 window.addEventListener("hashchange", async () => {
   if (window.location.hash && window.location.hash.length > 1) {
