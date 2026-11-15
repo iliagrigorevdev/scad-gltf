@@ -441,7 +441,7 @@ function injectScadCodeBlockButtons() {
       const codeElement =
         block.querySelector("pre code") || block.querySelector("code");
       if (codeElement) {
-        openPreviewPanel(getCodeBlockText(codeElement));
+        openPreviewPanel(getCodeBlockText(codeElement), "scad");
       }
     };
 
@@ -458,7 +458,7 @@ function injectMdCodeBlockButtons() {
     if (block.querySelector(".md-preview-btn")) return;
 
     const btn = createMdPreviewButton();
-    btn.onclick = async (e) => {
+    btn.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -467,7 +467,7 @@ function injectMdCodeBlockButtons() {
         block.querySelector("code") ||
         block.querySelector("pre");
       if (codeElement) {
-        await openInEditor(getCodeBlockText(codeElement));
+        openPreviewPanel(getCodeBlockText(codeElement), "md");
       }
     };
 
@@ -543,13 +543,13 @@ function injectTurnMdPreviewButtons() {
     }
 
     const btn = createMdPreviewButton("md-preview-turn-btn");
-    btn.onclick = async (e) => {
+    btn.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
 
       const mdContent = extractTurnMarkdown(turn);
       if (mdContent && mdContent.trim()) {
-        await openInEditor(mdContent);
+        openPreviewPanel(mdContent, "md");
       }
     };
 
@@ -802,54 +802,15 @@ function createPromptModal() {
   };
 }
 
-async function encodeCodeForUrl(code) {
-  try {
-    if (typeof CompressionStream !== "undefined") {
-      const stream = new Blob([code])
-        .stream()
-        .pipeThrough(new CompressionStream("deflate-raw"));
-      const buffer = await new Response(stream).arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = "";
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      return (
-        "c" +
-        btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
-      );
-    }
-  } catch (e) {
-    console.warn("CompressionStream failed, falling back", e);
-  }
-  return (
-    "u" +
-    btoa(unescape(encodeURIComponent(code)))
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "")
-  );
-}
-
-async function openInEditor(content) {
-  if (!content || !content.trim()) return;
-  const hash = await encodeCodeForUrl(content);
-  const url = `https://iliagrigorevdev.github.io/scad-gltf/#${hash}`;
-  window.open(url, "_blank");
-  const existingContainer = document.getElementById("scad-preview-iframe");
-  if (existingContainer) {
-    existingContainer.remove();
-  }
-}
-
-function openPreviewPanel(scadCode) {
+function openPreviewPanel(content, mode = "scad") {
+  const msgType = mode === "md" ? "RENDER_MD" : "RENDER_SCAD";
   let existingContainer = document.getElementById("scad-preview-iframe");
 
   // Reuse existing iframe
   if (existingContainer) {
     existingContainer
       .querySelector("iframe")
-      .contentWindow.postMessage({ type: "RENDER_SCAD", code: scadCode }, "*");
+      .contentWindow.postMessage({ type: msgType, code: content }, "*");
     return;
   }
 
@@ -876,11 +837,8 @@ function openPreviewPanel(scadCode) {
   container.appendChild(iframe);
   document.body.appendChild(container);
 
-  // Wait for iframe to load, then pass SCAD code
+  // Wait for iframe to load, then pass content
   iframe.onload = () => {
-    iframe.contentWindow.postMessage(
-      { type: "RENDER_SCAD", code: scadCode },
-      "*",
-    );
+    iframe.contentWindow.postMessage({ type: msgType, code: content }, "*");
   };
 }
