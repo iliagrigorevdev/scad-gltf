@@ -923,7 +923,7 @@ async function compileAndRender(scadCode) {
     if (playGodotBtn) {
       playGodotBtn.style.display = "flex";
       playGodotBtn.innerText = isGodotPlaying
-        ? "🔄 Restart Godot"
+        ? "⏹ Stop Godot"
         : "🎮 Play Godot";
     }
     if (downloadGodotZipBtn) {
@@ -1757,7 +1757,7 @@ async function launchGodotProject(project) {
   isGodotPlaying = true;
   suspendScadViewer();
   setScadViewerUiVisible(false);
-  if (playGodotBtn) playGodotBtn.innerText = "🔄 Restart Godot";
+  if (playGodotBtn) playGodotBtn.innerText = "⏹ Stop Godot";
   if (godotPanel) godotPanel.style.display = "flex";
   if (godotLogsOutput) godotLogsOutput.textContent = "";
   if (godotStatusOverlay) {
@@ -1859,6 +1859,10 @@ async function launchGodotProject(project) {
 
 if (playGodotBtn) {
   playGodotBtn.onclick = () => {
+    if (isGodotPlaying) {
+      stopGodotPlayer();
+      return;
+    }
     const project = parseGodotMarkdownProject(getEditorContent());
     if (project) launchGodotProject(project);
   };
