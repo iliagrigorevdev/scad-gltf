@@ -293,7 +293,7 @@ test("Project Prompts - Raw SCAD Generation Specifics", () => {
 test("Project Prompts - Error on Unknown Project Type", () => {
   assert.throws(
     () => getProjectPrompts("unreal_engine"),
-    /Unknown project type: unreal_engine/,
+    /Unknown project type \/ prompt profile: unreal_engine/,
     "Should throw a clear error when an unsupported project type is requested",
   );
 });
