@@ -837,6 +837,16 @@ button.godot-btn:hover {
   flex-shrink: 0;
   white-space: nowrap;
 }
+
+.scad-prompt-reset-btn.has-changes {
+  background: #b45309;
+  border-color: #f59e0b;
+  color: #fff;
+}
+
+.scad-prompt-reset-btn.has-changes:hover {
+  background: #d97706;
+}
 #copy-md-file-btn,
 #paste-md-file-btn {
   flex-shrink: 0;

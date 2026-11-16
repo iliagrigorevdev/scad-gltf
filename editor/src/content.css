@@ -344,9 +344,21 @@
   font-family: inherit;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .scad-prompt-reset-btn:hover {
   background: #555;
+}
+
+.scad-prompt-reset-btn.has-changes {
+  background: #b45309;
+  border-color: #f59e0b;
+  color: #fff;
+}
+
+.scad-prompt-reset-btn.has-changes:hover {
+  background: #d97706;
 }

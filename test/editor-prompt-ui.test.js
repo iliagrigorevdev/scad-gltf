@@ -62,6 +62,29 @@ class MiniElement {
     this.children = [];
     this.parentNode = null;
     this._listeners = new Map();
+    this.classList = {
+      contains: (cls) =>
+        this.className.split(/\s+/).filter(Boolean).includes(cls),
+      add: (...classes) => {
+        const set = new Set(this.className.split(/\s+/).filter(Boolean));
+        for (const cls of classes) set.add(cls);
+        this.className = Array.from(set).join(" ");
+      },
+      remove: (...classes) => {
+        const removeSet = new Set(classes);
+        this.className = this.className
+          .split(/\s+/)
+          .filter((c) => c && !removeSet.has(c))
+          .join(" ");
+      },
+      toggle: (cls, force) => {
+        const has = this.classList.contains(cls);
+        const shouldAdd = force !== undefined ? Boolean(force) : !has;
+        if (shouldAdd) this.classList.add(cls);
+        else this.classList.remove(cls);
+        return shouldAdd;
+      },
+    };
   }
   appendChild(child) {
     child.parentNode = this;
@@ -230,6 +253,9 @@ test("prompt-ui - setupPromptToggles migrates legacy settings, syncs groups, swi
   assert.strictEqual(getPromptOptions(container).bakeColors, true);
   assert.strictEqual(getPromptOptions(container).colormap, true);
 
+  const resetBtn = container.querySelector("#opt-prompt-reset");
+  assert.strictEqual(resetBtn.classList.contains("has-changes"), true);
+
   // Switch to Godot profile -> applies Godot defaults and updates UI hints
   const profileSelect = container.querySelector("#opt-prompt-profile");
   profileSelect.value = "godot";
@@ -240,15 +266,27 @@ test("prompt-ui - setupPromptToggles migrates legacy settings, syncs groups, swi
     descEl.placeholder.includes("Godot") || descEl.placeholder.includes("3D"),
   );
   assert.strictEqual(getPromptOptions(container).transmission, false);
+  assert.strictEqual(resetBtn.classList.contains("has-changes"), false);
 
-  // Override a Godot option, then click Reset
+  // Override a Godot option -> highlights reset; toggling back clears highlight
   const lightsCb = container.querySelector("#opt-lights");
   lightsCb.checked = true;
   lightsCb.dispatchEvent({ type: "change" });
   assert.strictEqual(getPromptOptions(container).lights, true);
+  assert.strictEqual(resetBtn.classList.contains("has-changes"), true);
 
-  container.querySelector("#opt-prompt-reset").dispatchEvent({ type: "click" });
+  lightsCb.checked = false;
+  lightsCb.dispatchEvent({ type: "change" });
+  assert.strictEqual(resetBtn.classList.contains("has-changes"), false);
+
+  // Override again, then click Reset -> restores default and clears highlight
+  lightsCb.checked = true;
+  lightsCb.dispatchEvent({ type: "change" });
+  assert.strictEqual(resetBtn.classList.contains("has-changes"), true);
+
+  resetBtn.dispatchEvent({ type: "click" });
   assert.strictEqual(getPromptOptions(container).lights, false);
+  assert.strictEqual(resetBtn.classList.contains("has-changes"), false);
 });
 
 test("prompt-ui - buildPromptFromUI builds prompts with template and reference files", () => {

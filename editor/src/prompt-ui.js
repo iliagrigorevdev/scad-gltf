@@ -183,6 +183,31 @@ export function setupPromptToggles(
     localStorage.setItem(storageKey, JSON.stringify(store));
   };
 
+  const resetBtn = containerElement.querySelector("#opt-prompt-reset");
+
+  const getDefaultChecked = (profile, optKey, cb) => {
+    if (profile.defaultPromptOptions?.[optKey] !== undefined) {
+      return profile.defaultPromptOptions[optKey];
+    }
+    return cb.defaultChecked;
+  };
+
+  const updateResetButtonState = () => {
+    if (!resetBtn) return;
+    const profileId = getSelectedPromptProfile(containerElement);
+    const profile = getPromptProfile(profileId);
+    let hasChanges = false;
+    for (const [optKey, cfg] of Object.entries(OPTION_CONFIG)) {
+      const cb = containerElement.querySelector(`#${cfg.id}`);
+      if (!cb) continue;
+      if (cb.checked !== getDefaultChecked(profile, optKey, cb)) {
+        hasChanges = true;
+        break;
+      }
+    }
+    resetBtn.classList?.toggle("has-changes", hasChanges);
+  };
+
   const setupGroup = (allBtnId, childSelector) => {
     const allBtn = containerElement.querySelector(allBtnId);
     const children = containerElement.querySelectorAll(childSelector);
@@ -200,12 +225,14 @@ export function setupPromptToggles(
         const checked = e.target.checked;
         children.forEach((cb) => (cb.checked = checked));
         saveSettings();
+        updateResetButtonState();
       });
 
       children.forEach((cb) => {
         cb.addEventListener("change", () => {
           updateState();
           saveSettings();
+          updateResetButtonState();
         });
       });
     }
@@ -226,15 +253,14 @@ export function setupPromptToggles(
       if (!cb) continue;
       if (savedForProfile[cfg.id] !== undefined) {
         cb.checked = savedForProfile[cfg.id];
-      } else if (profile.defaultPromptOptions?.[optKey] !== undefined) {
-        cb.checked = profile.defaultPromptOptions[optKey];
       } else {
-        cb.checked = cb.defaultChecked;
+        cb.checked = getDefaultChecked(profile, optKey, cb);
       }
     }
 
     updatePbrState();
     updateBakeState();
+    updateResetButtonState();
 
     if (helpTextEl && profile.helpText) {
       helpTextEl.textContent = profile.helpText;
@@ -244,7 +270,6 @@ export function setupPromptToggles(
     }
   };
 
-  const resetBtn = containerElement.querySelector("#opt-prompt-reset");
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
       const profileId = getSelectedPromptProfile(containerElement);
@@ -272,7 +297,10 @@ export function setupPromptToggles(
   }
 
   containerElement.addEventListener("change", (e) => {
-    if (e.target.type === "checkbox") saveSettings();
+    if (e.target.type === "checkbox") {
+      saveSettings();
+      updateResetButtonState();
+    }
   });
 }
 
