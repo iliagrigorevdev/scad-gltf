@@ -3,29 +3,15 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import crypto from "crypto";
-import {
-  convertScad,
-  convertScadToGltf,
-  convertScadTo3MF,
-  SUPPORTED_EXTENSIONS,
-} from "../src/convert.js";
+import { convertScad, SUPPORTED_EXTENSIONS } from "../src/convert.js";
+import { installWasmFetchPolyfill } from "../src/process-utils.js";
 import { extractScadDependencies } from "../src/utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const wasmPath = path.resolve(__dirname, "../ext/openscad.wasm");
 
-global.fetch = async (url) => {
-  const normalizedPath = url.toString().startsWith("file://")
-    ? fileURLToPath(url.toString())
-    : url.toString();
-
-  const buffer = fs.readFileSync(normalizedPath);
-  return new Response(buffer, {
-    status: 200,
-    headers: { "Content-Type": "application/wasm" },
-  });
-};
+installWasmFetchPolyfill();
 
 /**
  * Recursively resolves local dependencies (include / use) to extract their contents.

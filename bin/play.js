@@ -5,7 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import { execSync, spawn } from "node:child_process";
 import { getGodotBin } from "../src/godot-utils.js";
-import { writeExtractedFiles } from "../src/cli-utils.js";
+import { writeExtractedFiles, detectProjectInDir } from "../src/cli-utils.js";
 import { extractFilesFromMarkdown } from "../src/utils.js";
 import { getUePaths } from "../src/ue-utils.js";
 
@@ -91,39 +91,8 @@ function main() {
     }
 
     // 3. Find the resulting project folder and determine its type
-    let projectDir = null;
-    let projectType = null; // 'godot' | 'web' | 'rust' | 'ue'
-    let latestTime = 0;
-
-    const items = fs.readdirSync(tempDir);
-    for (const item of items) {
-      const itemPath = path.join(tempDir, item);
-      if (fs.statSync(itemPath).isDirectory()) {
-        const isGodot = fs.existsSync(path.join(itemPath, "project.godot"));
-        const isWeb = fs.existsSync(path.join(itemPath, "package.json"));
-        const isRust = fs.existsSync(path.join(itemPath, "Cargo.toml"));
-        const isUe = fs
-          .readdirSync(itemPath)
-          .some((f) => f.endsWith(".uproject"));
-
-        if (isGodot || isWeb || isRust || isUe) {
-          const mtime = fs.statSync(itemPath).mtimeMs;
-          if (mtime > latestTime) {
-            latestTime = mtime;
-            projectDir = itemPath;
-            projectType = isGodot
-              ? "godot"
-              : isRust
-                ? "rust"
-                : isUe
-                  ? "ue"
-                  : "web";
-          }
-        }
-      }
-    }
-
-    if (!projectDir || !projectType) {
+    const detected = detectProjectInDir(tempDir);
+    if (!detected) {
       console.error("\n❌ Error: Could not find a valid generated project.");
       console.error(
         "The project did not contain a root folder holding 'project.godot', 'package.json', 'Cargo.toml', or a '.uproject' file.",
@@ -131,6 +100,8 @@ function main() {
       cleanup();
       process.exit(1);
     }
+
+    const { projectDir, projectType } = detected;
 
     console.log(
       `\n✔️  Found extracted ${projectType.toUpperCase()} project: ${path.basename(projectDir)}`,

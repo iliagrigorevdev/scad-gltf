@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 import fs from "fs";
 import path from "path";
-import os from "os";
-import { spawn, execSync } from "child_process";
 import { fileURLToPath } from "url";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -16,33 +14,38 @@ import { generatePrompt } from "../src/prompt.js";
 import { getProjectPrompts } from "../src/project-prompts.js";
 import { runGodotAsync } from "../src/godot-utils.js";
 import {
-  writeExtractedFiles,
   generateScadPreviewUrl,
+  extractMarkdownProjectToTemp,
+  truncateOutputTail,
 } from "../src/cli-utils.js";
-import { extractFilesFromMarkdown } from "../src/utils.js";
-import { getUePaths, buildUeProjectAsync } from "../src/ue-utils.js";
+import {
+  installWasmFetchPolyfill,
+  spawnWithTimeout,
+} from "../src/process-utils.js";
+import { buildUeProjectAsync } from "../src/ue-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const wasmPath = path.resolve(__dirname, "../ext/openscad.wasm");
 
-// Polyfill fetch so the WASM loader works natively in Node.js
-const originalFetch = global.fetch;
-global.fetch = async (url, options) => {
-  const urlStr = url.toString();
-  if (urlStr.startsWith("file://") || urlStr.endsWith(".wasm")) {
-    const normalizedPath = urlStr.startsWith("file://")
-      ? fileURLToPath(urlStr)
-      : urlStr;
+installWasmFetchPolyfill();
 
-    const buffer = fs.readFileSync(normalizedPath);
-    return new Response(buffer, {
-      status: 200,
-      headers: { "Content-Type": "application/wasm" },
-    });
+function textError(message) {
+  return {
+    content: [{ type: "text", text: message }],
+    isError: true,
+  };
+}
+
+function cleanupTempDir(dirPath) {
+  if (dirPath && fs.existsSync(dirPath)) {
+    try {
+      fs.rmSync(dirPath, { recursive: true, force: true });
+    } catch (e) {
+      console.error(`Failed to clean up temp dir: ${dirPath}`, e);
+    }
   }
-  return originalFetch ? originalFetch(url, options) : undefined;
-};
+}
 
 // Initialize MCP Server
 const server = new Server(
@@ -824,67 +827,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   if (name === "test_godot_project") {
     let cleanupDir = null;
     try {
-      let projectDir = null;
       const runTime = args.run_time || 5.0;
       const markdown = args.project_markdown;
+      if (!markdown) return textError("Error: 'project_markdown' is required.");
 
-      if (!markdown) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: 'project_markdown' is required.`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      // Create a unique temporary directory
-      const tempBase = fs.mkdtempSync(
-        path.join(os.tmpdir(), "scad-godot-test-"),
+      const extracted = extractMarkdownProjectToTemp(
+        markdown,
+        "scad-godot-test-",
+        "godot",
       );
-      cleanupDir = tempBase;
-
-      const files = extractFilesFromMarkdown(markdown);
-      if (Object.keys(files).length === 0) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: No files could be extracted from the Markdown text. Make sure you use '### filepath' headers followed by code blocks.`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      writeExtractedFiles(files, tempBase);
-
-      // Find the generated folder containing project.godot
-      const items = fs.readdirSync(tempBase);
-      for (const item of items) {
-        const itemPath = path.join(tempBase, item);
-        if (
-          fs.statSync(itemPath).isDirectory() &&
-          fs.existsSync(path.join(itemPath, "project.godot"))
-        ) {
-          projectDir = itemPath;
-          break;
-        }
-      }
-
-      if (!projectDir) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: The extracted Markdown output did not contain a valid Godot project. A valid Godot project requires a 'project.godot' file placed inside a root directory block.`,
-            },
-          ],
-          isError: true,
-        };
-      }
+      cleanupDir = extracted.tempBase;
+      const projectDir = extracted.projectDir;
 
       const returnImages = args.return_images !== false;
 
@@ -1026,15 +979,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           "✅ No obvious errors detected in the Godot output log.\n\n";
       }
 
-      const maxOutputLen = 4000;
-      let truncatedOutput = fullOutput;
-      if (fullOutput.length > maxOutputLen) {
-        truncatedOutput = fullOutput.substring(
-          fullOutput.length - maxOutputLen,
-        );
-        responseText += `...[truncated]...\n`;
-      }
-      responseText += truncatedOutput;
+      responseText += truncateOutputTail(fullOutput, 4000);
 
       // 5. Construct Final MCP Response
       const responseContent = [
@@ -1064,24 +1009,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         content: responseContent,
       };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error testing Godot project: ${error.message}`,
-          },
-        ],
-        isError: true,
-      };
+      return textError(`Error testing Godot project: ${error.message}`);
     } finally {
-      // Clean up temporary directory if we created one
-      if (cleanupDir && fs.existsSync(cleanupDir)) {
-        try {
-          fs.rmSync(cleanupDir, { recursive: true, force: true });
-        } catch (e) {
-          console.error(`Failed to clean up temp dir: ${cleanupDir}`, e);
-        }
-      }
+      cleanupTempDir(cleanupDir);
     }
   }
 
@@ -1091,105 +1021,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   if (name === "compile_rust_project") {
     let cleanupDir = null;
     try {
-      let projectDir = null;
       const markdown = args.project_markdown;
+      if (!markdown) return textError("Error: 'project_markdown' is required.");
 
-      if (!markdown) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: 'project_markdown' is required.`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      // Create a unique temporary directory
-      const tempBase = fs.mkdtempSync(
-        path.join(os.tmpdir(), "scad-rust-compile-"),
+      const extracted = extractMarkdownProjectToTemp(
+        markdown,
+        "scad-rust-compile-",
+        "rust",
       );
-      cleanupDir = tempBase;
+      cleanupDir = extracted.tempBase;
 
-      const files = extractFilesFromMarkdown(markdown);
-      if (Object.keys(files).length === 0) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: No files could be extracted from the Markdown text. Make sure you use '### filepath' headers followed by code blocks.`,
-            },
-          ],
-          isError: true,
-        };
-      }
+      const cargoCmd = process.platform === "win32" ? "cargo.exe" : "cargo";
+      const compileResult = await spawnWithTimeout(cargoCmd, ["check"], {
+        cwd: extracted.projectDir,
+        timeoutMs: 120000,
+        timeoutMessage: "\n--- COMPILATION TIMED OUT (2 minutes) ---",
+        timeoutExitCode: 1,
+        killSignal: undefined,
+        formatError: (err) => `\nError launching cargo: ${err.message}`,
+      });
 
-      writeExtractedFiles(files, tempBase);
-
-      // Find the generated folder containing Cargo.toml
-      const items = fs.readdirSync(tempBase);
-      for (const item of items) {
-        const itemPath = path.join(tempBase, item);
-        if (
-          fs.statSync(itemPath).isDirectory() &&
-          fs.existsSync(path.join(itemPath, "Cargo.toml"))
-        ) {
-          projectDir = itemPath;
-          break;
-        }
-      }
-
-      if (!projectDir) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: The extracted Markdown output did not contain a valid Rust project. A valid Rust project requires a 'Cargo.toml' file placed inside a root directory block.`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      const runCargoAsync = () =>
-        new Promise((resolve) => {
-          const cargoCmd = process.platform === "win32" ? "cargo.exe" : "cargo";
-          const child = spawn(cargoCmd, ["check"], {
-            cwd: projectDir,
-          });
-
-          let output = "";
-          if (child.stdout)
-            child.stdout.on("data", (data) => (output += data.toString()));
-          if (child.stderr)
-            child.stderr.on("data", (data) => (output += data.toString()));
-
-          child.on("error", (error) => {
-            output += `\nError launching cargo: ${error.message}`;
-            resolve({ code: 1, output });
-          });
-
-          child.on("close", (code) => {
-            resolve({ code, output });
-          });
-
-          // 2-minute timeout for Rust compilation (can be slow as dependencies download)
-          setTimeout(() => {
-            try {
-              child.kill();
-            } catch (e) {}
-            output += "\n--- COMPILATION TIMED OUT (2 minutes) ---";
-            resolve({ code: 1, output });
-          }, 120000);
-        });
-
-      const compileResult = await runCargoAsync();
-      const compileOutput = compileResult.output;
-      const compileCode = compileResult.code;
-
-      const fullOutput = "--- CARGO CHECK ---\n" + compileOutput.trim();
-
+      const fullOutput = "--- CARGO CHECK ---\n" + compileResult.output.trim();
       const errorLines = fullOutput
         .split("\n")
         .filter(
@@ -1199,9 +1051,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             line.includes("could not compile"),
         );
 
-      let responseText = `Cargo Check Exit Code: ${compileCode}\n\n`;
-
-      if (compileCode !== 0 || errorLines.length > 0) {
+      let responseText = `Cargo Check Exit Code: ${compileResult.code}\n\n`;
+      if (compileResult.code !== 0 || errorLines.length > 0) {
         responseText +=
           "🚨 Errors detected in Cargo output:\n" +
           errorLines.join("\n") +
@@ -1210,43 +1061,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         responseText +=
           "✅ No obvious errors detected. Project checked successfully.\n\n";
       }
+      responseText += truncateOutputTail(fullOutput, 4000);
 
-      const maxOutputLen = 4000;
-      let truncatedOutput = fullOutput;
-      if (fullOutput.length > maxOutputLen) {
-        truncatedOutput = fullOutput.substring(
-          fullOutput.length - maxOutputLen,
-        );
-        responseText += `...[truncated]...\n`;
-      }
-      responseText += truncatedOutput;
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: responseText,
-          },
-        ],
-      };
+      return { content: [{ type: "text", text: responseText }] };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error compiling Rust project: ${error.message}`,
-          },
-        ],
-        isError: true,
-      };
+      return textError(`Error compiling Rust project: ${error.message}`);
     } finally {
-      if (cleanupDir && fs.existsSync(cleanupDir)) {
-        try {
-          fs.rmSync(cleanupDir, { recursive: true, force: true });
-        } catch (e) {
-          console.error(`Failed to clean up temp dir: ${cleanupDir}`, e);
-        }
-      }
+      cleanupTempDir(cleanupDir);
     }
   }
 
@@ -1257,123 +1078,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     let cleanupDir = null;
     try {
       if (!process.env.UE_ROOT) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: The host machine does not have the 'UE_ROOT' environment variable set. Unreal Engine compilation is currently unavailable.`,
-            },
-          ],
-          isError: true,
-        };
+        return textError(
+          `Error: The host machine does not have the 'UE_ROOT' environment variable set. Unreal Engine compilation is currently unavailable.`,
+        );
       }
 
-      let projectDir = null;
       const markdown = args.project_markdown;
+      if (!markdown) return textError("Error: 'project_markdown' is required.");
 
-      if (!markdown) {
-        return {
-          content: [
-            { type: "text", text: `Error: 'project_markdown' is required.` },
-          ],
-          isError: true,
-        };
-      }
-
-      // Create a unique temporary directory
-      const tempBase = fs.mkdtempSync(
-        path.join(os.tmpdir(), "scad-ue-compile-"),
+      const extracted = extractMarkdownProjectToTemp(
+        markdown,
+        "scad-ue-compile-",
+        "ue",
       );
-      cleanupDir = tempBase;
-
-      const files = extractFilesFromMarkdown(markdown);
-      if (Object.keys(files).length === 0) {
-        return {
-          content: [
-            { type: "text", text: `Error: No files could be extracted.` },
-          ],
-          isError: true,
-        };
-      }
-
-      writeExtractedFiles(files, tempBase);
-
-      // Find the folder containing the .uproject file
-      const items = fs.readdirSync(tempBase);
-      for (const item of items) {
-        const itemPath = path.join(tempBase, item);
-        if (fs.statSync(itemPath).isDirectory()) {
-          const uProj = fs
-            .readdirSync(itemPath)
-            .find((f) => f.endsWith(".uproject"));
-          if (uProj) {
-            projectDir = itemPath;
-            break;
-          }
-        }
-      }
-
-      if (!projectDir) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error: Extracted Markdown did not contain a valid .uproject file inside a root directory block.`,
-            },
-          ],
-          isError: true,
-        };
-      }
+      cleanupDir = extracted.tempBase;
 
       const uprojectFile = fs
-        .readdirSync(projectDir)
+        .readdirSync(extracted.projectDir)
         .find((f) => f.endsWith(".uproject"));
-      const uprojectPath = path.join(projectDir, uprojectFile);
+      const uprojectPath = path.join(extracted.projectDir, uprojectFile);
 
-      // 1. Build Phase
-      const buildResult = await buildUeProjectAsync(uprojectPath, 240000); // 4-minute timeout for C++ compiler
+      const buildResult = await buildUeProjectAsync(uprojectPath, 240000);
       const fullBuildOutput =
         "--- UBT COMPILATION PHASE ---\n" + buildResult.output;
 
       let responseText = `UE Build Exit Code: ${buildResult.code}\n\n`;
-
       if (buildResult.code !== 0) {
         responseText += `🚨 C++ Compilation Failed:\n\n`;
       } else {
         responseText += `✅ Project compiled successfully with no errors.\n\n`;
       }
+      responseText += truncateOutputTail(fullBuildOutput, 4000);
 
-      const maxOutputLen = 4000;
-      let truncatedOutput = fullBuildOutput;
-      if (fullBuildOutput.length > maxOutputLen) {
-        truncatedOutput = fullBuildOutput.substring(
-          fullBuildOutput.length - maxOutputLen,
-        );
-        responseText += `...[truncated]...\n`;
-      }
-      responseText += truncatedOutput;
-
-      return {
-        content: [{ type: "text", text: responseText }],
-      };
+      return { content: [{ type: "text", text: responseText }] };
     } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error compiling Unreal Engine project: ${error.message}`,
-          },
-        ],
-        isError: true,
-      };
+      return textError(
+        `Error compiling Unreal Engine project: ${error.message}`,
+      );
     } finally {
-      if (cleanupDir && fs.existsSync(cleanupDir)) {
-        try {
-          fs.rmSync(cleanupDir, { recursive: true, force: true });
-        } catch (e) {
-          console.error(`Failed to clean up temp dir: ${cleanupDir}`, e);
-        }
-      }
+      cleanupTempDir(cleanupDir);
     }
   }
 

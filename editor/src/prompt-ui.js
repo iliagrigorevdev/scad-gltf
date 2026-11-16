@@ -55,23 +55,23 @@ export const UE_PLUGIN_FILES = Object.entries(rawUePluginModules)
     };
   });
 
-const OPTION_ID_MAP = {
-  basic: "opt-pbr-basic",
-  autoSmoothAngle: "opt-pbr-autosmooth",
-  animation: "opt-anim",
-  lights: "opt-lights",
-  transmission: "opt-pbr-transmission",
-  clearcoat: "opt-pbr-clearcoat",
-  sheen: "opt-pbr-sheen",
-  emissive: "opt-pbr-emissive",
-  specular: "opt-pbr-specular",
-  iridescence: "opt-pbr-iridescence",
-  unlit: "opt-pbr-unlit",
-  bakeColors: "opt-bake-colors",
-  bakeNormals: "opt-bake-normals",
-  bakeOrm: "opt-bake-orm",
-  bakeUvs: "opt-bake-uvs",
-  colormap: "opt-pbr-colormap",
+const OPTION_CONFIG = {
+  basic: { id: "opt-pbr-basic", default: true },
+  autoSmoothAngle: { id: "opt-pbr-autosmooth", default: true },
+  animation: { id: "opt-anim", default: true },
+  lights: { id: "opt-lights", default: false },
+  transmission: { id: "opt-pbr-transmission", default: true },
+  clearcoat: { id: "opt-pbr-clearcoat", default: true },
+  sheen: { id: "opt-pbr-sheen", default: true },
+  emissive: { id: "opt-pbr-emissive", default: true },
+  specular: { id: "opt-pbr-specular", default: true },
+  iridescence: { id: "opt-pbr-iridescence", default: true },
+  unlit: { id: "opt-pbr-unlit", default: true },
+  bakeColors: { id: "opt-bake-colors", default: false },
+  bakeNormals: { id: "opt-bake-normals", default: false },
+  bakeOrm: { id: "opt-bake-orm", default: false },
+  bakeUvs: { id: "opt-bake-uvs", default: false },
+  colormap: { id: "opt-pbr-colormap", default: false },
 };
 
 export const PROMPT_UI_HTML = `
@@ -221,11 +221,11 @@ export function setupPromptToggles(
     const savedForProfile = store.profiles[profileId] || {};
 
     // Apply profile defaults first, then user overrides for that profile
-    for (const [optKey, cbId] of Object.entries(OPTION_ID_MAP)) {
-      const cb = containerElement.querySelector(`#${cbId}`);
+    for (const [optKey, cfg] of Object.entries(OPTION_CONFIG)) {
+      const cb = containerElement.querySelector(`#${cfg.id}`);
       if (!cb) continue;
-      if (savedForProfile[cbId] !== undefined) {
-        cb.checked = savedForProfile[cbId];
+      if (savedForProfile[cfg.id] !== undefined) {
+        cb.checked = savedForProfile[cfg.id];
       } else if (profile.defaultPromptOptions?.[optKey] !== undefined) {
         cb.checked = profile.defaultPromptOptions[optKey];
       } else {
@@ -277,33 +277,12 @@ export function setupPromptToggles(
 }
 
 export function getPromptOptions(containerElement) {
-  return {
-    basic: containerElement.querySelector("#opt-pbr-basic")?.checked ?? true,
-    transmission:
-      containerElement.querySelector("#opt-pbr-transmission")?.checked ?? true,
-    clearcoat:
-      containerElement.querySelector("#opt-pbr-clearcoat")?.checked ?? true,
-    sheen: containerElement.querySelector("#opt-pbr-sheen")?.checked ?? true,
-    emissive:
-      containerElement.querySelector("#opt-pbr-emissive")?.checked ?? true,
-    specular:
-      containerElement.querySelector("#opt-pbr-specular")?.checked ?? true,
-    iridescence:
-      containerElement.querySelector("#opt-pbr-iridescence")?.checked ?? true,
-    unlit: containerElement.querySelector("#opt-pbr-unlit")?.checked ?? true,
-    autoSmoothAngle:
-      containerElement.querySelector("#opt-pbr-autosmooth")?.checked ?? true,
-    bakeColors:
-      containerElement.querySelector("#opt-bake-colors")?.checked ?? false,
-    bakeNormals:
-      containerElement.querySelector("#opt-bake-normals")?.checked ?? false,
-    bakeOrm: containerElement.querySelector("#opt-bake-orm")?.checked ?? false,
-    bakeUvs: containerElement.querySelector("#opt-bake-uvs")?.checked ?? false,
-    colormap:
-      containerElement.querySelector("#opt-pbr-colormap")?.checked ?? false,
-    animation: containerElement.querySelector("#opt-anim")?.checked ?? true,
-    lights: containerElement.querySelector("#opt-lights")?.checked ?? false,
-  };
+  const options = {};
+  for (const [optKey, cfg] of Object.entries(OPTION_CONFIG)) {
+    options[optKey] =
+      containerElement.querySelector(`#${cfg.id}`)?.checked ?? cfg.default;
+  }
+  return options;
 }
 
 function getTemplateFilesForProfile(profileId) {

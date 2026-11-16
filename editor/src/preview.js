@@ -1,14 +1,5 @@
 import { convertScadToGltf } from "scad-gltf/convert";
 import wasmUrl from "scad-gltf/openscad.wasm?url";
-import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import {
   updateCameraAspect,
   computeModelBounds,
@@ -20,6 +11,14 @@ import {
   applyDynamicBoundsToLights,
   extractCamerasAndLights,
 } from "./shared.js";
+import {
+  createViewerContext,
+  createAnimationController,
+  bindViewerControls,
+  disposeThreeObject,
+  parseGlbBuffer,
+  populateCameraSelect,
+} from "./viewer-core.js";
 import { extractModelNameFromScad } from "scad-gltf/utils";
 
 const viewerContainer = document.getElementById("viewer-container");
@@ -45,109 +44,86 @@ const animTimelineLabel = document.getElementById("anim-timeline-label");
 const animTimelineCb = document.getElementById("anim-timeline-cb");
 
 let currentMesh = null;
-let currentAction = null;
-let isPlaying = true;
-let isDraggingSlider = false;
-let currentAnimations = [];
 let latestScadCode = "";
 let isCompiling = false;
 let pendingCode = null;
-let mixer = null;
 let captureNextFrame = false;
 
 let gltfCameras = [];
 let gltfLights = [];
 let sceneHasLights = false;
 let currentOptimalExposure = 1.0;
-let activeCamera = null;
 
-// --- Setup Three.js Scene ---
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x222222);
+const viewerCtx = createViewerContext({
+  containerEl: viewerEl,
+  width: window.innerWidth,
+  height: window.innerHeight,
+  preserveDrawingBuffer: false,
+});
+const {
+  scene,
+  camera,
+  renderer,
+  composer,
+  renderPass,
+  controls,
+  dirLight,
+  floor,
+  gridHelper,
+  axesHelper,
+} = viewerCtx;
 
-const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  2000,
-);
-camera.position.set(50, 50, -50);
-activeCamera = camera;
+let activeCamera = camera;
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+const animController = createAnimationController({
+  animControlsEl: animControls,
+  animPlayBtn,
+  animSelect,
+  animSlider,
+  animTimelineLabel,
+  animTimelineCb,
+  hasTimelineClassTarget: animControls,
+});
 
-viewerEl.appendChild(renderer.domElement);
+function applySceneLightingMode(useLights) {
+  gltfLights.forEach((l) => (l.visible = useLights));
+  scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
+  renderer.toneMappingExposure =
+    sceneHasLights && useLights ? currentOptimalExposure : 1.0;
+  viewerCtx.syncEnvironmentVisibility({
+    isPathTracing: false,
+    showGrid: showGridCb ? showGridCb.checked : true,
+    sceneHasLights,
+    useCustomLights: useLights,
+  });
+}
 
-// --- Post-processing: Bloom for Emissive Glow ---
-const composer = new EffectComposer(renderer);
-const renderPass = new RenderPass(scene, activeCamera);
-composer.addPass(renderPass);
-
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.1, // strength
-  0.1, // radius
-  2.0, // threshold
-);
-bloomPass.enabled = false;
-composer.addPass(bloomPass);
-
-const outputPass = new OutputPass();
-composer.addPass(outputPass);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.1;
-
-// --- Add Room Environment for IBL ---
-const pmremGenerator = new THREE.PMREMGenerator(renderer);
-scene.environment = pmremGenerator.fromScene(
-  new RoomEnvironment(),
-  0.04,
-).texture;
-scene.environmentIntensity = 0.8;
-
-const lightGroup = new THREE.Group();
-scene.add(lightGroup);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 2048;
-dirLight.shadow.mapSize.height = 2048;
-dirLight.shadow.bias = -0.0005;
-lightGroup.add(dirLight);
-lightGroup.add(dirLight.target);
-
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-hemiLight.position.set(0, 20, 0);
-lightGroup.add(hemiLight);
-
-let environmentTexture = null;
-new HDRLoader().load(
-  "./aristea_wreck_puresky_2k.hdr",
-  (texture) => {
-    texture.mapping = THREE.EquirectangularReflectionMapping;
-    scene.environment = texture;
-    environmentTexture = texture;
+bindViewerControls({
+  wireframeCb,
+  bloomCb,
+  lightsCb,
+  fullscreenBtn,
+  fullscreenTarget: viewerContainer,
+  screenshotBtn,
+  cameraSelect,
+  onWireframeChange: (isWireframe, isBloom) => {
+    viewerCtx.applyBloom(isBloom, isWireframe);
+    if (currentMesh) {
+      setupMeshShadowsAndWireframe(currentMesh, isWireframe);
+    }
   },
-  undefined,
-  (err) => console.warn("Error loading HDR:", err),
-);
-
-if (cameraSelect) {
-  cameraSelect.addEventListener("change", (e) => {
-    const val = e.target.value;
+  onBloomChange: (isBloom, isWireframe) => {
+    viewerCtx.applyBloom(isBloom, isWireframe);
+  },
+  onLightsChange: (useLights) => {
+    applySceneLightingMode(useLights);
+  },
+  onCameraChange: (val) => {
     if (val === "") {
       activeCamera = camera;
       controls.enabled = true;
     } else {
-      activeCamera = gltfCameras[parseInt(val)];
+      activeCamera = gltfCameras[parseInt(val, 10)];
       controls.enabled = false;
     }
     const w = viewerContainer ? viewerContainer.clientWidth : window.innerWidth;
@@ -156,192 +132,11 @@ if (cameraSelect) {
       : window.innerHeight;
     updateCameraAspect(activeCamera, w, h);
     renderPass.camera = activeCamera;
-  });
-}
-
-// Environment Helpers
-const floorGeo = new THREE.PlaneGeometry(2000, 2000);
-const floorMat = new THREE.MeshStandardMaterial({
-  color: 0x222222,
-  roughness: 0.8,
-  metalness: 0.1,
-});
-const floor = new THREE.Mesh(floorGeo, floorMat);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
-
-const gridHelper = new THREE.GridHelper(2000, 100, 0x555555, 0x333333);
-gridHelper.material.transparent = true;
-gridHelper.material.opacity = 0.5;
-scene.add(gridHelper);
-
-const axesHelper = new THREE.AxesHelper(100);
-scene.add(axesHelper);
-
-// --- Viewer Toggles Logic ---
-if (wireframeCb) {
-  wireframeCb.addEventListener("change", () => {
-    const isWireframe = wireframeCb.checked;
-    const isBloom = bloomCb ? bloomCb.checked : false;
-    bloomPass.enabled = isBloom && !isWireframe;
-    if (currentMesh) {
-      setupMeshShadowsAndWireframe(currentMesh, isWireframe);
-    }
-  });
-}
-
-if (bloomCb) {
-  bloomCb.addEventListener("change", () => {
-    const isBloom = bloomCb.checked;
-    const isWireframe = wireframeCb ? wireframeCb.checked : false;
-    bloomPass.enabled = isBloom && !isWireframe;
-  });
-}
-
-if (lightsCb) {
-  lightsCb.addEventListener("change", () => {
-    const useLights = lightsCb.checked;
-    gltfLights.forEach((l) => (l.visible = useLights));
-    scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
-    renderer.toneMappingExposure =
-      sceneHasLights && useLights ? currentOptimalExposure : 1.0;
-    if (typeof lightGroup !== "undefined") {
-      lightGroup.visible = !sceneHasLights || !useLights;
-    }
-  });
-}
-
-if (fullscreenBtn && viewerContainer) {
-  fullscreenBtn.addEventListener("click", () => {
-    if (!document.fullscreenElement) {
-      viewerContainer.requestFullscreen().catch((err) => {
-        console.warn(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen().catch((err) => {
-        console.warn(`Error attempting to exit fullscreen: ${err.message}`);
-      });
-    }
-  });
-
-  document.addEventListener("fullscreenchange", () => {
-    setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
-  });
-}
-
-if (screenshotBtn) {
-  screenshotBtn.addEventListener("click", () => {
+  },
+  onScreenshot: () => {
     captureNextFrame = true;
-    const originalText = screenshotBtn.innerText;
-    screenshotBtn.innerText = "✅";
-    setTimeout(() => {
-      screenshotBtn.innerText = originalText;
-    }, 1000);
-  });
-}
-
-function updateAnimTimelineVisibility() {
-  const hasAnims = currentAnimations.length > 0;
-  const showTimeline =
-    hasAnims && Boolean(animTimelineCb && animTimelineCb.checked);
-
-  if (animTimelineLabel) {
-    animTimelineLabel.style.display = hasAnims ? "flex" : "none";
-  }
-  if (animSlider) {
-    animSlider.style.display = showTimeline ? "" : "none";
-  }
-  if (animControls) {
-    animControls.classList.toggle("has-timeline", showTimeline);
-  }
-  if (showTimeline && currentAction && animSlider) {
-    const duration = currentAction.getClip().duration;
-    if (duration > 0) {
-      let currentClipTime = currentAction.time % duration;
-      if (currentClipTime < 0) currentClipTime += duration;
-      animSlider.value = currentClipTime / duration;
-    } else {
-      animSlider.value = 0;
-    }
-  }
-}
-
-if (animTimelineCb) {
-  animTimelineCb.addEventListener("change", updateAnimTimelineVisibility);
-}
-
-function pauseAnimation() {
-  if (!currentAction) return;
-  isPlaying = false;
-  currentAction.paused = true;
-  if (animPlayBtn) animPlayBtn.innerText = "▶ Play";
-}
-
-function playAnimation(index) {
-  if (!mixer || !currentAnimations[index]) return;
-  if (currentAction) {
-    currentAction.stop();
-  }
-  const clip = currentAnimations[index];
-  currentAction = mixer.clipAction(clip);
-  currentAction.play();
-  currentAction.time = 0;
-  mixer.update(0);
-  isPlaying = true;
-  currentAction.paused = false;
-  if (animPlayBtn) animPlayBtn.innerText = "⏸ Pause";
-  if (animSlider) animSlider.value = 0;
-}
-
-if (animSelect) {
-  animSelect.addEventListener("change", (e) => {
-    playAnimation(parseInt(e.target.value));
-  });
-}
-
-if (animPlayBtn) {
-  animPlayBtn.addEventListener("click", () => {
-    if (!currentAction) return;
-    isPlaying = !isPlaying;
-    currentAction.paused = !isPlaying;
-    animPlayBtn.innerText = isPlaying ? "⏸ Pause" : "▶ Play";
-  });
-}
-
-if (animSlider) {
-  animSlider.addEventListener("mousedown", () => {
-    isDraggingSlider = true;
-    pauseAnimation();
-  });
-  animSlider.addEventListener("mouseup", () => {
-    isDraggingSlider = false;
-  });
-  animSlider.addEventListener(
-    "touchstart",
-    () => {
-      isDraggingSlider = true;
-      pauseAnimation();
-    },
-    { passive: true },
-  );
-  animSlider.addEventListener(
-    "touchend",
-    () => {
-      isDraggingSlider = false;
-    },
-    { passive: true },
-  );
-
-  animSlider.addEventListener("input", (e) => {
-    pauseAnimation();
-    if (currentAction) {
-      const duration = currentAction.getClip().duration;
-      currentAction.time = parseFloat(e.target.value) * duration;
-      if (mixer) mixer.update(0);
-    }
-  });
-}
+  },
+});
 
 let lastTime = performance.now();
 function animate() {
@@ -351,31 +146,15 @@ function animate() {
   const delta = (now - lastTime) / 1000.0;
   lastTime = now;
 
-  if (mixer) {
-    mixer.update(delta);
-    if (
-      currentAction &&
-      isPlaying &&
-      !isDraggingSlider &&
-      (!animTimelineCb || animTimelineCb.checked)
-    ) {
-      const duration = currentAction.getClip().duration;
-      if (duration > 0) {
-        let currentClipTime = currentAction.time % duration;
-        if (currentClipTime < 0) currentClipTime += duration;
-        if (animSlider) animSlider.value = currentClipTime / duration;
-      }
-    }
-  }
+  animController.update(delta);
   controls.update();
 
-  const showGrid = showGridCb ? showGridCb.checked : true;
-  gridHelper.visible = showGrid;
-  axesHelper.visible = showGrid;
-
-  if (typeof pathTracer !== "undefined" && currentAction && isPlaying) {
-    pathTracer.updateCamera();
-  }
+  viewerCtx.syncEnvironmentVisibility({
+    isPathTracing: false,
+    showGrid: showGridCb ? showGridCb.checked : true,
+    sceneHasLights,
+    useCustomLights: lightsCb ? lightsCb.checked : true,
+  });
 
   composer.render();
 
@@ -390,158 +169,61 @@ animate();
 window.addEventListener("resize", () => {
   const w = viewerContainer ? viewerContainer.clientWidth : window.innerWidth;
   const h = viewerContainer ? viewerContainer.clientHeight : window.innerHeight;
-  updateCameraAspect(activeCamera, w, h);
-  renderer.setSize(w, h);
-  composer.setSize(w, h);
+  viewerCtx.resize(w, h, activeCamera);
 });
 
-// --- GLTF Parsing & Rendering Logic ---
-function renderGLTF(outputArray) {
-  return new Promise((resolve, reject) => {
-    if (currentMesh) {
-      if (mixer) {
-        mixer.stopAllAction();
-        mixer.uncacheRoot(mixer.getRoot());
-        mixer = null;
-      }
-      currentAction = null;
-      currentAnimations = [];
-      scene.remove(currentMesh);
-      currentMesh.traverse((child) => {
-        if (child.isMesh) {
-          child.geometry.dispose();
-          if (Array.isArray(child.material)) {
-            child.material.forEach((m) => m.dispose());
-          } else {
-            child.material.dispose();
-          }
-        }
-      });
-      currentMesh = null;
-    }
+async function renderGLTF(outputArray) {
+  if (currentMesh) {
+    animController.clear();
+    scene.remove(currentMesh);
+    disposeThreeObject(currentMesh);
+    currentMesh = null;
+  }
 
-    const arrayBuffer = outputArray.buffer.slice(
-      outputArray.byteOffset,
-      outputArray.byteOffset + outputArray.byteLength,
-    );
+  const gltf = await parseGlbBuffer(outputArray);
+  currentMesh = gltf.scene;
+  const animations = gltf.animations || [];
+  const isWireframe = wireframeCb ? wireframeCb.checked : false;
+  const isBloom = bloomCb ? bloomCb.checked : false;
+  viewerCtx.applyBloom(isBloom, isWireframe);
 
-    const loader = new GLTFLoader();
-    loader.parse(
-      arrayBuffer,
-      "",
-      (gltf) => {
-        currentMesh = gltf.scene;
-        currentAnimations = gltf.animations || [];
-        const isWireframe = wireframeCb ? wireframeCb.checked : false;
-        const isBloom = bloomCb ? bloomCb.checked : false;
-        bloomPass.enabled = isBloom && !isWireframe;
+  const extracted = extractCamerasAndLights(currentMesh);
+  gltfCameras = extracted.gltfCameras;
+  gltfLights = extracted.gltfLights;
+  sceneHasLights = extracted.sceneHasLights;
+  currentOptimalExposure = extracted.optimalExposure || 1.0;
 
-        const extracted = extractCamerasAndLights(currentMesh);
-        gltfCameras = extracted.gltfCameras;
-        gltfLights = extracted.gltfLights;
-        sceneHasLights = extracted.sceneHasLights;
-        currentOptimalExposure = extracted.optimalExposure || 1.0;
+  const lightsCbLabel = document.getElementById("lights-cb-label");
+  if (lightsCbLabel) {
+    lightsCbLabel.style.display = sceneHasLights ? "flex" : "none";
+  }
 
-        const lightsCbLabel = document.getElementById("lights-cb-label");
-        if (lightsCbLabel) {
-          lightsCbLabel.style.display = sceneHasLights ? "flex" : "none";
-        }
+  applySceneLightingMode(lightsCb ? lightsCb.checked : true);
 
-        const useLights = lightsCb ? lightsCb.checked : true;
-        gltfLights.forEach((l) => (l.visible = useLights));
-        scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
-        renderer.toneMappingExposure =
-          sceneHasLights && useLights ? currentOptimalExposure : 1.0;
-        if (typeof lightGroup !== "undefined") {
-          lightGroup.visible = !sceneHasLights || !useLights;
-        }
+  const camResult = populateCameraSelect(
+    cameraSelect,
+    gltfCameras,
+    camera,
+    controls,
+  );
+  activeCamera = camResult.activeCamera;
 
-        let hasAnimOrCamera = false;
+  const w = viewerEl ? viewerEl.clientWidth : window.innerWidth;
+  const h = viewerEl ? viewerEl.clientHeight : window.innerHeight;
+  updateCameraAspect(activeCamera, w, h);
+  renderPass.camera = activeCamera;
 
-        if (cameraSelect) {
-          if (gltfCameras.length > 0) {
-            cameraSelect.style.display = "inline-block";
-            cameraSelect.innerHTML = '<option value="">Free Camera</option>';
-            gltfCameras.forEach((cam, idx) => {
-              const opt = document.createElement("option");
-              opt.value = idx;
-              opt.innerText = cam.name || `Camera ${idx + 1}`;
-              cameraSelect.appendChild(opt);
-            });
-            cameraSelect.value = "0";
-            activeCamera = gltfCameras[0];
-            controls.enabled = false;
-            hasAnimOrCamera = true;
-          } else {
-            cameraSelect.style.display = "none";
-            cameraSelect.value = "";
-            activeCamera = camera;
-            controls.enabled = true;
-          }
-        } else {
-          activeCamera = camera;
-          controls.enabled = true;
-        }
+  animController.setup(currentMesh, animations, camResult.hasCameras);
+  setupMeshShadowsAndWireframe(currentMesh, isWireframe);
 
-        const w = viewerEl ? viewerEl.clientWidth : window.innerWidth;
-        const h = viewerEl ? viewerEl.clientHeight : window.innerHeight;
-        updateCameraAspect(activeCamera, w, h);
-        renderPass.camera = activeCamera;
-
-        if (currentAnimations.length > 0) {
-          mixer = new THREE.AnimationMixer(currentMesh);
-          hasAnimOrCamera = true;
-          if (animControls) {
-            if (animPlayBtn) animPlayBtn.style.display = "";
-            if (animSelect) animSelect.style.display = "";
-            animSelect.innerHTML = "";
-            currentAnimations.forEach((clip, i) => {
-              const opt = document.createElement("option");
-              opt.value = i;
-              opt.innerText = clip.name || `Animation ${i + 1}`;
-              animSelect.appendChild(opt);
-            });
-            playAnimation(0);
-            updateAnimTimelineVisibility();
-          } else {
-            currentAnimations.forEach((clip) => {
-              const action = mixer.clipAction(clip);
-              action.play();
-              action.time = 0;
-            });
-            mixer.update(0);
-          }
-        } else {
-          if (animControls) {
-            if (animPlayBtn) animPlayBtn.style.display = "none";
-            if (animSelect) animSelect.style.display = "none";
-          }
-          currentAction = null;
-          updateAnimTimelineVisibility();
-        }
-
-        if (animControls) {
-          animControls.style.display = hasAnimOrCamera ? "flex" : "none";
-        }
-
-        setupMeshShadowsAndWireframe(currentMesh, isWireframe);
-
-        scene.add(currentMesh);
-        currentMesh.updateMatrixWorld(true);
-        fitCamera();
-        resolve();
-      },
-      (error) => {
-        console.error(error);
-        reject(error);
-      },
-    );
-  });
+  scene.add(currentMesh);
+  currentMesh.updateMatrixWorld(true);
+  fitCamera(animations);
 }
 
-function fitCamera() {
+function fitCamera(animations = []) {
   if (!currentMesh) return;
-  const worldBox = computeModelBounds(currentMesh, currentAnimations);
+  const worldBox = computeModelBounds(currentMesh, animations);
   if (worldBox.isEmpty()) return;
 
   floor.position.y = worldBox.min.y - 0.01;
@@ -551,7 +233,7 @@ function fitCamera() {
   const { maxDim } = fitCameraToBox(
     camera,
     controls,
-    typeof dirLight !== "undefined" ? dirLight : null,
+    dirLight,
     scene,
     worldBox,
   );
@@ -616,7 +298,6 @@ async function compileAndRender(scadCode) {
   }
 }
 
-// --- Listen for Messages ---
 window.addEventListener("message", async (event) => {
   if (event.data.type === "RENDER_SCAD") {
     latestScadCode = event.data.code;
@@ -630,9 +311,8 @@ window.addEventListener("message", async (event) => {
   }
 });
 
-// --- Save Functionality ---
 saveBtn.addEventListener("click", async () => {
-  let filename = filenameInput.value.trim();
+  const filename = filenameInput.value.trim();
   if (!filename) {
     alert("Please enter a filename.");
     filenameInput.focus();
@@ -703,7 +383,6 @@ saveBtn.addEventListener("click", async () => {
   }
 });
 
-// --- Edit Functionality (Share to External Viewer) ---
 openEditorBtn.addEventListener("click", async () => {
   if (!latestScadCode) {
     alert("No model loaded to open.");

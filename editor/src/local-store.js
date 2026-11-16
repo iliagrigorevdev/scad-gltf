@@ -1,3 +1,5 @@
+import { hashString, getUtf8ByteLength } from "./diff-utils.js";
+
 const ACTIVE_WORKSPACE_KEY = "scadify_active_workspace_v1";
 const AUTO_VERSION_PREF_KEY = "scadify_auto_version_v1";
 const FALLBACK_MODELS_KEY = "scadify_local_models_fallback_v1";
@@ -11,23 +13,6 @@ const STORE_VERSIONS = "versions";
 export const DRAFT_MODEL_ID = "__draft__";
 
 let dbPromise = null;
-
-function hashString(str) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return `${(h >>> 0).toString(16)}_${str.length}`;
-}
-
-function getUtf8ByteLength(str) {
-  try {
-    return new TextEncoder().encode(str).length;
-  } catch {
-    return str.length;
-  }
-}
 
 function openDb() {
   if (typeof indexedDB === "undefined") {
@@ -59,6 +44,26 @@ function openDb() {
   return dbPromise;
 }
 
+async function idbRead(storeName, runRequest) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const req = runRequest(tx.objectStore(storeName));
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbWrite(storeNames, runOps) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeNames, "readwrite");
+    runOps(tx);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 function readFallbackJson(key, fallbackValue) {
   try {
     const raw = localStorage.getItem(key);
@@ -74,6 +79,14 @@ function writeFallbackJson(key, value) {
   } catch (err) {
     console.warn("localStorage fallback write failed:", err);
   }
+}
+
+function sortVersionsDesc(versions) {
+  return versions.sort(
+    (a, b) =>
+      (b.createdAt || 0) - (a.createdAt || 0) ||
+      (b.versionNumber || 0) - (a.versionNumber || 0),
+  );
 }
 
 export function loadAutoVersionPref() {
@@ -134,35 +147,21 @@ export function saveActiveWorkspaceSync({
 }
 
 export async function getLocalModels() {
+  let models;
   try {
-    const db = await openDb();
-    const models = await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_MODELS, "readonly");
-      const req = tx.objectStore(STORE_MODELS).getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    });
-    return models
-      .filter((m) => m && m.id !== DRAFT_MODEL_ID)
-      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    models = (await idbRead(STORE_MODELS, (s) => s.getAll())) || [];
   } catch {
-    const models = readFallbackJson(FALLBACK_MODELS_KEY, []);
-    return models
-      .filter((m) => m && m.id !== DRAFT_MODEL_ID)
-      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    models = readFallbackJson(FALLBACK_MODELS_KEY, []);
   }
+  return models
+    .filter((m) => m && m.id !== DRAFT_MODEL_ID)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 }
 
 export async function getLocalModel(id) {
   if (!id) return null;
   try {
-    const db = await openDb();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_MODELS, "readonly");
-      const req = tx.objectStore(STORE_MODELS).get(id);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
+    return (await idbRead(STORE_MODELS, (s) => s.get(id))) || null;
   } catch {
     const models = readFallbackJson(FALLBACK_MODELS_KEY, []);
     return models.find((m) => m.id === id) || null;
@@ -182,13 +181,9 @@ export async function saveLocalModel({ id, name, content, entryFile = null }) {
   };
 
   try {
-    const db = await openDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_MODELS, "readwrite");
-      tx.objectStore(STORE_MODELS).put(record);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
+    await idbWrite(STORE_MODELS, (tx) =>
+      tx.objectStore(STORE_MODELS).put(record),
+    );
   } catch {
     const models = readFallbackJson(FALLBACK_MODELS_KEY, []);
     const idx = models.findIndex((m) => m.id === record.id);
@@ -203,17 +198,13 @@ export async function saveLocalModel({ id, name, content, entryFile = null }) {
 export async function deleteLocalModel(id) {
   if (!id) return;
   try {
-    const db = await openDb();
     const versions = await getModelVersions(id);
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction([STORE_MODELS, STORE_VERSIONS], "readwrite");
+    await idbWrite([STORE_MODELS, STORE_VERSIONS], (tx) => {
       tx.objectStore(STORE_MODELS).delete(id);
       const vStore = tx.objectStore(STORE_VERSIONS);
       for (const v of versions) {
         vStore.delete(v.id);
       }
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
     });
   } catch {
     const models = readFallbackJson(FALLBACK_MODELS_KEY, []).filter(
@@ -230,28 +221,16 @@ export async function deleteLocalModel(id) {
 export async function getModelVersions(modelId = DRAFT_MODEL_ID) {
   const targetId = modelId || DRAFT_MODEL_ID;
   try {
-    const db = await openDb();
-    const versions = await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_VERSIONS, "readonly");
-      const index = tx.objectStore(STORE_VERSIONS).index("by_model");
-      const req = index.getAll(targetId);
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    });
-    return versions.sort(
-      (a, b) =>
-        (b.createdAt || 0) - (a.createdAt || 0) ||
-        (b.versionNumber || 0) - (a.versionNumber || 0),
-    );
+    const versions =
+      (await idbRead(STORE_VERSIONS, (s) =>
+        s.index("by_model").getAll(targetId),
+      )) || [];
+    return sortVersionsDesc(versions);
   } catch {
     const versions = readFallbackJson(FALLBACK_VERSIONS_KEY, []).filter(
       (v) => v.modelId === targetId,
     );
-    return versions.sort(
-      (a, b) =>
-        (b.createdAt || 0) - (a.createdAt || 0) ||
-        (b.versionNumber || 0) - (a.versionNumber || 0),
-    );
+    return sortVersionsDesc(versions);
   }
 }
 
@@ -311,16 +290,12 @@ export async function createVersionSnapshot({
   }
 
   try {
-    const db = await openDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_VERSIONS, "readwrite");
+    await idbWrite(STORE_VERSIONS, (tx) => {
       const store = tx.objectStore(STORE_VERSIONS);
       store.put(record);
       for (const oldId of idsToPrune) {
         store.delete(oldId);
       }
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
     });
   } catch {
     const pruneSet = new Set(idsToPrune);
@@ -337,13 +312,9 @@ export async function createVersionSnapshot({
 export async function deleteVersionSnapshot(versionId) {
   if (!versionId) return;
   try {
-    const db = await openDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_VERSIONS, "readwrite");
-      tx.objectStore(STORE_VERSIONS).delete(versionId);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
+    await idbWrite(STORE_VERSIONS, (tx) =>
+      tx.objectStore(STORE_VERSIONS).delete(versionId),
+    );
   } catch {
     const all = readFallbackJson(FALLBACK_VERSIONS_KEY, []).filter(
       (v) => v.id !== versionId,
@@ -360,15 +331,11 @@ export async function migrateModelVersions(fromModelId, toModelId) {
   const updated = sourceVersions.map((v) => ({ ...v, modelId: toModelId }));
 
   try {
-    const db = await openDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_VERSIONS, "readwrite");
+    await idbWrite(STORE_VERSIONS, (tx) => {
       const store = tx.objectStore(STORE_VERSIONS);
       for (const v of updated) {
         store.put(v);
       }
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
     });
   } catch {
     const all = readFallbackJson(FALLBACK_VERSIONS_KEY, []).map((v) =>

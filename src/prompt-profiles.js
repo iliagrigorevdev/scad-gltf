@@ -1,5 +1,25 @@
 import { generatePrompt } from "./prompt.js";
 
+const BASE_PROJECT_PROMPT_OPTIONS = {
+  basic: true,
+  transmission: false,
+  clearcoat: false,
+  sheen: false,
+  emissive: true,
+  specular: true,
+  iridescence: false,
+  unlit: true,
+  autoSmoothAngle: true,
+  animation: true,
+  lights: false,
+  bakeColors: false,
+  bakeNormals: false,
+  bakeOrm: false,
+  bakeUvs: false,
+  colormap: false,
+  modelName: false,
+};
+
 function formatMarkdownFile(displayPath, lang, content) {
   return `### ${displayPath}\n\`\`\`${lang}\n${content}\n\`\`\`\n\n`;
 }
@@ -148,6 +168,60 @@ ${includes}${
   }`;
 }
 
+function createRustProfile({
+  id,
+  label,
+  frameworkName,
+  crateName,
+  descriptionPlaceholder,
+  defaultDescription,
+  extraMainInstructions = "",
+}) {
+  return {
+    id,
+    label,
+    showInEditor: true,
+    isRawScad: false,
+    scadTaskFallback: "the 3D assets for the project",
+    helpText: `Describe the Rust ${frameworkName} 3D project you want to generate. The prompt includes Cargo/build.rs setup, ${frameworkName} ${id === "bevy" ? "systems" : "rendering structure"}, and SCAD asset rules.`,
+    descriptionPlaceholder,
+    defaultDescription,
+    defaultPromptOptions: { ...BASE_PROJECT_PROMPT_OPTIONS },
+    forcedPromptOptions: { modelName: false },
+    allowedTools: ["render_scad_model", "compile_rust_project"],
+    buildSystemPrompt: (
+      promptRules,
+      { templateFiles = [], referenceFiles = [] } = {},
+    ) => {
+      const hasUserScadFiles =
+        Array.isArray(referenceFiles) && referenceFiles.length > 0;
+      const systemPrompt = `You are an expert Rust ${frameworkName} developer and procedural 3D technical artist.
+
+NAMING CONVENTION REQUIREMENT:
+- All generated files, directories, models, scripts, and root folders MUST strictly use snake_case (lowercase with underscores, e.g. \`player_character.rs\`, \`enemy_walker.scad\`).
+- NEVER use hyphens/minus signs (\`-\`) or spaces in any file or folder names.
+
+What to generate:
+${getScadAssetsInstructions(promptRules, id)}
+
+2. Rust ${frameworkName} Project Files:
+   - Create the necessary files for a modern Rust ${frameworkName} application (e.g., \`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).
+   - In \`Cargo.toml\`, include \`${crateName}\` as a dependency.
+   - You MUST include the provided \`build.rs\` script at the root of the project to automatically compile the \`.scad\` files into \`.glb\` format inside the \`assets/models\` folder before running the application via Cargo.
+   - Write the core application logic in \`src/main.rs\` to load and display the converted \`.glb\` files interactively.${extraMainInstructions}
+
+${getDeliveryFormat(id, frameworkName, hasUserScadFiles)}`;
+
+      let output = `${systemPrompt}\n\n`;
+      output += appendTemplateFiles(templateFiles);
+      output += appendReferenceScadFiles(referenceFiles, false);
+      return output.trimEnd() + "\n";
+    },
+    buildInputRequest: (task) =>
+      `Design and implement a Rust ${frameworkName} project for the following concept: "${task}"`,
+  };
+}
+
 export const PROMPT_PROFILES = {
   scad: {
     id: "scad",
@@ -198,25 +272,7 @@ export const PROMPT_PROFILES = {
     descriptionPlaceholder:
       "e.g. A third-person 3D robot platformer with animated collectibles",
     defaultDescription: "a simple 3D interactive scene",
-    defaultPromptOptions: {
-      basic: true,
-      transmission: false,
-      clearcoat: false,
-      sheen: false,
-      emissive: true,
-      specular: true,
-      iridescence: false,
-      unlit: true,
-      autoSmoothAngle: true,
-      animation: true,
-      lights: false,
-      bakeColors: false,
-      bakeNormals: false,
-      bakeOrm: false,
-      bakeUvs: false,
-      colormap: false,
-      modelName: false,
-    },
+    defaultPromptOptions: { ...BASE_PROJECT_PROMPT_OPTIONS },
     forcedPromptOptions: {
       modelName: false,
     },
@@ -272,25 +328,7 @@ ${getDeliveryFormat("godot", null, hasUserScadFiles)}`;
     descriptionPlaceholder:
       "e.g. An interactive 3D product viewer with animated parts",
     defaultDescription: "an interactive 3D web scene",
-    defaultPromptOptions: {
-      basic: true,
-      transmission: false,
-      clearcoat: false,
-      sheen: false,
-      emissive: true,
-      specular: true,
-      iridescence: false,
-      unlit: true,
-      autoSmoothAngle: true,
-      animation: true,
-      lights: false,
-      bakeColors: false,
-      bakeNormals: false,
-      bakeOrm: false,
-      bakeUvs: false,
-      colormap: false,
-      modelName: false,
-    },
+    defaultPromptOptions: { ...BASE_PROJECT_PROMPT_OPTIONS },
     forcedPromptOptions: { modelName: false },
     allowedTools: ["render_scad_model"],
     buildSystemPrompt: (promptRules, { referenceFiles = [] } = {}) => {
@@ -322,133 +360,27 @@ ${getDeliveryFormat("web", null, hasUserScadFiles)}` +
       `Design and implement a web-based 3D glTF project using Vite for the following concept: "${task}"`,
   },
 
-  bevy: {
+  bevy: createRustProfile({
     id: "bevy",
     label: "Rust Bevy Project",
-    showInEditor: true,
-    isRawScad: false,
-    scadTaskFallback: "the 3D assets for the project",
-    helpText:
-      "Describe the Rust Bevy 3D project you want to generate. The prompt includes Cargo/build.rs setup, Bevy systems, and SCAD asset rules.",
+    frameworkName: "Bevy",
+    crateName: "bevy",
     descriptionPlaceholder:
       "e.g. A 3D rover exploring procedural terrain with animated wheels",
     defaultDescription: "a simple 3D Bevy scene",
-    defaultPromptOptions: {
-      basic: true,
-      transmission: false,
-      clearcoat: false,
-      sheen: false,
-      emissive: true,
-      specular: true,
-      iridescence: false,
-      unlit: true,
-      autoSmoothAngle: true,
-      animation: true,
-      lights: false,
-      bakeColors: false,
-      bakeNormals: false,
-      bakeOrm: false,
-      bakeUvs: false,
-      colormap: false,
-      modelName: false,
-    },
-    forcedPromptOptions: { modelName: false },
-    allowedTools: ["render_scad_model", "compile_rust_project"],
-    buildSystemPrompt: (
-      promptRules,
-      { templateFiles = [], referenceFiles = [] } = {},
-    ) => {
-      const hasUserScadFiles =
-        Array.isArray(referenceFiles) && referenceFiles.length > 0;
-      const systemPrompt = `You are an expert Rust Bevy developer and procedural 3D technical artist.
+    extraMainInstructions:
+      " Provide standard Bevy systems (camera, lights, movement, etc.).",
+  }),
 
-NAMING CONVENTION REQUIREMENT:
-- All generated files, directories, models, scripts, and root folders MUST strictly use snake_case (lowercase with underscores, e.g. \`player_character.rs\`, \`enemy_walker.scad\`).
-- NEVER use hyphens/minus signs (\`-\`) or spaces in any file or folder names.
-
-What to generate:
-${getScadAssetsInstructions(promptRules, "bevy")}
-
-2. Rust Bevy Project Files:
-   - Create the necessary files for a modern Rust Bevy application (e.g., \`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).
-   - In \`Cargo.toml\`, include \`bevy\` as a dependency.
-   - You MUST include the provided \`build.rs\` script at the root of the project to automatically compile the \`.scad\` files into \`.glb\` format inside the \`assets/models\` folder before running the application via Cargo.
-   - Write the core application logic in \`src/main.rs\` to load and display the converted \`.glb\` files interactively. Provide standard Bevy systems (camera, lights, movement, etc.).
-
-${getDeliveryFormat("bevy", "Bevy", hasUserScadFiles)}`;
-
-      let output = `${systemPrompt}\n\n`;
-      output += appendTemplateFiles(templateFiles);
-      output += appendReferenceScadFiles(referenceFiles, false);
-      return output.trimEnd() + "\n";
-    },
-    buildInputRequest: (task) =>
-      `Design and implement a Rust Bevy project for the following concept: "${task}"`,
-  },
-
-  wgpu: {
+  wgpu: createRustProfile({
     id: "wgpu",
     label: "Rust wgpu Project",
-    showInEditor: true,
-    isRawScad: false,
-    scadTaskFallback: "the 3D assets for the project",
-    helpText:
-      "Describe the Rust wgpu 3D project you want to generate. The prompt includes Cargo/build.rs setup, wgpu rendering structure, and SCAD asset rules.",
+    frameworkName: "wgpu",
+    crateName: "wgpu",
     descriptionPlaceholder:
       "e.g. A real-time 3D glTF model viewer with orbit camera controls",
     defaultDescription: "a simple 3D wgpu viewer",
-    defaultPromptOptions: {
-      basic: true,
-      transmission: false,
-      clearcoat: false,
-      sheen: false,
-      emissive: true,
-      specular: true,
-      iridescence: false,
-      unlit: true,
-      autoSmoothAngle: true,
-      animation: true,
-      lights: false,
-      bakeColors: false,
-      bakeNormals: false,
-      bakeOrm: false,
-      bakeUvs: false,
-      colormap: false,
-      modelName: false,
-    },
-    forcedPromptOptions: { modelName: false },
-    allowedTools: ["render_scad_model", "compile_rust_project"],
-    buildSystemPrompt: (
-      promptRules,
-      { templateFiles = [], referenceFiles = [] } = {},
-    ) => {
-      const hasUserScadFiles =
-        Array.isArray(referenceFiles) && referenceFiles.length > 0;
-      const systemPrompt = `You are an expert Rust wgpu developer and procedural 3D technical artist.
-
-NAMING CONVENTION REQUIREMENT:
-- All generated files, directories, models, scripts, and root folders MUST strictly use snake_case (lowercase with underscores, e.g. \`player_character.rs\`, \`enemy_walker.scad\`).
-- NEVER use hyphens/minus signs (\`-\`) or spaces in any file or folder names.
-
-What to generate:
-${getScadAssetsInstructions(promptRules, "wgpu")}
-
-2. Rust wgpu Project Files:
-   - Create the necessary files for a modern Rust wgpu application (e.g., \`Cargo.toml\`, \`build.rs\`, \`src/main.rs\`).
-   - In \`Cargo.toml\`, include \`wgpu\` as a dependency.
-   - You MUST include the provided \`build.rs\` script at the root of the project to automatically compile the \`.scad\` files into \`.glb\` format inside the \`assets/models\` folder before running the application via Cargo.
-   - Write the core application logic in \`src/main.rs\` to load and display the converted \`.glb\` files interactively.
-
-${getDeliveryFormat("wgpu", "wgpu", hasUserScadFiles)}`;
-
-      let output = `${systemPrompt}\n\n`;
-      output += appendTemplateFiles(templateFiles);
-      output += appendReferenceScadFiles(referenceFiles, false);
-      return output.trimEnd() + "\n";
-    },
-    buildInputRequest: (task) =>
-      `Design and implement a Rust wgpu project for the following concept: "${task}"`,
-  },
+  }),
 
   ue: {
     id: "ue",
@@ -461,25 +393,7 @@ ${getDeliveryFormat("wgpu", "wgpu", hasUserScadFiles)}`;
     descriptionPlaceholder:
       "e.g. A third-person sci-fi drone controller in Unreal Engine 5",
     defaultDescription: "a simple 3D Unreal Engine 5 scene",
-    defaultPromptOptions: {
-      basic: true,
-      transmission: false,
-      clearcoat: false,
-      sheen: false,
-      emissive: true,
-      specular: true,
-      iridescence: false,
-      unlit: true,
-      autoSmoothAngle: true,
-      animation: true,
-      lights: false,
-      bakeColors: false,
-      bakeNormals: false,
-      bakeOrm: false,
-      bakeUvs: false,
-      colormap: false,
-      modelName: false,
-    },
+    defaultPromptOptions: { ...BASE_PROJECT_PROMPT_OPTIONS },
     forcedPromptOptions: { modelName: false },
     allowedTools: ["render_scad_model"],
     buildSystemPrompt: (

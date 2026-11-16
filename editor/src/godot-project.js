@@ -469,6 +469,32 @@ export async function compileGodotProjectToPck(project, options = {}) {
   return { pckBuffer, logs, compiledCount };
 }
 
+function sanitizeProjectName(name, fallback) {
+  return (
+    String(name || "")
+      .replace(/[^A-Za-z0-9_.-]+/g, "_")
+      .replace(/^[_.-]+|[_.-]+$/g, "") || fallback
+  );
+}
+
+function generateProjectZipBlob(zip, onProgress) {
+  if (onProgress) onProgress("Creating ZIP archive...");
+  return zip.generateAsync(
+    {
+      type: "blob",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
+    },
+    (metadata) => {
+      if (onProgress) {
+        onProgress(
+          `Creating ZIP archive (${Math.round(metadata.percent)}%)...`,
+        );
+      }
+    },
+  );
+}
+
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -743,13 +769,11 @@ export async function exportGodotProjectWebZip(project, options = {}) {
   const { baseName, files: runtimeFiles } =
     await fetchGodotWebRuntimeFiles(godotBaseUrl);
 
-  const sanitizeName = (name, fallback) =>
-    String(name || "")
-      .replace(/[^A-Za-z0-9_.-]+/g, "_")
-      .replace(/^[_.-]+|[_.-]+$/g, "") || fallback;
-
-  const safeProjectName = sanitizeName(project.projectName, "godot_project");
-  const rootFolderName = sanitizeName(folderName, safeProjectName);
+  const safeProjectName = sanitizeProjectName(
+    project.projectName,
+    "godot_project",
+  );
+  const rootFolderName = sanitizeProjectName(folderName, safeProjectName);
   const pckFileName = `${safeProjectName}.pck`;
 
   const displayTitle =
@@ -774,7 +798,6 @@ export async function exportGodotProjectWebZip(project, options = {}) {
     threads: hasWorker,
   });
 
-  if (onProgress) onProgress("Creating ZIP archive...");
   const zip = new JSZip();
   const rootFolder = zip.folder(rootFolderName);
   rootFolder.file("index.html", indexHtml);
@@ -783,21 +806,7 @@ export async function exportGodotProjectWebZip(project, options = {}) {
     rootFolder.file(file.name, file.data);
   }
 
-  const zipBlob = await zip.generateAsync(
-    {
-      type: "blob",
-      compression: "DEFLATE",
-      compressionOptions: { level: 6 },
-    },
-    (metadata) => {
-      if (onProgress) {
-        onProgress(
-          `Creating ZIP archive (${Math.round(metadata.percent)}%)...`,
-        );
-      }
-    },
-  );
-
+  const zipBlob = await generateProjectZipBlob(zip, onProgress);
   return { zipBlob, pckFileName, rootFolderName, compiledCount, logs };
 }
 
@@ -812,13 +821,11 @@ export async function exportGodotProjectZip(project, options = {}) {
     throw new Error("Invalid Godot project.");
   }
 
-  const sanitizeName = (name, fallback) =>
-    String(name || "")
-      .replace(/[^A-Za-z0-9_.-]+/g, "_")
-      .replace(/^[_.-]+|[_.-]+$/g, "") || fallback;
-
-  const safeProjectName = sanitizeName(project.projectName, "godot_project");
-  const rootFolderName = sanitizeName(folderName, safeProjectName);
+  const safeProjectName = sanitizeProjectName(
+    project.projectName,
+    "godot_project",
+  );
+  const rootFolderName = sanitizeProjectName(folderName, safeProjectName);
 
   const filesToPack = { ...project.files };
   const needsScadAddon =
@@ -833,7 +840,6 @@ export async function exportGodotProjectZip(project, options = {}) {
     }
   }
 
-  if (onProgress) onProgress("Creating ZIP archive...");
   const zip = new JSZip();
   const rootFolder = zip.folder(rootFolderName);
 
@@ -846,20 +852,7 @@ export async function exportGodotProjectZip(project, options = {}) {
     rootFolder.file(cleanRel, filesToPack[relPath]);
   }
 
-  const zipBlob = await zip.generateAsync(
-    {
-      type: "blob",
-      compression: "DEFLATE",
-      compressionOptions: { level: 6 },
-    },
-    (metadata) => {
-      if (onProgress) {
-        onProgress(
-          `Creating ZIP archive (${Math.round(metadata.percent)}%)...`,
-        );
-      }
-    },
-  );
+  const zipBlob = await generateProjectZipBlob(zip, onProgress);
 
   return { zipBlob, rootFolderName, fileCount: sortedPaths.length };
 }

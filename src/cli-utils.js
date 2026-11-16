@@ -170,6 +170,103 @@ export function writeExtractedFiles(files, targetDir) {
   }
 }
 
+export function detectProjectInDir(baseDir, expectedType = null) {
+  let projectDir = null;
+  let projectType = null;
+  let latestTime = 0;
+
+  const items = fs.readdirSync(baseDir);
+  for (const item of items) {
+    const itemPath = path.join(baseDir, item);
+    if (!fs.statSync(itemPath).isDirectory()) continue;
+
+    const isGodot = fs.existsSync(path.join(itemPath, "project.godot"));
+    const isWeb = fs.existsSync(path.join(itemPath, "package.json"));
+    const isRust = fs.existsSync(path.join(itemPath, "Cargo.toml"));
+    const isUe = fs.readdirSync(itemPath).some((f) => f.endsWith(".uproject"));
+
+    let matchedType = null;
+    if (expectedType) {
+      if (expectedType === "godot" && isGodot) matchedType = "godot";
+      else if (expectedType === "web" && isWeb) matchedType = "web";
+      else if (
+        (expectedType === "bevy" ||
+          expectedType === "wgpu" ||
+          expectedType === "rust") &&
+        isRust
+      ) {
+        matchedType = expectedType;
+      } else if (expectedType === "ue" && isUe) {
+        matchedType = "ue";
+      }
+    } else if (isGodot || isWeb || isRust || isUe) {
+      matchedType = isGodot ? "godot" : isRust ? "rust" : isUe ? "ue" : "web";
+    }
+
+    if (matchedType) {
+      const mtime = fs.statSync(itemPath).mtimeMs;
+      if (mtime > latestTime) {
+        latestTime = mtime;
+        projectDir = itemPath;
+        projectType = matchedType;
+      }
+    }
+  }
+
+  return projectDir ? { projectDir, projectType } : null;
+}
+
+export function truncateOutputTail(output, maxLen = 4000) {
+  if (output.length <= maxLen) return output;
+  return `...[truncated]...\n` + output.substring(output.length - maxLen);
+}
+
+export function extractMarkdownProjectToTemp(
+  markdown,
+  tempPrefix = "scad-project-",
+  expectedType = null,
+) {
+  const tempBase = fs.mkdtempSync(path.join(os.tmpdir(), tempPrefix));
+  try {
+    const files = extractFilesFromMarkdown(markdown);
+    if (Object.keys(files).length === 0) {
+      throw new Error(
+        "No files could be extracted from the Markdown text. Make sure you use '### filepath' headers followed by code blocks.",
+      );
+    }
+
+    writeExtractedFiles(files, tempBase);
+    const detected = detectProjectInDir(tempBase, expectedType);
+    if (!detected) {
+      const markerHint =
+        expectedType === "godot"
+          ? "'project.godot'"
+          : expectedType === "bevy" ||
+              expectedType === "wgpu" ||
+              expectedType === "rust"
+            ? "'Cargo.toml'"
+            : expectedType === "ue"
+              ? "a '.uproject'"
+              : "'project.godot', 'package.json', 'Cargo.toml', or '.uproject'";
+      throw new Error(
+        `The extracted Markdown output did not contain a valid project. Requires ${markerHint} inside a root directory block.`,
+      );
+    }
+
+    return {
+      tempBase,
+      projectDir: detected.projectDir,
+      projectType: detected.projectType,
+      files,
+    };
+  } catch (err) {
+    try {
+      fs.rmSync(tempBase, { recursive: true, force: true });
+    } catch (e) {}
+    throw err;
+  }
+}
+
 const DEFAULT_IGNORED_DIRS = new Set([
   ".git",
   "node_modules",
@@ -603,38 +700,8 @@ export async function runAutomatedAIFlow(
             }
             writeExtractedFiles(files, tempDir);
 
-            let projectDir = null;
-            let latestTime = 0;
-            const items = fs.readdirSync(tempDir);
-
-            for (const item of items) {
-              const itemPath = path.join(tempDir, item);
-              if (fs.statSync(itemPath).isDirectory()) {
-                const isGodot =
-                  projectType === "godot" &&
-                  fs.existsSync(path.join(itemPath, "project.godot"));
-                const isWeb =
-                  projectType === "web" &&
-                  fs.existsSync(path.join(itemPath, "package.json"));
-                const isBevy =
-                  projectType === "bevy" &&
-                  fs.existsSync(path.join(itemPath, "Cargo.toml"));
-                const isWgpu =
-                  projectType === "wgpu" &&
-                  fs.existsSync(path.join(itemPath, "Cargo.toml"));
-                const isUe =
-                  projectType === "ue" &&
-                  fs.readdirSync(itemPath).some((f) => f.endsWith(".uproject"));
-
-                if (isGodot || isWeb || isBevy || isWgpu || isUe) {
-                  const mtime = fs.statSync(itemPath).mtimeMs;
-                  if (mtime > latestTime) {
-                    latestTime = mtime;
-                    projectDir = itemPath;
-                  }
-                }
-              }
-            }
+            const detected = detectProjectInDir(tempDir, projectType);
+            const projectDir = detected ? detected.projectDir : null;
 
             if (!projectDir) {
               console.log(`   ❌ Could not find the generated project folder.`);

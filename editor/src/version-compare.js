@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { disposeThreeObject, parseGlbBuffer } from "./viewer-core.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { convertScadToGltf } from "scad-gltf/convert";
 import wasmUrl from "scad-gltf/openscad.wasm?url";
@@ -74,36 +74,9 @@ async function compileContentToGlb(content, preferredScadPath, fetchDepsFn) {
   return glbData;
 }
 
-function parseGlbToGroup(gltfData) {
-  return new Promise((resolve, reject) => {
-    let parseData = gltfData;
-    if (gltfData instanceof Uint8Array) {
-      parseData = gltfData.buffer.slice(
-        gltfData.byteOffset,
-        gltfData.byteOffset + gltfData.byteLength,
-      );
-    }
-    new GLTFLoader().parse(
-      parseData,
-      "",
-      (gltf) => resolve(gltf.scene),
-      reject,
-    );
-  });
-}
-
-function disposeThreeObject(obj) {
-  if (!obj) return;
-  obj.traverse((child) => {
-    if (child.isMesh) {
-      if (child.geometry) child.geometry.dispose();
-      if (Array.isArray(child.material)) {
-        child.material.forEach((m) => m.dispose());
-      } else if (child.material) {
-        child.material.dispose();
-      }
-    }
-  });
+async function parseGlbToGroup(gltfData) {
+  const gltf = await parseGlbBuffer(gltfData);
+  return gltf.scene;
 }
 
 function cloneWithTint(

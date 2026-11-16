@@ -1,16 +1,7 @@
-import { generatePrompt } from "scad-gltf/prompt";
 import wasmUrl from "scad-gltf/openscad.wasm?url";
 import { convertScadToGltf, convertScadTo3MF } from "scad-gltf/convert";
 import * as THREE from "three";
 import { WebGLPathTracer } from "three-gpu-pathtracer";
-import { HDRLoader } from "three/examples/jsm/loaders/HDRLoader.js";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import {
   PROMPT_UI_HTML,
   setupPromptToggles,
@@ -42,6 +33,15 @@ import {
   applyDynamicBoundsToLights,
   extractCamerasAndLights,
 } from "./shared.js";
+import {
+  createViewerContext,
+  createAnimationController,
+  bindViewerControls,
+  disposeThreeObject,
+  parseGlbBuffer,
+  populateCameraSelect,
+} from "./viewer-core.js";
+import { startAnimationVideoRecording } from "./video-recorder.js";
 import {
   parseGodotMarkdownProject,
   compileGodotProjectToPck,
@@ -167,14 +167,8 @@ let currentGltfData = null;
 let currentAnimations = [];
 let isCompiling = false;
 let pendingCode = null;
-let mixer = null;
 let captureNextFrame = false;
-
-// Video Capture State
-let isRecording = false;
-let mediaRecorder = null;
-let recordedChunks = [];
-let stopRecordingRequested = false;
+let activeVideoRecorder = null;
 
 // Track connection and state
 let isServerConnected = false;
@@ -183,11 +177,6 @@ let currentModelOriginalState = {
   options: {},
   content: "",
 };
-
-// Animation State
-let currentAction = null;
-let isPlaying = true;
-let isDraggingSlider = false;
 
 let gltfCameras = [];
 let gltfLights = [];
@@ -1069,7 +1058,7 @@ function handleEditorCursorChange() {
   }
 
   if (
-    block.filePath.toLowerCase().endsWith(".scad") &&
+    isScadFilePath(block.filePath) &&
     block.filePath !== currentEntryScadFile
   ) {
     currentEntryScadFile = block.filePath;
@@ -1087,7 +1076,7 @@ entryFileSelect.addEventListener("change", (e) => {
   updateEditorHighlights();
   saveWorkspaceImmediate();
 
-  if (selectedFile.toLowerCase().endsWith(".scad")) {
+  if (isScadFilePath(selectedFile)) {
     currentEntryScadFile = selectedFile;
     if (!isGodotPlaying) {
       compileAndRender(getEditorContent());
@@ -1169,9 +1158,7 @@ if (pasteMdFileBtn) {
         );
       }
 
-      const hasScadChange = patchedFiles.some((f) =>
-        f.toLowerCase().endsWith(".scad"),
-      );
+      const hasScadChange = patchedFiles.some((f) => isScadFilePath(f));
       if (hasScadChange && autoRenderCb.checked && !isGodotPlaying) {
         compileAndRender(getEditorContent());
       }
@@ -1490,15 +1477,11 @@ export3mfBtn.onclick = async () => {
   let entryCode = scadCode;
   let extractedAdditionalFiles = {};
 
-  const isMd =
-    (scadCode.includes("```") && scadCode.includes("###")) ||
-    /```(?:openscad|scad)?\r?\n/i.test(scadCode);
+  const isMd = isMarkdownContent(scadCode);
 
   if (isMd) {
     const files = extractFilesFromMarkdown(scadCode);
-    const scadFiles = Object.keys(files).filter((f) =>
-      f.toLowerCase().endsWith(".scad"),
-    );
+    const scadFiles = Object.keys(files).filter((f) => isScadFilePath(f));
     const targetFile =
       (currentEntryFile && scadFiles.includes(currentEntryFile)
         ? currentEntryFile
@@ -1543,7 +1526,8 @@ export3mfBtn.onclick = async () => {
 };
 
 function updateCaptureButtonState() {
-  if (isRecording) {
+  const { currentAction, isPlaying } = animController.getState();
+  if (activeVideoRecorder) {
     captureImageBtn.innerText = "🔴 Rec...";
   } else if (currentAction && isPlaying) {
     captureImageBtn.innerText = "🎥 Video";
@@ -1553,251 +1537,32 @@ function updateCaptureButtonState() {
 }
 
 captureImageBtn.onclick = () => {
-  if (isRecording) {
-    stopRecordingRequested = true;
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-      mediaRecorder.stop();
-    }
+  if (activeVideoRecorder) {
+    activeVideoRecorder.stop();
     return;
   }
 
+  const { mixer, currentAction, isPlaying } = animController.getState();
   if (currentAction && isPlaying) {
-    if (typeof MediaRecorder !== "undefined") {
-      const isPT =
-        typeof pathTracer !== "undefined" &&
-        pathTracingCb &&
-        pathTracingCb.checked;
-
-      // Reset animation to the beginning
-      currentAction.time = 0;
-      if (mixer) mixer.update(0);
-
-      // Fixed 512x512 canvas for recording
-      const targetW = 512;
-      const targetH = 512;
-
-      // Force WebGL render at exact target resolution to prevent stretching
-      updateCameraAspect(activeCamera, targetW, targetH);
-      renderer.setSize(targetW, targetH, false);
-      composer.setSize(targetW, targetH);
-      if (isPT) {
-        pathTracer.updateCamera();
-      }
-
-      const srcCanvas = renderer.domElement;
-
-      const recordCanvas = document.createElement("canvas");
-      recordCanvas.width = targetW;
-      recordCanvas.height = targetH;
-      const recordCtx = recordCanvas.getContext("2d");
-
-      const stream = recordCanvas.captureStream(30);
-
-      // Limit Bitrate for optimal file sizes
-      const targetBitrate = 2_500_000; // 2.5 Mbps
-
-      let extension = "mp4";
-      let options = {
-        mimeType: "video/mp4;codecs=avc1",
-        videoBitsPerSecond: targetBitrate,
-      };
-
-      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options = {
-          mimeType: "video/mp4",
-          videoBitsPerSecond: targetBitrate,
-        };
-        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-          extension = "webm";
-          options = {
-            mimeType: "video/webm;codecs=vp9",
-            videoBitsPerSecond: targetBitrate,
-          };
-          if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-            options = {
-              mimeType: "video/webm;codecs=vp8",
-              videoBitsPerSecond: targetBitrate,
-            };
-            if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-              options = {
-                mimeType: "video/webm",
-                videoBitsPerSecond: targetBitrate,
-              };
-            }
-          }
-        }
-      }
-
-      let drawInterval = null;
-      stopRecordingRequested = false;
-
-      isRecording = true;
+    const recorder = startAnimationVideoRecording({
+      activeCamera,
+      viewerCtx,
+      viewerEl,
+      mixer,
+      currentAction,
+      isPathTracing: Boolean(pathTracingCb && pathTracingCb.checked),
+      showGrid: showGridCb ? showGridCb.checked : true,
+      sceneHasLights,
+      useCustomLights: lightsCb ? lightsCb.checked : true,
+      getBaseFilename: () => getScadExportBaseName(getEditorContent()),
+      onFinished: () => {
+        activeVideoRecorder = null;
+        updateCaptureButtonState();
+      },
+    });
+    if (recorder) {
+      activeVideoRecorder = recorder;
       updateCaptureButtonState();
-
-      const ptSamplesTarget = 100; // Increased for better quality and stability
-      const fps = 30;
-      const duration = currentAction.getClip().duration;
-      const totalFrames = Math.round(duration * fps);
-      let currentFrame = 0;
-      const renderedFrames = [];
-
-      const renderNextFrame = () => {
-        if (stopRecordingRequested || currentFrame >= totalFrames) {
-          if (renderedFrames.length === 0) {
-            isRecording = false;
-            updateCameraAspect(
-              activeCamera,
-              viewerEl.clientWidth,
-              viewerEl.clientHeight,
-            );
-            renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
-            composer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
-            if (isPT && typeof pathTracer !== "undefined") {
-              pathTracer.setScene(scene, activeCamera);
-              pathTracer.updateCamera();
-            }
-            updateCaptureButtonState();
-            return;
-          }
-
-          stopRecordingRequested = false;
-
-          mediaRecorder = new MediaRecorder(stream, options);
-          recordedChunks = [];
-
-          mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) recordedChunks.push(e.data);
-          };
-
-          mediaRecorder.onstop = () => {
-            if (drawInterval) clearTimeout(drawInterval);
-            const blob = new Blob(recordedChunks, {
-              type: options.mimeType.split(";")[0],
-            });
-            const dlName = getScadExportBaseName(getEditorContent());
-            downloadBlob(blob, `${dlName}.${extension}`);
-            isRecording = false;
-
-            updateCameraAspect(
-              activeCamera,
-              viewerEl.clientWidth,
-              viewerEl.clientHeight,
-            );
-            renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
-            composer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
-            if (isPT && typeof pathTracer !== "undefined") {
-              pathTracer.setScene(scene, activeCamera);
-              pathTracer.updateCamera();
-            }
-            updateCaptureButtonState();
-          };
-
-          recordCtx.drawImage(renderedFrames[0], 0, 0, targetW, targetH);
-          mediaRecorder.start();
-
-          let frameIndex = 0;
-          let startTime = performance.now();
-
-          const playLoop = () => {
-            if (stopRecordingRequested) {
-              mediaRecorder.stop();
-              return;
-            }
-
-            if (frameIndex < renderedFrames.length) {
-              recordCtx.drawImage(
-                renderedFrames[frameIndex],
-                0,
-                0,
-                targetW,
-                targetH,
-              );
-              frameIndex++;
-
-              // Calculate exactly when the next frame should be drawn
-              const nextTime = startTime + frameIndex * (1000 / fps);
-              const delay = Math.max(0, nextTime - performance.now());
-              drawInterval = setTimeout(playLoop, delay);
-            } else {
-              // Wait briefly to ensure MediaRecorder catches the final frame
-              drawInterval = setTimeout(() => mediaRecorder.stop(), 50);
-            }
-          };
-
-          drawInterval = setTimeout(playLoop, 0);
-          return;
-        }
-
-        currentAction.time = currentFrame / fps;
-        if (mixer) {
-          mixer.update(0);
-        }
-
-        if (isPT) {
-          if (typeof floor !== "undefined") floor.visible = false;
-          if (typeof lightGroup !== "undefined") lightGroup.visible = false;
-          if (typeof gridHelper !== "undefined") gridHelper.visible = false;
-          if (typeof axesHelper !== "undefined") axesHelper.visible = false;
-          pathTracer.setScene(scene, activeCamera);
-
-          const waitForSamples = () => {
-            if (stopRecordingRequested) {
-              renderNextFrame(); // break loop and proceed to encode what we have
-              return;
-            }
-
-            // Advance the path tracer deterministically instead of via animate()
-            let samplesThisFrame = 0;
-            const maxSamplesPerFrame = 5; // Keeps UI somewhat responsive
-            while (
-              pathTracer.samples < ptSamplesTarget &&
-              samplesThisFrame < maxSamplesPerFrame
-            ) {
-              pathTracer.renderSample();
-              samplesThisFrame++;
-            }
-
-            if (pathTracer.samples >= ptSamplesTarget) {
-              const frameCanvas = document.createElement("canvas");
-              frameCanvas.width = targetW;
-              frameCanvas.height = targetH;
-              frameCanvas
-                .getContext("2d")
-                .drawImage(srcCanvas, 0, 0, targetW, targetH);
-              renderedFrames.push(frameCanvas);
-
-              currentFrame++;
-              setTimeout(renderNextFrame, 0);
-            } else {
-              requestAnimationFrame(waitForSamples);
-            }
-          };
-          waitForSamples();
-        } else {
-          const showGrid = showGridCb ? showGridCb.checked : true;
-          if (typeof floor !== "undefined") floor.visible = true;
-          if (typeof lightGroup !== "undefined")
-            lightGroup.visible =
-              !sceneHasLights || (lightsCb && !lightsCb.checked);
-          if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
-          if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
-
-          composer.render();
-
-          const frameCanvas = document.createElement("canvas");
-          frameCanvas.width = targetW;
-          frameCanvas.height = targetH;
-          frameCanvas
-            .getContext("2d")
-            .drawImage(srcCanvas, 0, 0, targetW, targetH);
-          renderedFrames.push(frameCanvas);
-
-          currentFrame++;
-          setTimeout(renderNextFrame, 0);
-        }
-      };
-
-      renderNextFrame();
     } else {
       alert("Video recording is not supported in this browser.");
     }
@@ -1865,7 +1630,7 @@ shareBtn.onclick = async () => {
 
       // 2. Parse current editor content to see if it's already a bundle
       let filesToShare = {};
-      const isMd = mainCode.includes("```") && mainCode.includes("###");
+      const isMd = isMarkdownContent(mainCode);
 
       if (isMd) {
         filesToShare = extractFilesFromMarkdown(mainCode);
@@ -2353,33 +2118,20 @@ window.addEventListener("drop", async (e) => {
 
     if (fileName.endsWith(".hdr")) {
       const url = URL.createObjectURL(file);
-      new HDRLoader().load(
+      viewerCtx.loadHdrFromUrl(
         url,
-        (texture) => {
-          texture.mapping = THREE.EquirectangularReflectionMapping;
-          scene.environment = texture;
-          environmentTexture = texture;
-
-          const isPT = pathTracingCb && pathTracingCb.checked;
-
-          if (isPT) {
-            scene.background = texture;
-            scene.backgroundBlurriness = 0.5;
-            scene.backgroundIntensity = 0.3;
-          } else {
-            scene.background = new THREE.Color(0x222222);
-            scene.backgroundBlurriness = 0;
-            scene.backgroundIntensity = 1.0;
-          }
-
-          if (typeof pathTracer !== "undefined") {
+        () => {
+          viewerCtx.applyPathTracingBackground(
+            Boolean(pathTracingCb && pathTracingCb.checked),
+          );
+          if (pathTracer) {
             pathTracer.setScene(scene, activeCamera);
             pathTracer.updateCamera();
           }
+          URL.revokeObjectURL(url);
         },
-        undefined,
-        (err) => {
-          console.warn("Error loading HDR:", err);
+        () => {
+          URL.revokeObjectURL(url);
           alert("Failed to load HDR file.");
         },
       );
@@ -2706,589 +2458,247 @@ backendDeleteBtn.onclick = async () => {
 };
 
 // --- Three.js Setup ---
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x222222);
+const pathTracingCb = document.getElementById("path-tracing-cb");
 
-const camera = new THREE.PerspectiveCamera(
-  60,
-  viewerEl.clientWidth / viewerEl.clientHeight,
-  0.1,
-  2000,
-);
-camera.position.set(50, 50, -50);
+function syncMainEnvironmentVisibility(forcePathTracing = null) {
+  const isPT =
+    forcePathTracing !== null
+      ? forcePathTracing
+      : Boolean(pathTracingCb && pathTracingCb.checked);
+  viewerCtx.syncEnvironmentVisibility({
+    isPathTracing: isPT,
+    showGrid: showGridCb ? showGridCb.checked : true,
+    sceneHasLights,
+    useCustomLights: lightsCb ? lightsCb.checked : true,
+  });
+}
+
+const viewerCtx = createViewerContext({
+  containerEl: viewerEl,
+  preserveDrawingBuffer: true,
+  PathTracerClass: WebGLPathTracer,
+  onControlsChange: () => {
+    if (viewerCtx?.pathTracer) viewerCtx.pathTracer.updateCamera();
+  },
+  onHdrLoaded: (_texture, ctx) => {
+    if (isGodotPlaying) return;
+    const isPT = Boolean(pathTracingCb && pathTracingCb.checked);
+    syncMainEnvironmentVisibility(isPT);
+    ctx.applyPathTracingBackground(isPT);
+    if (ctx.pathTracer) {
+      ctx.pathTracer.setScene(ctx.scene, activeCamera);
+      ctx.pathTracer.updateCamera();
+    }
+  },
+});
+
+const {
+  scene,
+  camera,
+  renderer,
+  composer,
+  renderPass,
+  controls,
+  dirLight,
+  floor,
+  gridHelper,
+  axesHelper,
+  pathTracer,
+} = viewerCtx;
+
 activeCamera = camera;
 
-const renderer = new THREE.WebGLRenderer({
-  antialias: true,
-  preserveDrawingBuffer: true,
-});
-renderer.setSize(viewerEl.clientWidth, viewerEl.clientHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-viewerEl.appendChild(renderer.domElement);
-
-// --- Post-processing: Bloom for Emissive Glow ---
-const composer = new EffectComposer(renderer);
-const renderPass = new RenderPass(scene, activeCamera);
-composer.addPass(renderPass);
-
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(viewerEl.clientWidth, viewerEl.clientHeight),
-  0.1, // strength
-  0.1, // radius
-  2.0, // threshold
-);
-bloomPass.enabled = false;
-composer.addPass(bloomPass);
-
-const outputPass = new OutputPass();
-composer.addPass(outputPass);
-
-const pathTracer = new WebGLPathTracer(renderer);
-pathTracer.bounces = 10;
-pathTracer.transmissiveBounces = 10;
-pathTracer.multipleImportanceSampling = true;
-pathTracer.filterGlossyFactor = 0.2;
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.addEventListener("change", () => {
-  if (typeof pathTracer !== "undefined") pathTracer.updateCamera();
-});
-
-let environmentTexture = null;
-
-new HDRLoader().load(
-  "./aristea_wreck_puresky_2k.hdr",
-  (texture) => {
-    texture.mapping = THREE.EquirectangularReflectionMapping;
-    scene.environment = texture;
-    environmentTexture = texture;
-
-    if (isGodotPlaying) return;
-
-    const isPT = pathTracingCb && pathTracingCb.checked;
-    const showGrid = showGridCb ? showGridCb.checked : true;
-    if (typeof floor !== "undefined") floor.visible = !isPT;
-    if (typeof lightGroup !== "undefined")
-      lightGroup.visible =
-        !isPT && (!sceneHasLights || (lightsCb && !lightsCb.checked));
-    if (typeof gridHelper !== "undefined")
-      gridHelper.visible = !isPT && showGrid;
-    if (typeof axesHelper !== "undefined")
-      axesHelper.visible = !isPT && showGrid;
-
-    if (isPT) {
-      scene.background = texture;
-      scene.backgroundBlurriness = 0.5;
-      scene.backgroundIntensity = 0.3;
-    } else {
-      scene.background = new THREE.Color(0x222222);
-      scene.backgroundBlurriness = 0;
-      scene.backgroundIntensity = 1.0;
-    }
-
-    if (typeof pathTracer !== "undefined") {
+const animController = createAnimationController({
+  animControlsEl: animControlsSection,
+  animPlayBtn,
+  animSelect,
+  animSlider,
+  animSliderRow,
+  animTimelineLabel,
+  animTimelineCb,
+  onPlayStateChange: () => updateCaptureButtonState(),
+  onScrub: () => {
+    if (pathTracingCb && pathTracingCb.checked && pathTracer) {
+      syncMainEnvironmentVisibility(true);
       pathTracer.setScene(scene, activeCamera);
       pathTracer.updateCamera();
     }
   },
-  undefined,
-  (err) => console.warn("Error loading HDR:", err),
-);
+});
 
-const pathTracingCb = document.getElementById("path-tracing-cb");
 if (pathTracingCb) {
   pathTracingCb.addEventListener("change", () => {
     const isPT = pathTracingCb.checked;
-    const showGrid = showGridCb ? showGridCb.checked : true;
-
-    if (typeof floor !== "undefined") floor.visible = !isPT;
-    if (typeof lightGroup !== "undefined")
-      lightGroup.visible =
-        !isPT && (!sceneHasLights || (lightsCb && !lightsCb.checked));
-    if (typeof gridHelper !== "undefined")
-      gridHelper.visible = !isPT && showGrid;
-    if (typeof axesHelper !== "undefined")
-      axesHelper.visible = !isPT && showGrid;
-
-    if (isPT) {
-      if (environmentTexture) {
-        scene.background = environmentTexture;
-        scene.backgroundBlurriness = 0.5;
-        scene.backgroundIntensity = 0.3;
-      }
-    } else {
-      scene.background = new THREE.Color(0x222222);
-      scene.backgroundBlurriness = 0;
-      scene.backgroundIntensity = 1.0;
-    }
-
-    if (isPT && typeof pathTracer !== "undefined") {
+    syncMainEnvironmentVisibility(isPT);
+    viewerCtx.applyPathTracingBackground(isPT);
+    if (isPT && pathTracer) {
       pathTracer.setScene(scene, activeCamera);
       pathTracer.updateCamera();
     }
   });
 }
 
-if (cameraSelect) {
-  cameraSelect.addEventListener("change", (e) => {
-    const val = e.target.value;
-    if (val === "") {
-      activeCamera = camera;
-      controls.enabled = true;
-    } else {
-      activeCamera = gltfCameras[parseInt(val)];
-      controls.enabled = false;
-    }
-    const w = viewerEl.clientWidth;
-    const h = viewerEl.clientHeight;
-    updateCameraAspect(activeCamera, w, h);
-    renderPass.camera = activeCamera;
-
-    if (
-      pathTracingCb &&
-      pathTracingCb.checked &&
-      typeof pathTracer !== "undefined"
-    ) {
-      pathTracer.setScene(scene, activeCamera);
-      pathTracer.updateCamera();
-    }
-  });
-}
-
-controls.enableDamping = true;
-controls.dampingFactor = 0.1;
-controls.maxDistance = 2000;
-
-const pmremGenerator = new THREE.PMREMGenerator(renderer);
-scene.environment = pmremGenerator.fromScene(
-  new RoomEnvironment(),
-  0.04,
-).texture;
-scene.environmentIntensity = 0.8;
-
-const lightGroup = new THREE.Group();
-scene.add(lightGroup);
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-dirLight.castShadow = true;
-dirLight.shadow.mapSize.width = 2048;
-dirLight.shadow.mapSize.height = 2048;
-dirLight.shadow.bias = -0.0005;
-lightGroup.add(dirLight);
-lightGroup.add(dirLight.target);
-
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-hemiLight.position.set(0, 20, 0);
-lightGroup.add(hemiLight);
-
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(2000, 2000),
-  new THREE.MeshStandardMaterial({
-    color: 0x222222,
-    roughness: 0.8,
-    metalness: 0.1,
-  }),
-);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
-
-const gridHelper = new THREE.GridHelper(2000, 100, 0x555555, 0x333333);
-gridHelper.material.transparent = true;
-gridHelper.material.opacity = 0.5;
-scene.add(gridHelper);
-
-const axesHelper = new THREE.AxesHelper(100);
-scene.add(axesHelper);
-
-// --- Viewer Toggles Logic ---
-if (wireframeCb) {
-  wireframeCb.addEventListener("change", () => {
-    const isWireframe = wireframeCb.checked;
-    const isBloom = bloomCb ? bloomCb.checked : false;
-    bloomPass.enabled = isBloom && !isWireframe;
+bindViewerControls({
+  wireframeCb,
+  bloomCb,
+  lightsCb,
+  fullscreenBtn,
+  fullscreenTarget: rightPanel,
+  screenshotBtn,
+  cameraSelect,
+  onWireframeChange: (isWireframe, isBloom) => {
+    viewerCtx.applyBloom(isBloom, isWireframe);
     if (currentMesh) {
       setupMeshShadowsAndWireframe(currentMesh, isWireframe);
     }
-  });
-}
-
-if (bloomCb) {
-  bloomCb.addEventListener("change", () => {
-    const isBloom = bloomCb.checked;
-    const isWireframe = wireframeCb ? wireframeCb.checked : false;
-    bloomPass.enabled = isBloom && !isWireframe;
-  });
-}
-
-if (lightsCb) {
-  lightsCb.addEventListener("change", () => {
-    const isPT = pathTracingCb && pathTracingCb.checked;
-    const useLights = lightsCb.checked;
-
+  },
+  onBloomChange: (isBloom, isWireframe) => {
+    viewerCtx.applyBloom(isBloom, isWireframe);
+  },
+  onLightsChange: (useLights) => {
+    const isPT = Boolean(pathTracingCb && pathTracingCb.checked);
     gltfLights.forEach((l) => (l.visible = useLights));
     scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
     renderer.toneMappingExposure =
       sceneHasLights && useLights ? currentOptimalExposure : 1.0;
 
-    if (typeof lightGroup !== "undefined") {
-      lightGroup.visible = !isPT && (!sceneHasLights || !useLights);
-    }
+    syncMainEnvironmentVisibility(isPT);
 
-    if (isPT && typeof pathTracer !== "undefined") {
+    if (isPT && pathTracer) {
       pathTracer.setScene(scene, activeCamera);
       pathTracer.updateCamera();
     }
-  });
-}
-
-if (fullscreenBtn && rightPanel) {
-  fullscreenBtn.addEventListener("click", () => {
-    if (!document.fullscreenElement) {
-      rightPanel.requestFullscreen().catch((err) => {
-        console.warn(`Error attempting to enable fullscreen: ${err.message}`);
-      });
+  },
+  onCameraChange: (val) => {
+    if (val === "") {
+      activeCamera = camera;
+      controls.enabled = true;
     } else {
-      document.exitFullscreen();
+      activeCamera = gltfCameras[parseInt(val, 10)];
+      controls.enabled = false;
     }
-  });
+    updateCameraAspect(
+      activeCamera,
+      viewerEl.clientWidth,
+      viewerEl.clientHeight,
+    );
+    renderPass.camera = activeCamera;
 
-  document.addEventListener("fullscreenchange", () => {
-    // Trigger resize after a tiny delay to ensure proper canvas layout
-    setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
-  });
-}
-
-if (screenshotBtn) {
-  screenshotBtn.addEventListener("click", () => {
+    if (pathTracingCb && pathTracingCb.checked && pathTracer) {
+      pathTracer.setScene(scene, activeCamera);
+      pathTracer.updateCamera();
+    }
+  },
+  onScreenshot: () => {
     captureNextFrame = true;
-
-    // Provide brief visual feedback on the button
-    const originalText = screenshotBtn.innerText;
-    screenshotBtn.innerText = "✅";
-    setTimeout(() => {
-      screenshotBtn.innerText = originalText;
-    }, 1000);
-  });
-}
-
-// --- Animation Controls ---
-function updateAnimTimelineVisibility() {
-  const hasAnims = currentAnimations.length > 0;
-  const showTimeline =
-    hasAnims && Boolean(animTimelineCb && animTimelineCb.checked);
-
-  if (animTimelineLabel) {
-    animTimelineLabel.style.display = hasAnims ? "flex" : "none";
-  }
-  if (animSliderRow) {
-    animSliderRow.style.display = showTimeline ? "" : "none";
-  }
-  if (showTimeline && currentAction && animSlider) {
-    const duration = currentAction.getClip().duration;
-    if (duration > 0) {
-      let currentClipTime = currentAction.time % duration;
-      if (currentClipTime < 0) currentClipTime += duration;
-      animSlider.value = currentClipTime / duration;
-    } else {
-      animSlider.value = 0;
-    }
-  }
-}
-
-if (animTimelineCb) {
-  animTimelineCb.addEventListener("change", updateAnimTimelineVisibility);
-}
-
-function pauseAnimation() {
-  if (!currentAction) return;
-  isPlaying = false;
-  currentAction.paused = true;
-  animPlayBtn.innerText = "▶ Play";
-  updateCaptureButtonState();
-}
-
-function playAnimation(index) {
-  if (!mixer || !currentAnimations[index]) return;
-  if (currentAction) {
-    currentAction.stop();
-  }
-  const clip = currentAnimations[index];
-  currentAction = mixer.clipAction(clip);
-  currentAction.play();
-  currentAction.time = 0;
-  mixer.update(0);
-  isPlaying = true;
-  currentAction.paused = false;
-  animPlayBtn.innerText = "⏸ Pause";
-  animSlider.value = 0;
-  updateCaptureButtonState();
-}
-
-animSelect.addEventListener("change", (e) => {
-  playAnimation(parseInt(e.target.value));
-});
-
-animPlayBtn.addEventListener("click", () => {
-  if (!currentAction) return;
-  isPlaying = !isPlaying;
-  currentAction.paused = !isPlaying;
-  animPlayBtn.innerText = isPlaying ? "⏸ Pause" : "▶ Play";
-  updateCaptureButtonState();
-});
-
-animSlider.addEventListener("mousedown", () => {
-  isDraggingSlider = true;
-  pauseAnimation();
-});
-animSlider.addEventListener("mouseup", () => {
-  isDraggingSlider = false;
-});
-animSlider.addEventListener(
-  "touchstart",
-  () => {
-    isDraggingSlider = true;
-    pauseAnimation();
   },
-  { passive: true },
-);
-animSlider.addEventListener(
-  "touchend",
-  () => {
-    isDraggingSlider = false;
-  },
-  { passive: true },
-);
-
-animSlider.addEventListener("input", (e) => {
-  pauseAnimation();
-  if (currentAction) {
-    const duration = currentAction.getClip().duration;
-    currentAction.time = parseFloat(e.target.value) * duration;
-    if (mixer) {
-      mixer.update(0);
-      if (
-        pathTracingCb &&
-        pathTracingCb.checked &&
-        typeof pathTracer !== "undefined"
-      ) {
-        if (typeof floor !== "undefined") floor.visible = false;
-        if (typeof lightGroup !== "undefined") lightGroup.visible = false;
-        if (typeof gridHelper !== "undefined") gridHelper.visible = false;
-        if (typeof axesHelper !== "undefined") axesHelper.visible = false;
-        pathTracer.setScene(scene, activeCamera);
-        pathTracer.updateCamera();
-      }
-    }
-  }
 });
 
 // --- GLTF Parsing & Rendering Logic ---
 function clearCurrentMesh() {
-  if (isRecording && mediaRecorder && mediaRecorder.state !== "inactive") {
-    mediaRecorder.stop();
-    isRecording = false;
+  if (activeVideoRecorder) {
+    activeVideoRecorder.stop();
+    activeVideoRecorder = null;
   }
+  animController.clear();
   if (currentMesh) {
-    if (mixer) {
-      mixer.stopAllAction();
-      mixer.uncacheRoot(mixer.getRoot());
-      mixer = null;
-    }
-    currentAction = null;
     scene.remove(currentMesh);
-    currentMesh.traverse((child) => {
-      if (child.isMesh) {
-        child.geometry.dispose();
-        if (Array.isArray(child.material)) {
-          child.material.forEach((m) => m.dispose());
-        } else if (child.material) {
-          child.material.dispose();
-        }
-      }
-    });
+    disposeThreeObject(currentMesh);
     currentMesh = null;
   }
   updateCaptureButtonState();
 }
 
-function rebuildSceneFromGLTF(gltfData) {
-  return new Promise((resolve, reject) => {
-    let oldBox = null;
-    if (currentMesh) {
-      if (mixer && currentAction) {
-        currentAction.time = 0;
-        mixer.update(0);
-        if (
-          pathTracingCb &&
-          pathTracingCb.checked &&
-          typeof pathTracer !== "undefined"
-        ) {
-          if (typeof floor !== "undefined") floor.visible = false;
-          if (typeof lightGroup !== "undefined") lightGroup.visible = false;
-          if (typeof gridHelper !== "undefined") gridHelper.visible = false;
-          if (typeof axesHelper !== "undefined") axesHelper.visible = false;
-          pathTracer.setScene(scene, activeCamera);
-          pathTracer.updateCamera();
-        }
+async function rebuildSceneFromGLTF(gltfData) {
+  let oldBox = null;
+  if (currentMesh) {
+    animController.resetToZero();
+    if (pathTracingCb && pathTracingCb.checked && pathTracer) {
+      syncMainEnvironmentVisibility(true);
+      pathTracer.setScene(scene, activeCamera);
+      pathTracer.updateCamera();
+    }
+    currentMesh.updateMatrixWorld(true);
+    oldBox = computeModelBounds(currentMesh, currentAnimations);
+  }
+
+  clearCurrentMesh();
+
+  const gltf = await parseGlbBuffer(gltfData);
+  if (isGodotPlaying) return;
+
+  currentMesh = gltf.scene;
+  currentAnimations = gltf.animations || [];
+  const isWireframe = wireframeCb ? wireframeCb.checked : false;
+  const isBloom = bloomCb ? bloomCb.checked : false;
+  viewerCtx.applyBloom(isBloom, isWireframe);
+
+  const extracted = extractCamerasAndLights(currentMesh);
+  gltfCameras = extracted.gltfCameras;
+  gltfLights = extracted.gltfLights;
+  sceneHasLights = extracted.sceneHasLights;
+  currentOptimalExposure = extracted.optimalExposure || 1.0;
+
+  const lightsCbLabel = document.getElementById("lights-cb-label");
+  if (lightsCbLabel) {
+    lightsCbLabel.style.display = sceneHasLights ? "flex" : "none";
+  }
+
+  const useLights = lightsCb ? lightsCb.checked : true;
+  gltfLights.forEach((l) => (l.visible = useLights));
+  scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
+  renderer.toneMappingExposure =
+    sceneHasLights && useLights ? currentOptimalExposure : 1.0;
+
+  const camResult = populateCameraSelect(
+    cameraSelect,
+    gltfCameras,
+    camera,
+    controls,
+  );
+  activeCamera = camResult.activeCamera;
+
+  const w = viewerEl ? viewerEl.clientWidth : window.innerWidth;
+  const h = viewerEl ? viewerEl.clientHeight : window.innerHeight;
+  updateCameraAspect(activeCamera, w, h);
+  renderPass.camera = activeCamera;
+
+  animController.setup(currentMesh, currentAnimations, camResult.hasCameras);
+  setupMeshShadowsAndWireframe(currentMesh, isWireframe);
+
+  scene.add(currentMesh);
+  currentMesh.updateMatrixWorld(true);
+
+  let geometryChanged = true;
+  let newBox = null;
+  if (oldBox && !oldBox.isEmpty()) {
+    newBox = computeModelBounds(currentMesh, currentAnimations);
+    if (!newBox.isEmpty()) {
+      const epsilon = 0.001;
+      if (
+        oldBox.min.distanceTo(newBox.min) < epsilon &&
+        oldBox.max.distanceTo(newBox.max) < epsilon
+      ) {
+        geometryChanged = false;
       }
-      currentMesh.updateMatrixWorld(true);
-      oldBox = computeModelBounds(currentMesh, currentAnimations);
+    }
+  }
+
+  if (geometryChanged) {
+    fitCamera();
+  } else {
+    if (newBox) {
+      const size = newBox.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 10;
+      applyDynamicBoundsToLights(currentMesh, maxDim * 1.5);
     }
 
-    clearCurrentMesh();
-
-    let parseData = gltfData;
-    if (gltfData instanceof Uint8Array) {
-      parseData = gltfData.buffer.slice(
-        gltfData.byteOffset,
-        gltfData.byteOffset + gltfData.byteLength,
-      );
+    syncMainEnvironmentVisibility();
+    if (pathTracer) {
+      pathTracer.setScene(scene, activeCamera);
+      pathTracer.updateCamera();
     }
-
-    new GLTFLoader().parse(
-      parseData,
-      "",
-      (gltf) => {
-        if (isGodotPlaying) {
-          resolve();
-          return;
-        }
-        currentMesh = gltf.scene;
-        currentAnimations = gltf.animations || [];
-        const isWireframe = wireframeCb ? wireframeCb.checked : false;
-        const isBloom = bloomCb ? bloomCb.checked : false;
-        bloomPass.enabled = isBloom && !isWireframe;
-
-        const extracted = extractCamerasAndLights(currentMesh);
-        gltfCameras = extracted.gltfCameras;
-        gltfLights = extracted.gltfLights;
-        sceneHasLights = extracted.sceneHasLights;
-        currentOptimalExposure = extracted.optimalExposure || 1.0;
-
-        const lightsCbLabel = document.getElementById("lights-cb-label");
-        if (lightsCbLabel) {
-          lightsCbLabel.style.display = sceneHasLights ? "flex" : "none";
-        }
-
-        const useLights = lightsCb ? lightsCb.checked : true;
-        gltfLights.forEach((l) => (l.visible = useLights));
-        scene.environmentIntensity = sceneHasLights && useLights ? 0.0 : 0.8;
-        renderer.toneMappingExposure =
-          sceneHasLights && useLights ? currentOptimalExposure : 1.0;
-
-        let hasAnimOrCamera = false;
-
-        if (cameraSelect) {
-          if (gltfCameras.length > 0) {
-            cameraSelect.style.display = "inline-block";
-            cameraSelect.innerHTML = '<option value="">Free Camera</option>';
-            gltfCameras.forEach((cam, idx) => {
-              const opt = document.createElement("option");
-              opt.value = idx;
-              opt.innerText = cam.name || `Camera ${idx + 1}`;
-              cameraSelect.appendChild(opt);
-            });
-            cameraSelect.value = "0";
-            activeCamera = gltfCameras[0];
-            controls.enabled = false;
-            hasAnimOrCamera = true;
-          } else {
-            cameraSelect.style.display = "none";
-            cameraSelect.value = "";
-            activeCamera = camera;
-            controls.enabled = true;
-          }
-        } else {
-          activeCamera = camera;
-          controls.enabled = true;
-        }
-
-        const w = viewerEl ? viewerEl.clientWidth : window.innerWidth;
-        const h = viewerEl ? viewerEl.clientHeight : window.innerHeight;
-        updateCameraAspect(activeCamera, w, h);
-        renderPass.camera = activeCamera;
-
-        if (currentAnimations.length) {
-          mixer = new THREE.AnimationMixer(currentMesh);
-          hasAnimOrCamera = true;
-          if (animPlayBtn) animPlayBtn.style.display = "";
-          if (animSelect) animSelect.style.display = "";
-          animSelect.innerHTML = "";
-          currentAnimations.forEach((clip, i) => {
-            const opt = document.createElement("option");
-            opt.value = i;
-            opt.innerText = clip.name || `Animation ${i + 1}`;
-            animSelect.appendChild(opt);
-          });
-          playAnimation(0);
-        } else {
-          if (animPlayBtn) animPlayBtn.style.display = "none";
-          if (animSelect) animSelect.style.display = "none";
-          currentAction = null;
-          updateCaptureButtonState();
-        }
-
-        updateAnimTimelineVisibility();
-
-        if (animControlsSection) {
-          animControlsSection.style.display = hasAnimOrCamera ? "flex" : "none";
-        }
-
-        setupMeshShadowsAndWireframe(currentMesh, isWireframe);
-
-        scene.add(currentMesh);
-        currentMesh.updateMatrixWorld(true);
-
-        let geometryChanged = true;
-        let newBox = null;
-        if (oldBox && !oldBox.isEmpty()) {
-          newBox = computeModelBounds(currentMesh, currentAnimations);
-          if (!newBox.isEmpty()) {
-            const epsilon = 0.001;
-            if (
-              oldBox.min.distanceTo(newBox.min) < epsilon &&
-              oldBox.max.distanceTo(newBox.max) < epsilon
-            ) {
-              geometryChanged = false;
-            }
-          }
-        }
-
-        if (geometryChanged) {
-          if (typeof fitCamera === "function") fitCamera();
-        } else {
-          if (newBox) {
-            const size = newBox.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z) || 10;
-            applyDynamicBoundsToLights(currentMesh, maxDim * 1.5);
-          }
-
-          const isPT = pathTracingCb && pathTracingCb.checked;
-          const showGrid = showGridCb ? showGridCb.checked : true;
-          if (typeof floor !== "undefined") floor.visible = !isPT;
-          if (typeof lightGroup !== "undefined")
-            lightGroup.visible =
-              !isPT && (!sceneHasLights || (lightsCb && !lightsCb.checked));
-          if (typeof gridHelper !== "undefined")
-            gridHelper.visible = !isPT && showGrid;
-          if (typeof axesHelper !== "undefined")
-            axesHelper.visible = !isPT && showGrid;
-
-          if (typeof pathTracer !== "undefined") {
-            pathTracer.setScene(scene, activeCamera);
-            pathTracer.updateCamera();
-          }
-        }
-        resolve();
-      },
-      reject,
-    );
-  });
+  }
 }
 
 function fitCamera() {
@@ -3309,18 +2719,9 @@ function fitCamera() {
   );
 
   applyDynamicBoundsToLights(currentMesh, maxDim * 1.5);
+  syncMainEnvironmentVisibility();
 
-  const isPT = pathTracingCb && pathTracingCb.checked;
-  const showGrid = showGridCb ? showGridCb.checked : true;
-
-  if (typeof floor !== "undefined") floor.visible = !isPT;
-  if (typeof lightGroup !== "undefined")
-    lightGroup.visible =
-      !isPT && (!sceneHasLights || (lightsCb && !lightsCb.checked));
-  if (typeof gridHelper !== "undefined") gridHelper.visible = !isPT && showGrid;
-  if (typeof axesHelper !== "undefined") axesHelper.visible = !isPT && showGrid;
-
-  if (typeof pathTracer !== "undefined") {
+  if (pathTracer) {
     pathTracer.setScene(scene, activeCamera);
     pathTracer.updateCamera();
   }
@@ -3353,49 +2754,19 @@ function animate() {
   const delta = (now - lastTime) / 1000;
   lastTime = now;
 
-  if (mixer) {
-    if (!(pathTracingCb && pathTracingCb.checked) && !isRecording) {
-      mixer.update(delta);
-    }
-
-    if (
-      currentAction &&
-      isPlaying &&
-      !isDraggingSlider &&
-      (!animTimelineCb || animTimelineCb.checked)
-    ) {
-      const duration = currentAction.getClip().duration;
-      if (duration > 0) {
-        let currentClipTime = currentAction.time % duration;
-        if (currentClipTime < 0) currentClipTime += duration;
-        animSlider.value = currentClipTime / duration;
-      }
-    }
-  }
+  const isPT = Boolean(pathTracingCb && pathTracingCb.checked);
+  const isRecording = Boolean(activeVideoRecorder);
+  animController.update(delta, { pausePlayback: isPT || isRecording });
 
   controls.update();
-  const isPT = pathTracingCb && pathTracingCb.checked;
-  const showGrid = showGridCb ? showGridCb.checked : true;
+  syncMainEnvironmentVisibility(isPT);
 
   if (isPT) {
-    if (typeof floor !== "undefined") floor.visible = false;
-    if (typeof lightGroup !== "undefined") lightGroup.visible = false;
-    if (typeof gridHelper !== "undefined") gridHelper.visible = false;
-    if (typeof axesHelper !== "undefined") axesHelper.visible = false;
-
-    if (typeof pathTracer !== "undefined" && !isRecording) {
+    if (pathTracer && !isRecording) {
       pathTracer.renderSample();
     }
-  } else {
-    if (typeof floor !== "undefined") floor.visible = true;
-    if (typeof lightGroup !== "undefined")
-      lightGroup.visible = lightGroup.visible =
-        !sceneHasLights || (lightsCb && !lightsCb.checked);
-    if (typeof gridHelper !== "undefined") gridHelper.visible = showGrid;
-    if (typeof axesHelper !== "undefined") axesHelper.visible = showGrid;
-    if (!isRecording) {
-      composer.render();
-    }
+  } else if (!isRecording) {
+    composer.render();
   }
 
   if (captureNextFrame) {
@@ -3408,17 +2779,8 @@ function animate() {
 }
 
 window.addEventListener("resize", () => {
-  if (!viewerEl || isRecording || isGodotPlaying) return;
-  const w = viewerEl.clientWidth;
-  const h = viewerEl.clientHeight;
-
-  updateCameraAspect(activeCamera, w, h);
-  renderer.setSize(w, h);
-  composer.setSize(w, h);
-
-  if (typeof pathTracer !== "undefined") {
-    pathTracer.updateCamera();
-  }
+  if (!viewerEl || activeVideoRecorder || isGodotPlaying) return;
+  viewerCtx.resize(viewerEl.clientWidth, viewerEl.clientHeight, activeCamera);
 });
 setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
 

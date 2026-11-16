@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { execSync } from "child_process";
 import { convertScadToGltf } from "../src/convert.js";
+import { installWasmFetchPolyfill } from "../src/process-utils.js";
 
 // Resolve the local paths
 const __filename = fileURLToPath(import.meta.url);
@@ -13,23 +14,7 @@ const wasmPath = path.resolve(__dirname, "../ext/openscad.wasm");
 const editorDir = path.resolve(__dirname, "../editor");
 const editorDistDir = path.join(editorDir, "dist");
 
-// Polyfill fetch so the WASM loader works natively in Node.js
-const originalFetch = global.fetch;
-global.fetch = async (url, options) => {
-  const urlStr = url.toString();
-  if (urlStr.startsWith("file://") || urlStr.endsWith(".wasm")) {
-    const normalizedPath = urlStr.startsWith("file://")
-      ? fileURLToPath(urlStr)
-      : urlStr;
-
-    const buffer = fs.readFileSync(normalizedPath);
-    return new Response(buffer, {
-      status: 200,
-      headers: { "Content-Type": "application/wasm" },
-    });
-  }
-  return originalFetch ? originalFetch(url, options) : undefined;
-};
+installWasmFetchPolyfill();
 
 // Parse CLI arguments
 const args = process.argv.slice(2);
