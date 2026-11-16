@@ -152,6 +152,7 @@ const godotScreenshotBtn = document.getElementById("godot-screenshot-btn");
 const godotFullscreenBtn = document.getElementById("godot-fullscreen-btn");
 const godotLogsDrawer = document.getElementById("godot-logs-drawer");
 const godotLogsOutput = document.getElementById("godot-logs-output");
+const godotLogsCopyBtn = document.getElementById("godot-logs-copy-btn");
 const godotLogsClearBtn = document.getElementById("godot-logs-clear-btn");
 const viewerControlsEl = document.getElementById("viewer-controls");
 
@@ -2204,6 +2205,25 @@ if (godotLogsBtn && godotLogsDrawer) {
   godotLogsBtn.onclick = () => {
     godotLogsDrawer.style.display =
       godotLogsDrawer.style.display === "none" ? "flex" : "none";
+  };
+}
+if (godotLogsCopyBtn && godotLogsOutput) {
+  let copyLogsTimer = null;
+  godotLogsCopyBtn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(godotLogsOutput.textContent || "");
+      if (!godotLogsCopyBtn.dataset.originalText) {
+        godotLogsCopyBtn.dataset.originalText = godotLogsCopyBtn.innerText;
+      }
+      godotLogsCopyBtn.innerText = "✅ Copied!";
+      clearTimeout(copyLogsTimer);
+      copyLogsTimer = setTimeout(() => {
+        godotLogsCopyBtn.innerText =
+          godotLogsCopyBtn.dataset.originalText || "Copy";
+      }, 1500);
+    } catch (err) {
+      alert("Failed to copy logs to clipboard: " + err);
+    }
   };
 }
 if (godotLogsClearBtn && godotLogsOutput) {

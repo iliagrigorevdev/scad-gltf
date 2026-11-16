@@ -790,6 +790,12 @@ button.godot-btn:hover {
   font-weight: bold;
 }
 
+#godot-logs-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 #godot-logs-header button {
   height: 22px;
   padding: 0 8px;
