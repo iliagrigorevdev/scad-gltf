@@ -54,6 +54,7 @@ import {
   migrateModelVersions,
   DRAFT_MODEL_ID,
 } from "./local-store.js";
+import { openVersionCompareModal } from "./version-compare.js";
 
 // --- UI Elements ---
 const tabEditorBtn = document.getElementById("tab-editor");
@@ -100,6 +101,9 @@ const localSaveVersionBtn = document.getElementById("local-save-version-btn");
 const localVersionSelectEl = document.getElementById("local-version-select");
 const localRestoreVersionBtn = document.getElementById(
   "local-restore-version-btn",
+);
+const localCompareVersionsBtn = document.getElementById(
+  "local-compare-versions-btn",
 );
 const localDeleteVersionBtn = document.getElementById(
   "local-delete-version-btn",
@@ -304,6 +308,10 @@ async function refreshLocalModelsUi() {
     localDeleteModelBtn.style.display =
       activeLocalModelId === DRAFT_MODEL_ID ? "none" : "flex";
   }
+  if (localCompareVersionsBtn) {
+    localCompareVersionsBtn.disabled =
+      localVersionsList.length === 0 && localModelsList.length === 0;
+  }
 }
 
 async function refreshVersionsUi(preferredVersionId = null) {
@@ -318,6 +326,9 @@ async function refreshVersionsUi(preferredVersionId = null) {
     localVersionSelectEl.appendChild(opt);
     if (localRestoreVersionBtn) localRestoreVersionBtn.disabled = true;
     if (localDeleteVersionBtn) localDeleteVersionBtn.disabled = true;
+    if (localCompareVersionsBtn) {
+      localCompareVersionsBtn.disabled = localModelsList.length === 0;
+    }
     return;
   }
 
@@ -342,6 +353,7 @@ async function refreshVersionsUi(preferredVersionId = null) {
 
   if (localRestoreVersionBtn) localRestoreVersionBtn.disabled = false;
   if (localDeleteVersionBtn) localDeleteVersionBtn.disabled = false;
+  if (localCompareVersionsBtn) localCompareVersionsBtn.disabled = false;
 }
 
 async function maybeCreateAutoVersion(label = "", force = false) {
@@ -647,6 +659,48 @@ if (localRestoreVersionBtn) {
     await refreshVersionsUi(target.id);
     if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
     compileAndRender(getEditorContent());
+  });
+}
+
+if (localCompareVersionsBtn) {
+  localCompareVersionsBtn.addEventListener("click", () => {
+    openVersionCompareModal({
+      activeModelId: activeLocalModelId,
+      selectedVersionId: localVersionSelectEl ? localVersionSelectEl.value : "",
+      currentName: modelNameInputEl.value,
+      currentContent: editorEl.value,
+      currentEntryFile,
+      fetchDependencies: fetchDependenciesWrapper,
+      onRestore: async (snapshot) => {
+        if (!snapshot) return;
+        if (
+          editorEl.value !== snapshot.content ||
+          modelNameInputEl.value !== (snapshot.name || "")
+        ) {
+          await maybeCreateAutoVersion("Before restore", true);
+        }
+
+        isRestoringWorkspace = true;
+        try {
+          editorEl.value = snapshot.content;
+          if (snapshot.name !== undefined) {
+            modelNameInputEl.value = snapshot.name;
+          }
+          currentEntryFile = snapshot.entryFile || null;
+          currentEntryScadFile = null;
+        } finally {
+          isRestoringWorkspace = false;
+        }
+
+        await syncNamedLocalModelContent();
+        syncMdFilesUi(editorEl.value);
+        checkChanges();
+        saveWorkspaceImmediate();
+        await refreshVersionsUi();
+        if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+        compileAndRender(getEditorContent());
+      },
+    });
   });
 }
 
