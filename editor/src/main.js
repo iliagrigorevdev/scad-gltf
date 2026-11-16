@@ -83,6 +83,7 @@ const editorHighlightsEl = document.getElementById("editor-highlights");
 const renderBtn = document.getElementById("render-btn");
 const loadScadBtn = document.getElementById("load-scad-btn");
 const downloadScadBtn = document.getElementById("download-scad-btn");
+const downloadMdBtn = document.getElementById("download-md-btn");
 const exportGltfBtn = document.getElementById("export-gltf-btn");
 const export3mfBtn = document.getElementById("export-3mf-btn");
 const captureImageBtn = document.getElementById("capture-image-btn");
@@ -965,6 +966,17 @@ function syncMdFilesUi(code) {
     currentEntryFile = null;
     currentEntryScadFile = null;
   }
+  const hasMd = ctx.isMd && ctx.allFiles.length > 0;
+  const hasMdScad = hasMd && ctx.allFiles.some((f) => isScadFilePath(f));
+  if (downloadMdBtn) {
+    downloadMdBtn.style.display = hasMd ? "flex" : "none";
+  }
+  if (downloadScadBtn) {
+    downloadScadBtn.style.display = !hasMd || hasMdScad ? "flex" : "none";
+    downloadScadBtn.title = hasMd
+      ? "Download active .scad file"
+      : "Download .scad file";
+  }
   if (playGodotBtn) {
     playGodotBtn.style.display = ctx.isGodot ? "flex" : "none";
   }
@@ -1370,18 +1382,65 @@ loadScadBtn.onclick = () => {
 
 downloadScadBtn.onclick = () => {
   const codeToSave = getEditorContent();
+  const ctx = getMdFilesContext(codeToSave);
+
+  if (ctx.isMd && ctx.allFiles.length > 0) {
+    const scadFiles = ctx.allFiles.filter((f) => isScadFilePath(f));
+    if (scadFiles.length === 0) return;
+
+    const targetFile =
+      currentEntryFile && scadFiles.includes(currentEntryFile)
+        ? currentEntryFile
+        : currentEntryScadFile && scadFiles.includes(currentEntryScadFile)
+          ? currentEntryScadFile
+          : scadFiles[0];
+
+    const scadContent = ctx.filesMap[targetFile] ?? "";
+    const baseTargetName = targetFile.split(/[/\\]/).pop();
+
+    let dlName;
+    if (
+      scadFiles.length > 1 ||
+      (baseTargetName && baseTargetName.toLowerCase() !== "main.scad")
+    ) {
+      dlName = baseTargetName;
+    } else {
+      dlName = getDownloadName();
+      if (dlName.toLowerCase().endsWith(".md")) {
+        dlName = dlName.substring(0, dlName.length - 3);
+      }
+      if (!dlName.toLowerCase().endsWith(".scad")) {
+        dlName += ".scad";
+      }
+    }
+
+    downloadBlob(new Blob([scadContent], { type: "text/plain" }), dlName);
+    return;
+  }
+
   let dlName = getDownloadName();
-  if (
-    !dlName.toLowerCase().endsWith(".scad") &&
-    !dlName.toLowerCase().endsWith(".md")
-  ) {
-    dlName +=
-      codeToSave.includes("```") && codeToSave.includes("###")
-        ? ".md"
-        : ".scad";
+  if (dlName.toLowerCase().endsWith(".md")) {
+    dlName = dlName.substring(0, dlName.length - 3);
+  }
+  if (!dlName.toLowerCase().endsWith(".scad")) {
+    dlName += ".scad";
   }
   downloadBlob(new Blob([codeToSave], { type: "text/plain" }), dlName);
 };
+
+if (downloadMdBtn) {
+  downloadMdBtn.onclick = () => {
+    const codeToSave = getEditorContent();
+    let dlName = getDownloadName();
+    if (dlName.toLowerCase().endsWith(".scad")) {
+      dlName = dlName.substring(0, dlName.length - 5);
+    }
+    if (!dlName.toLowerCase().endsWith(".md")) {
+      dlName += ".md";
+    }
+    downloadBlob(new Blob([codeToSave], { type: "text/plain" }), dlName);
+  };
+}
 
 exportGltfBtn.onclick = () => {
   if (!currentGltfData) return;
