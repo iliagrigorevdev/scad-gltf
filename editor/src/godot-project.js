@@ -364,7 +364,7 @@ function buildGlobalScriptClassCache(projectFiles) {
     if (info) entries.push(info);
   }
 
-  if (entries.length === 0) return null;
+  if (entries.length === 0) return "list=[]\n";
 
   entries.sort((a, b) => a.class.localeCompare(b.class));
 
