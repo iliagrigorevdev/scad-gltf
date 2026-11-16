@@ -233,6 +233,65 @@ function getDownloadName() {
   return modelNameInputEl.value.trim() || "model";
 }
 
+function stripModelExtension(name) {
+  return String(name || "").replace(/\.(md|scad)$/i, "");
+}
+
+function getActiveScadTarget(code) {
+  const ctx = getMdFilesContext(code);
+  if (!ctx.isMd || ctx.allFiles.length === 0) {
+    return null;
+  }
+
+  const scadFiles = ctx.allFiles.filter((f) => isScadFilePath(f));
+  if (scadFiles.length === 0) {
+    return {
+      ctx,
+      scadFiles,
+      targetFile: null,
+      scadContent: "",
+      baseName: stripModelExtension(getDownloadName()) || "model",
+    };
+  }
+
+  const targetFile =
+    currentEntryFile && scadFiles.includes(currentEntryFile)
+      ? currentEntryFile
+      : currentEntryScadFile && scadFiles.includes(currentEntryScadFile)
+        ? currentEntryScadFile
+        : scadFiles[0];
+
+  const scadContent = ctx.filesMap[targetFile] ?? "";
+  const baseTargetFile = targetFile.split(/[/\\]/).pop() || "";
+  const targetStem = stripModelExtension(baseTargetFile);
+
+  let baseName;
+  if (
+    scadFiles.length > 1 ||
+    (baseTargetFile && baseTargetFile.toLowerCase() !== "main.scad")
+  ) {
+    baseName = targetStem || "model";
+  } else {
+    baseName = stripModelExtension(getDownloadName()) || "model";
+  }
+
+  return {
+    ctx,
+    scadFiles,
+    targetFile,
+    scadContent,
+    baseName,
+  };
+}
+
+function getScadExportBaseName(code) {
+  const active = getActiveScadTarget(code);
+  if (active) {
+    return active.baseName;
+  }
+  return stripModelExtension(getDownloadName()) || "model";
+}
+
 function formatVersionTimestamp(ts) {
   const d = new Date(ts);
   return d.toLocaleTimeString([], {
@@ -1382,72 +1441,38 @@ loadScadBtn.onclick = () => {
 
 downloadScadBtn.onclick = () => {
   const codeToSave = getEditorContent();
-  const ctx = getMdFilesContext(codeToSave);
+  const active = getActiveScadTarget(codeToSave);
 
-  if (ctx.isMd && ctx.allFiles.length > 0) {
-    const scadFiles = ctx.allFiles.filter((f) => isScadFilePath(f));
-    if (scadFiles.length === 0) return;
-
-    const targetFile =
-      currentEntryFile && scadFiles.includes(currentEntryFile)
-        ? currentEntryFile
-        : currentEntryScadFile && scadFiles.includes(currentEntryScadFile)
-          ? currentEntryScadFile
-          : scadFiles[0];
-
-    const scadContent = ctx.filesMap[targetFile] ?? "";
-    const baseTargetName = targetFile.split(/[/\\]/).pop();
-
-    let dlName;
-    if (
-      scadFiles.length > 1 ||
-      (baseTargetName && baseTargetName.toLowerCase() !== "main.scad")
-    ) {
-      dlName = baseTargetName;
-    } else {
-      dlName = getDownloadName();
-      if (dlName.toLowerCase().endsWith(".md")) {
-        dlName = dlName.substring(0, dlName.length - 3);
-      }
-      if (!dlName.toLowerCase().endsWith(".scad")) {
-        dlName += ".scad";
-      }
-    }
-
-    downloadBlob(new Blob([scadContent], { type: "text/plain" }), dlName);
+  if (active) {
+    if (!active.targetFile) return;
+    downloadBlob(
+      new Blob([active.scadContent], { type: "text/plain" }),
+      `${active.baseName}.scad`,
+    );
     return;
   }
 
-  let dlName = getDownloadName();
-  if (dlName.toLowerCase().endsWith(".md")) {
-    dlName = dlName.substring(0, dlName.length - 3);
-  }
-  if (!dlName.toLowerCase().endsWith(".scad")) {
-    dlName += ".scad";
-  }
-  downloadBlob(new Blob([codeToSave], { type: "text/plain" }), dlName);
+  const baseName = stripModelExtension(getDownloadName()) || "model";
+  downloadBlob(
+    new Blob([codeToSave], { type: "text/plain" }),
+    `${baseName}.scad`,
+  );
 };
 
 if (downloadMdBtn) {
   downloadMdBtn.onclick = () => {
     const codeToSave = getEditorContent();
-    let dlName = getDownloadName();
-    if (dlName.toLowerCase().endsWith(".scad")) {
-      dlName = dlName.substring(0, dlName.length - 5);
-    }
-    if (!dlName.toLowerCase().endsWith(".md")) {
-      dlName += ".md";
-    }
-    downloadBlob(new Blob([codeToSave], { type: "text/plain" }), dlName);
+    const baseName = stripModelExtension(getDownloadName()) || "model";
+    downloadBlob(
+      new Blob([codeToSave], { type: "text/plain" }),
+      `${baseName}.md`,
+    );
   };
 }
 
 exportGltfBtn.onclick = () => {
   if (!currentGltfData) return;
-  let dlName = getDownloadName();
-  if (dlName.toLowerCase().endsWith(".md")) {
-    dlName = dlName.substring(0, dlName.length - 3);
-  }
+  const dlName = getScadExportBaseName(getEditorContent());
   downloadBlob(
     new Blob([currentGltfData], { type: "application/octet-stream" }),
     `${dlName}.glb`,
@@ -1502,13 +1527,7 @@ export3mfBtn.onclick = async () => {
     };
 
     const threeMfData = await convertScadTo3MF(entryCode, opts);
-    let dlName = getDownloadName();
-
-    if (dlName.toLowerCase().endsWith(".md")) {
-      dlName = dlName.substring(0, dlName.length - 3);
-    } else if (dlName.toLowerCase().endsWith(".scad")) {
-      dlName = dlName.substring(0, dlName.length - 5);
-    }
+    const dlName = getScadExportBaseName(scadCode);
 
     downloadBlob(
       new Blob([threeMfData], { type: "application/octet-stream" }),
@@ -1655,10 +1674,7 @@ captureImageBtn.onclick = () => {
             const blob = new Blob(recordedChunks, {
               type: options.mimeType.split(";")[0],
             });
-            let dlName = getDownloadName();
-            if (dlName.toLowerCase().endsWith(".md")) {
-              dlName = dlName.substring(0, dlName.length - 3);
-            }
+            const dlName = getScadExportBaseName(getEditorContent());
             downloadBlob(blob, `${dlName}.${extension}`);
             isRecording = false;
 
@@ -3384,8 +3400,9 @@ function animate() {
 
   if (captureNextFrame) {
     captureNextFrame = false;
+    const dlName = getScadExportBaseName(getEditorContent());
     renderer.domElement.toBlob((blob) => {
-      if (blob) downloadBlob(blob, `${getDownloadName()}.png`);
+      if (blob) downloadBlob(blob, `${dlName}.png`);
     }, "image/png");
   }
 }
