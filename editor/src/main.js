@@ -843,13 +843,37 @@ if (pasteMdFileBtn) {
 
     try {
       const text = await navigator.clipboard.readText();
-      const updatedMd = replaceFileInMarkdown(editorEl.value, targetFile, text);
+      const normalizedClipboard = text.replace(/\r\n/g, "\n");
+      const isPastedMd =
+        /^###\s+\S+\s*$/m.test(normalizedClipboard) &&
+        normalizedClipboard.includes("```");
+      const pastedFiles = isPastedMd
+        ? extractFilesFromMarkdown(normalizedClipboard)
+        : {};
+      const pastedEntries = Object.entries(pastedFiles);
+
+      let updatedMd = editorEl.value;
+      const patchedFiles = [];
+
+      if (pastedEntries.length > 0) {
+        for (const [filePath, fileContent] of pastedEntries) {
+          updatedMd = replaceFileInMarkdown(updatedMd, filePath, fileContent);
+          patchedFiles.push(filePath);
+        }
+      } else {
+        updatedMd = replaceFileInMarkdown(updatedMd, targetFile, text);
+        patchedFiles.push(targetFile);
+      }
+
       editorEl.value = updatedMd;
       syncMdFilesUi(updatedMd);
       checkChanges();
 
+      const focusFile = patchedFiles.includes(targetFile)
+        ? targetFile
+        : patchedFiles[0];
       const updatedBlock = parseMdFileBlocks(updatedMd).find(
-        (b) => b.filePath === targetFile,
+        (b) => b.filePath === focusFile,
       );
       if (updatedBlock) {
         editorEl.setSelectionRange(
@@ -858,11 +882,10 @@ if (pasteMdFileBtn) {
         );
       }
 
-      if (
-        targetFile.toLowerCase().endsWith(".scad") &&
-        autoRenderCb.checked &&
-        !isGodotPlaying
-      ) {
+      const hasScadChange = patchedFiles.some((f) =>
+        f.toLowerCase().endsWith(".scad"),
+      );
+      if (hasScadChange && autoRenderCb.checked && !isGodotPlaying) {
         compileAndRender(getEditorContent());
       }
 
