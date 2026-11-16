@@ -39,6 +39,21 @@ import {
   exportGodotProjectWebZip,
   exportGodotProjectZip,
 } from "./godot-project.js";
+import {
+  loadActiveWorkspaceSync,
+  saveActiveWorkspaceSync,
+  loadAutoVersionPref,
+  saveAutoVersionPref,
+  getLocalModels,
+  getLocalModel,
+  saveLocalModel,
+  deleteLocalModel,
+  getModelVersions,
+  createVersionSnapshot,
+  deleteVersionSnapshot,
+  migrateModelVersions,
+  DRAFT_MODEL_ID,
+} from "./local-store.js";
 
 // --- UI Elements ---
 const tabEditorBtn = document.getElementById("tab-editor");
@@ -75,6 +90,22 @@ const backendUiEl = document.getElementById("backend-ui");
 const backendSelectEl = document.getElementById("backend-select");
 const backendSingleSaveBtn = document.getElementById("backend-single-save-btn");
 const backendDeleteBtn = document.getElementById("backend-delete-btn");
+
+const localModelSelectEl = document.getElementById("local-model-select");
+const localSaveModelBtn = document.getElementById("local-save-model-btn");
+const localNewModelBtn = document.getElementById("local-new-model-btn");
+const localDeleteModelBtn = document.getElementById("local-delete-model-btn");
+const localVersionNoteEl = document.getElementById("local-version-note");
+const localSaveVersionBtn = document.getElementById("local-save-version-btn");
+const localVersionSelectEl = document.getElementById("local-version-select");
+const localRestoreVersionBtn = document.getElementById(
+  "local-restore-version-btn",
+);
+const localDeleteVersionBtn = document.getElementById(
+  "local-delete-version-btn",
+);
+const localSaveStatusEl = document.getElementById("local-save-status");
+const autoVersionCb = document.getElementById("auto-version-cb");
 
 const animControlsSection = document.getElementById("anim-controls-section");
 const animPlayBtn = document.getElementById("anim-play-btn");
@@ -155,6 +186,13 @@ let godotIframe = null;
 let godotRunToken = 0;
 const godotScadCache = new Map();
 
+let activeLocalModelId = DRAFT_MODEL_ID;
+let localModelsList = [];
+let localVersionsList = [];
+let localAutoVersionTimer = null;
+let lastAutoVersionAt = 0;
+let isRestoringWorkspace = false;
+
 // Tab logic
 if (tabEditorBtn && tabPromptBtn && editorTabContent && promptPanel) {
   tabEditorBtn.addEventListener("click", () => {
@@ -200,6 +238,434 @@ function extractRootFolderFromMarkdownFiles(files) {
   return rootFolder;
 }
 
+function formatVersionTimestamp(ts) {
+  const d = new Date(ts);
+  return d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function updateLocalSaveStatus(message, isSaved = true) {
+  if (!localSaveStatusEl) return;
+  localSaveStatusEl.textContent = message;
+  localSaveStatusEl.classList.toggle("saved", Boolean(isSaved));
+}
+
+function saveWorkspaceImmediate() {
+  if (isRestoringWorkspace) return;
+  const ok = saveActiveWorkspaceSync({
+    activeModelId: activeLocalModelId,
+    name: modelNameInputEl.value,
+    content: editorEl.value,
+    entryFile: currentEntryFile,
+  });
+  if (ok) {
+    updateLocalSaveStatus(
+      `Saved locally • ${formatVersionTimestamp(Date.now())}`,
+      true,
+    );
+  }
+}
+
+async function syncNamedLocalModelContent() {
+  if (activeLocalModelId === DRAFT_MODEL_ID) return;
+  const existing = await getLocalModel(activeLocalModelId);
+  if (!existing) return;
+  await saveLocalModel({
+    id: activeLocalModelId,
+    name: modelNameInputEl.value.trim() || existing.name,
+    content: editorEl.value,
+    entryFile: currentEntryFile,
+  });
+}
+
+async function refreshLocalModelsUi() {
+  localModelsList = await getLocalModels();
+  if (
+    activeLocalModelId !== DRAFT_MODEL_ID &&
+    !localModelsList.some((m) => m.id === activeLocalModelId)
+  ) {
+    activeLocalModelId = DRAFT_MODEL_ID;
+  }
+  if (!localModelSelectEl) return;
+  localModelSelectEl.innerHTML =
+    '<option value="__draft__">-- Active Draft --</option>';
+  for (const m of localModelsList) {
+    if (m.id === DRAFT_MODEL_ID) continue;
+    const opt = document.createElement("option");
+    opt.value = m.id;
+    opt.textContent = m.name || "Untitled";
+    localModelSelectEl.appendChild(opt);
+  }
+  localModelSelectEl.value = activeLocalModelId;
+  if (localDeleteModelBtn) {
+    localDeleteModelBtn.style.display =
+      activeLocalModelId === DRAFT_MODEL_ID ? "none" : "flex";
+  }
+}
+
+async function refreshVersionsUi(preferredVersionId = null) {
+  localVersionsList = await getModelVersions(activeLocalModelId);
+  if (!localVersionSelectEl) return;
+
+  localVersionSelectEl.innerHTML = "";
+  if (localVersionsList.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "-- No saved versions --";
+    localVersionSelectEl.appendChild(opt);
+    if (localRestoreVersionBtn) localRestoreVersionBtn.disabled = true;
+    if (localDeleteVersionBtn) localDeleteVersionBtn.disabled = true;
+    return;
+  }
+
+  for (const v of localVersionsList) {
+    const opt = document.createElement("option");
+    opt.value = v.id;
+    const kindTag = v.kind === "manual" ? "Manual" : "Auto";
+    const notePart = v.label ? ` "${v.label}"` : "";
+    const timeStr = formatVersionTimestamp(v.createdAt);
+    opt.textContent = `v${v.versionNumber} [${kindTag}]${notePart} • ${timeStr} (${v.lineCount}L)`;
+    localVersionSelectEl.appendChild(opt);
+  }
+
+  if (
+    preferredVersionId &&
+    localVersionsList.some((v) => v.id === preferredVersionId)
+  ) {
+    localVersionSelectEl.value = preferredVersionId;
+  } else {
+    localVersionSelectEl.value = localVersionsList[0].id;
+  }
+
+  if (localRestoreVersionBtn) localRestoreVersionBtn.disabled = false;
+  if (localDeleteVersionBtn) localDeleteVersionBtn.disabled = false;
+}
+
+async function maybeCreateAutoVersion(label = "", force = false) {
+  if (isRestoringWorkspace) return null;
+  if (!force && autoVersionCb && !autoVersionCb.checked) return null;
+
+  const content = editorEl.value;
+  if (!content.trim()) return null;
+
+  const now = Date.now();
+  if (!force && now - lastAutoVersionAt < 5000) {
+    return null;
+  }
+
+  const res = await createVersionSnapshot({
+    modelId: activeLocalModelId,
+    content,
+    name: modelNameInputEl.value,
+    entryFile: currentEntryFile,
+    kind: "auto",
+    label,
+  });
+  await syncNamedLocalModelContent();
+  if (res.created) {
+    lastAutoVersionAt = now;
+    await refreshVersionsUi();
+  }
+  return res;
+}
+
+function scheduleAutoVersion() {
+  clearTimeout(localAutoVersionTimer);
+  if (autoVersionCb && !autoVersionCb.checked) return;
+  localAutoVersionTimer = setTimeout(() => {
+    maybeCreateAutoVersion("Auto");
+  }, 10000);
+}
+
+async function initLocalPersistence() {
+  if (autoVersionCb) {
+    autoVersionCb.checked = loadAutoVersionPref();
+    autoVersionCb.addEventListener("change", () => {
+      saveAutoVersionPref(autoVersionCb.checked);
+    });
+  }
+
+  const saved = loadActiveWorkspaceSync();
+  if (saved) {
+    isRestoringWorkspace = true;
+    try {
+      activeLocalModelId = saved.activeModelId || DRAFT_MODEL_ID;
+      if (saved.name) modelNameInputEl.value = saved.name;
+      if (saved.content) editorEl.value = saved.content;
+      if (saved.entryFile) currentEntryFile = saved.entryFile;
+    } finally {
+      isRestoringWorkspace = false;
+    }
+    if (saved.content || saved.name) {
+      updateLocalSaveStatus(
+        `Restored • ${formatVersionTimestamp(saved.updatedAt)}`,
+        true,
+      );
+    }
+  }
+
+  await refreshLocalModelsUi();
+  await refreshVersionsUi();
+}
+
+if (localModelSelectEl) {
+  localModelSelectEl.addEventListener("change", async () => {
+    const nextId = localModelSelectEl.value || DRAFT_MODEL_ID;
+    if (nextId === activeLocalModelId) return;
+
+    await maybeCreateAutoVersion("Before switch", true);
+    if (activeLocalModelId === DRAFT_MODEL_ID) {
+      await saveLocalModel({
+        id: DRAFT_MODEL_ID,
+        name: modelNameInputEl.value,
+        content: editorEl.value,
+        entryFile: currentEntryFile,
+      });
+    } else {
+      await syncNamedLocalModelContent();
+    }
+
+    const target = await getLocalModel(nextId);
+    isRestoringWorkspace = true;
+    try {
+      activeLocalModelId = nextId;
+      autoDerivedModelName = null;
+      pendingForceNameOverride = false;
+      editorEl.value = target?.content || "";
+      modelNameInputEl.value = target?.name || "";
+      currentEntryFile = target?.entryFile || null;
+      currentEntryScadFile = null;
+    } finally {
+      isRestoringWorkspace = false;
+    }
+
+    syncMdFilesUi(editorEl.value);
+    checkChanges();
+    saveWorkspaceImmediate();
+    await refreshLocalModelsUi();
+    await refreshVersionsUi();
+    if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+    compileAndRender(getEditorContent());
+  });
+}
+
+if (localSaveModelBtn) {
+  localSaveModelBtn.addEventListener("click", async () => {
+    let modelName = modelNameInputEl.value.trim();
+    if (!modelName) {
+      const entered = prompt("Enter a name for this local model:", "my_model");
+      if (!entered || !entered.trim()) return;
+      modelName = entered.trim();
+      modelNameInputEl.value = modelName;
+    }
+
+    let targetId = activeLocalModelId;
+    if (targetId === DRAFT_MODEL_ID) {
+      const existingByName = localModelsList.find(
+        (m) => m.name.toLowerCase() === modelName.toLowerCase(),
+      );
+      if (existingByName) {
+        if (
+          !confirm(
+            `A local model named "${existingByName.name}" already exists. Overwrite it?`,
+          )
+        ) {
+          return;
+        }
+        targetId = existingByName.id;
+      } else {
+        targetId = undefined;
+      }
+    }
+
+    const saved = await saveLocalModel({
+      id: targetId,
+      name: modelName,
+      content: editorEl.value,
+      entryFile: currentEntryFile,
+    });
+
+    if (activeLocalModelId === DRAFT_MODEL_ID) {
+      await migrateModelVersions(DRAFT_MODEL_ID, saved.id);
+      await saveLocalModel({
+        id: DRAFT_MODEL_ID,
+        name: "",
+        content: "",
+        entryFile: null,
+      });
+    }
+
+    activeLocalModelId = saved.id;
+    const note = localVersionNoteEl ? localVersionNoteEl.value.trim() : "";
+    const ver = await createVersionSnapshot({
+      modelId: activeLocalModelId,
+      content: editorEl.value,
+      name: modelName,
+      entryFile: currentEntryFile,
+      kind: "manual",
+      label: note || "Saved local model",
+    });
+    if (localVersionNoteEl) localVersionNoteEl.value = "";
+
+    saveWorkspaceImmediate();
+    await refreshLocalModelsUi();
+    await refreshVersionsUi(ver.version?.id);
+  });
+}
+
+if (localNewModelBtn) {
+  localNewModelBtn.addEventListener("click", async () => {
+    await maybeCreateAutoVersion("Before new draft", true);
+    if (activeLocalModelId !== DRAFT_MODEL_ID) {
+      await syncNamedLocalModelContent();
+    }
+
+    isRestoringWorkspace = true;
+    try {
+      activeLocalModelId = DRAFT_MODEL_ID;
+      autoDerivedModelName = null;
+      pendingForceNameOverride = false;
+      editorEl.value = "";
+      modelNameInputEl.value = "";
+      currentEntryFile = null;
+      currentEntryScadFile = null;
+    } finally {
+      isRestoringWorkspace = false;
+    }
+
+    await saveLocalModel({
+      id: DRAFT_MODEL_ID,
+      name: "",
+      content: "",
+      entryFile: null,
+    });
+    syncMdFilesUi("");
+    checkChanges();
+    saveWorkspaceImmediate();
+    await refreshLocalModelsUi();
+    await refreshVersionsUi();
+    if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+    compileAndRender("");
+  });
+}
+
+if (localDeleteModelBtn) {
+  localDeleteModelBtn.addEventListener("click", async () => {
+    if (activeLocalModelId === DRAFT_MODEL_ID) return;
+    const current = localModelsList.find((m) => m.id === activeLocalModelId);
+    const label = current?.name || "this local model";
+    if (
+      !confirm(
+        `Delete local model "${label}" and all of its saved version history?`,
+      )
+    ) {
+      return;
+    }
+
+    await deleteLocalModel(activeLocalModelId);
+    const draft = await getLocalModel(DRAFT_MODEL_ID);
+
+    isRestoringWorkspace = true;
+    try {
+      activeLocalModelId = DRAFT_MODEL_ID;
+      autoDerivedModelName = null;
+      pendingForceNameOverride = false;
+      editorEl.value = draft?.content || "";
+      modelNameInputEl.value = draft?.name || "";
+      currentEntryFile = draft?.entryFile || null;
+      currentEntryScadFile = null;
+    } finally {
+      isRestoringWorkspace = false;
+    }
+
+    syncMdFilesUi(editorEl.value);
+    checkChanges();
+    saveWorkspaceImmediate();
+    await refreshLocalModelsUi();
+    await refreshVersionsUi();
+    if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+    compileAndRender(getEditorContent());
+  });
+}
+
+if (localSaveVersionBtn) {
+  localSaveVersionBtn.addEventListener("click", async () => {
+    const note = localVersionNoteEl ? localVersionNoteEl.value.trim() : "";
+    const res = await createVersionSnapshot({
+      modelId: activeLocalModelId,
+      content: editorEl.value,
+      name: modelNameInputEl.value,
+      entryFile: currentEntryFile,
+      kind: "manual",
+      label: note,
+    });
+    await syncNamedLocalModelContent();
+    saveWorkspaceImmediate();
+    if (localVersionNoteEl) localVersionNoteEl.value = "";
+    await refreshVersionsUi(res.version?.id);
+
+    const origText = localSaveVersionBtn.innerText;
+    localSaveVersionBtn.innerText = res.created ? "✅ Saved" : "✓ Unchanged";
+    setTimeout(() => {
+      localSaveVersionBtn.innerText = origText;
+    }, 1500);
+  });
+}
+
+if (localRestoreVersionBtn) {
+  localRestoreVersionBtn.addEventListener("click", async () => {
+    const versionId = localVersionSelectEl ? localVersionSelectEl.value : "";
+    const target = localVersionsList.find((v) => v.id === versionId);
+    if (!target) return;
+
+    if (
+      editorEl.value !== target.content ||
+      modelNameInputEl.value !== (target.name || "")
+    ) {
+      await maybeCreateAutoVersion("Before restore", true);
+    }
+
+    isRestoringWorkspace = true;
+    try {
+      editorEl.value = target.content;
+      if (target.name !== undefined) {
+        modelNameInputEl.value = target.name;
+      }
+      currentEntryFile = target.entryFile || null;
+      currentEntryScadFile = null;
+    } finally {
+      isRestoringWorkspace = false;
+    }
+
+    await syncNamedLocalModelContent();
+    syncMdFilesUi(editorEl.value);
+    checkChanges();
+    saveWorkspaceImmediate();
+    await refreshVersionsUi(target.id);
+    if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+    compileAndRender(getEditorContent());
+  });
+}
+
+if (localDeleteVersionBtn) {
+  localDeleteVersionBtn.addEventListener("click", async () => {
+    const versionId = localVersionSelectEl ? localVersionSelectEl.value : "";
+    if (!versionId) return;
+    await deleteVersionSnapshot(versionId);
+    await refreshVersionsUi();
+  });
+}
+
+window.addEventListener("beforeunload", saveWorkspaceImmediate);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    saveWorkspaceImmediate();
+  }
+});
+
 function applyDerivedModelName(derivedName, forceOverride = false) {
   const currentVal = modelNameInputEl.value;
   const isUnsetOrAuto =
@@ -212,6 +678,7 @@ function applyDerivedModelName(derivedName, forceOverride = false) {
       modelNameInputEl.value = derivedName;
       autoDerivedModelName = derivedName;
       checkChanges();
+      saveWorkspaceImmediate();
     } else if (currentVal === autoDerivedModelName) {
       autoDerivedModelName = derivedName;
     }
@@ -219,6 +686,7 @@ function applyDerivedModelName(derivedName, forceOverride = false) {
     modelNameInputEl.value = "";
     autoDerivedModelName = null;
     checkChanges();
+    saveWorkspaceImmediate();
   }
 }
 
@@ -227,6 +695,7 @@ modelNameInputEl.addEventListener("input", () => {
     autoDerivedModelName = null;
   }
   checkChanges();
+  saveWorkspaceImmediate();
 });
 
 editorEl.addEventListener("paste", () => {
@@ -801,6 +1270,7 @@ entryFileSelect.addEventListener("change", (e) => {
   updateEntryFileSelectStyle(selectedFile);
   scrollEditorToMdFile(selectedFile);
   updateEditorHighlights();
+  saveWorkspaceImmediate();
 
   if (selectedFile.toLowerCase().endsWith(".scad")) {
     currentEntryScadFile = selectedFile;
@@ -865,9 +1335,11 @@ if (pasteMdFileBtn) {
         patchedFiles.push(targetFile);
       }
 
+      await maybeCreateAutoVersion("Before paste", true);
       editorEl.value = updatedMd;
       syncMdFilesUi(updatedMd);
       checkChanges();
+      saveWorkspaceImmediate();
 
       const focusFile = patchedFiles.includes(targetFile)
         ? targetFile
@@ -1084,6 +1556,7 @@ async function compileAndRender(scadCode) {
       const endTime = performance.now();
       renderTimeEl.innerText = `Rendered in ${((endTime - startTime) / 1000).toFixed(2)}s`;
     }
+    maybeCreateAutoVersion("Rendered");
   } catch (e) {
     console.error(e);
     if (renderTimeEl && !isGodotPlaying) {
@@ -1107,6 +1580,8 @@ let renderTimeout;
 editorEl.addEventListener("input", () => {
   syncMdFilesUi(editorEl.value);
   checkChanges();
+  saveWorkspaceImmediate();
+  scheduleAutoVersion();
   clearTimeout(renderTimeout);
   if (!autoRenderCb.checked || isGodotPlaying) {
     return;
@@ -1132,11 +1607,13 @@ loadScadBtn.onclick = () => {
     if (e.target.files && e.target.files.length > 0) {
       try {
         const text = await e.target.files[0].text();
+        await maybeCreateAutoVersion("Before file load", true);
         editorEl.value = text;
         if (backendSelectEl.value === "") {
           pendingForceNameOverride = true;
         }
         checkChanges();
+        saveWorkspaceImmediate();
         if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
         compileAndRender(text);
       } catch (err) {
@@ -2076,11 +2553,13 @@ window.addEventListener("drop", async (e) => {
     ) {
       try {
         const text = await file.text();
+        await maybeCreateAutoVersion("Before drop", true);
         editorEl.value = text;
         if (backendSelectEl.value === "") {
           pendingForceNameOverride = true;
         }
         checkChanges();
+        saveWorkspaceImmediate();
         if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
         compileAndRender(text);
       } catch (err) {
@@ -3115,8 +3594,10 @@ window.addEventListener("hashchange", async () => {
       const hash = window.location.hash.substring(1);
       const code = await decodeCode(hash);
       if (code !== null && editorEl.value !== code) {
+        await maybeCreateAutoVersion("Before link load", true);
         editorEl.value = code;
         checkChanges();
+        saveWorkspaceImmediate();
         if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
         compileAndRender(getEditorContent());
       }
@@ -3125,8 +3606,10 @@ window.addEventListener("hashchange", async () => {
     }
   } else {
     if (editorEl.value !== "") {
+      await maybeCreateAutoVersion("Before clear", true);
       editorEl.value = "";
       checkChanges();
+      saveWorkspaceImmediate();
       compileAndRender(getEditorContent());
     }
   }
@@ -3138,12 +3621,18 @@ window.addEventListener("hashchange", async () => {
     await connectToServer(url, true);
   }
 
+  await initLocalPersistence();
+
   if (window.location.hash && window.location.hash.length > 1) {
     try {
       const hash = window.location.hash.substring(1);
       const code = await decodeCode(hash);
       if (code) {
+        if (editorEl.value.trim() && editorEl.value !== code) {
+          await maybeCreateAutoVersion("Before shared link", true);
+        }
         editorEl.value = code;
+        saveWorkspaceImmediate();
       }
     } catch (e) {
       console.error("Failed to decode hash", e);

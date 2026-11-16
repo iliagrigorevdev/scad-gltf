@@ -192,6 +192,80 @@
             </div>
           </div>
 
+          <div class="panel-section" id="local-storage-section">
+            <div class="local-section-header">
+              <h2>Local Storage & Versions</h2>
+              <span id="local-save-status" class="local-save-status"
+                >Draft ready</span
+              >
+            </div>
+            <div class="controls-row">
+              <select id="local-model-select">
+                <option value="__draft__">-- Active Draft --</option>
+              </select>
+              <button
+                id="local-save-model-btn"
+                class="primary"
+                title="Save current content as a named local model in browser storage"
+              >
+                💾 Save Local
+              </button>
+              <button
+                id="local-new-model-btn"
+                title="Start a new empty draft (snapshots current content first)"
+              >
+                ➕ New
+              </button>
+              <button
+                id="local-delete-model-btn"
+                class="danger"
+                style="display: none"
+                title="Delete selected local model and its versions"
+              >
+                Delete
+              </button>
+            </div>
+            <div class="controls-row">
+              <input
+                type="text"
+                id="local-version-note"
+                placeholder="Version note (optional)"
+              />
+              <button
+                id="local-save-version-btn"
+                title="Save a manual version snapshot"
+              >
+                📌 Save Version
+              </button>
+            </div>
+            <div class="controls-row">
+              <select id="local-version-select">
+                <option value="">-- No saved versions --</option>
+              </select>
+              <button
+                id="local-restore-version-btn"
+                title="Restore selected version into the editor"
+                disabled
+              >
+                ↩ Restore
+              </button>
+              <button
+                id="local-delete-version-btn"
+                class="danger"
+                title="Delete selected version"
+                disabled
+              >
+                🗑
+              </button>
+            </div>
+            <div class="controls-row toggles">
+              <label
+                ><input type="checkbox" id="auto-version-cb" checked /> Auto
+                Save Versions</label
+              >
+            </div>
+          </div>
+
           <div class="panel-section">
             <h2>SCAD Serve Backend</h2>
             <div class="controls-row">
