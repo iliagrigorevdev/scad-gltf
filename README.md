@@ -2,6 +2,8 @@
 
 A powerful WebAssembly (WASM) build of a custom OpenSCAD fork that enables direct compilation of OpenSCAD (`.scad`) scripts to **glTF/GLB** formats natively in JavaScript (Node.js and Browser).
 
+[![Scadify on StartupScores](https://startupscores.com/badge/scadify.svg?style=shield&v=combo&theme=dark)](https://startupscores.com/open-source/scadify)
+
 Unlike standard OpenSCAD, this custom engine supports **Physically Based Rendering (PBR)** materials, **Hierarchical Node Animations**, **Skeletal Skinning & Mesh Deformation**, and **Texture Baking**, making it a perfect bridge between procedural CAD generation and modern 3D web rendering engines (like Three.js or Babylon.js).
 
 The C++ source code for this custom OpenSCAD version is included directly in this repository within the `openscad/` subfolder.
