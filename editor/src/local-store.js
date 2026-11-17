@@ -344,3 +344,18 @@ export async function migrateModelVersions(fromModelId, toModelId) {
     writeFallbackJson(FALLBACK_VERSIONS_KEY, all);
   }
 }
+
+export function formatVersionTimestamp(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  const time = d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  return `${day}.${month}.${year} ${time}`;
+}

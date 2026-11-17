@@ -26,24 +26,13 @@ import {
   getLocalModels,
   getLocalModel,
   getModelVersions,
+  formatVersionTimestamp,
 } from "./local-store.js";
 
 const CURRENT_EDITOR_VALUE = "__current__";
 const LATEST_SAVED_VALUE = "__saved__";
 
 const compiledGlbCache = new Map();
-
-function formatTimestamp(ts) {
-  if (!ts) return "";
-  const d = new Date(ts);
-  return d.toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
 
 async function compileContentToGlb(content, preferredScadPath, fetchDepsFn) {
   const { entryCode, extractedAdditionalFiles, targetScadPath } =
@@ -252,11 +241,7 @@ export async function openVersionCompareModal({
     for (const v of versions) {
       const kindTag = v.kind === "manual" ? "Manual" : "Auto";
       const notePart = v.label ? ` "${v.label}"` : "";
-      const timeStr = new Date(v.createdAt).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
+      const timeStr = formatVersionTimestamp(v.createdAt);
       items.push({
         value: v.id,
         label: `v${v.versionNumber} [${kindTag}]${notePart} • ${timeStr} (${v.lineCount}L)`,
@@ -485,7 +470,7 @@ export async function openVersionCompareModal({
       : 0;
     const byteLen = getUtf8ByteLength(snapshot.content || "");
     const timePart = snapshot.createdAt
-      ? ` • ${formatTimestamp(snapshot.createdAt)}`
+      ? ` • ${formatVersionTimestamp(snapshot.createdAt)}`
       : "";
     metaEl.textContent = `${lineCount}L • ${formatBytes(byteLen)}${timePart}`;
     restoreBtn.disabled =

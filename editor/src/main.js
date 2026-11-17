@@ -61,6 +61,7 @@ import {
   createVersionSnapshot,
   deleteVersionSnapshot,
   migrateModelVersions,
+  formatVersionTimestamp,
   DRAFT_MODEL_ID,
 } from "./local-store.js";
 import { openVersionCompareModal } from "./version-compare.js";
@@ -280,15 +281,6 @@ function getScadExportBaseName(code) {
     return active.baseName;
   }
   return stripModelExtension(getDownloadName()) || "model";
-}
-
-function formatVersionTimestamp(ts) {
-  const d = new Date(ts);
-  return d.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
 }
 
 function updateLocalSaveStatus(message, isSaved = true) {

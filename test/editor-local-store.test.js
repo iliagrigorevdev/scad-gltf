@@ -14,6 +14,7 @@ import {
   createVersionSnapshot,
   deleteVersionSnapshot,
   migrateModelVersions,
+  formatVersionTimestamp,
 } from "../editor/src/local-store.js";
 
 function installMemoryLocalStorage() {
@@ -313,4 +314,22 @@ test("local-store - Uses IndexedDB when available", async () => {
   } finally {
     delete globalThis.indexedDB;
   }
+});
+
+test("local-store - formatVersionTimestamp formats date as DD.MM.YYYY with time", () => {
+  assert.strictEqual(formatVersionTimestamp(null), "");
+  assert.strictEqual(formatVersionTimestamp(0), "");
+  assert.strictEqual(formatVersionTimestamp("invalid"), "");
+
+  const d = new Date(2026, 3, 5, 14, 5, 9);
+  const formatted = formatVersionTimestamp(d.getTime());
+  assert.ok(formatted.startsWith("05.04.2026 "));
+  assert.strictEqual(
+    formatted,
+    `05.04.2026 ${d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    })}`,
+  );
 });
