@@ -14,6 +14,9 @@ import {
   createVersionSnapshot,
   deleteVersionSnapshot,
   migrateModelVersions,
+  deriveModelNameFromContent,
+  findMatchingLocalModel,
+  upsertOpenedLocalModel,
   formatVersionTimestamp,
 } from "../editor/src/local-store.js";
 
@@ -332,4 +335,153 @@ test("local-store - formatVersionTimestamp formats date as DD.MM.YYYY with time"
       second: "2-digit",
     })}`,
   );
+});
+
+test("local-store - deriveModelNameFromContent extracts SCAD, Markdown, and Godot names", () => {
+  assert.strictEqual(
+    deriveModelNameFromContent("/* Model Name: Gold Ring */\ncube(1);"),
+    "Gold_Ring",
+  );
+  assert.strictEqual(deriveModelNameFromContent("cube(1);"), null);
+  assert.strictEqual(
+    deriveModelNameFromContent(
+      "### main.scad\n```openscad\n/* Model Name: Gear */\ncylinder(1);\n```",
+    ),
+    "Gear.md",
+  );
+  assert.strictEqual(
+    deriveModelNameFromContent(
+      "### mech_arm/part.scad\n```openscad\ncube(1);\n```",
+    ),
+    "mech_arm.md",
+  );
+  assert.strictEqual(
+    deriveModelNameFromContent(
+      "### space_sim/project.godot\n```ini\nconfig_version=5\n```",
+    ),
+    "space_sim.md",
+  );
+});
+
+test("local-store - findMatchingLocalModel matches by name, compatible extension, or content", () => {
+  const models = [
+    { id: "m1", name: "wheel.scad", content: "cylinder(r=5, h=2);" },
+    { id: "m2", name: "Robot_Arm", content: "cube([2, 2, 10]);" },
+    { id: "m3", name: "scene.md", content: "### scene.md\n```text\nhi\n```" },
+  ];
+
+  // Exact case-insensitive name match
+  assert.strictEqual(
+    findMatchingLocalModel(models, {
+      content: "cylinder(r=8, h=2);",
+      explicitName: "WHEEL.SCAD",
+    })?.id,
+    "m1",
+  );
+
+  // Compatible extensionless / .scad base-name match
+  assert.strictEqual(
+    findMatchingLocalModel(models, {
+      content: "cylinder(r=8, h=2);",
+      derivedName: "wheel",
+    })?.id,
+    "m1",
+  );
+  assert.strictEqual(
+    findMatchingLocalModel(models, {
+      content: "cube(1);",
+      explicitName: "robot_arm.scad",
+    })?.id,
+    "m2",
+  );
+
+  // Incompatible extension (.scad vs .md) does not collide
+  assert.strictEqual(
+    findMatchingLocalModel(models, {
+      content: "cube(1);",
+      explicitName: "wheel.md",
+    }),
+    null,
+  );
+
+  // Content fallback when no explicit filename is provided
+  assert.strictEqual(
+    findMatchingLocalModel(models, {
+      content: "cube([2, 2, 10]);",
+    })?.id,
+    "m2",
+  );
+
+  // Explicit new filename does not merge into another model by content
+  assert.strictEqual(
+    findMatchingLocalModel(models, {
+      content: "cube([2, 2, 10]);",
+      explicitName: "robot_arm_copy.scad",
+    }),
+    null,
+  );
+});
+
+test("local-store - upsertOpenedLocalModel loads into same or new local storage model with history", async () => {
+  installMemoryLocalStorage();
+  delete globalThis.indexedDB;
+
+  // 1. Unnamed shared model creates a new local storage model
+  const shared1 = await upsertOpenedLocalModel({
+    content: "cube(10);",
+    fallbackPrefix: "Shared Model",
+    versionLabel: "Shared link",
+  });
+  assert.strictEqual(shared1.isNew, true);
+  assert.strictEqual(shared1.model.name, "Shared Model");
+  assert.strictEqual((await getModelVersions(shared1.model.id)).length, 1);
+
+  // 2. Reopening identical unnamed shared model reuses the same local model
+  const shared1Again = await upsertOpenedLocalModel({
+    content: "cube(10);",
+    fallbackPrefix: "Shared Model",
+    versionLabel: "Shared link",
+  });
+  assert.strictEqual(shared1Again.isNew, false);
+  assert.strictEqual(shared1Again.model.id, shared1.model.id);
+
+  // 3. Opening a different unnamed shared model creates a distinct numbered model
+  const shared2 = await upsertOpenedLocalModel({
+    content: "sphere(5);",
+    fallbackPrefix: "Shared Model",
+    versionLabel: "Shared link",
+  });
+  assert.strictEqual(shared2.isNew, true);
+  assert.strictEqual(shared2.model.name, "Shared Model 2");
+
+  // 4. Opening a named local model (e.g. backend/file) creates a new entry
+  const local1 = await upsertOpenedLocalModel({
+    content: "cylinder(r=3, h=4);",
+    name: "axle.scad",
+    fallbackPrefix: "Local Model",
+    versionLabel: "Backend model",
+  });
+  assert.strictEqual(local1.isNew, true);
+  assert.strictEqual(local1.model.name, "axle.scad");
+
+  // 5. Reopening the same model with updated content preserves prior version and updates it
+  await new Promise((r) => setTimeout(r, 3));
+  const local1Updated = await upsertOpenedLocalModel({
+    content: "/* Model Name: axle */\ncylinder(r=5, h=8);",
+    fallbackPrefix: "Shared Model",
+    versionLabel: "Shared link",
+  });
+  assert.strictEqual(local1Updated.isNew, false);
+  assert.strictEqual(local1Updated.model.id, local1.model.id);
+  assert.strictEqual(
+    local1Updated.model.content,
+    "/* Model Name: axle */\ncylinder(r=5, h=8);",
+  );
+  const axleVersions = await getModelVersions(local1.model.id);
+  assert.strictEqual(axleVersions.length, 2);
+  assert.strictEqual(
+    axleVersions[0].content,
+    "/* Model Name: axle */\ncylinder(r=5, h=8);",
+  );
+  assert.strictEqual(axleVersions[1].content, "cylinder(r=3, h=4);");
 });

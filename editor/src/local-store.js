@@ -1,3 +1,12 @@
+import {
+  extractFilesFromMarkdown,
+  extractModelNameFromScad,
+} from "scad-gltf/utils";
+import {
+  extractRootFolderFromMarkdownFiles,
+  isMarkdownContent,
+  isScadFilePath,
+} from "./md-utils.js";
 import { hashString, getUtf8ByteLength } from "./diff-utils.js";
 
 const ACTIVE_WORKSPACE_KEY = "scadify_active_workspace_v1";
@@ -343,6 +352,228 @@ export async function migrateModelVersions(fromModelId, toModelId) {
     );
     writeFallbackJson(FALLBACK_VERSIONS_KEY, all);
   }
+}
+
+function normalizeModelBaseName(name) {
+  return String(name || "")
+    .trim()
+    .replace(/\.(md|scad)$/i, "")
+    .toLowerCase();
+}
+
+function getModelExtension(name) {
+  const match = String(name || "")
+    .trim()
+    .match(/\.(md|scad)$/i);
+  return match ? match[1].toLowerCase() : "";
+}
+
+export function deriveModelNameFromContent(content) {
+  if (typeof content !== "string" || !content.trim()) return null;
+
+  if (isMarkdownContent(content)) {
+    const files = extractFilesFromMarkdown(content);
+    const paths = Object.keys(files);
+
+    const projectGodotPaths = paths
+      .filter((p) => {
+        const norm = p.replace(/\\/g, "/");
+        return norm === "project.godot" || norm.endsWith("/project.godot");
+      })
+      .sort((a, b) => a.length - b.length);
+
+    if (projectGodotPaths.length > 0) {
+      const norm = projectGodotPaths[0].replace(/\\/g, "/");
+      const rootPrefix =
+        norm === "project.godot" ? "" : norm.slice(0, -"project.godot".length);
+      const projectName = rootPrefix
+        ? rootPrefix.replace(/\/$/, "").split("/").pop()
+        : "godot_project";
+      return `${projectName}.md`;
+    }
+
+    const scadFiles = paths.filter((f) => isScadFilePath(f));
+    const entryScad =
+      scadFiles.length > 0 ? files[scadFiles[0]] : files["main.scad"];
+    if (entryScad) {
+      const extracted = extractModelNameFromScad(entryScad);
+      if (extracted) {
+        return extracted.toLowerCase().endsWith(".md")
+          ? extracted
+          : `${extracted}.md`;
+      }
+    }
+
+    const rootFolder = extractRootFolderFromMarkdownFiles(files);
+    if (rootFolder) {
+      return `${rootFolder}.md`;
+    }
+    return null;
+  }
+
+  return extractModelNameFromScad(content);
+}
+
+export function findMatchingLocalModel(
+  models,
+  { content = "", explicitName = null, derivedName = null } = {},
+) {
+  if (!Array.isArray(models) || models.length === 0) return null;
+
+  const cleanExplicit =
+    typeof explicitName === "string" && explicitName.trim()
+      ? explicitName.trim()
+      : null;
+  const cleanDerived =
+    typeof derivedName === "string" && derivedName.trim()
+      ? derivedName.trim()
+      : null;
+  const targetName = cleanExplicit || cleanDerived;
+
+  if (targetName) {
+    const lowerTarget = targetName.toLowerCase();
+    const exactNameMatch = models.find(
+      (m) =>
+        String(m?.name || "")
+          .trim()
+          .toLowerCase() === lowerTarget,
+    );
+    if (exactNameMatch) return exactNameMatch;
+
+    const targetBase = normalizeModelBaseName(targetName);
+    const targetExt = getModelExtension(targetName);
+    if (targetBase) {
+      const baseMatch = models.find((m) => {
+        const mName = String(m?.name || "").trim();
+        if (!mName) return false;
+        if (normalizeModelBaseName(mName) !== targetBase) return false;
+        const mExt = getModelExtension(mName);
+        return mExt === targetExt || mExt === "" || targetExt === "";
+      });
+      if (baseMatch) return baseMatch;
+    }
+  }
+
+  if (!cleanExplicit) {
+    const normalizedContent = String(content ?? "");
+    const contentMatch = models.find(
+      (m) => m && m.content === normalizedContent,
+    );
+    if (contentMatch) return contentMatch;
+  }
+
+  return null;
+}
+
+export function generateUniqueModelName(
+  existingModels,
+  baseName = "Shared Model",
+) {
+  const existingLower = new Set(
+    (existingModels || []).map((m) =>
+      String(m?.name || "")
+        .trim()
+        .toLowerCase(),
+    ),
+  );
+  if (!existingLower.has(baseName.toLowerCase())) {
+    return baseName;
+  }
+  let idx = 2;
+  while (existingLower.has(`${baseName} ${idx}`.toLowerCase())) {
+    idx++;
+  }
+  return `${baseName} ${idx}`;
+}
+
+export async function upsertOpenedLocalModel({
+  content = "",
+  name = null,
+  entryFile = null,
+  fallbackPrefix = "Shared Model",
+  versionLabel = "Opened",
+} = {}) {
+  const normalizedContent = String(content ?? "");
+  const cleanExplicit =
+    typeof name === "string" && name.trim() ? name.trim() : null;
+  const derivedName = deriveModelNameFromContent(normalizedContent);
+
+  const models = await getLocalModels();
+  const match = findMatchingLocalModel(models, {
+    content: normalizedContent,
+    explicitName: cleanExplicit,
+    derivedName,
+  });
+
+  if (match) {
+    const contentChanged = match.content !== normalizedContent;
+    if (contentChanged && String(match.content || "").trim()) {
+      await createVersionSnapshot({
+        modelId: match.id,
+        content: match.content,
+        name: match.name,
+        entryFile: match.entryFile || null,
+        kind: "auto",
+        label: `Before ${versionLabel}`,
+      });
+    }
+
+    const saved = await saveLocalModel({
+      id: match.id,
+      name: match.name || cleanExplicit || derivedName || fallbackPrefix,
+      content: normalizedContent,
+      entryFile: entryFile !== null ? entryFile : match.entryFile || null,
+    });
+
+    let versionRes = { created: false, version: null };
+    if (normalizedContent.trim()) {
+      versionRes = await createVersionSnapshot({
+        modelId: saved.id,
+        content: normalizedContent,
+        name: saved.name,
+        entryFile: saved.entryFile,
+        kind: "auto",
+        label: versionLabel,
+      });
+    }
+
+    return {
+      model: saved,
+      isNew: false,
+      contentChanged,
+      version: versionRes.version,
+    };
+  }
+
+  const targetName =
+    cleanExplicit ||
+    derivedName ||
+    generateUniqueModelName(models, fallbackPrefix);
+
+  const saved = await saveLocalModel({
+    name: targetName,
+    content: normalizedContent,
+    entryFile: entryFile || null,
+  });
+
+  let versionRes = { created: false, version: null };
+  if (normalizedContent.trim()) {
+    versionRes = await createVersionSnapshot({
+      modelId: saved.id,
+      content: normalizedContent,
+      name: saved.name,
+      entryFile: saved.entryFile,
+      kind: "auto",
+      label: versionLabel,
+    });
+  }
+
+  return {
+    model: saved,
+    isNew: true,
+    contentChanged: true,
+    version: versionRes.version,
+  };
 }
 
 export function formatVersionTimestamp(ts) {

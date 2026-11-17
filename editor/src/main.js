@@ -61,6 +61,7 @@ import {
   createVersionSnapshot,
   deleteVersionSnapshot,
   migrateModelVersions,
+  upsertOpenedLocalModel,
   formatVersionTimestamp,
   DRAFT_MODEL_ID,
 } from "./local-store.js";
@@ -453,6 +454,87 @@ async function initLocalPersistence() {
 
   await refreshLocalModelsUi();
   await refreshVersionsUi();
+}
+
+async function persistCurrentActiveModel(snapshotLabel = "Before switch") {
+  if (isRestoringWorkspace) return;
+  if (editorEl.value.trim()) {
+    await maybeCreateAutoVersion(snapshotLabel, true);
+  }
+  if (activeLocalModelId === DRAFT_MODEL_ID) {
+    await saveLocalModel({
+      id: DRAFT_MODEL_ID,
+      name: modelNameInputEl.value,
+      content: editorEl.value,
+      entryFile: currentEntryFile,
+    });
+  } else {
+    await syncNamedLocalModelContent();
+  }
+}
+
+async function openModelInLocalStore({
+  content = "",
+  name = null,
+  entryFile = null,
+  fallbackPrefix = "Shared Model",
+  versionLabel = "Opened",
+} = {}) {
+  const normalizedContent = String(content ?? "");
+  if (editorEl.value !== normalizedContent && editorEl.value.trim()) {
+    await persistCurrentActiveModel(`Before ${versionLabel}`);
+  } else if (activeLocalModelId === DRAFT_MODEL_ID) {
+    await saveLocalModel({
+      id: DRAFT_MODEL_ID,
+      name: modelNameInputEl.value,
+      content: editorEl.value,
+      entryFile: currentEntryFile,
+    });
+  } else {
+    await syncNamedLocalModelContent();
+  }
+
+  const result = await upsertOpenedLocalModel({
+    content: normalizedContent,
+    name,
+    entryFile,
+    fallbackPrefix,
+    versionLabel,
+  });
+
+  isRestoringWorkspace = true;
+  try {
+    activeLocalModelId = result.model.id;
+    autoDerivedModelName = null;
+    pendingForceNameOverride = false;
+    editorEl.value = result.model.content;
+    modelNameInputEl.value = result.model.name;
+    currentEntryFile = result.model.entryFile || null;
+    currentEntryScadFile = null;
+  } finally {
+    isRestoringWorkspace = false;
+  }
+
+  syncMdFilesUi(editorEl.value);
+  if (currentEntryFile !== (result.model.entryFile || null)) {
+    await saveLocalModel({
+      id: result.model.id,
+      name: result.model.name,
+      content: result.model.content,
+      entryFile: currentEntryFile,
+    });
+  }
+
+  saveWorkspaceImmediate();
+  await refreshLocalModelsUi();
+  await refreshVersionsUi(result.version?.id || null);
+  updateLocalSaveStatus(
+    result.isNew
+      ? `Saved to new local model • ${formatVersionTimestamp(Date.now())}`
+      : `Loaded local model • ${formatVersionTimestamp(Date.now())}`,
+    true,
+  );
+  return result;
 }
 
 if (localModelSelectEl) {
@@ -1401,16 +1483,17 @@ loadScadBtn.onclick = () => {
   input.onchange = async (e) => {
     if (e.target.files && e.target.files.length > 0) {
       try {
-        const text = await e.target.files[0].text();
-        await maybeCreateAutoVersion("Before file load", true);
-        editorEl.value = text;
-        if (backendSelectEl.value === "") {
-          pendingForceNameOverride = true;
-        }
+        const file = e.target.files[0];
+        const text = await file.text();
+        await openModelInLocalStore({
+          content: text,
+          name: file.name,
+          fallbackPrefix: "Local Model",
+          versionLabel: "Loaded file",
+        });
         checkChanges();
-        saveWorkspaceImmediate();
         if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
-        compileAndRender(text);
+        compileAndRender(getEditorContent());
       } catch (err) {
         alert("Failed to read file: " + err.message);
       }
@@ -2154,15 +2237,15 @@ window.addEventListener("drop", async (e) => {
     ) {
       try {
         const text = await file.text();
-        await maybeCreateAutoVersion("Before drop", true);
-        editorEl.value = text;
-        if (backendSelectEl.value === "") {
-          pendingForceNameOverride = true;
-        }
+        await openModelInLocalStore({
+          content: text,
+          name: file.name,
+          fallbackPrefix: "Local Model",
+          versionLabel: "Dropped file",
+        });
         checkChanges();
-        saveWorkspaceImmediate();
         if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
-        compileAndRender(text);
+        compileAndRender(getEditorContent());
       } catch (err) {
         alert("Failed to read file: " + err.message);
       }
@@ -2314,8 +2397,28 @@ backendSelectEl.addEventListener("change", async () => {
   pendingForceNameOverride = false;
 
   if (idx === "") {
-    modelNameInputEl.value = "";
-    editorEl.value = "";
+    await persistCurrentActiveModel("Before new model");
+    isRestoringWorkspace = true;
+    try {
+      activeLocalModelId = DRAFT_MODEL_ID;
+      modelNameInputEl.value = "";
+      editorEl.value = "";
+      currentEntryFile = null;
+      currentEntryScadFile = null;
+    } finally {
+      isRestoringWorkspace = false;
+    }
+    await saveLocalModel({
+      id: DRAFT_MODEL_ID,
+      name: "",
+      content: "",
+      entryFile: null,
+    });
+    syncMdFilesUi("");
+    saveWorkspaceImmediate();
+    await refreshLocalModelsUi();
+    await refreshVersionsUi();
+    if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
     compileAndRender(getEditorContent());
 
     currentModelOriginalState = {
@@ -2325,7 +2428,6 @@ backendSelectEl.addEventListener("change", async () => {
     checkChanges();
   } else {
     const filename = serverFiles[idx];
-    modelNameInputEl.value = filename;
 
     try {
       const res = await fetch(
@@ -2336,7 +2438,12 @@ backendSelectEl.addEventListener("change", async () => {
         throw new Error(errData.error || "Failed to load model");
       }
       const data = await res.json();
-      editorEl.value = data.content;
+      await openModelInLocalStore({
+        content: data.content,
+        name: filename,
+        fallbackPrefix: "Local Model",
+        versionLabel: "Backend model",
+      });
       if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
       compileAndRender(getEditorContent());
 
@@ -2803,11 +2910,13 @@ window.addEventListener("hashchange", async () => {
     try {
       const hash = window.location.hash.substring(1);
       const code = await decodeCode(hash);
-      if (code !== null && editorEl.value !== code) {
-        await maybeCreateAutoVersion("Before link load", true);
-        editorEl.value = code;
+      if (code !== null) {
+        await openModelInLocalStore({
+          content: code,
+          fallbackPrefix: "Shared Model",
+          versionLabel: "Shared link",
+        });
         checkChanges();
-        saveWorkspaceImmediate();
         if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
         compileAndRender(getEditorContent());
       }
@@ -2816,10 +2925,28 @@ window.addEventListener("hashchange", async () => {
     }
   } else {
     if (editorEl.value !== "") {
-      await maybeCreateAutoVersion("Before clear", true);
-      editorEl.value = "";
+      await persistCurrentActiveModel("Before clear");
+      isRestoringWorkspace = true;
+      try {
+        activeLocalModelId = DRAFT_MODEL_ID;
+        modelNameInputEl.value = "";
+        editorEl.value = "";
+        currentEntryFile = null;
+        currentEntryScadFile = null;
+      } finally {
+        isRestoringWorkspace = false;
+      }
+      await saveLocalModel({
+        id: DRAFT_MODEL_ID,
+        name: "",
+        content: "",
+        entryFile: null,
+      });
+      syncMdFilesUi("");
       checkChanges();
       saveWorkspaceImmediate();
+      await refreshLocalModelsUi();
+      await refreshVersionsUi();
       compileAndRender(getEditorContent());
     }
   }
@@ -2838,11 +2965,11 @@ window.addEventListener("hashchange", async () => {
       const hash = window.location.hash.substring(1);
       const code = await decodeCode(hash);
       if (code) {
-        if (editorEl.value.trim() && editorEl.value !== code) {
-          await maybeCreateAutoVersion("Before shared link", true);
-        }
-        editorEl.value = code;
-        saveWorkspaceImmediate();
+        await openModelInLocalStore({
+          content: code,
+          fallbackPrefix: "Shared Model",
+          versionLabel: "Shared link",
+        });
       }
     } catch (e) {
       console.error("Failed to decode hash", e);
