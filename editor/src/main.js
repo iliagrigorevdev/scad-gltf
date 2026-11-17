@@ -1653,11 +1653,12 @@ shareBtn.onclick = async () => {
   shareBtn.innerText = "⏳ Preparing...";
   shareBtn.disabled = true;
 
+  let finalUrl = "";
+
   try {
     const rawCode = editorEl.value;
     const shouldMinify = Boolean(minifyShareCb && minifyShareCb.checked);
     const url = new URL(window.location.href);
-    let finalUrl = "";
 
     if (!rawCode.trim()) {
       finalUrl = url.origin + url.pathname + url.search;
@@ -1790,9 +1791,6 @@ shareBtn.onclick = async () => {
       finalUrl = url.toString();
     }
 
-    // Update History visually
-    window.history.replaceState(null, "", finalUrl);
-
     // 6. Trigger native Share or Clipboard
     if (navigator.share) {
       let rawName = modelNameInputEl.value.trim();
@@ -1815,7 +1813,7 @@ shareBtn.onclick = async () => {
   } catch (err) {
     if (err.name !== "AbortError") {
       try {
-        await navigator.clipboard.writeText(window.location.href);
+        await navigator.clipboard.writeText(finalUrl || window.location.href);
         shareBtn.innerText = "✅ Copied Link!";
       } catch (fallbackErr) {
         alert("Failed to share or copy link.");
@@ -2905,6 +2903,15 @@ const isLocal = ["localhost", "127.0.0.1", ""].includes(
 );
 editorEl.placeholder = "Enter OpenSCAD code here...";
 
+function consumeUrlHash() {
+  if (!window.location.hash) return;
+  window.history.replaceState(
+    null,
+    "",
+    window.location.pathname + window.location.search,
+  );
+}
+
 window.addEventListener("hashchange", async () => {
   if (window.location.hash && window.location.hash.length > 1) {
     try {
@@ -2916,6 +2923,7 @@ window.addEventListener("hashchange", async () => {
           fallbackPrefix: "Shared Model",
           versionLabel: "Shared link",
         });
+        consumeUrlHash();
         checkChanges();
         if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
         compileAndRender(getEditorContent());
@@ -2970,6 +2978,7 @@ window.addEventListener("hashchange", async () => {
           fallbackPrefix: "Shared Model",
           versionLabel: "Shared link",
         });
+        consumeUrlHash();
       }
     } catch (e) {
       console.error("Failed to decode hash", e);
