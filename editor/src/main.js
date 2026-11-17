@@ -1579,11 +1579,12 @@ shareBtn.onclick = async () => {
   shareBtn.disabled = true;
 
   try {
-    let mainCode = editorEl.value.trim();
+    const rawCode = editorEl.value;
+    const shouldMinify = Boolean(minifyShareCb && minifyShareCb.checked);
     const url = new URL(window.location.href);
     let finalUrl = "";
 
-    if (!mainCode) {
+    if (!rawCode.trim()) {
       finalUrl = url.origin + url.pathname + url.search;
     } else {
       // 1. Minifier helper (strips comments and whitespace safely)
@@ -1629,6 +1630,8 @@ shareBtn.onclick = async () => {
         return minified.trim();
       };
 
+      const mainCode = shouldMinify ? rawCode.trim() : rawCode;
+
       // 2. Parse current editor content to see if it's already a bundle
       let filesToShare = {};
       const isMd = isMarkdownContent(mainCode);
@@ -1649,60 +1652,60 @@ shareBtn.onclick = async () => {
       // 3. Auto-fetch all dependencies automatically (if connected to local backend)
       let allCode = Object.values(filesToShare).join("\n");
       const additionalFiles = await fetchDependenciesWrapper(allCode);
-
-      // Merge fetched files into our sharing bundle
-      for (const [depPath, depContent] of Object.entries(additionalFiles)) {
-        if (!filesToShare[depPath]) {
-          filesToShare[depPath] = depContent;
-        }
-      }
+      const addedDeps = Object.entries(additionalFiles).filter(
+        ([depPath]) => !filesToShare[depPath],
+      );
 
       // 4. Build the final string to encode
       let finalCodeToEncode = "";
-      const fileNames = Object.keys(filesToShare);
-      const shouldBundle = fileNames.length > 1;
 
-      if (shouldBundle) {
-        // EXPLICIT SORTING LOGIC: Guarantee the primary file is at the top
-        let primaryFile = currentEntryScadFile || currentEntryFile;
-
-        // If currentEntryFile isn't set, try to use the input name
-        if (!primaryFile) {
-          primaryFile = modelNameInputEl.value.trim();
-          if (
-            primaryFile &&
-            !primaryFile.toLowerCase().endsWith(".scad") &&
-            !primaryFile.toLowerCase().endsWith(".md")
-          ) {
-            primaryFile += ".scad";
+      if (!shouldMinify) {
+        if (addedDeps.length === 0) {
+          finalCodeToEncode = rawCode;
+        } else if (isMd) {
+          let extraBlocks = "";
+          for (const [depPath, depContent] of addedDeps) {
+            const lang = getMarkdownLangFromPath(depPath);
+            extraBlocks += `### ${depPath}\n\`\`\`${lang}\n${depContent}\n\`\`\`\n\n`;
           }
-        }
-
-        // Fallback to the first file found if it doesn't match
-        if (!primaryFile || !filesToShare[primaryFile]) {
-          primaryFile = fileNames[0];
-        }
-
-        // Create a sorted array with the primary file first
-        const sortedFileNames = [
-          primaryFile,
-          ...fileNames.filter((f) => f !== primaryFile),
-        ];
-
-        // Build Markdown project bundle in exact order
-        for (const fName of sortedFileNames) {
-          let processedContent = filesToShare[fName];
-          const lang = getMarkdownLangFromPath(fName);
-          if (lang === "openscad" && minifyShareCb && minifyShareCb.checked) {
-            processedContent = minifyScad(processedContent);
+          const sep = rawCode.endsWith("\n\n")
+            ? ""
+            : rawCode.endsWith("\n")
+              ? "\n"
+              : "\n\n";
+          finalCodeToEncode = rawCode + sep + extraBlocks;
+        } else {
+          const mainName = Object.keys(filesToShare)[0];
+          const mainLang = getMarkdownLangFromPath(mainName);
+          finalCodeToEncode = `### ${mainName}\n\`\`\`${mainLang}\n${rawCode}\n\`\`\`\n\n`;
+          for (const [depPath, depContent] of addedDeps) {
+            const lang = getMarkdownLangFromPath(depPath);
+            finalCodeToEncode += `### ${depPath}\n\`\`\`${lang}\n${depContent}\n\`\`\`\n\n`;
           }
-          finalCodeToEncode += `### ${fName}\n\`\`\`${lang}\n${processedContent}\n\`\`\`\n\n`;
         }
       } else {
-        // Just a single pure SCAD file
-        finalCodeToEncode = filesToShare[fileNames[0]];
-        if (minifyShareCb && minifyShareCb.checked) {
-          finalCodeToEncode = minifyScad(finalCodeToEncode);
+        // Merge fetched files into our sharing bundle without reordering
+        for (const [depPath, depContent] of addedDeps) {
+          filesToShare[depPath] = depContent;
+        }
+
+        const fileNames = Object.keys(filesToShare);
+        const shouldBundle = fileNames.length > 1;
+
+        if (shouldBundle) {
+          for (const fName of fileNames) {
+            let processedContent = filesToShare[fName];
+            const lang = getMarkdownLangFromPath(fName);
+            if (lang === "openscad") {
+              processedContent = minifyScad(processedContent);
+            }
+            finalCodeToEncode += `### ${fName}\n\`\`\`${lang}\n${processedContent}\n\`\`\`\n\n`;
+          }
+        } else if (fileNames.length === 1) {
+          // Just a single pure SCAD file
+          finalCodeToEncode = minifyScad(filesToShare[fileNames[0]]);
+        } else {
+          finalCodeToEncode = minifyScad(mainCode);
         }
       }
 
