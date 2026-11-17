@@ -91,8 +91,8 @@ const shareBtn = document.getElementById("share-btn");
 const autoRenderCb = document.getElementById("auto-render-cb");
 const minifyShareCb = document.getElementById("minify-share-cb");
 
+const appContainer = document.getElementById("app-container");
 const viewerEl = document.getElementById("viewer");
-const rightPanel = document.getElementById("right-panel");
 const renderTimeEl = document.getElementById("render-time");
 
 const backendUrlEl = document.getElementById("backend-url");
@@ -134,7 +134,8 @@ const showGridCb = document.getElementById("show-grid-cb");
 const wireframeCb = document.getElementById("wireframe-cb");
 const bloomCb = document.getElementById("bloom-cb");
 const lightsCb = document.getElementById("lights-cb");
-const fullscreenBtn = document.getElementById("fullscreen-btn");
+const expandBtn = document.getElementById("expand-btn");
+const exitExpandBtn = document.getElementById("exit-expand-btn");
 const screenshotBtn = document.getElementById("screenshot-btn");
 const cameraSelect = document.getElementById("camera-select");
 
@@ -150,7 +151,7 @@ const godotRestartBtn = document.getElementById("godot-restart-btn");
 const godotStopBtn = document.getElementById("godot-stop-btn");
 const godotLogsBtn = document.getElementById("godot-logs-btn");
 const godotScreenshotBtn = document.getElementById("godot-screenshot-btn");
-const godotFullscreenBtn = document.getElementById("godot-fullscreen-btn");
+const godotExpandBtn = document.getElementById("godot-expand-btn");
 const godotLogsDrawer = document.getElementById("godot-logs-drawer");
 const godotLogsOutput = document.getElementById("godot-logs-output");
 const godotLogsCopyBtn = document.getElementById("godot-logs-copy-btn");
@@ -2081,17 +2082,32 @@ if (godotScreenshotBtn) {
     }
   };
 }
-if (godotFullscreenBtn && rightPanel) {
-  godotFullscreenBtn.onclick = () => {
-    if (!document.fullscreenElement) {
-      rightPanel.requestFullscreen().catch((err) => {
-        console.warn(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen();
-    }
-  };
+let isExpandedMode = false;
+
+function setExpandedMode(expanded) {
+  isExpandedMode = Boolean(expanded);
+  if (appContainer) {
+    appContainer.classList.toggle("expanded", isExpandedMode);
+  }
+  requestAnimationFrame(() => {
+    window.dispatchEvent(new Event("resize"));
+  });
 }
+
+if (expandBtn) {
+  expandBtn.addEventListener("click", () => setExpandedMode(true));
+}
+if (godotExpandBtn) {
+  godotExpandBtn.addEventListener("click", () => setExpandedMode(true));
+}
+if (exitExpandBtn) {
+  exitExpandBtn.addEventListener("click", () => setExpandedMode(false));
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && isExpandedMode) {
+    setExpandedMode(false);
+  }
+});
 
 // --- Drag and Drop SCAD / HDR ---
 const dragOverlay = document.getElementById("drag-overlay");
@@ -2542,8 +2558,6 @@ bindViewerControls({
   wireframeCb,
   bloomCb,
   lightsCb,
-  fullscreenBtn,
-  fullscreenTarget: rightPanel,
   screenshotBtn,
   cameraSelect,
   onWireframeChange: (isWireframe, isBloom) => {

@@ -614,7 +614,7 @@ input[type="range"]::-webkit-slider-thumb {
   user-select: none;
   margin: 0;
 }
-#fullscreen-btn,
+#expand-btn,
 #screenshot-btn {
   background: transparent;
   border: none;
@@ -626,16 +626,70 @@ input[type="range"]::-webkit-slider-thumb {
   align-items: center;
   justify-content: center;
 }
-#fullscreen-btn {
+#expand-btn {
   padding: 0 4px;
 }
 #screenshot-btn {
   padding: 0 4px 5px;
 }
-#fullscreen-btn:hover,
+#expand-btn:hover,
 #screenshot-btn:hover {
   color: #00aaff;
   background: transparent;
+}
+
+#exit-expand-btn {
+  display: none;
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 30;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 16px;
+  line-height: 1;
+  opacity: 0.65;
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+  transition:
+    opacity 0.2s,
+    background 0.2s,
+    color 0.2s,
+    border-color 0.2s;
+}
+
+#exit-expand-btn:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+#app-container.expanded #left-panel {
+  display: none;
+}
+
+#app-container.expanded #right-panel {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+
+#app-container.expanded #viewer-controls,
+#app-container.expanded #godot-controls,
+#app-container.expanded #godot-logs-drawer {
+  display: none !important;
+}
+
+#app-container.expanded #exit-expand-btn {
+  display: flex;
 }
 
 #drag-overlay {

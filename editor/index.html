@@ -328,6 +328,7 @@
 
       <!-- Right / Bottom Half: Viewer -->
       <div id="right-panel">
+        <button id="exit-expand-btn" title="Exit Expanded Mode">✕</button>
         <div id="viewer-controls">
           <label
             ><input type="checkbox" id="show-grid-cb" checked /> Grid</label
@@ -338,7 +339,7 @@
             ><input type="checkbox" id="lights-cb" checked /> Lights</label
           >
           <button id="screenshot-btn" title="Capture Image">📷</button>
-          <button id="fullscreen-btn" title="Toggle Full Screen">⛶</button>
+          <button id="expand-btn" title="Expand Viewer">⛶</button>
         </div>
         <div id="viewer"></div>
         <div id="render-time" class="render-time-overlay"></div>
@@ -356,9 +357,7 @@
               📋 Logs
             </button>
             <button id="godot-screenshot-btn" title="Capture Image">📷</button>
-            <button id="godot-fullscreen-btn" title="Toggle Full Screen">
-              ⛶
-            </button>
+            <button id="godot-expand-btn" title="Expand Godot Player">⛶</button>
           </div>
           <div id="godot-viewport"></div>
           <div id="godot-status-overlay" style="display: none"></div>
