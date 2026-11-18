@@ -92,6 +92,7 @@ const captureImageBtn = document.getElementById("capture-image-btn");
 const shareBtn = document.getElementById("share-btn");
 const autoRenderCb = document.getElementById("auto-render-cb");
 const minifyShareCb = document.getElementById("minify-share-cb");
+const embedShareCb = document.getElementById("embed-share-cb");
 
 const appContainer = document.getElementById("app-container");
 const viewerEl = document.getElementById("viewer");
@@ -1311,6 +1312,11 @@ async function compileAndRender(scadCode) {
     );
     pendingForceNameOverride = false;
 
+    if (isEmbedMode && !isGodotPlaying) {
+      launchGodotProject(godotProject);
+      return;
+    }
+
     if (isGodotPlaying) {
       return;
     }
@@ -1658,7 +1664,14 @@ shareBtn.onclick = async () => {
   try {
     const rawCode = editorEl.value;
     const shouldMinify = Boolean(minifyShareCb && minifyShareCb.checked);
+    const shouldEmbed = Boolean(embedShareCb && embedShareCb.checked);
     const url = new URL(window.location.href);
+
+    if (shouldEmbed) {
+      url.searchParams.set("embed", "1");
+    } else {
+      url.searchParams.delete("embed");
+    }
 
     if (!rawCode.trim()) {
       finalUrl = url.origin + url.pathname + url.search;
@@ -2159,11 +2172,29 @@ if (godotScreenshotBtn) {
   };
 }
 let isExpandedMode = false;
+let isEmbedMode = false;
+
+function hasEmbedParam() {
+  const params = new URLSearchParams(window.location.search);
+  const val = params.get("embed");
+  return val === "1" || val === "true";
+}
 
 function setExpandedMode(expanded) {
   isExpandedMode = Boolean(expanded);
   if (appContainer) {
     appContainer.classList.toggle("expanded", isExpandedMode);
+  }
+  requestAnimationFrame(() => {
+    window.dispatchEvent(new Event("resize"));
+  });
+}
+
+function setEmbedMode(enabled) {
+  isEmbedMode = Boolean(enabled);
+  document.documentElement.classList.toggle("embed-mode", isEmbedMode);
+  if (appContainer) {
+    appContainer.classList.toggle("embed-mode", isEmbedMode);
   }
   requestAnimationFrame(() => {
     window.dispatchEvent(new Event("resize"));
@@ -2180,7 +2211,7 @@ if (exitExpandBtn) {
   exitExpandBtn.addEventListener("click", () => setExpandedMode(false));
 }
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && isExpandedMode) {
+  if (e.key === "Escape" && isExpandedMode && !isEmbedMode) {
     setExpandedMode(false);
   }
 });
@@ -2918,6 +2949,9 @@ window.addEventListener("hashchange", async () => {
       const hash = window.location.hash.substring(1);
       const code = await decodeCode(hash);
       if (code !== null) {
+        if (hasEmbedParam()) {
+          setEmbedMode(true);
+        }
         await openModelInLocalStore({
           content: code,
           fallbackPrefix: "Shared Model",
@@ -2961,6 +2995,10 @@ window.addEventListener("hashchange", async () => {
 });
 
 (async function init() {
+  if (hasEmbedParam()) {
+    setEmbedMode(true);
+  }
+
   if (isLocal) {
     const url = backendUrlEl.value.trim();
     await connectToServer(url, true);
@@ -2987,6 +3025,14 @@ window.addEventListener("hashchange", async () => {
 
   checkChanges();
   syncMdFilesUi(editorEl.value);
+
+  if (isEmbedMode) {
+    const godotProject = parseGodotMarkdownProject(getEditorContent());
+    if (godotProject) {
+      launchGodotProject(godotProject);
+      return;
+    }
+  }
 
   startScadViewerLoop();
   setTimeout(() => compileAndRender(getEditorContent()), 500);

@@ -44,6 +44,14 @@
       content="https://iliagrigorevdev.github.io/scad-gltf/icon.png"
     />
 
+    <script>
+      (function () {
+        var v = new URLSearchParams(window.location.search).get("embed");
+        if (v === "1" || v === "true") {
+          document.documentElement.classList.add("embed-mode");
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
@@ -162,6 +170,11 @@
               >
               <label
                 ><input type="checkbox" id="minify-share-cb" /> Minify
+                Share</label
+              >
+              <label
+                title="Share a chromeless viewer/player link without UI controls (auto-starts Godot projects)"
+                ><input type="checkbox" id="embed-share-cb" /> Embed
                 Share</label
               >
             </div>
