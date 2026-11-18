@@ -56,6 +56,41 @@ The built-in web editor (**Scadify**) provides a full-featured development envir
 - **Local Workspace Sync:** Connect to `scad-gltf serve` on localhost to load, edit, save, and delete `.scad` and `.md` files with change detection and recursive dependency resolution (`include` / `use`).
 - **PWA Support:** Installable as a Progressive Web App for desktop and mobile.
 
+### Workflow: Generating & Refining Godot 4 Projects (Scadify + AI Studio)
+
+Scadify supports an end-to-end browser workflow for generating, running, patching, and sharing single-file `.md` Godot 4 projects with Google AI Studio:
+
+1. **Generate the Godot 4 Prompt in Scadify:**
+   - Open Scadify and switch to the **AI Prompt Generator** tab.
+   - Set **Profile** to **Godot 4 Project** (optionally adjust feature toggles like PBR, Animations, or Baking, or click **↺ Reset** to restore profile defaults).
+   - Enter a description of your game or 3D scene in the description box.
+   - Click **📋 Copy Prompt to Clipboard** to copy the full prompt (including OpenSCAD PBR/animation syntax rules, Godot 4 coordinate and GDScript conventions, and the bundled `addons/scad_importer/*` files).
+
+2. **Paste the Prompt in Google AI Studio & Copy the Generated `.md` Output:**
+   - Open [Google AI Studio](https://aistudio.google.com/), paste the prompt into the chat input, and run the model.
+   - When the model finishes generating the single-file Markdown response (formatted with `### <project_name>/...` headers and fenced code blocks), copy the generated Markdown content to your clipboard. _(Make sure to copy the raw Markdown output so `### filepath` headers and ` ``` ` code fences are preserved.)_
+
+3. **Paste the `.md` Project into Scadify:**
+   - Switch back to the **SCAD Editor** tab in Scadify.
+   - Paste the copied Markdown content directly into the main editor area (`Ctrl+V` / `Cmd+V`, or `Ctrl+A` / `Cmd+A` first if replacing existing text).
+   - Once `project.godot` is detected inside the Markdown bundle, Scadify automatically derives the project name in the **Name** field, highlights each file block, populates the file selector dropdown (**SCAD Models** and **Other Files**), and enables the Godot toolbar buttons.
+   - Select any `.scad` file in the dropdown (or click inside its block) to preview its 3D model, or click **🎮 Play Godot** to compile all `.scad` assets to `.glb`, pack an in-memory `.pck`, and run the project directly in the browser.
+
+4. **Refine the Godot Project in AI Studio & Apply Changes in Scadify:**
+   - Prompt follow-up changes or bug fixes in Google AI Studio. _(Tip: While testing in Scadify, you can open **📋 Logs** and click **Copy** to share Godot runtime errors, click **📷** to capture a screenshot, or select a specific file in Scadify's file dropdown and click **📋 Copy** to share just that file.)_
+   - Copy the AI's updated Markdown response to your clipboard, then apply it in Scadify based on what was generated:
+     - **Full Project Regenerated:** If AI Studio returned the entire project again, select all text in the Scadify editor (`Ctrl+A` / `Cmd+A`) and paste (`Ctrl+V` / `Cmd+V`) to replace the whole `.md` document.
+     - **Changed / New Files Only (Patch):** If AI Studio returned only the modified or newly added `### filepath` blocks (or a single raw file's code), **do not overwrite the whole editor**. Instead, click the **📥 Paste** button next to the file selector dropdown:
+       - When the clipboard contains `### filepath` Markdown blocks, **📥 Paste** parses every file block and patches each matching file in-place (appending any newly created files to the `.md` bundle).
+       - When the clipboard contains raw file code without `### filepath` headers, **📥 Paste** replaces only the currently selected file in the dropdown.
+       - Scadify automatically saves a `"Before paste"` snapshot in **Local Storage & Versions** before patching (use **🔍 Compare** to inspect code diffs or **↩ Restore** to revert) and re-renders modified `.scad` assets automatically when **Auto Render** is enabled.
+   - Click **🎮 Play Godot** (or **🔄 Restart** if the player is already open) to test your updated project, and use **⬇ Web ZIP** or **⬇ Project ZIP** when ready to export.
+
+5. **Share Your Created Game with Friends (Embed Mode):**
+   - Enable the **Embed Share** checkbox beneath the editor toolbar, then click **🔗 Share**.
+   - Scadify compresses the entire `.md` project into the URL hash and appends `?embed=1` to the link (copying it to your clipboard or opening your device's native share sheet).
+   - When friends open that link, Scadify hides the editor, toolbars, and log panels and **automatically launches your Godot game fullscreen** right in their browser—no downloads or setup required. _(Leave **Embed Share** unchecked if you want to share an editable link with the full Scadify IDE instead.)_
+
 ---
 
 ## Installation
