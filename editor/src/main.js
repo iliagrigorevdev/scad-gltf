@@ -1015,9 +1015,39 @@ function getMdFilesContext(code) {
   };
 }
 
+const ALL_MD_FILE_OPTION = "__all__";
+
 function updateEntryFileSelectStyle(filePath) {
   if (!entryFileSelect) return;
   entryFileSelect.classList.toggle("is-scad-file", isScadFilePath(filePath));
+}
+
+function updateMdButtonsTitles(hasMd, targetFile) {
+  if (hasMd) {
+    if (targetFile === ALL_MD_FILE_OPTION) {
+      if (copyMdFileBtn) {
+        copyMdFileBtn.title = "Copy full markdown document to clipboard";
+      }
+      if (pasteMdFileBtn) {
+        pasteMdFileBtn.title = "Replace full editor content from clipboard";
+      }
+    } else {
+      if (copyMdFileBtn) {
+        copyMdFileBtn.title = "Copy selected file content to clipboard";
+      }
+      if (pasteMdFileBtn) {
+        pasteMdFileBtn.title =
+          "Replace selected file content or patch markdown entries from clipboard";
+      }
+    }
+  } else {
+    if (copyMdFileBtn) {
+      copyMdFileBtn.title = "Copy editor content to clipboard";
+    }
+    if (pasteMdFileBtn) {
+      pasteMdFileBtn.title = "Replace editor content from clipboard";
+    }
+  }
 }
 
 function syncMdFilesUi(code) {
@@ -1031,13 +1061,19 @@ function syncMdFilesUi(code) {
     if (copyMdFileBtn) copyMdFileBtn.style.display = "flex";
     if (pasteMdFileBtn) pasteMdFileBtn.style.display = "flex";
 
-    const orderedFiles = [...scadFiles, ...otherFiles];
+    const orderedFiles = [ALL_MD_FILE_OPTION, ...scadFiles, ...otherFiles];
     const currentOptions = Array.from(entryFileSelect.options)
       .map((o) => o.value)
       .join(",");
     const newOptions = orderedFiles.join(",");
     if (currentOptions !== newOptions) {
       entryFileSelect.innerHTML = "";
+
+      const allOpt = document.createElement("option");
+      allOpt.value = ALL_MD_FILE_OPTION;
+      allOpt.className = "file-opt-all";
+      allOpt.innerText = "📑 All (.md)";
+      entryFileSelect.appendChild(allOpt);
 
       const createFileOption = (f, isScad) => {
         const opt = document.createElement("option");
@@ -1071,7 +1107,10 @@ function syncMdFilesUi(code) {
       }
     }
 
-    if (!allFiles.includes(currentEntryFile)) {
+    if (
+      currentEntryFile !== ALL_MD_FILE_OPTION &&
+      !allFiles.includes(currentEntryFile)
+    ) {
       currentEntryFile = scadFiles[0] || allFiles[0];
     }
     if (!scadFiles.includes(currentEntryScadFile)) {
@@ -1081,11 +1120,13 @@ function syncMdFilesUi(code) {
     }
     entryFileSelect.value = currentEntryFile;
     updateEntryFileSelectStyle(currentEntryFile);
+    updateMdButtonsTitles(true, currentEntryFile);
   } else {
     entryFileSelect.style.display = "none";
     updateEntryFileSelectStyle(null);
-    if (copyMdFileBtn) copyMdFileBtn.style.display = "none";
-    if (pasteMdFileBtn) pasteMdFileBtn.style.display = "none";
+    if (copyMdFileBtn) copyMdFileBtn.style.display = "flex";
+    if (pasteMdFileBtn) pasteMdFileBtn.style.display = "flex";
+    updateMdButtonsTitles(false, null);
     currentEntryFile = null;
     currentEntryScadFile = null;
   }
@@ -1129,6 +1170,7 @@ function handleEditorCursorChange() {
     currentEntryFile = block.filePath;
     entryFileSelect.value = block.filePath;
     updateEntryFileSelectStyle(block.filePath);
+    updateMdButtonsTitles(true, block.filePath);
     updateEditorHighlights();
   }
 
@@ -1147,7 +1189,10 @@ entryFileSelect.addEventListener("change", (e) => {
   const selectedFile = e.target.value;
   currentEntryFile = selectedFile;
   updateEntryFileSelectStyle(selectedFile);
-  scrollEditorToMdFile(selectedFile);
+  updateMdButtonsTitles(true, selectedFile);
+  if (selectedFile !== ALL_MD_FILE_OPTION) {
+    scrollEditorToMdFile(selectedFile);
+  }
   updateEditorHighlights();
   saveWorkspaceImmediate();
 
@@ -1163,21 +1208,34 @@ editorEl.addEventListener("scroll", syncEditorBackdropScroll);
 editorEl.addEventListener("mouseup", handleEditorCursorChange);
 editorEl.addEventListener("keyup", handleEditorCursorChange);
 
+let copyMdFileTimer = null;
 if (copyMdFileBtn) {
   copyMdFileBtn.addEventListener("click", async () => {
-    const targetFile = entryFileSelect.value || currentEntryFile;
-    if (!targetFile) return;
-
     const ctx = getMdFilesContext(editorEl.value);
-    const fileContent = ctx.filesMap[targetFile];
-    if (fileContent === undefined) return;
+    const isMdWithFiles = ctx.isMd && ctx.allFiles.length > 0;
+    const targetFile = isMdWithFiles
+      ? entryFileSelect.value || currentEntryFile
+      : null;
+
+    let contentToCopy;
+    if (!isMdWithFiles || targetFile === ALL_MD_FILE_OPTION) {
+      contentToCopy = editorEl.value;
+    } else {
+      if (!targetFile) return;
+      contentToCopy = ctx.filesMap[targetFile];
+      if (contentToCopy === undefined) return;
+    }
 
     try {
-      await navigator.clipboard.writeText(fileContent);
-      const originalText = copyMdFileBtn.innerText;
+      await navigator.clipboard.writeText(contentToCopy);
+      if (!copyMdFileBtn.dataset.originalText) {
+        copyMdFileBtn.dataset.originalText = copyMdFileBtn.innerText;
+      }
       copyMdFileBtn.innerText = "✅ Copied!";
-      setTimeout(() => {
-        copyMdFileBtn.innerText = originalText;
+      clearTimeout(copyMdFileTimer);
+      copyMdFileTimer = setTimeout(() => {
+        copyMdFileBtn.innerText =
+          copyMdFileBtn.dataset.originalText || "📋 Copy";
       }, 1500);
     } catch (err) {
       alert("Failed to copy to clipboard: " + err);
@@ -1185,63 +1243,92 @@ if (copyMdFileBtn) {
   });
 }
 
+let pasteMdFileTimer = null;
 if (pasteMdFileBtn) {
   pasteMdFileBtn.addEventListener("click", async () => {
-    const targetFile = entryFileSelect.value || currentEntryFile;
-    if (!targetFile) return;
+    const ctx = getMdFilesContext(editorEl.value);
+    const isMdWithFiles = ctx.isMd && ctx.allFiles.length > 0;
+    const targetFile = isMdWithFiles
+      ? entryFileSelect.value || currentEntryFile
+      : null;
+
+    if (isMdWithFiles && !targetFile) return;
 
     try {
       const text = await navigator.clipboard.readText();
-      const normalizedClipboard = text.replace(/\r\n/g, "\n");
-      const isPastedMd =
-        /^###\s+\S+\s*$/m.test(normalizedClipboard) &&
-        normalizedClipboard.includes("```");
-      const pastedFiles = isPastedMd
-        ? extractFilesFromMarkdown(normalizedClipboard)
-        : {};
-      const pastedEntries = Object.entries(pastedFiles);
 
-      let updatedMd = editorEl.value;
-      const patchedFiles = [];
+      if (!isMdWithFiles || targetFile === ALL_MD_FILE_OPTION) {
+        await maybeCreateAutoVersion("Before paste", true);
+        if (backendSelectEl.value === "") {
+          pendingForceNameOverride = true;
+        }
+        editorEl.value = text;
+        syncMdFilesUi(text);
+        checkChanges();
+        saveWorkspaceImmediate();
+        editorEl.setSelectionRange(0, 0);
+        editorEl.scrollTop = 0;
+        syncEditorBackdropScroll();
 
-      if (pastedEntries.length > 0) {
-        for (const [filePath, fileContent] of pastedEntries) {
-          updatedMd = replaceFileInMarkdown(updatedMd, filePath, fileContent);
-          patchedFiles.push(filePath);
+        if (autoRenderCb.checked && !isGodotPlaying) {
+          compileAndRender(getEditorContent());
         }
       } else {
-        updatedMd = replaceFileInMarkdown(updatedMd, targetFile, text);
-        patchedFiles.push(targetFile);
-      }
+        const normalizedClipboard = text.replace(/\r\n/g, "\n");
+        const isPastedMd =
+          /^###\s+\S+\s*$/m.test(normalizedClipboard) &&
+          normalizedClipboard.includes("```");
+        const pastedFiles = isPastedMd
+          ? extractFilesFromMarkdown(normalizedClipboard)
+          : {};
+        const pastedEntries = Object.entries(pastedFiles);
 
-      await maybeCreateAutoVersion("Before paste", true);
-      editorEl.value = updatedMd;
-      syncMdFilesUi(updatedMd);
-      checkChanges();
-      saveWorkspaceImmediate();
+        let updatedMd = editorEl.value;
+        const patchedFiles = [];
 
-      const focusFile = patchedFiles.includes(targetFile)
-        ? targetFile
-        : patchedFiles[0];
-      const updatedBlock = parseMdFileBlocks(updatedMd).find(
-        (b) => b.filePath === focusFile,
-      );
-      if (updatedBlock) {
-        editorEl.setSelectionRange(
-          updatedBlock.contentStart,
-          updatedBlock.contentStart,
+        if (pastedEntries.length > 0) {
+          for (const [filePath, fileContent] of pastedEntries) {
+            updatedMd = replaceFileInMarkdown(updatedMd, filePath, fileContent);
+            patchedFiles.push(filePath);
+          }
+        } else {
+          updatedMd = replaceFileInMarkdown(updatedMd, targetFile, text);
+          patchedFiles.push(targetFile);
+        }
+
+        await maybeCreateAutoVersion("Before paste", true);
+        editorEl.value = updatedMd;
+        syncMdFilesUi(updatedMd);
+        checkChanges();
+        saveWorkspaceImmediate();
+
+        const focusFile = patchedFiles.includes(targetFile)
+          ? targetFile
+          : patchedFiles[0];
+        const updatedBlock = parseMdFileBlocks(updatedMd).find(
+          (b) => b.filePath === focusFile,
         );
+        if (updatedBlock) {
+          editorEl.setSelectionRange(
+            updatedBlock.contentStart,
+            updatedBlock.contentStart,
+          );
+        }
+
+        const hasScadChange = patchedFiles.some((f) => isScadFilePath(f));
+        if (hasScadChange && autoRenderCb.checked && !isGodotPlaying) {
+          compileAndRender(getEditorContent());
+        }
       }
 
-      const hasScadChange = patchedFiles.some((f) => isScadFilePath(f));
-      if (hasScadChange && autoRenderCb.checked && !isGodotPlaying) {
-        compileAndRender(getEditorContent());
+      if (!pasteMdFileBtn.dataset.originalText) {
+        pasteMdFileBtn.dataset.originalText = pasteMdFileBtn.innerText;
       }
-
-      const originalText = pasteMdFileBtn.innerText;
       pasteMdFileBtn.innerText = "✅ Pasted!";
-      setTimeout(() => {
-        pasteMdFileBtn.innerText = originalText;
+      clearTimeout(pasteMdFileTimer);
+      pasteMdFileTimer = setTimeout(() => {
+        pasteMdFileBtn.innerText =
+          pasteMdFileBtn.dataset.originalText || "📥 Paste";
       }, 1500);
     } catch (err) {
       alert(
