@@ -91,7 +91,6 @@ const export3mfBtn = document.getElementById("export-3mf-btn");
 const captureImageBtn = document.getElementById("capture-image-btn");
 const shareBtn = document.getElementById("share-btn");
 const autoRenderCb = document.getElementById("auto-render-cb");
-const minifyShareCb = document.getElementById("minify-share-cb");
 const embedShareCb = document.getElementById("embed-share-cb");
 
 const appContainer = document.getElementById("app-container");
@@ -1663,7 +1662,6 @@ shareBtn.onclick = async () => {
 
   try {
     const rawCode = editorEl.value;
-    const shouldMinify = Boolean(minifyShareCb && minifyShareCb.checked);
     const shouldEmbed = Boolean(embedShareCb && embedShareCb.checked);
     const url = new URL(window.location.href);
 
@@ -1676,57 +1674,12 @@ shareBtn.onclick = async () => {
     if (!rawCode.trim()) {
       finalUrl = url.origin + url.pathname + url.search;
     } else {
-      // 1. Minifier helper (strips comments and whitespace safely)
-      const minifyScad = (codeStr) => {
-        let minified = "";
-        let inString = false;
-        let i = 0;
-        while (i < codeStr.length) {
-          if (inString) {
-            minified += codeStr[i];
-            if (codeStr[i] === '"' && codeStr[i - 1] !== "\\") inString = false;
-            i++;
-          } else {
-            if (codeStr[i] === '"') {
-              inString = true;
-              minified += codeStr[i];
-              i++;
-            } else if (codeStr[i] === "/" && codeStr[i + 1] === "/") {
-              i += 2;
-              while (i < codeStr.length && codeStr[i] !== "\n") i++;
-            } else if (codeStr[i] === "/" && codeStr[i + 1] === "*") {
-              i += 2;
-              while (
-                i < codeStr.length &&
-                !(codeStr[i] === "*" && codeStr[i + 1] === "/")
-              )
-                i++;
-              i += 2;
-            } else if (/\s/.test(codeStr[i])) {
-              if (
-                minified.length > 0 &&
-                !/\s/.test(minified[minified.length - 1])
-              ) {
-                minified += " ";
-              }
-              i++;
-            } else {
-              minified += codeStr[i];
-              i++;
-            }
-          }
-        }
-        return minified.trim();
-      };
-
-      const mainCode = shouldMinify ? rawCode.trim() : rawCode;
-
-      // 2. Parse current editor content to see if it's already a bundle
+      // 1. Parse current editor content to see if it's already a bundle
       let filesToShare = {};
-      const isMd = isMarkdownContent(mainCode);
+      const isMd = isMarkdownContent(rawCode);
 
       if (isMd) {
-        filesToShare = extractFilesFromMarkdown(mainCode);
+        filesToShare = extractFilesFromMarkdown(rawCode);
       } else {
         let mainName = modelNameInputEl.value.trim() || "main.scad";
         if (
@@ -1735,70 +1688,44 @@ shareBtn.onclick = async () => {
         ) {
           mainName += ".scad";
         }
-        filesToShare[mainName] = mainCode;
+        filesToShare[mainName] = rawCode;
       }
 
-      // 3. Auto-fetch all dependencies automatically (if connected to local backend)
+      // 2. Auto-fetch all dependencies automatically (if connected to local backend)
       let allCode = Object.values(filesToShare).join("\n");
       const additionalFiles = await fetchDependenciesWrapper(allCode);
       const addedDeps = Object.entries(additionalFiles).filter(
         ([depPath]) => !filesToShare[depPath],
       );
 
-      // 4. Build the final string to encode
+      // 3. Build the final string to encode
       let finalCodeToEncode = "";
 
-      if (!shouldMinify) {
-        if (addedDeps.length === 0) {
-          finalCodeToEncode = rawCode;
-        } else if (isMd) {
-          let extraBlocks = "";
-          for (const [depPath, depContent] of addedDeps) {
-            const lang = getMarkdownLangFromPath(depPath);
-            extraBlocks += `### ${depPath}\n\`\`\`${lang}\n${depContent}\n\`\`\`\n\n`;
-          }
-          const sep = rawCode.endsWith("\n\n")
-            ? ""
-            : rawCode.endsWith("\n")
-              ? "\n"
-              : "\n\n";
-          finalCodeToEncode = rawCode + sep + extraBlocks;
-        } else {
-          const mainName = Object.keys(filesToShare)[0];
-          const mainLang = getMarkdownLangFromPath(mainName);
-          finalCodeToEncode = `### ${mainName}\n\`\`\`${mainLang}\n${rawCode}\n\`\`\`\n\n`;
-          for (const [depPath, depContent] of addedDeps) {
-            const lang = getMarkdownLangFromPath(depPath);
-            finalCodeToEncode += `### ${depPath}\n\`\`\`${lang}\n${depContent}\n\`\`\`\n\n`;
-          }
-        }
-      } else {
-        // Merge fetched files into our sharing bundle without reordering
+      if (addedDeps.length === 0) {
+        finalCodeToEncode = rawCode;
+      } else if (isMd) {
+        let extraBlocks = "";
         for (const [depPath, depContent] of addedDeps) {
-          filesToShare[depPath] = depContent;
+          const lang = getMarkdownLangFromPath(depPath);
+          extraBlocks += `### ${depPath}\n\`\`\`${lang}\n${depContent}\n\`\`\`\n\n`;
         }
-
-        const fileNames = Object.keys(filesToShare);
-        const shouldBundle = fileNames.length > 1;
-
-        if (shouldBundle) {
-          for (const fName of fileNames) {
-            let processedContent = filesToShare[fName];
-            const lang = getMarkdownLangFromPath(fName);
-            if (lang === "openscad") {
-              processedContent = minifyScad(processedContent);
-            }
-            finalCodeToEncode += `### ${fName}\n\`\`\`${lang}\n${processedContent}\n\`\`\`\n\n`;
-          }
-        } else if (fileNames.length === 1) {
-          // Just a single pure SCAD file
-          finalCodeToEncode = minifyScad(filesToShare[fileNames[0]]);
-        } else {
-          finalCodeToEncode = minifyScad(mainCode);
+        const sep = rawCode.endsWith("\n\n")
+          ? ""
+          : rawCode.endsWith("\n")
+            ? "\n"
+            : "\n\n";
+        finalCodeToEncode = rawCode + sep + extraBlocks;
+      } else {
+        const mainName = Object.keys(filesToShare)[0];
+        const mainLang = getMarkdownLangFromPath(mainName);
+        finalCodeToEncode = `### ${mainName}\n\`\`\`${mainLang}\n${rawCode}\n\`\`\`\n\n`;
+        for (const [depPath, depContent] of addedDeps) {
+          const lang = getMarkdownLangFromPath(depPath);
+          finalCodeToEncode += `### ${depPath}\n\`\`\`${lang}\n${depContent}\n\`\`\`\n\n`;
         }
       }
 
-      // 5. Compress and apply hash to URL
+      // 4. Compress and apply hash to URL
       const hash = await encodeCode(finalCodeToEncode);
       url.hash = hash;
       finalUrl = url.toString();
