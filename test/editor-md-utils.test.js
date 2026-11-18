@@ -193,3 +193,53 @@ test("md-utils - replaceFileInMarkdown replaces existing, generic, and missing e
   );
   assert.strictEqual(genericReplaced, "```openscad\ncylinder(r=2, h=4);\n```");
 });
+
+test("md-utils - matches and patches backtick-wrapped file headers", () => {
+  const existingMd = [
+    "### scrap_scale/scenes/main_game.tscn",
+    "```ini",
+    "[gd_scene format=3]",
+    "```",
+  ].join("\n");
+
+  const patched = replaceFileInMarkdown(
+    existingMd,
+    "`scrap_scale/scenes/main_game.tscn`",
+    '[gd_scene format=3]\n[node name="Main" type="Node3D"]',
+  );
+  assert.strictEqual(
+    patched,
+    [
+      "### scrap_scale/scenes/main_game.tscn",
+      "```ini",
+      "[gd_scene format=3]",
+      '[node name="Main" type="Node3D"]',
+      "```",
+    ].join("\n"),
+  );
+
+  const backtickedMd = [
+    "### `scrap_scale/scenes/main_game.tscn`",
+    "```ini",
+    "old",
+    "```",
+  ].join("\n");
+  const blocks = parseMdFileBlocks(backtickedMd);
+  assert.strictEqual(blocks.length, 1);
+  assert.strictEqual(blocks[0].filePath, "scrap_scale/scenes/main_game.tscn");
+
+  const { parsed } = analyzeMdLines(backtickedMd);
+  assert.strictEqual(parsed[0].filePath, "scrap_scale/scenes/main_game.tscn");
+
+  const patchedBackticked = replaceFileInMarkdown(
+    backtickedMd,
+    "scrap_scale/scenes/main_game.tscn",
+    "new",
+  );
+  assert.strictEqual(
+    patchedBackticked,
+    ["### `scrap_scale/scenes/main_game.tscn`", "```ini", "new", "```"].join(
+      "\n",
+    ),
+  );
+});

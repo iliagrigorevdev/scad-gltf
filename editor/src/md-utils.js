@@ -1,4 +1,8 @@
-import { getMarkdownLangFromPath } from "scad-gltf/utils";
+import {
+  getMarkdownLangFromPath,
+  normalizeMarkdownHeaderPath,
+  parseMarkdownFileHeader,
+} from "scad-gltf/utils";
 
 export function extractRootFolderFromMarkdownFiles(files) {
   const paths = Object.keys(files)
@@ -32,7 +36,6 @@ export function parseMdFileBlocks(mdContent) {
   const blocks = [];
   if (typeof mdContent !== "string") return blocks;
 
-  const headerMatchRegex = /^###\s+(\S+)\s*$/;
   let pos = 0;
   let currentFile = null;
   let headerStart = -1;
@@ -45,9 +48,9 @@ export function parseMdFileBlocks(mdContent) {
     const rawLine = mdContent.slice(pos, lineEnd);
     const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
 
-    const headerMatch = line.match(headerMatchRegex);
-    if (headerMatch) {
-      currentFile = headerMatch[1];
+    const headerFile = parseMarkdownFileHeader(line);
+    if (headerFile) {
+      currentFile = headerFile;
       headerStart = pos;
       inCodeBlock = false;
       contentStart = -1;
@@ -125,7 +128,6 @@ export function isScadFilePath(filePath) {
 export function analyzeMdLines(content) {
   const lines = content.split("\n");
   const parsed = new Array(lines.length);
-  const headerMatchRegex = /^###\s+(\S+)\s*$/;
 
   let currentFile = null;
   let inCodeBlock = false;
@@ -137,11 +139,11 @@ export function analyzeMdLines(content) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const headerMatch = line.match(headerMatchRegex);
+    const headerFile = parseMarkdownFileHeader(line);
 
-    if (headerMatch) {
+    if (headerFile) {
       blockIdx++;
-      currentFile = headerMatch[1];
+      currentFile = headerFile;
       inCodeBlock = false;
       genericInCodeBlock = false;
       genericFilePath = null;
@@ -257,8 +259,9 @@ export function analyzeMdLines(content) {
 export function replaceFileInMarkdown(mdContent, targetPath, newFileContent) {
   const normalizedMd = String(mdContent ?? "").replace(/\r\n/g, "\n");
   const normalizedNew = String(newFileContent ?? "").replace(/\r\n/g, "\n");
+  const normalizedTarget =
+    normalizeMarkdownHeaderPath(targetPath) || String(targetPath ?? "");
   const lines = normalizedMd.split("\n");
-  const headerMatchRegex = /^###\s+(\S+)\s*$/;
 
   let currentFile = null;
   let inCodeBlock = false;
@@ -267,14 +270,14 @@ export function replaceFileInMarkdown(mdContent, targetPath, newFileContent) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const headerMatch = line.match(headerMatchRegex);
-    if (headerMatch) {
-      currentFile = headerMatch[1];
+    const headerFile = parseMarkdownFileHeader(line);
+    if (headerFile) {
+      currentFile = headerFile;
       inCodeBlock = false;
       continue;
     }
 
-    if (currentFile === targetPath) {
+    if (currentFile === normalizedTarget) {
       if (line.startsWith("```")) {
         if (!inCodeBlock) {
           inCodeBlock = true;
@@ -307,7 +310,7 @@ export function replaceFileInMarkdown(mdContent, targetPath, newFileContent) {
     return updatedLines.join("\n");
   }
 
-  if (targetPath === "main.scad") {
+  if (normalizedTarget === "main.scad") {
     const genericRegex = /(```(?:openscad|scad)?\n)([\s\S]*?)(```)/i;
     if (genericRegex.test(normalizedMd)) {
       const body = normalizedNew === "" ? "" : `${normalizedNew}\n`;
@@ -315,7 +318,7 @@ export function replaceFileInMarkdown(mdContent, targetPath, newFileContent) {
     }
   }
 
-  const lang = getMarkdownLangFromPath(targetPath);
+  const lang = getMarkdownLangFromPath(normalizedTarget);
   const sep = normalizedMd.endsWith("\n") ? "\n" : "\n\n";
-  return `${normalizedMd}${normalizedMd ? sep : ""}### ${targetPath}\n\`\`\`${lang}\n${normalizedNew}\n\`\`\`\n`;
+  return `${normalizedMd}${normalizedMd ? sep : ""}### ${normalizedTarget}\n\`\`\`${lang}\n${normalizedNew}\n\`\`\`\n`;
 }

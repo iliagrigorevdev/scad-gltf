@@ -129,3 +129,33 @@ sphere(r=5);
     "Should default to main.scad for raw blocks",
   );
 });
+
+test("utils - extractFilesFromMarkdown - strips backticks and bold formatting from headers", () => {
+  const md = `
+### \`scrap_scale/scenes/main_game.tscn\`
+\`\`\`ini
+[gd_scene format=3]
+\`\`\`
+
+### **\`scripts/player.gd\`**
+\`\`\`gdscript
+extends Node3D
+\`\`\`
+
+### \`Not a file path\`
+\`\`\`text
+ignored
+\`\`\`
+  `;
+
+  const files = extractFilesFromMarkdown(md);
+  assert.deepStrictEqual(Object.keys(files), [
+    "scrap_scale/scenes/main_game.tscn",
+    "scripts/player.gd",
+  ]);
+  assert.strictEqual(
+    files["scrap_scale/scenes/main_game.tscn"],
+    "[gd_scene format=3]",
+  );
+  assert.strictEqual(files["scripts/player.gd"], "extends Node3D");
+});

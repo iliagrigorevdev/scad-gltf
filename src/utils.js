@@ -90,6 +90,49 @@ export function packFilesToMarkdown(files) {
  * @param {string} mdContent The markdown string to parse
  * @returns {Record<string, string>} A dictionary mapping filepaths to their string contents
  */
+/**
+ * Normalizes a Markdown file header token by stripping optional surrounding
+ * bold (`**...**`) or inline code (`` `...` ``) formatting.
+ *
+ * @param {string} rawPath
+ * @returns {string}
+ */
+export function normalizeMarkdownHeaderPath(rawPath) {
+  if (typeof rawPath !== "string") return "";
+  let token = rawPath.trim();
+  for (let i = 0; i < 2; i++) {
+    const boldMatch = token.match(/^\*\*([\s\S]+)\*\*$/);
+    if (boldMatch) {
+      token = boldMatch[1].trim();
+      continue;
+    }
+    const codeMatch = token.match(/^`+([^`]+)`+$/);
+    if (codeMatch) {
+      token = codeMatch[1].trim();
+      continue;
+    }
+    break;
+  }
+  if (!token || /^[`*]+$/.test(token) || /\s/.test(token)) return "";
+  return token;
+}
+
+/**
+ * Parses a `### filepath` header line, returning the normalized file path or null.
+ *
+ * @param {string} line
+ * @returns {string | null}
+ */
+export function parseMarkdownFileHeader(line) {
+  if (typeof line !== "string") return null;
+  // \S+ ensures the header is a single continuous path without spaces,
+  // preventing regular English markdown headers from being parsed as files.
+  const match = line.match(/^###\s+(\S+)\s*$/);
+  if (!match) return null;
+  const normalized = normalizeMarkdownHeaderPath(match[1]);
+  return normalized || null;
+}
+
 export function extractFilesFromMarkdown(mdContent) {
   const files = {};
   const lines = mdContent.split("\n");
@@ -97,14 +140,11 @@ export function extractFilesFromMarkdown(mdContent) {
   let inCodeBlock = false;
   let currentContent = [];
 
-  // \S+ ensures the header is a single continuous path without spaces,
-  // preventing regular English markdown headers from being parsed as files.
-  const headerMatchRegex = /^###\s+(\S+)\s*$/;
-
-  for (const line of lines) {
-    const headerMatch = line.match(headerMatchRegex);
-    if (headerMatch) {
-      currentFile = headerMatch[1];
+  for (const rawLine of lines) {
+    const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+    const headerFile = parseMarkdownFileHeader(line);
+    if (headerFile) {
+      currentFile = headerFile;
       inCodeBlock = false;
       currentContent = [];
       continue;
