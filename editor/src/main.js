@@ -1659,12 +1659,13 @@ shareBtn.onclick = async () => {
   shareBtn.innerText = "⏳ Preparing...";
   shareBtn.disabled = true;
 
+  let finalUrl = "";
+
   try {
     const rawCode = editorEl.value;
     const shouldMinify = Boolean(minifyShareCb && minifyShareCb.checked);
     const shouldEmbed = Boolean(embedShareCb && embedShareCb.checked);
     const url = new URL(window.location.href);
-    let finalUrl = "";
 
     if (shouldEmbed) {
       url.searchParams.set("embed", "1");
@@ -1803,9 +1804,6 @@ shareBtn.onclick = async () => {
       finalUrl = url.toString();
     }
 
-    // Update History visually
-    window.history.replaceState(null, "", finalUrl);
-
     // 6. Trigger native Share or Clipboard
     if (navigator.share) {
       let rawName = modelNameInputEl.value.trim();
@@ -1828,7 +1826,7 @@ shareBtn.onclick = async () => {
   } catch (err) {
     if (err.name !== "AbortError") {
       try {
-        await navigator.clipboard.writeText(window.location.href);
+        await navigator.clipboard.writeText(finalUrl || window.location.href);
         shareBtn.innerText = "✅ Copied Link!";
       } catch (fallbackErr) {
         alert("Failed to share or copy link.");
