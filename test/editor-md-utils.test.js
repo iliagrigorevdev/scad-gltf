@@ -538,3 +538,73 @@ test("md-utils - evaluatePatchEntryAgainstFiles, analyzeMarkdownPatch, and apply
   );
   assert.strictEqual(fullReplaceAnalysis.isLikelyFullProjectReplacement, true);
 });
+
+test("md-utils - parseMarkdownPatchEntries and analyzeMarkdownPatch handle numbered and annotated AI headers", () => {
+  const existingMd = [
+    "### canyon_push_game/project.godot",
+    "```ini",
+    "config_version=5",
+    "```",
+    "",
+    "### canyon_push_game/scripts/player_controller.gd",
+    "```gdscript",
+    "extends CharacterBody3D",
+    "```",
+    "",
+    "### canyon_push_game/old_helper.gd",
+    "```gdscript",
+    "extends Node",
+    "```",
+  ].join("\n");
+
+  const patchText = [
+    "Here is the complete `sound_manager.gd` along with updates.",
+    "",
+    "### 1. Summary of changes (not a file)",
+    "Some explanatory prose.",
+    "",
+    "### 1. `canyon_push_game/scripts/sound_manager.gd` (new file)",
+    "```gdscript",
+    "extends Node",
+    "```",
+    "",
+    "### 2. `canyon_push_game/project.godot` (add `[autoload]` section)",
+    "Add this section:",
+    "```ini",
+    "[autoload]",
+    'SoundManager="*res://scripts/sound_manager.gd"',
+    "```",
+    "",
+    "### 3. `canyon_push_game/scripts/player_controller.gd`",
+    "Updated to play footsteps:",
+    "```gdscript",
+    "extends CharacterBody3D",
+    "func _ready(): pass",
+    "```",
+    "",
+    "### 4. `canyon_push_game/old_helper.gd` (DELETE)",
+  ].join("\n");
+
+  const entries = parseMarkdownPatchEntries(patchText);
+  assert.deepStrictEqual(
+    entries.map((e) => [e.filePath, e.isDelete]),
+    [
+      ["canyon_push_game/scripts/sound_manager.gd", false],
+      ["canyon_push_game/project.godot", false],
+      ["canyon_push_game/scripts/player_controller.gd", false],
+      ["canyon_push_game/old_helper.gd", true],
+    ],
+  );
+
+  const analysis = analyzeMarkdownPatch(existingMd, patchText);
+  assert.strictEqual(analysis.isLikelyFullProjectReplacement, false);
+  assert.deepStrictEqual(
+    analysis.items.map((i) => [i.action, i.targetPath, i.enabled]),
+    [
+      ["add", "canyon_push_game/scripts/sound_manager.gd", true],
+      ["update", "canyon_push_game/project.godot", true],
+      ["update", "canyon_push_game/scripts/player_controller.gd", true],
+      ["delete", "canyon_push_game/old_helper.gd", true],
+    ],
+  );
+});

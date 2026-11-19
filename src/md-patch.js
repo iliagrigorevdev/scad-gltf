@@ -140,40 +140,81 @@ export function removeFileFromMarkdown(mdContent, targetPath) {
   return out;
 }
 
+function extractPatchHeaderCandidate(text) {
+  let s = text.trim();
+  if (!s) return "";
+
+  // Strip optional numbering / step prefixes (e.g. "1. ", "2) ", "File 1: ", "Step 2 - ")
+  s = s
+    .replace(/^(?:\d+[.)]\s+|(?:file|step)\s+\d+\s*[:.)\-–—]?\s+)/i, "")
+    .trim();
+
+  // Strip optional leading action verbs (e.g. "New ", "Update ", "Create file: ")
+  s = s
+    .replace(
+      /^(?:new|add|added|create|created|update|updated|modify|modified|edit|edited|patch|patched|change|changed|fix|fixed)\s+(?:file\s+)?(?:[:\-–—]\s*)?/i,
+      "",
+    )
+    .trim();
+
+  // Extract leading formatted path token (`...`, **`...`**, **...**) with optional trailing notes
+  const formattedMatch = s.match(
+    /^(\*{2}`+[^`]+`+\*{2}|`+[^`]+`+|\*\*[^*]+\*\*)(?:\s*(?:[:\-–—].*|\([^)]*\).*|\[[^\]]*\].*))?$/,
+  );
+  if (formattedMatch) {
+    s = formattedMatch[1];
+  } else {
+    // Strip trailing parenthetical/bracketed annotations, dash notes, or trailing colons
+    let prev;
+    do {
+      prev = s;
+      s = s
+        .replace(/\s*(?:\([^)]*\)|\[[^\]]*\])\s*$/, "")
+        .replace(/\s+[-–—]\s+.*$/, "")
+        .replace(/:\s*$/, "")
+        .trim();
+    } while (s !== prev);
+  }
+
+  return normalizeMarkdownHeaderPath(s);
+}
+
 function parsePatchHeaderLine(line) {
   const trimmed = line.trim();
   if (!trimmed) return null;
 
-  let isDelete = false;
-  let cleaned = trimmed;
+  const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+  if (!headingMatch) return null;
 
-  const deleteSuffixMatch = cleaned.match(
-    /^(#{1,6}\s+)(.+?)\s*(?:\(|\[)\s*(?:delete|deleted|remove|removed)\s*(?:\)|\])\s*$/i,
+  let isDelete = false;
+  let body = headingMatch[2].trim();
+
+  const deleteSuffixMatch = body.match(
+    /^(.+?)\s*(?:\(|\[)\s*(?:delete|deleted|remove|removed)\s*(?:\)|\])\s*$/i,
   );
   if (deleteSuffixMatch) {
     isDelete = true;
-    cleaned = `${deleteSuffixMatch[1]}${deleteSuffixMatch[2].trim()}`;
+    body = deleteSuffixMatch[1].trim();
   } else {
-    const deletePrefixMatch = cleaned.match(
-      /^(#{1,6}\s+)(?:DELETE|REMOVE):?\s+(.+)$/i,
+    const deletePrefixMatch = body.match(
+      /^(?:\d+[.)]\s+)?(?:DELETE|REMOVE):?\s+(.+)$/i,
     );
     if (deletePrefixMatch) {
       isDelete = true;
-      cleaned = `${deletePrefixMatch[1]}${deletePrefixMatch[2].trim()}`;
+      body = deletePrefixMatch[1].trim();
     }
   }
 
-  const canonical = parseMarkdownFileHeader(cleaned);
-  if (canonical) {
-    return { filePath: canonical, isDelete };
+  if (!isDelete && headingMatch[1] === "###") {
+    const canonical = parseMarkdownFileHeader(trimmed);
+    if (canonical) {
+      return { filePath: canonical, isDelete: false };
+    }
   }
 
-  const headingMatch = cleaned.match(/^#{1,6}\s+(.+)$/);
-  if (headingMatch) {
-    const norm = normalizeMarkdownHeaderPath(headingMatch[1].trim());
-    if (norm && !norm.includes(" ") && /[/.]/.test(norm)) {
-      return { filePath: norm, isDelete };
-    }
+  const norm = extractPatchHeaderCandidate(body);
+  if (norm && !norm.includes(" ") && /[/.]/.test(norm) && !/\.$/.test(norm)) {
+    return { filePath: norm, isDelete };
   }
 
   return null;
