@@ -21,9 +21,6 @@ import {
   analyzeMdLines,
   getSafeFenceForContent,
   normalizeRepoPath,
-  replaceFileInMarkdown,
-  analyzeMarkdownPatch,
-  applyMarkdownPatchPlan,
 } from "./md-utils.js";
 import { openMdPatchModal } from "./md-patch-modal.js";
 import {
@@ -1046,22 +1043,11 @@ function updateEntryFileSelectStyle(filePath) {
 
 function updateMdButtonsTitles(hasMd, targetFile) {
   if (hasMd) {
-    if (targetFile === ALL_MD_FILE_OPTION) {
-      if (copyMdFileBtn) {
-        copyMdFileBtn.title = "Copy full markdown document to clipboard";
-      }
-      if (pasteMdFileBtn) {
-        pasteMdFileBtn.title =
-          "Smart paste: patches ### filepath blocks in-place or opens Patcher for raw text";
-      }
-    } else {
-      if (copyMdFileBtn) {
-        copyMdFileBtn.title = "Copy selected file content to clipboard";
-      }
-      if (pasteMdFileBtn) {
-        pasteMdFileBtn.title =
-          "Smart paste: patches ### filepath blocks or replaces selected file";
-      }
+    if (copyMdFileBtn) {
+      copyMdFileBtn.title =
+        targetFile === ALL_MD_FILE_OPTION
+          ? "Copy full markdown document to clipboard"
+          : "Copy selected file content to clipboard";
     }
   } else {
     if (copyMdFileBtn) {
@@ -1082,7 +1068,7 @@ function syncMdFilesUi(code) {
 
     entryFileSelect.style.display = "flex";
     if (copyMdFileBtn) copyMdFileBtn.style.display = "flex";
-    if (pasteMdFileBtn) pasteMdFileBtn.style.display = "flex";
+    if (pasteMdFileBtn) pasteMdFileBtn.style.display = "none";
     if (patchMdBtn) patchMdBtn.style.display = "flex";
 
     const orderedFiles = [ALL_MD_FILE_OPTION, ...scadFiles, ...otherFiles];
@@ -1329,17 +1315,20 @@ function showMdPatchToast(
   mdPatchToastEl.style.display = "flex";
 }
 
-function flashPasteButton(label) {
-  if (!pasteMdFileBtn) return;
-  if (!pasteMdFileBtn.dataset.originalText) {
-    pasteMdFileBtn.dataset.originalText = pasteMdFileBtn.innerText;
+const mdActionButtonTimers = new WeakMap();
+function flashMdActionButton(btn, label) {
+  if (!btn) return;
+  if (!btn.dataset.originalText) {
+    btn.dataset.originalText = btn.innerText;
   }
-  pasteMdFileBtn.innerText = label;
-  clearTimeout(pasteMdFileTimer);
-  pasteMdFileTimer = setTimeout(() => {
-    pasteMdFileBtn.innerText =
-      pasteMdFileBtn.dataset.originalText || "📥 Paste";
+  btn.innerText = label;
+  const prevTimer = mdActionButtonTimers.get(btn);
+  if (prevTimer) clearTimeout(prevTimer);
+  const timer = setTimeout(() => {
+    btn.innerText = btn.dataset.originalText;
+    mdActionButtonTimers.delete(btn);
   }, 1500);
+  mdActionButtonTimers.set(btn, timer);
 }
 
 async function applyMdEditWithHistory({
@@ -1443,7 +1432,14 @@ function openPatchModal({ initialPatchText = "", clipboardNotice = "" } = {}) {
           preserveName: true,
         });
       }
-      flashPasteButton("✅ Patched!");
+      const visibleActionBtn =
+        patchMdBtn && patchMdBtn.style.display !== "none"
+          ? patchMdBtn
+          : pasteMdFileBtn;
+      flashMdActionButton(
+        visibleActionBtn,
+        mode === "replace" ? "✅ Replaced!" : "✅ Patched!",
+      );
     },
   });
 }
@@ -1507,28 +1503,12 @@ if (mdPatchDiffBtn) {
   });
 }
 
-let pasteMdFileTimer = null;
 if (pasteMdFileBtn) {
   pasteMdFileBtn.addEventListener("click", async () => {
-    const ctx = getMdFilesContext(editorEl.value);
-    const isMdWithFiles = ctx.isMd && ctx.allFiles.length > 0;
-    const targetFile = isMdWithFiles
-      ? entryFileSelect.value || currentEntryFile
-      : null;
-
-    if (isMdWithFiles && !targetFile) return;
-
     let text = null;
     try {
       text = await navigator.clipboard.readText();
     } catch (err) {
-      if (isMdWithFiles) {
-        openPatchModal({
-          clipboardNotice:
-            "Clipboard permission was blocked — press Ctrl+V / Cmd+V in the box below to paste.",
-        });
-        return;
-      }
       alert(
         "Failed to read clipboard: " +
           (err?.message ||
@@ -1537,93 +1517,17 @@ if (pasteMdFileBtn) {
       return;
     }
 
-    if (!isMdWithFiles) {
-      await applyMdEditWithHistory({
-        nextContent: text,
-        snapshotLabel: "Before paste",
-        preserveName: false,
-        fullReplace: true,
-      });
-      flashPasteButton("✅ Pasted!");
-      return;
-    }
-
-    const analysis = analyzeMarkdownPatch(editorEl.value, text, {
-      existingFilesMap: ctx.filesMap,
+    await applyMdEditWithHistory({
+      nextContent: text,
+      snapshotLabel: "Before paste",
+      preserveName: false,
+      fullReplace: true,
     });
-
-    if (analysis.entries.length > 0) {
-      if (
-        (analysis.isLikelyFullProjectReplacement &&
-          targetFile === ALL_MD_FILE_OPTION) ||
-        analysis.items.some((i) => i.action === "error")
-      ) {
-        openPatchModal({ initialPatchText: text });
-        return;
-      }
-
-      const actionable = analysis.items.filter(
-        (i) =>
-          i.enabled &&
-          (i.action === "update" ||
-            i.action === "add" ||
-            i.action === "delete"),
-      );
-
-      if (actionable.length === 0) {
-        showMdPatchToast("Clipboard matches existing files (no changes)", [], {
-          isInfo: true,
-        });
-        flashPasteButton("✓ Unchanged");
-        return;
-      }
-
-      const { updatedMd, appliedItems } = applyMarkdownPatchPlan(
-        editorEl.value,
-        actionable,
-      );
-      await applyMdEditWithHistory({
-        nextContent: updatedMd,
-        appliedItems,
-        snapshotLabel: "Before paste",
-        preserveName: true,
-      });
-      flashPasteButton("✅ Patched!");
-      return;
-    }
-
-    if (targetFile !== ALL_MD_FILE_OPTION) {
-      const prevContent = ctx.filesMap[targetFile] ?? "";
-      const normalizedNew = text.replace(/\r\n/g, "\n");
-      if (prevContent.replace(/\r\n/g, "\n") === normalizedNew) {
-        showMdPatchToast(`${targetFile} already matches clipboard`, [], {
-          isInfo: true,
-        });
-        flashPasteButton("✓ Unchanged");
-        return;
-      }
-      const updatedMd = replaceFileInMarkdown(editorEl.value, targetFile, text);
-      await applyMdEditWithHistory({
-        nextContent: updatedMd,
-        appliedItems: [
-          {
-            action: "update",
-            targetPath: targetFile,
-            remappedFrom: null,
-          },
-        ],
-        snapshotLabel: "Before paste",
-        preserveName: true,
-      });
-      flashPasteButton("✅ Pasted!");
-      return;
-    }
-
-    openPatchModal({
-      initialPatchText: text,
-      clipboardNotice:
-        "No ### filepath headers detected while All (.md) is selected. Choose a target file or Replace Entire Document.",
-    });
+    const visibleActionBtn =
+      patchMdBtn && patchMdBtn.style.display !== "none"
+        ? patchMdBtn
+        : pasteMdFileBtn;
+    flashMdActionButton(visibleActionBtn, "✅ Pasted!");
   });
 }
 

@@ -403,7 +403,10 @@ test("shared - getFileParam and extractFilenameFromUrl parse ?file= parameter", 
     extractFilenameFromUrl("https://example.com/download?id=123"),
     null,
   );
-  assert.strictEqual(extractFilenameFromUrl("blob:https://example.com/123"), null);
+  assert.strictEqual(
+    extractFilenameFromUrl("blob:https://example.com/123"),
+    null,
+  );
   assert.strictEqual(extractFilenameFromUrl("data:text/plain,cube(1);"), null);
 });
 
@@ -417,7 +420,9 @@ test("shared - fetchModelFromUrl fetches text content and rejects HTML or HTTP e
         text: async () => "### main.scad\n```openscad\ncube(5);\n```",
       };
     }
-    if (url === "https://iliagrigorevdev.github.io/scad-gltf/models/gear.scad") {
+    if (
+      url === "https://iliagrigorevdev.github.io/scad-gltf/models/gear.scad"
+    ) {
       return {
         ok: true,
         status: 200,
