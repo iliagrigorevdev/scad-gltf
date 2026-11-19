@@ -177,7 +177,15 @@ test("diff-utils - createUnifiedDiffTable builds unified table DOM rows", () => 
     ]);
 
     assert.strictEqual(table.className, "vc-diff-table vc-diff-unified");
-    const rows = table.children[0].children;
+    const colgroup = table.children.find((c) => c.tagName === "COLGROUP");
+    assert.ok(colgroup);
+    assert.deepStrictEqual(
+      colgroup.children.map((c) => c.className),
+      ["vc-col-ln", "vc-col-ln", "vc-col-sign", "vc-col-code"],
+    );
+    const tbody = table.children.find((c) => c.tagName === "TBODY");
+    assert.ok(tbody);
+    const rows = tbody.children;
     assert.strictEqual(rows.length, 4);
     assert.strictEqual(rows[0].className, "vc-row-hunk");
     assert.strictEqual(rows[0].children[0].colSpan, 4);

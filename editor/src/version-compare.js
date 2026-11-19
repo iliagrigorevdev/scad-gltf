@@ -565,6 +565,18 @@ export async function openVersionCompareModal({
     if (diffLayout === "split") {
       table = document.createElement("table");
       table.className = "vc-diff-table vc-diff-split";
+      const colgroup = document.createElement("colgroup");
+      for (const cls of [
+        "vc-col-ln",
+        "vc-col-code",
+        "vc-col-ln",
+        "vc-col-code",
+      ]) {
+        const col = document.createElement("col");
+        col.className = cls;
+        colgroup.appendChild(col);
+      }
+      table.appendChild(colgroup);
       const tbody = document.createElement("tbody");
       const rows = buildSideBySideRows(diff.ops, showFull);
       for (const row of rows) {

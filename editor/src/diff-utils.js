@@ -416,6 +416,13 @@ export function createUnifiedDiffTable(
 ) {
   const table = document.createElement("table");
   table.className = "vc-diff-table vc-diff-unified";
+  const colgroup = document.createElement("colgroup");
+  for (const cls of ["vc-col-ln", "vc-col-ln", "vc-col-sign", "vc-col-code"]) {
+    const col = document.createElement("col");
+    col.className = cls;
+    colgroup.appendChild(col);
+  }
+  table.appendChild(colgroup);
   const tbody = document.createElement("tbody");
 
   for (const item of items) {

@@ -1271,24 +1271,32 @@ button.godot-btn:hover {
   table-layout: fixed;
 }
 
+.vc-diff-split .vc-col-ln,
 .vc-diff-split .vc-ln {
   width: 44px;
 }
 
+.vc-diff-split .vc-col-code,
 .vc-diff-split .vc-code {
   width: calc(50% - 44px);
 }
 
+.vc-diff-unified .vc-col-ln,
 .vc-diff-unified .vc-ln {
   width: 44px;
 }
 
+.vc-diff-unified .vc-col-sign,
 .vc-diff-unified .vc-sign {
   width: 20px;
+}
+
+.vc-diff-unified .vc-sign {
   text-align: center;
   font-weight: bold;
 }
 
+.vc-diff-unified .vc-col-code,
 .vc-diff-unified .vc-code {
   width: calc(100% - 108px);
 }
