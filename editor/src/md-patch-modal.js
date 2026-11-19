@@ -9,8 +9,6 @@ import {
   evaluatePatchEntryAgainstFiles,
 } from "./md-utils.js";
 
-const ALL_MD_FILE_OPTION = "__all__";
-
 export function openMdPatchModal({
   currentMd = "",
   currentFilesMap = {},
@@ -24,9 +22,7 @@ export function openMdPatchModal({
 
   const existingPaths = Object.keys(currentFilesMap);
   const validPreferredTarget =
-    preferredTargetFile &&
-    preferredTargetFile !== ALL_MD_FILE_OPTION &&
-    currentFilesMap[preferredTargetFile] !== undefined
+    preferredTargetFile && currentFilesMap[preferredTargetFile] !== undefined
       ? preferredTargetFile
       : existingPaths[0] || "";
 
@@ -145,10 +141,7 @@ export function openMdPatchModal({
   function autoChooseMode(analysis, rawText) {
     if (userOverrodeMode) return;
     if (analysis.entries.length > 0) {
-      if (
-        analysis.isLikelyFullProjectReplacement &&
-        (!preferredTargetFile || preferredTargetFile === ALL_MD_FILE_OPTION)
-      ) {
+      if (analysis.isLikelyFullProjectReplacement) {
         modeSelect.value = "replace";
       } else {
         modeSelect.value = "patch";

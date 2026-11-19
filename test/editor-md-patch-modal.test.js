@@ -206,7 +206,7 @@ test("md-patch-modal - patches files, allows toggling & remapping, and applies v
   openMdPatchModal({
     currentMd,
     currentFilesMap,
-    preferredTargetFile: "__all__",
+    preferredTargetFile: "my_game/scripts/player.gd",
     initialPatchText: [
       "### scripts/player.gd",
       "```gdscript",

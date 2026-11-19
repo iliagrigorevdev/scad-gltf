@@ -1034,20 +1034,15 @@ function getMdFilesContext(code) {
   };
 }
 
-const ALL_MD_FILE_OPTION = "__all__";
-
 function updateEntryFileSelectStyle(filePath) {
   if (!entryFileSelect) return;
   entryFileSelect.classList.toggle("is-scad-file", isScadFilePath(filePath));
 }
 
-function updateMdButtonsTitles(hasMd, targetFile) {
+function updateMdButtonsTitles(hasMd) {
   if (hasMd) {
     if (copyMdFileBtn) {
-      copyMdFileBtn.title =
-        targetFile === ALL_MD_FILE_OPTION
-          ? "Copy full markdown document to clipboard"
-          : "Copy selected file content to clipboard";
+      copyMdFileBtn.title = "Copy selected file content to clipboard";
     }
   } else {
     if (copyMdFileBtn) {
@@ -1071,19 +1066,13 @@ function syncMdFilesUi(code) {
     if (pasteMdFileBtn) pasteMdFileBtn.style.display = "none";
     if (patchMdBtn) patchMdBtn.style.display = "flex";
 
-    const orderedFiles = [ALL_MD_FILE_OPTION, ...scadFiles, ...otherFiles];
+    const orderedFiles = [...scadFiles, ...otherFiles];
     const currentOptions = Array.from(entryFileSelect.options)
       .map((o) => o.value)
       .join(",");
     const newOptions = orderedFiles.join(",");
     if (currentOptions !== newOptions) {
       entryFileSelect.innerHTML = "";
-
-      const allOpt = document.createElement("option");
-      allOpt.value = ALL_MD_FILE_OPTION;
-      allOpt.className = "file-opt-all";
-      allOpt.innerText = "📑 All (.md)";
-      entryFileSelect.appendChild(allOpt);
 
       const createFileOption = (f, isScad) => {
         const opt = document.createElement("option");
@@ -1117,10 +1106,7 @@ function syncMdFilesUi(code) {
       }
     }
 
-    if (
-      currentEntryFile !== ALL_MD_FILE_OPTION &&
-      !allFiles.includes(currentEntryFile)
-    ) {
+    if (!allFiles.includes(currentEntryFile)) {
       currentEntryFile = scadFiles[0] || allFiles[0];
     }
     if (!scadFiles.includes(currentEntryScadFile)) {
@@ -1130,14 +1116,14 @@ function syncMdFilesUi(code) {
     }
     entryFileSelect.value = currentEntryFile;
     updateEntryFileSelectStyle(currentEntryFile);
-    updateMdButtonsTitles(true, currentEntryFile);
+    updateMdButtonsTitles(true);
   } else {
     entryFileSelect.style.display = "none";
     updateEntryFileSelectStyle(null);
     if (copyMdFileBtn) copyMdFileBtn.style.display = "flex";
     if (pasteMdFileBtn) pasteMdFileBtn.style.display = "flex";
     if (patchMdBtn) patchMdBtn.style.display = "none";
-    updateMdButtonsTitles(false, null);
+    updateMdButtonsTitles(false);
     currentEntryFile = null;
     currentEntryScadFile = null;
   }
@@ -1181,7 +1167,7 @@ function handleEditorCursorChange() {
     currentEntryFile = block.filePath;
     entryFileSelect.value = block.filePath;
     updateEntryFileSelectStyle(block.filePath);
-    updateMdButtonsTitles(true, block.filePath);
+    updateMdButtonsTitles(true);
     updateEditorHighlights();
   }
 
@@ -1200,10 +1186,8 @@ entryFileSelect.addEventListener("change", (e) => {
   const selectedFile = e.target.value;
   currentEntryFile = selectedFile;
   updateEntryFileSelectStyle(selectedFile);
-  updateMdButtonsTitles(true, selectedFile);
-  if (selectedFile !== ALL_MD_FILE_OPTION) {
-    scrollEditorToMdFile(selectedFile);
-  }
+  updateMdButtonsTitles(true);
+  scrollEditorToMdFile(selectedFile);
   updateEditorHighlights();
   saveWorkspaceImmediate();
 
@@ -1229,7 +1213,7 @@ if (copyMdFileBtn) {
       : null;
 
     let contentToCopy;
-    if (!isMdWithFiles || targetFile === ALL_MD_FILE_OPTION) {
+    if (!isMdWithFiles) {
       contentToCopy = editorEl.value;
     } else {
       if (!targetFile) return;
@@ -1291,7 +1275,7 @@ function showMdPatchToast(
           currentEntryFile = item.targetPath;
           entryFileSelect.value = item.targetPath;
           updateEntryFileSelectStyle(item.targetPath);
-          updateMdButtonsTitles(true, item.targetPath);
+          updateMdButtonsTitles(true);
         }
         scrollEditorToMdFile(item.targetPath);
         updateEditorHighlights();
