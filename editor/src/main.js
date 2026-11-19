@@ -2093,6 +2093,7 @@ function stopGodotPlayer(options = {}) {
     godotIframe = null;
   }
   if (godotStatusOverlay) godotStatusOverlay.style.display = "none";
+  if (godotLogsDrawer) godotLogsDrawer.style.display = "none";
   if (godotPanel) godotPanel.style.display = "none";
   setScadViewerUiVisible(true);
   if (playGodotBtn) playGodotBtn.innerText = "🎮 Play Godot";
