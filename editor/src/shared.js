@@ -212,6 +212,54 @@ export async function fetchDependencies(code, backendUrl, serverFiles) {
   return additionalFiles;
 }
 
+export function getFileParam(search = "") {
+  if (!search || typeof search !== "string") return null;
+  const val = new URLSearchParams(search).get("file");
+  return val && val.trim() ? val.trim() : null;
+}
+
+export function extractFilenameFromUrl(fileUrl) {
+  if (!fileUrl || typeof fileUrl !== "string") return null;
+  const trimmed = fileUrl.trim();
+  if (!trimmed || /^(?:data|blob):/i.test(trimmed)) return null;
+  try {
+    const parsed = new URL(trimmed, "http://localhost");
+    const last = parsed.pathname.split("/").filter(Boolean).pop();
+    if (!last) return null;
+    const decoded = decodeURIComponent(last).trim();
+    return /\.(?:scad|md)$/i.test(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchModelFromUrl(
+  fileUrl,
+  baseUrl = "http://localhost/",
+) {
+  if (!fileUrl || typeof fileUrl !== "string") return null;
+  const trimmed = fileUrl.trim();
+  if (!trimmed) return null;
+
+  const resolvedUrl = new URL(trimmed, baseUrl).href;
+  const res = await fetch(resolvedUrl);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch model (${res.status} ${res.statusText || ""})`.trim(),
+    );
+  }
+
+  const contentType = (res.headers?.get?.("content-type") || "").toLowerCase();
+  if (contentType.includes("text/html")) {
+    throw new Error("URL returned HTML instead of a model file.");
+  }
+
+  return {
+    content: await res.text(),
+    name: extractFilenameFromUrl(trimmed),
+  };
+}
+
 export function fitCameraToBox(camera, controls, dirLight, scene, worldBox) {
   const center = worldBox.getCenter(new THREE.Vector3());
   const size = worldBox.getSize(new THREE.Vector3());

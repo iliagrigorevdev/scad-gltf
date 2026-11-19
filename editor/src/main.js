@@ -33,6 +33,8 @@ import {
   encodeCode,
   decodeCode,
   fetchDependencies,
+  getFileParam,
+  fetchModelFromUrl,
   fitCameraToBox,
   setupMeshShadowsAndWireframe,
   applyDynamicBoundsToLights,
@@ -2040,6 +2042,7 @@ shareBtn.onclick = async () => {
     } else {
       url.searchParams.delete("embed");
     }
+    url.searchParams.delete("file");
 
     if (!rawCode.trim()) {
       finalUrl = url.origin + url.pathname + url.search;
@@ -3308,6 +3311,24 @@ window.addEventListener("hashchange", async () => {
       }
     } catch (e) {
       console.error("Failed to decode hash", e);
+    }
+  } else {
+    const fileUrl = getFileParam(window.location.search);
+    if (fileUrl) {
+      try {
+        const loaded = await fetchModelFromUrl(fileUrl, window.location.href);
+        if (loaded) {
+          await openModelInLocalStore({
+            content: loaded.content,
+            name: loaded.name,
+            fallbackPrefix: "URL Model",
+            versionLabel: "URL model",
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load model from URL", e);
+        updateLocalSaveStatus("Failed to load URL model", false);
+      }
     }
   }
 

@@ -56,7 +56,7 @@ The C++ source code for this custom OpenSCAD fork is included in the `openscad/`
   - Automatically saves the active workspace draft in `localStorage` and stores named local models and up to 50 auto-snapshots per model in `IndexedDB`.
   - Create manual snapshots with notes (**📌 Save Version**), restore earlier versions (**↩ Restore**), or click **🔍 Compare** to inspect **Side-by-Side / Unified Code Diffs** and **3D Visual Comparisons** (Side-by-Side Synced Camera or Red/Green Overlay).
 - **In-Browser Godot 4 Playback & Export:** Paste, drop, or open a `.md` Godot 4 project (`project.godot` + `.scad` + `.gd`/`.tscn`) to compile all `.scad` models to `.glb` in the browser, pack an in-memory `.pck`, and run it with **🎮 Play Godot** (includes console logs, screenshot capture, **⬇ Web ZIP** HTML5 export, and **⬇ Project ZIP** source export).
-- **URL Sharing & Embed Mode:** Click **🔗 Share** to compress the project into the URL hash (`#c...`). Enable **Embed Share** (`?embed=1`) to share a chromeless full-viewport link that hides editor UI and auto-starts Godot games.
+- **URL Loading, Sharing & Embed Mode:** Load a self-contained `.scad` or `.md` file directly via URL parameter (`?file=<url>`), or click **🔗 Share** to compress the project into the URL hash (`#c...`). Enable **Embed Share** (`?embed=1`) to share a chromeless full-viewport link that hides editor UI and auto-starts Godot games.
 - **Optional Local Sync & PWA:** Connect the **SCAD Serve Backend** panel (`http://localhost:3000`) to `scad-gltf serve` to read, save, and delete files on your local disk with automatic `include`/`use` dependency resolution. Installable as a Progressive Web App (PWA).
 
 ### Workflow: Generating & Refining Godot 4 Projects (Scadify + AI Studio)

@@ -107,6 +107,9 @@ const {
   encodeCode,
   decodeCode,
   fetchDependencies,
+  getFileParam,
+  extractFilenameFromUrl,
+  fetchModelFromUrl,
   fitCameraToBox,
   setupMeshShadowsAndWireframe,
   applyDynamicBoundsToLights,
@@ -377,4 +380,84 @@ test("shared - fitCameraToBox, setupMeshShadowsAndWireframe, applyDynamicBoundsT
   assert.strictEqual(extracted.sceneHasLights, true);
   // expDir = 3/6 = 0.5, expPt = 3000/6000 = 0.5
   assert.strictEqual(extracted.optimalExposure, 0.5);
+});
+
+test("shared - getFileParam and extractFilenameFromUrl parse ?file= parameter", () => {
+  assert.strictEqual(getFileParam(""), null);
+  assert.strictEqual(getFileParam("?embed=1"), null);
+  assert.strictEqual(getFileParam("?file=   "), null);
+  assert.strictEqual(
+    getFileParam("?embed=1&file=https%3A%2F%2Fexample.com%2Fgear.scad"),
+    "https://example.com/gear.scad",
+  );
+
+  assert.strictEqual(
+    extractFilenameFromUrl("https://example.com/models/my%20gear.scad?raw=1"),
+    "my gear.scad",
+  );
+  assert.strictEqual(
+    extractFilenameFromUrl("./projects/space_game.md"),
+    "space_game.md",
+  );
+  assert.strictEqual(
+    extractFilenameFromUrl("https://example.com/download?id=123"),
+    null,
+  );
+  assert.strictEqual(extractFilenameFromUrl("blob:https://example.com/123"), null);
+  assert.strictEqual(extractFilenameFromUrl("data:text/plain,cube(1);"), null);
+});
+
+test("shared - fetchModelFromUrl fetches text content and rejects HTML or HTTP errors", async (t) => {
+  t.mock.method(globalThis, "fetch", async (url) => {
+    if (url === "https://example.com/demo/box.md") {
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "text/markdown" },
+        text: async () => "### main.scad\n```openscad\ncube(5);\n```",
+      };
+    }
+    if (url === "https://iliagrigorevdev.github.io/scad-gltf/models/gear.scad") {
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "text/plain" },
+        text: async () => "cylinder(r=5, h=2);",
+      };
+    }
+    if (url === "https://example.com/bad.scad") {
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => "text/html" },
+        text: async () => "<html>Not found</html>",
+      };
+    }
+    return { ok: false, status: 404, statusText: "Not Found" };
+  });
+
+  const mdLoaded = await fetchModelFromUrl("https://example.com/demo/box.md");
+  assert.deepStrictEqual(mdLoaded, {
+    content: "### main.scad\n```openscad\ncube(5);\n```",
+    name: "box.md",
+  });
+
+  const relLoaded = await fetchModelFromUrl(
+    "models/gear.scad",
+    "https://iliagrigorevdev.github.io/scad-gltf/",
+  );
+  assert.deepStrictEqual(relLoaded, {
+    content: "cylinder(r=5, h=2);",
+    name: "gear.scad",
+  });
+
+  await assert.rejects(
+    () => fetchModelFromUrl("https://example.com/bad.scad"),
+    /URL returned HTML/,
+  );
+
+  await assert.rejects(
+    () => fetchModelFromUrl("https://example.com/missing.scad"),
+    /404/,
+  );
 });
