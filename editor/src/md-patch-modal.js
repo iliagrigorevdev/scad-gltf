@@ -109,6 +109,7 @@ export function openMdPatchModal({
   for (const p of existingPaths) {
     const opt = document.createElement("option");
     opt.value = p;
+    opt.textContent = p;
     singleTargetSelect.appendChild(opt);
 
     const dlOpt = document.createElement("option");

@@ -257,10 +257,11 @@ test("md-patch-modal - patches files, allows toggling & remapping, and applies v
 test("md-patch-modal - defaults to single-file for raw code and closes on Escape", () => {
   installModalDom();
 
-  const currentMd = "### a.scad\n```openscad\ncube(1);\n```";
+  const currentMd =
+    "### a.scad\n```openscad\ncube(1);\n```\n### b.gd\n```gdscript\nextends Node\n```";
   openMdPatchModal({
     currentMd,
-    currentFilesMap: { "a.scad": "cube(1);" },
+    currentFilesMap: { "a.scad": "cube(1);", "b.gd": "extends Node" },
     preferredTargetFile: "a.scad",
     initialPatchText: "sphere(5);",
   });
@@ -270,6 +271,18 @@ test("md-patch-modal - defaults to single-file for raw code and closes on Escape
     overlay.querySelector("#mp-mode-select").value,
     "single-file",
   );
+  const targetSelect = overlay.querySelector("#mp-single-target-select");
+  assert.deepStrictEqual(
+    targetSelect.children.map((o) => ({
+      value: o.value,
+      textContent: o.textContent,
+    })),
+    [
+      { value: "a.scad", textContent: "a.scad" },
+      { value: "b.gd", textContent: "b.gd" },
+    ],
+  );
+  assert.strictEqual(targetSelect.value, "a.scad");
   assert.strictEqual(overlay.querySelector("#mp-apply-btn").disabled, false);
 
   document.dispatchEvent({ type: "keydown", key: "Escape" });
