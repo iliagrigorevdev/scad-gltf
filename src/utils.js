@@ -46,6 +46,70 @@ const EXT_TO_LANG = {
   gdshader: "gdshader",
 };
 
+export function normalizeRepoPath(filePath) {
+  return String(filePath ?? "")
+    .trim()
+    .replace(/\\/g, "/")
+    .replace(/^(?:\.\/)+/, "")
+    .replace(/^\/+/, "");
+}
+
+export function isScadFilePath(filePath) {
+  return (
+    typeof filePath === "string" && filePath.toLowerCase().endsWith(".scad")
+  );
+}
+
+export function parseFenceOpen(line) {
+  const match = line.match(/^(`{3,}|~{3,})(.*)$/);
+  if (!match) return null;
+  const fence = match[1];
+  const char = fence[0];
+  const info = match[2];
+  if (char === "`" && info.includes("`")) return null;
+  return { char, len: fence.length, info: info.trim() };
+}
+
+export function isFenceClose(line, fenceChar, fenceLen) {
+  const trimmed = line.trimEnd();
+  if (!trimmed || trimmed[0] !== fenceChar) return false;
+  let count = 0;
+  while (count < trimmed.length && trimmed[count] === fenceChar) {
+    count++;
+  }
+  return count >= fenceLen && count === trimmed.length;
+}
+
+export function getSafeFenceForContent(content) {
+  const matches = String(content ?? "").match(/`{3,}/g);
+  if (!matches) return "```";
+  let maxLen = 2;
+  for (const m of matches) {
+    if (m.length > maxLen) maxLen = m.length;
+  }
+  return "`".repeat(maxLen + 1);
+}
+
+export function extractRootFolderFromMarkdownFiles(files) {
+  const paths = Object.keys(files)
+    .map((p) => p.replace(/\\/g, "/").replace(/^\/+/, ""))
+    .filter(Boolean);
+  if (paths.length === 0) return null;
+
+  let rootFolder = null;
+  for (const p of paths) {
+    const slashIdx = p.indexOf("/");
+    if (slashIdx <= 0) return null;
+    const top = p.slice(0, slashIdx);
+    if (rootFolder === null) {
+      rootFolder = top;
+    } else if (rootFolder !== top) {
+      return null;
+    }
+  }
+  return rootFolder;
+}
+
 /**
  * Resolves a Markdown code block language tag from a file path.
  *
@@ -75,21 +139,15 @@ export function packFilesToMarkdown(files) {
     const normalizedPath = filepath.replace(/\\/g, "/");
     const normalizedContent = String(content ?? "").replace(/\r\n/g, "\n");
     const lang = getMarkdownLangFromPath(normalizedPath);
+    const fence = getSafeFenceForContent(normalizedContent);
     blocks.push(
-      `### ${normalizedPath}\n\`\`\`${lang}\n${normalizedContent}\n\`\`\``,
+      `### ${normalizedPath}\n${fence}${lang}\n${normalizedContent}\n${fence}`,
     );
   }
 
   return blocks.length > 0 ? blocks.join("\n\n") + "\n" : "";
 }
 
-/**
- * Parses a markdown string and extracts files defined by standard "### filepath" headers.
- * Includes a fallback for extracting generic un-headered OpenSCAD codeblocks.
- *
- * @param {string} mdContent The markdown string to parse
- * @returns {Record<string, string>} A dictionary mapping filepaths to their string contents
- */
 /**
  * Normalizes a Markdown file header token by stripping optional surrounding
  * bold (`**...**`) or inline code (`` `...` ``) formatting.
@@ -133,37 +191,51 @@ export function parseMarkdownFileHeader(line) {
   return normalized || null;
 }
 
+/**
+ * Parses a markdown string and extracts files defined by standard "### filepath" headers.
+ * Includes a fallback for extracting generic un-headered OpenSCAD codeblocks.
+ *
+ * @param {string} mdContent The markdown string to parse
+ * @returns {Record<string, string>} A dictionary mapping filepaths to their string contents
+ */
 export function extractFilesFromMarkdown(mdContent) {
   const files = {};
+  if (typeof mdContent !== "string") return files;
   const lines = mdContent.split("\n");
   let currentFile = null;
-  let inCodeBlock = false;
+  let activeFence = null;
   let currentContent = [];
 
   for (const rawLine of lines) {
     const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+
+    if (activeFence) {
+      if (isFenceClose(line, activeFence.char, activeFence.len)) {
+        if (currentFile) {
+          files[currentFile] = currentContent.join("\n");
+        }
+        currentFile = null;
+        activeFence = null;
+        currentContent = [];
+      } else {
+        currentContent.push(line);
+      }
+      continue;
+    }
+
     const headerFile = parseMarkdownFileHeader(line);
     if (headerFile) {
       currentFile = headerFile;
-      inCodeBlock = false;
+      activeFence = null;
       currentContent = [];
       continue;
     }
 
     if (currentFile) {
-      if (line.startsWith("```")) {
-        if (inCodeBlock) {
-          // Close block and save
-          files[currentFile] = currentContent.join("\n");
-          currentFile = null;
-          inCodeBlock = false;
-        } else {
-          // Open block
-          inCodeBlock = true;
-          currentContent = [];
-        }
-      } else if (inCodeBlock) {
-        currentContent.push(line);
+      const fence = parseFenceOpen(line);
+      if (fence) {
+        activeFence = fence;
+        currentContent = [];
       }
     }
   }
@@ -171,7 +243,7 @@ export function extractFilesFromMarkdown(mdContent) {
   // Fallback for generic markdown with just a scad codeblock
   if (Object.keys(files).length === 0) {
     const genericMatch = mdContent.match(
-      /```(?:openscad|scad)?\n([\s\S]*?)```/i,
+      /```(?:openscad|scad)?\r?\n([\s\S]*?)```/i,
     );
     if (genericMatch) {
       files["main.scad"] = genericMatch[1].trim();
@@ -183,7 +255,8 @@ export function extractFilesFromMarkdown(mdContent) {
 
 /**
  * Extracts and sanitizes the model name from a SCAD block comment.
- * e.g., /* Model Name: My Model */
+ * e.g., Model Name block comment (`Model Name: My Model`)
+ */
 export function extractModelNameFromScad(scadCode) {
   const nameMatch = scadCode.match(/\/\*\s*Model Name:\s*(.*?)\s*\*\//i);
   if (nameMatch && nameMatch[1]) {
@@ -207,3 +280,15 @@ export function extractScadDependencies(scadCode) {
   }
   return deps;
 }
+
+export {
+  replaceFileInMarkdown,
+  removeFileFromMarkdown,
+  parseSearchReplaceBlocks,
+  applySearchReplaceHunks,
+  parseMarkdownPatchEntries,
+  resolveMarkdownPatchTarget,
+  evaluatePatchEntryAgainstFiles,
+  analyzeMarkdownPatch,
+  applyMarkdownPatchPlan,
+} from "./md-patch.js";

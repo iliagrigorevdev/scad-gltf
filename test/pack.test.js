@@ -71,3 +71,18 @@ test("collectFilesFromDirectory - Collects text files and skips ignored/binary f
     fs.rmSync(tempBase, { recursive: true, force: true });
   }
 });
+
+test("packFilesToMarkdown - Safely packs files containing triple backticks using longer fences", () => {
+  const inputFiles = {
+    "proj/README.md": "# Title\n\n```openscad\ncube(10);\n```\n",
+    "proj/main.scad": "cube(10);",
+  };
+
+  const md = packFilesToMarkdown(inputFiles);
+  assert.ok(md.includes("````markdown"));
+  const extracted = extractFilesFromMarkdown(md);
+  assert.deepStrictEqual(extracted, {
+    "proj/README.md": "# Title\n\n```openscad\ncube(10);\n```\n",
+    "proj/main.scad": "cube(10);",
+  });
+});

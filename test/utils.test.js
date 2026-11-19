@@ -3,7 +3,11 @@ import assert from "node:assert";
 import {
   extractFilesFromMarkdown,
   extractModelNameFromScad,
+  extractRootFolderFromMarkdownFiles,
   extractScadDependencies,
+  getSafeFenceForContent,
+  isScadFilePath,
+  normalizeRepoPath,
 } from "../src/utils.js";
 
 test("utils - extractModelNameFromScad - standard format", () => {
@@ -158,4 +162,59 @@ ignored
     "[gd_scene format=3]",
   );
   assert.strictEqual(files["scripts/player.gd"], "extends Node3D");
+});
+
+test("utils - normalizeRepoPath, isScadFilePath, getSafeFenceForContent, extractRootFolderFromMarkdownFiles", () => {
+  assert.strictEqual(
+    normalizeRepoPath(" ./foo\\bar/baz.scad "),
+    "foo/bar/baz.scad",
+  );
+  assert.strictEqual(normalizeRepoPath("/root/file.gd"), "root/file.gd");
+
+  assert.strictEqual(isScadFilePath("models/Robot.SCAD"), true);
+  assert.strictEqual(isScadFilePath("scripts/main.gd"), false);
+  assert.strictEqual(isScadFilePath(null), false);
+
+  assert.strictEqual(getSafeFenceForContent("cube(1);"), "```");
+  assert.strictEqual(getSafeFenceForContent("```js\ncode\n```"), "````");
+  assert.strictEqual(getSafeFenceForContent("````md\n```\n````"), "`````");
+
+  assert.strictEqual(
+    extractRootFolderFromMarkdownFiles({
+      "proj/a.scad": "",
+      "proj/sub/b.gd": "",
+    }),
+    "proj",
+  );
+  assert.strictEqual(
+    extractRootFolderFromMarkdownFiles({ "a/1.scad": "", "b/2.scad": "" }),
+    null,
+  );
+});
+
+test("utils - extractFilesFromMarkdown handles multi-backtick, tilde fences, and ### inside code blocks", () => {
+  const md = [
+    "### docs/README.md",
+    "````markdown",
+    "# Demo",
+    "### fake/nested.scad",
+    "```openscad",
+    "cube(1);",
+    "```",
+    "````",
+    "",
+    "### scripts/main.gd",
+    "~~~gdscript",
+    "extends Node3D",
+    "~~~",
+  ].join("\n");
+
+  const files = extractFilesFromMarkdown(md);
+  assert.deepStrictEqual(Object.keys(files), [
+    "docs/README.md",
+    "scripts/main.gd",
+  ]);
+  assert.ok(files["docs/README.md"].includes("### fake/nested.scad"));
+  assert.ok(files["docs/README.md"].includes("```openscad\ncube(1);\n```"));
+  assert.strictEqual(files["scripts/main.gd"], "extends Node3D");
 });

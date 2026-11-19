@@ -11,6 +11,7 @@ import {
   buildSideBySideRows,
   extractScadEntries,
   resolveScadCompilationInput,
+  createUnifiedDiffTable,
 } from "../editor/src/diff-utils.js";
 
 test("diff-utils - formatting and hashing helpers", () => {
@@ -145,4 +146,47 @@ test("diff-utils - extractScadEntries and resolveScadCompilationInput", () => {
   const generic = resolveScadCompilationInput("```openscad\nsphere(3);\n```");
   assert.strictEqual(generic.targetScadPath, "main.scad");
   assert.strictEqual(generic.entryCode, "sphere(3);");
+});
+
+test("diff-utils - createUnifiedDiffTable builds unified table DOM rows", () => {
+  const origDoc = globalThis.document;
+  class MiniDomEl {
+    constructor(tag) {
+      this.tagName = tag.toUpperCase();
+      this.className = "";
+      this.textContent = "";
+      this.colSpan = 1;
+      this.children = [];
+    }
+    appendChild(c) {
+      this.children.push(c);
+      return c;
+    }
+    append(...cs) {
+      this.children.push(...cs);
+    }
+  }
+  globalThis.document = { createElement: (t) => new MiniDomEl(t) };
+
+  try {
+    const table = createUnifiedDiffTable([
+      { type: "hunk", skipped: 4 },
+      { type: "equal", lineA: 5, lineB: 5, text: "same" },
+      { type: "remove", lineA: 6, lineB: null, text: "old" },
+      { type: "add", lineA: null, lineB: 6, text: "new" },
+    ]);
+
+    assert.strictEqual(table.className, "vc-diff-table vc-diff-unified");
+    const rows = table.children[0].children;
+    assert.strictEqual(rows.length, 4);
+    assert.strictEqual(rows[0].className, "vc-row-hunk");
+    assert.strictEqual(rows[0].children[0].colSpan, 4);
+    assert.ok(rows[0].children[0].textContent.includes("4 unchanged lines"));
+    assert.strictEqual(rows[2].children[2].textContent, "-");
+    assert.strictEqual(rows[2].children[3].textContent, "old");
+    assert.strictEqual(rows[3].children[2].textContent, "+");
+    assert.strictEqual(rows[3].children[3].textContent, "new");
+  } finally {
+    globalThis.document = origDoc;
+  }
 });

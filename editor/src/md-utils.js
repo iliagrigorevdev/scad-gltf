@@ -1,28 +1,37 @@
 import {
-  getMarkdownLangFromPath,
-  normalizeMarkdownHeaderPath,
+  extractRootFolderFromMarkdownFiles,
+  getSafeFenceForContent,
+  isFenceClose,
+  isScadFilePath,
+  normalizeRepoPath,
+  parseFenceOpen,
   parseMarkdownFileHeader,
+  replaceFileInMarkdown,
+  removeFileFromMarkdown,
+  parseSearchReplaceBlocks,
+  applySearchReplaceHunks,
+  parseMarkdownPatchEntries,
+  resolveMarkdownPatchTarget,
+  evaluatePatchEntryAgainstFiles,
+  analyzeMarkdownPatch,
+  applyMarkdownPatchPlan,
 } from "scad-gltf/utils";
 
-export function extractRootFolderFromMarkdownFiles(files) {
-  const paths = Object.keys(files)
-    .map((p) => p.replace(/\\/g, "/").replace(/^\/+/, ""))
-    .filter(Boolean);
-  if (paths.length === 0) return null;
-
-  let rootFolder = null;
-  for (const p of paths) {
-    const slashIdx = p.indexOf("/");
-    if (slashIdx <= 0) return null;
-    const top = p.slice(0, slashIdx);
-    if (rootFolder === null) {
-      rootFolder = top;
-    } else if (rootFolder !== top) {
-      return null;
-    }
-  }
-  return rootFolder;
-}
+export {
+  extractRootFolderFromMarkdownFiles,
+  getSafeFenceForContent,
+  isScadFilePath,
+  normalizeRepoPath,
+  replaceFileInMarkdown,
+  removeFileFromMarkdown,
+  parseSearchReplaceBlocks,
+  applySearchReplaceHunks,
+  parseMarkdownPatchEntries,
+  resolveMarkdownPatchTarget,
+  evaluatePatchEntryAgainstFiles,
+  analyzeMarkdownPatch,
+  applyMarkdownPatchPlan,
+};
 
 export function isMarkdownContent(code) {
   if (typeof code !== "string") return false;
@@ -39,7 +48,7 @@ export function parseMdFileBlocks(mdContent) {
   let pos = 0;
   let currentFile = null;
   let headerStart = -1;
-  let inCodeBlock = false;
+  let activeFence = null;
   let contentStart = -1;
 
   while (pos <= mdContent.length) {
@@ -48,35 +57,38 @@ export function parseMdFileBlocks(mdContent) {
     const rawLine = mdContent.slice(pos, lineEnd);
     const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
 
-    const headerFile = parseMarkdownFileHeader(line);
-    if (headerFile) {
-      currentFile = headerFile;
-      headerStart = pos;
-      inCodeBlock = false;
-      contentStart = -1;
-    } else if (currentFile) {
-      if (line.startsWith("```")) {
-        if (!inCodeBlock) {
-          inCodeBlock = true;
+    if (activeFence) {
+      if (isFenceClose(line, activeFence.char, activeFence.len)) {
+        const prevChar = pos >= 2 ? mdContent[pos - 2] : "";
+        const contentEnd =
+          pos > contentStart
+            ? prevChar === "\r"
+              ? pos - 2
+              : pos - 1
+            : contentStart;
+        blocks.push({
+          filePath: currentFile,
+          headerStart,
+          contentStart,
+          contentEnd,
+          blockEnd: lineEnd,
+        });
+        currentFile = null;
+        activeFence = null;
+        contentStart = -1;
+      }
+    } else {
+      const headerFile = parseMarkdownFileHeader(line);
+      if (headerFile) {
+        currentFile = headerFile;
+        headerStart = pos;
+        activeFence = null;
+        contentStart = -1;
+      } else if (currentFile) {
+        const fence = parseFenceOpen(line);
+        if (fence) {
+          activeFence = fence;
           contentStart = nlIdx === -1 ? lineEnd : nlIdx + 1;
-        } else {
-          const prevChar = pos >= 2 ? mdContent[pos - 2] : "";
-          const contentEnd =
-            pos > contentStart
-              ? prevChar === "\r"
-                ? pos - 2
-                : pos - 1
-              : contentStart;
-          blocks.push({
-            filePath: currentFile,
-            headerStart,
-            contentStart,
-            contentEnd,
-            blockEnd: lineEnd,
-          });
-          currentFile = null;
-          inCodeBlock = false;
-          contentStart = -1;
         }
       }
     }
@@ -119,19 +131,13 @@ export function findMdBlockAtCursor(mdContent, cursorIndex) {
   return null;
 }
 
-export function isScadFilePath(filePath) {
-  return (
-    typeof filePath === "string" && filePath.toLowerCase().endsWith(".scad")
-  );
-}
-
 export function analyzeMdLines(content) {
   const lines = content.split("\n");
   const parsed = new Array(lines.length);
 
   let currentFile = null;
-  let inCodeBlock = false;
-  let genericInCodeBlock = false;
+  let activeFence = null;
+  let genericFence = null;
   let genericFilePath = null;
   let genericIsScad = false;
   let blockIdx = -1;
@@ -139,15 +145,60 @@ export function analyzeMdLines(content) {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const headerFile = parseMarkdownFileHeader(line);
 
+    if (activeFence && currentFile !== null) {
+      const isScad = isScadFilePath(currentFile);
+      if (isFenceClose(line, activeFence.char, activeFence.len)) {
+        parsed[i] = {
+          line,
+          role: "fence-close",
+          blockIdx,
+          filePath: currentFile,
+          isScad,
+        };
+        activeFence = null;
+        currentFile = null;
+      } else {
+        parsed[i] = {
+          line,
+          role: "body",
+          blockIdx,
+          filePath: currentFile,
+          isScad,
+        };
+      }
+      continue;
+    }
+
+    if (genericFence) {
+      if (isFenceClose(line, genericFence.char, genericFence.len)) {
+        parsed[i] = {
+          line,
+          role: "fence-close",
+          blockIdx,
+          filePath: genericFilePath,
+          isScad: genericIsScad,
+        };
+        genericFence = null;
+        genericFilePath = null;
+        genericIsScad = false;
+      } else {
+        parsed[i] = {
+          line,
+          role: "body",
+          blockIdx,
+          filePath: genericFilePath,
+          isScad: genericIsScad,
+        };
+      }
+      continue;
+    }
+
+    const headerFile = parseMarkdownFileHeader(line);
     if (headerFile) {
       blockIdx++;
       currentFile = headerFile;
-      inCodeBlock = false;
-      genericInCodeBlock = false;
-      genericFilePath = null;
-      genericIsScad = false;
+      activeFence = null;
       hasFileBlocks = true;
       parsed[i] = {
         line,
@@ -161,31 +212,12 @@ export function analyzeMdLines(content) {
 
     if (currentFile !== null) {
       const isScad = isScadFilePath(currentFile);
-      if (line.startsWith("```")) {
-        if (!inCodeBlock) {
-          inCodeBlock = true;
-          parsed[i] = {
-            line,
-            role: "fence-open",
-            blockIdx,
-            filePath: currentFile,
-            isScad,
-          };
-        } else {
-          parsed[i] = {
-            line,
-            role: "fence-close",
-            blockIdx,
-            filePath: currentFile,
-            isScad,
-          };
-          inCodeBlock = false;
-          currentFile = null;
-        }
-      } else if (inCodeBlock) {
+      const fence = parseFenceOpen(line);
+      if (fence) {
+        activeFence = fence;
         parsed[i] = {
           line,
-          role: "body",
+          role: "fence-open",
           blockIdx,
           filePath: currentFile,
           isScad,
@@ -202,41 +234,18 @@ export function analyzeMdLines(content) {
       continue;
     }
 
-    if (line.startsWith("```")) {
-      if (!genericInCodeBlock) {
-        const fenceLang = line.slice(3).trim().toLowerCase();
-        genericIsScad =
-          fenceLang === "" || fenceLang === "openscad" || fenceLang === "scad";
-        genericFilePath = genericIsScad ? "main.scad" : null;
-        blockIdx++;
-        genericInCodeBlock = true;
-        hasFileBlocks = true;
-        parsed[i] = {
-          line,
-          role: "fence-open",
-          blockIdx,
-          filePath: genericFilePath,
-          isScad: genericIsScad,
-        };
-      } else {
-        parsed[i] = {
-          line,
-          role: "fence-close",
-          blockIdx,
-          filePath: genericFilePath,
-          isScad: genericIsScad,
-        };
-        genericInCodeBlock = false;
-        genericFilePath = null;
-        genericIsScad = false;
-      }
-      continue;
-    }
-
-    if (genericInCodeBlock) {
+    const fence = parseFenceOpen(line);
+    if (fence) {
+      const fenceLang = fence.info.toLowerCase();
+      genericIsScad =
+        fenceLang === "" || fenceLang === "openscad" || fenceLang === "scad";
+      genericFilePath = genericIsScad ? "main.scad" : null;
+      blockIdx++;
+      genericFence = fence;
+      hasFileBlocks = true;
       parsed[i] = {
         line,
-        role: "body",
+        role: "fence-open",
         blockIdx,
         filePath: genericFilePath,
         isScad: genericIsScad,
@@ -254,71 +263,4 @@ export function analyzeMdLines(content) {
   }
 
   return { parsed, hasFileBlocks };
-}
-
-export function replaceFileInMarkdown(mdContent, targetPath, newFileContent) {
-  const normalizedMd = String(mdContent ?? "").replace(/\r\n/g, "\n");
-  const normalizedNew = String(newFileContent ?? "").replace(/\r\n/g, "\n");
-  const normalizedTarget =
-    normalizeMarkdownHeaderPath(targetPath) || String(targetPath ?? "");
-  const lines = normalizedMd.split("\n");
-
-  let currentFile = null;
-  let inCodeBlock = false;
-  let openFenceIdx = -1;
-  let closeFenceIdx = -1;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const headerFile = parseMarkdownFileHeader(line);
-    if (headerFile) {
-      currentFile = headerFile;
-      inCodeBlock = false;
-      continue;
-    }
-
-    if (currentFile === normalizedTarget) {
-      if (line.startsWith("```")) {
-        if (!inCodeBlock) {
-          inCodeBlock = true;
-          openFenceIdx = i;
-        } else {
-          closeFenceIdx = i;
-          break;
-        }
-      }
-    } else if (currentFile !== null) {
-      if (line.startsWith("```")) {
-        if (inCodeBlock) {
-          currentFile = null;
-          inCodeBlock = false;
-        } else {
-          inCodeBlock = true;
-        }
-      }
-    }
-  }
-
-  if (openFenceIdx !== -1 && closeFenceIdx !== -1) {
-    const replacementLines =
-      normalizedNew === "" ? [] : normalizedNew.split("\n");
-    const updatedLines = [
-      ...lines.slice(0, openFenceIdx + 1),
-      ...replacementLines,
-      ...lines.slice(closeFenceIdx),
-    ];
-    return updatedLines.join("\n");
-  }
-
-  if (normalizedTarget === "main.scad") {
-    const genericRegex = /(```(?:openscad|scad)?\n)([\s\S]*?)(```)/i;
-    if (genericRegex.test(normalizedMd)) {
-      const body = normalizedNew === "" ? "" : `${normalizedNew}\n`;
-      return normalizedMd.replace(genericRegex, `$1${body}$3`);
-    }
-  }
-
-  const lang = getMarkdownLangFromPath(normalizedTarget);
-  const sep = normalizedMd.endsWith("\n") ? "\n" : "\n\n";
-  return `${normalizedMd}${normalizedMd ? sep : ""}### ${normalizedTarget}\n\`\`\`${lang}\n${normalizedNew}\n\`\`\`\n`;
 }

@@ -109,6 +109,50 @@
               >
                 📥 Paste
               </button>
+              <button
+                id="patch-md-btn"
+                type="button"
+                style="display: none"
+                title="Open Markdown Patcher to review, remap, and apply patches"
+              >
+                🩹 Patch
+              </button>
+            </div>
+
+            <div
+              id="md-patch-toast"
+              class="md-patch-toast"
+              style="display: none"
+            >
+              <div class="md-patch-toast-main">
+                <span
+                  id="md-patch-toast-summary"
+                  class="md-patch-toast-summary"
+                ></span>
+                <div
+                  id="md-patch-toast-files"
+                  class="md-patch-toast-files"
+                ></div>
+              </div>
+              <div class="md-patch-toast-actions">
+                <button
+                  id="md-patch-undo-btn"
+                  type="button"
+                  title="Revert this patch"
+                >
+                  ↩ Undo
+                </button>
+                <button
+                  id="md-patch-diff-btn"
+                  type="button"
+                  title="Inspect diff against pre-patch snapshot"
+                >
+                  🔍 Diff
+                </button>
+                <button id="md-patch-close-btn" type="button" title="Dismiss">
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div id="editor-container">

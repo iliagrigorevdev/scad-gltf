@@ -2,6 +2,7 @@ import { convertScadToGltf } from "scad-gltf/convert";
 import {
   extractFilesFromMarkdown,
   extractScadDependencies,
+  isScadFilePath,
 } from "scad-gltf/utils";
 import { buildGodotPck } from "./godot-pck.js";
 import { GODOT_ADDON_FILES } from "./prompt-ui.js";
@@ -393,9 +394,7 @@ export async function compileGodotProjectToPck(project, options = {}) {
   const pckFiles = new Map();
   const logs = [];
 
-  const scadPaths = Object.keys(project.files).filter((p) =>
-    p.toLowerCase().endsWith(".scad"),
-  );
+  const scadPaths = Object.keys(project.files).filter((p) => isScadFilePath(p));
   const referencedScads = collectReferencedScadPaths(project.files);
 
   let compiledCount = 0;
@@ -829,7 +828,7 @@ export async function exportGodotProjectZip(project, options = {}) {
 
   const filesToPack = { ...project.files };
   const needsScadAddon =
-    Object.keys(filesToPack).some((p) => p.toLowerCase().endsWith(".scad")) ||
+    Object.keys(filesToPack).some((p) => isScadFilePath(p)) ||
     /scad_importer/.test(filesToPack["project.godot"] || "");
 
   if (needsScadAddon) {

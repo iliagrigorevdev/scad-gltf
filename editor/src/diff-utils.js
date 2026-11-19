@@ -1,4 +1,4 @@
-import { extractFilesFromMarkdown } from "scad-gltf/utils";
+import { extractFilesFromMarkdown, isScadFilePath } from "scad-gltf/utils";
 
 export function hashString(str) {
   let h = 0x811c9dc5;
@@ -359,16 +359,12 @@ export function extractScadEntries(content) {
   }
   const filesMap = getContentFileMap(content);
   if (filesMap) {
-    const scadFiles = Object.keys(filesMap).filter((f) =>
-      f.toLowerCase().endsWith(".scad"),
-    );
+    const scadFiles = Object.keys(filesMap).filter((f) => isScadFilePath(f));
     return { isMd: true, scadFiles, filesMap };
   }
   if (/```(?:openscad|scad)?\r?\n/i.test(content)) {
     const generic = extractFilesFromMarkdown(content);
-    const scadFiles = Object.keys(generic).filter((f) =>
-      f.toLowerCase().endsWith(".scad"),
-    );
+    const scadFiles = Object.keys(generic).filter((f) => isScadFilePath(f));
     return { isMd: true, scadFiles, filesMap: generic };
   }
   return { isMd: false, scadFiles: [], filesMap: {} };
@@ -409,4 +405,50 @@ export function resolveScadCompilationInput(content, preferredScadPath) {
     extractedAdditionalFiles,
     targetScadPath,
   };
+}
+
+export function createUnifiedDiffTable(
+  items,
+  {
+    hunkText = (skipped) =>
+      `⋯ ${skipped} unchanged line${skipped === 1 ? "" : "s"} ⋯`,
+  } = {},
+) {
+  const table = document.createElement("table");
+  table.className = "vc-diff-table vc-diff-unified";
+  const tbody = document.createElement("tbody");
+
+  for (const item of items) {
+    const tr = document.createElement("tr");
+    if (item.type === "hunk") {
+      tr.className = "vc-row-hunk";
+      const td = document.createElement("td");
+      td.colSpan = 4;
+      td.textContent = hunkText(item.skipped);
+      tr.appendChild(td);
+    } else {
+      const tdNumA = document.createElement("td");
+      tdNumA.className = `vc-ln vc-cell-${item.type}`;
+      tdNumA.textContent = item.lineA === null ? "" : String(item.lineA);
+
+      const tdNumB = document.createElement("td");
+      tdNumB.className = `vc-ln vc-cell-${item.type}`;
+      tdNumB.textContent = item.lineB === null ? "" : String(item.lineB);
+
+      const tdSign = document.createElement("td");
+      tdSign.className = `vc-sign vc-cell-${item.type}`;
+      tdSign.textContent =
+        item.type === "add" ? "+" : item.type === "remove" ? "-" : " ";
+
+      const tdCode = document.createElement("td");
+      tdCode.className = `vc-code vc-cell-${item.type}`;
+      tdCode.textContent = item.text;
+
+      tr.append(tdNumA, tdNumB, tdSign, tdCode);
+    }
+    tbody.appendChild(tr);
+  }
+
+  table.appendChild(tbody);
+  return table;
 }

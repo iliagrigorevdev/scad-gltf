@@ -12,6 +12,7 @@ import {
   computeLineDiff,
   buildUnifiedDisplayItems,
   buildSideBySideRows,
+  createUnifiedDiffTable,
   extractScadEntries,
   resolveScadCompilationInput,
 } from "./diff-utils.js";
@@ -559,15 +560,12 @@ export async function openVersionCompareModal({
     }
 
     const showFull = fullFileCb.checked;
-    const table = document.createElement("table");
-    table.className =
-      diffLayout === "split"
-        ? "vc-diff-table vc-diff-split"
-        : "vc-diff-table vc-diff-unified";
-
-    const tbody = document.createElement("tbody");
+    let table;
 
     if (diffLayout === "split") {
+      table = document.createElement("table");
+      table.className = "vc-diff-table vc-diff-split";
+      const tbody = document.createElement("tbody");
       const rows = buildSideBySideRows(diff.ops, showFull);
       for (const row of rows) {
         const tr = document.createElement("tr");
@@ -599,41 +597,14 @@ export async function openVersionCompareModal({
         }
         tbody.appendChild(tr);
       }
+      table.appendChild(tbody);
     } else {
       const items = buildUnifiedDisplayItems(diff.ops, showFull);
-      for (const item of items) {
-        const tr = document.createElement("tr");
-        if (item.type === "hunk") {
-          tr.className = "vc-row-hunk";
-          const td = document.createElement("td");
-          td.colSpan = 4;
-          td.textContent = `⋯ ${item.skipped} unchanged line${item.skipped === 1 ? "" : "s"} hidden ⋯`;
-          tr.appendChild(td);
-        } else {
-          const tdNumA = document.createElement("td");
-          tdNumA.className = `vc-ln vc-cell-${item.type}`;
-          tdNumA.textContent = item.lineA === null ? "" : String(item.lineA);
-
-          const tdNumB = document.createElement("td");
-          tdNumB.className = `vc-ln vc-cell-${item.type}`;
-          tdNumB.textContent = item.lineB === null ? "" : String(item.lineB);
-
-          const tdSign = document.createElement("td");
-          tdSign.className = `vc-sign vc-cell-${item.type}`;
-          tdSign.textContent =
-            item.type === "add" ? "+" : item.type === "remove" ? "-" : " ";
-
-          const tdCode = document.createElement("td");
-          tdCode.className = `vc-code vc-cell-${item.type}`;
-          tdCode.textContent = item.text;
-
-          tr.append(tdNumA, tdNumB, tdSign, tdCode);
-        }
-        tbody.appendChild(tr);
-      }
+      table = createUnifiedDiffTable(items, {
+        hunkText: (skipped) =>
+          `⋯ ${skipped} unchanged line${skipped === 1 ? "" : "s"} hidden ⋯`,
+      });
     }
-
-    table.appendChild(tbody);
     diffBodyEl.appendChild(table);
   }
 
