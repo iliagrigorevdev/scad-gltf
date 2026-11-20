@@ -2310,11 +2310,17 @@ if (downloadGodotProjectZipBtn) {
       }
 
       const { zipBlob, rootFolderName } = await exportGodotProjectZip(project, {
+        wasmUrl,
         folderName: dlName,
+        scadCache: godotScadCache,
         onProgress: (msg) => {
-          const pct = msg.match(/(\d+%)/);
-          if (pct) {
-            downloadGodotProjectZipBtn.innerText = `⏳ Zip ${pct[1]}`;
+          if (/SCAD/i.test(msg)) {
+            downloadGodotProjectZipBtn.innerText = "⏳ Compiling...";
+          } else {
+            const pct = msg.match(/(\d+%)/);
+            downloadGodotProjectZipBtn.innerText = pct
+              ? `⏳ Zip ${pct[1]}`
+              : "⏳ Zipping...";
           }
         },
       });

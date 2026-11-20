@@ -318,30 +318,79 @@ test("godot-project - exportGodotProjectWebZip rejects invalid HTML fallback for
   }
 });
 
-test("godot-project - exportGodotProjectZip auto-injects addon files without overwriting existing ones", async () => {
+test("godot-project - exportGodotProjectZip auto-injects addon files and caches compiled GLBs", async () => {
   await assert.rejects(
     () => exportGodotProjectZip(null),
     /Invalid Godot project/,
   );
 
-  const project = {
-    projectName: "raw_proj",
-    files: {
-      "project.godot": "config_version=5\n",
-      "cube.scad": "cube(1);",
-      "addons/scad_importer/plugin.cfg": "custom-cfg",
-    },
+  let compileCount = 0;
+  const mockGlb = new Uint8Array([0x67, 0x6c, 0x54, 0x46, 0x09]);
+  globalThis.__mockConvertScadToGltf = async (code) => {
+    compileCount++;
+    if (code.includes("// empty-helper")) {
+      throw new Error("Current top level geometry is empty");
+    }
+    return mockGlb;
   };
 
-  const { zipBlob, rootFolderName, fileCount } =
-    await exportGodotProjectZip(project);
-  assert.strictEqual(rootFolderName, "raw_proj");
-  assert.strictEqual(fileCount, 4);
-  assert.strictEqual(
-    zipBlob._entries.get("raw_proj/addons/scad_importer/plugin.cfg"),
-    "custom-cfg",
-  );
-  assert.ok(
-    zipBlob._entries.has("raw_proj/addons/scad_importer/scad_import.gd"),
-  );
+  try {
+    const project = {
+      projectName: "raw_proj",
+      files: {
+        "project.godot": "config_version=5\n",
+        "cube.scad": "cube(1);",
+        "lib/helper.scad": "// empty-helper\nmodule h() {}",
+        "addons/scad_importer/plugin.cfg": "custom-cfg",
+      },
+    };
+
+    const cache = new Map();
+    const { zipBlob, rootFolderName, fileCount, compiledCount } =
+      await exportGodotProjectZip(project, {
+        wasmUrl: "openscad.wasm",
+        scadCache: cache,
+      });
+
+    assert.strictEqual(rootFolderName, "raw_proj");
+    assert.strictEqual(compiledCount, 1);
+    assert.strictEqual(fileCount, 7);
+    assert.strictEqual(
+      zipBlob._entries.get("raw_proj/addons/scad_importer/plugin.cfg"),
+      "custom-cfg",
+    );
+    assert.ok(
+      zipBlob._entries.has("raw_proj/addons/scad_importer/scad_import.gd"),
+    );
+    assert.strictEqual(
+      zipBlob._entries.get("raw_proj/__scad_glbs/.gdignore"),
+      "",
+    );
+    assert.deepStrictEqual(
+      zipBlob._entries.get("raw_proj/__scad_glbs/cube.scad.glb"),
+      mockGlb,
+    );
+    assert.ok(
+      !zipBlob._entries.has("raw_proj/__scad_glbs/lib/helper.scad.glb"),
+    );
+
+    // Re-exporting reuses cached cube.scad GLB without recompiling it
+    const callsBefore = compileCount;
+    await exportGodotProjectZip(project, {
+      wasmUrl: "openscad.wasm",
+      scadCache: cache,
+    });
+    assert.strictEqual(compileCount, callsBefore + 1);
+
+    // Projects with no SCAD models omit __scad_glbs directory
+    const noScad = await exportGodotProjectZip({
+      projectName: "no_scad",
+      files: { "project.godot": "config_version=5\n" },
+    });
+    assert.strictEqual(noScad.compiledCount, 0);
+    assert.strictEqual(noScad.fileCount, 1);
+    assert.ok(!noScad.zipBlob._entries.has("no_scad/__scad_glbs/.gdignore"));
+  } finally {
+    delete globalThis.__mockConvertScadToGltf;
+  }
 });

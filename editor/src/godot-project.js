@@ -385,13 +385,9 @@ function buildGlobalScriptClassCache(projectFiles) {
   return `list=[${formattedEntries.join(", ")}]\n`;
 }
 
-/**
- * Compiles all .scad assets in the Godot project to .glb via OpenSCAD WASM,
- * injects the runtime SCAD loader, and builds an in-memory .pck buffer.
- */
-export async function compileGodotProjectToPck(project, options = {}) {
+async function compileGodotScadFiles(project, options = {}) {
   const { wasmUrl, onProgress, scadCache = new Map() } = options;
-  const pckFiles = new Map();
+  const compiledGlbs = new Map();
   const logs = [];
 
   const scadPaths = Object.keys(project.files).filter((p) => isScadFilePath(p));
@@ -436,8 +432,29 @@ export async function compileGodotProjectToPck(project, options = {}) {
       }
     }
 
-    pckFiles.set(`res://__scad_glbs/${scadPath}.glb`, glbData);
+    compiledGlbs.set(scadPath, glbData);
     compiledCount++;
+  }
+
+  return { compiledGlbs, logs, compiledCount };
+}
+
+/**
+ * Compiles all .scad assets in the Godot project to .glb via OpenSCAD WASM,
+ * injects the runtime SCAD loader, and builds an in-memory .pck buffer.
+ */
+export async function compileGodotProjectToPck(project, options = {}) {
+  const { wasmUrl, onProgress, scadCache = new Map() } = options;
+  const pckFiles = new Map();
+
+  const { compiledGlbs, logs, compiledCount } = await compileGodotScadFiles(
+    project,
+    { wasmUrl, onProgress, scadCache },
+  );
+
+  for (const [scadPath, glbData] of compiledGlbs.entries()) {
+    const cleanScadPath = scadPath.replace(/\\/g, "/").replace(/^\/+/, "");
+    pckFiles.set(`res://__scad_glbs/${cleanScadPath}.glb`, glbData);
   }
 
   for (const [relPath, content] of Object.entries(project.files)) {
@@ -811,10 +828,10 @@ export async function exportGodotProjectWebZip(project, options = {}) {
 
 /**
  * Packages the raw Godot Markdown project files (including SCAD importer addon
- * files if referenced and missing) into a downloadable .zip archive.
+ * files and precompiled cached .glb models for fallback) into a downloadable .zip archive.
  */
 export async function exportGodotProjectZip(project, options = {}) {
-  const { folderName, onProgress } = options;
+  const { wasmUrl, folderName, scadCache = new Map(), onProgress } = options;
 
   if (!project || !project.files) {
     throw new Error("Invalid Godot project.");
@@ -839,6 +856,20 @@ export async function exportGodotProjectZip(project, options = {}) {
     }
   }
 
+  const { compiledGlbs, compiledCount } = await compileGodotScadFiles(project, {
+    wasmUrl,
+    scadCache,
+    onProgress,
+  });
+
+  if (compiledGlbs.size > 0) {
+    filesToPack["__scad_glbs/.gdignore"] = "";
+    for (const [scadPath, glbData] of compiledGlbs.entries()) {
+      const cleanScadPath = scadPath.replace(/\\/g, "/").replace(/^\/+/, "");
+      filesToPack[`__scad_glbs/${cleanScadPath}.glb`] = glbData;
+    }
+  }
+
   const zip = new JSZip();
   const rootFolder = zip.folder(rootFolderName);
 
@@ -853,5 +884,10 @@ export async function exportGodotProjectZip(project, options = {}) {
 
   const zipBlob = await generateProjectZipBlob(zip, onProgress);
 
-  return { zipBlob, rootFolderName, fileCount: sortedPaths.length };
+  return {
+    zipBlob,
+    rootFolderName,
+    fileCount: sortedPaths.length,
+    compiledCount,
+  };
 }
