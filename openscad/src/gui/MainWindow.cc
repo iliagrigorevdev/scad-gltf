@@ -992,12 +992,16 @@ void MainWindow::instantiateRoot()
 {
   // Go on and instantiate root_node, then call the continuation slot
 
-  // Invalidate renderers before we kill the CSG tree
-  this->qglview->setRenderer(nullptr);
+  // Invalidate renderers before we kill the CSG tree. Renderers own vertex
+  // buffers and delete them from their destructors, so drop them with our own
+  // GL context current.
+  this->qglview->withCurrentContext([this]() {
+    this->qglview->setRenderer(nullptr);
 #ifdef ENABLE_OPENCSG
-  this->previewRenderer = nullptr;
+    this->previewRenderer = nullptr;
 #endif
-  this->thrownTogetherRenderer = nullptr;
+    this->thrownTogetherRenderer = nullptr;
+  });
 
   // Remove previous CSG tree
   this->absoluteRootNode.reset();
@@ -1021,7 +1025,8 @@ void MainWindow::instantiateRoot()
 
     AbstractNode::resetIndexCounter();
 
-    EvaluationSession session{doc.parent_path().string()};
+    auto p = doc.empty() ? fs::path{} : doc.parent_path();
+    EvaluationSession session{p.string()};
     ContextHandle<BuiltinContext> builtin_context{Context::create<BuiltinContext>(&session)};
     setRenderVariables(builtin_context);
 
@@ -2019,8 +2024,10 @@ void MainWindow::cgalRender()
     return;
   }
 
-  this->qglview->setRenderer(nullptr);
-  this->geomRenderer = nullptr;
+  this->qglview->withCurrentContext([this]() {
+    this->qglview->setRenderer(nullptr);
+    this->geomRenderer = nullptr;
+  });
   rootGeom.reset();
 
   LOG("Rendering Polygon Mesh using %1$s...",
@@ -2577,7 +2584,7 @@ void MainWindow::actionExport(unsigned int dim, ExportInfo& exportInfo)
   if (!canExport(dim)) return;
 
   auto title = QString(_("Export %1 File")).arg(type_name);
-  auto filter = QString(_("%1 Files (*%2)")).arg(type_name, suffix);
+  auto filter = QString(_("%1 Files (*%2)")).arg(type_name, "." + suffix);
   auto exportFilename = QFileDialog::getSaveFileName(this, title, exportPath(suffix), filter);
   auto guard2 = scopedSetCurrentOutput();
   if (exportFilename.isEmpty()) {
@@ -3170,12 +3177,15 @@ void MainWindow::onTabManagerAboutToCloseEditor(EditorInterface *closingEditor)
   if (closingEditor == renderedEditor) {
     renderedEditor = nullptr;
 
-    // Invalidate renderers before we kill the CSG tree
-    this->qglview->setRenderer(nullptr);
+    // Invalidate renderers before we kill the CSG tree, with our own GL
+    // context current so their buffers are deleted where they were created.
+    this->qglview->withCurrentContext([this]() {
+      this->qglview->setRenderer(nullptr);
 #ifdef ENABLE_OPENCSG
-    this->previewRenderer = nullptr;
+      this->previewRenderer = nullptr;
 #endif
-    this->thrownTogetherRenderer = nullptr;
+      this->thrownTogetherRenderer = nullptr;
+    });
 
     // Remove previous CSG tree
     this->absoluteRootNode.reset();
@@ -3625,12 +3635,12 @@ void MainWindow::setupConsole()
   consoleOutputRaw(
     QString("<b>OpenSCAD %1</b>").arg(QString::fromStdString(std::string(openscad_versionnumber))));
   consoleOutputRaw(QString("<a href=\"https://www.openscad.org/\">https://www.openscad.org/</a><br>"));
-  consoleOutputRaw(
-    QString("<p>Copyright (C) 2009-2026 The OpenSCAD Developers</p>"
-            "<p>This program is free software; you can redistribute it and/or modify "
-            "it under the terms of the GNU General Public License as published by "
-            "the Free Software Foundation; either version 2 of the License, or "
-            "(at your option) any later version.</p>"));
+  consoleOutputRaw(QString("<p>Copyright (C) 2009-%1 The OpenSCAD Developers</p>"
+                           "<p>This program is free software; you can redistribute it and/or modify "
+                           "it under the terms of the GNU General Public License as published by "
+                           "the Free Software Foundation; either version 2 of the License, or "
+                           "(at your option) any later version.</p>")
+                     .arg(openscad_version_year));
 }
 
 /**

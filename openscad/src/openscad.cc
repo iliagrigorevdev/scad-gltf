@@ -72,6 +72,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -109,6 +110,7 @@
 #include "glview/RenderSettings.h"
 #include "handle_dep.h"
 #include "io/export.h"
+#include "io/fileutils.h"
 #include "libsvg/libsvg.h"
 #include "openscad_gui.h"
 #include "openscad_mimalloc.h"
@@ -217,11 +219,9 @@ bool checkAndExport(const std::shared_ptr<const Geometry>& root_geom, unsigned d
   }
 
   if (is_stdout) {
-    exportFileStdOut(root_geom, exportInfo);
-  } else {
-    exportFileByName(root_geom, filename, exportInfo);
+    return exportFileStdOut(root_geom, exportInfo);
   }
-  return true;
+  return exportFileByName(root_geom, filename, exportInfo);
 }
 
 void help(const char *arg0, const po::options_description& desc, bool failure = false)
@@ -400,16 +400,28 @@ Camera get_camera(const po::variables_map& vm)
   return camera;
 }
 
+// Changing the working directory can fail, e.g. for a UNC path with MinGW's std::filesystem
+// (#5425). Warn and keep the current working directory instead of aborting.
+static void change_current_path(const fs::path& path)
+{
+  std::error_code ec;
+  fs::current_path(path, ec);
+  if (ec) {
+    LOG(message_group::Warning, "Could not change the working directory to '%1$s': %2$s",
+        path.generic_string(), ec.message());
+  }
+}
+
 int do_export(const CommandLine& cmd, const RenderVariables& render_variables, FileFormat export_format,
               SourceFile *root_file)
 {
   auto filename_str = fs::path(cmd.output_file).generic_string();
   // Avoid possibility of fs::absolute throwing when passed an empty path
-  auto fpath = cmd.filename.empty() ? fs::current_path() : fs::absolute(fs::path(cmd.filename));
+  auto fpath = cmd.filename.empty() ? fs::current_path() : fs_absolute(fs::path(cmd.filename));
   auto fparent = fpath.parent_path();
 
   // set CWD relative to source file
-  fs::current_path(fparent);
+  change_current_path(fparent);
 
   EvaluationSession session{fparent.string()};
   ContextHandle<BuiltinContext> builtin_context{Context::create<BuiltinContext>(&session)};
@@ -439,7 +451,7 @@ int do_export(const CommandLine& cmd, const RenderVariables& render_variables, F
   }
 
   // restore CWD after module instantiation finished
-  fs::current_path(cmd.original_path);
+  change_current_path(cmd.original_path);
 
   // Do we have an explicit root node (! modifier)?
   std::shared_ptr<const AbstractNode> root_node;
@@ -459,16 +471,16 @@ int do_export(const CommandLine& cmd, const RenderVariables& render_variables, F
     // statements become relative. But unfortunately they become relative to
     // the current working dir and neither to the location of the input nor
     // the output.
-    fs::current_path(fparent);  // Force exported filenames to be relative to document path
+    change_current_path(fparent);  // Force exported filenames to be relative to document path
     with_output(cmd.is_stdout, filename_str, [&tree, root_node](std::ostream& stream) {
       stream << tree.getString(*root_node, "\t") << "\n";
     });
-    fs::current_path(cmd.original_path);
+    change_current_path(cmd.original_path);
   } else if (export_format == FileFormat::AST) {
-    fs::current_path(fparent);  // Force exported filenames to be relative to document path
+    change_current_path(fparent);  // Force exported filenames to be relative to document path
     with_output(cmd.is_stdout, filename_str,
                 [root_file](std::ostream& stream) { stream << root_file->dump(""); });
-    fs::current_path(cmd.original_path);
+    change_current_path(cmd.original_path);
   } else if (export_format == FileFormat::PARAM) {
     with_output(cmd.is_stdout, filename_str,
                 [&root_file, &fpath](std::ostream& stream) { export_param(root_file, fpath, stream); });
@@ -731,11 +743,50 @@ static CmdLineExportOptions convert_export_options(const po::variables_map& vm)
     return {};
   }
 
+  // All settings that can be given with -O, by section and name
+  std::map<std::string, std::map<std::string, const Settings::SettingsEntryBase *>> known;
+  const auto add_known = [&known](const auto& entries) {
+    for (const auto *entry : entries) {
+      known[entry->category()][entry->name()] = entry;
+    }
+  };
+  add_known(Settings::SettingsExportPdf::cmdline);
+  add_known(Settings::SettingsExport3mf::cmdline);
+  add_known(Settings::SettingsExportSvg::cmdline);
+
   CmdLineExportOptions map;
   const auto& options = vm["O"].as<std::vector<std::string>>();
   for (const auto& option : options) {
     const auto [key, value] = simple_split(option, '=');
     const auto [section, name] = simple_split(key, '/');
+    if (section.empty() || name.empty()) {
+      LOG(message_group::Warning,
+          "Ignoring export option '%1$s', expected the format <section>/<key>=value.", option);
+      continue;
+    }
+    const auto section_it = known.find(section);
+    if (section_it == known.end()) {
+      LOG(message_group::Warning,
+          "Ignoring export option '%1$s': unknown section '%2$s'. Use --help-export to list all "
+          "available settings.",
+          option, section);
+      continue;
+    }
+    const auto entry_it = section_it->second.find(name);
+    if (entry_it == section_it->second.end()) {
+      LOG(message_group::Warning,
+          "Ignoring export option '%1$s': unknown setting '%2$s' in section '%3$s'. Use --help-export "
+          "to list all available settings.",
+          option, name, section);
+      continue;
+    }
+    if (!entry_it->second->validate(value)) {
+      const auto [type, values] = entry_it->second->help();
+      LOG(message_group::Warning,
+          "Ignoring export option '%1$s': invalid value '%2$s', expected %3$s %4$s.", option, value,
+          type, values);
+      continue;
+    }
     map[section][name] = value;
   }
   return map;
