@@ -176,6 +176,10 @@ test("Project Prompts - Godot Generation", () => {
     systemPrompt.includes("OpenSCAD +Z (Up)      -> Godot +Y (Up)"),
     "Should include Godot coordinate conversion rules",
   );
+  assert.ok(
+    systemPrompt.includes("   === OPENSCAD SYNTAX RULES ==="),
+    "Should indent OpenSCAD syntax rules inside item 1 to keep list numbering 1-4 intact",
+  );
 });
 
 test("Project Prompts - Rust Bevy Generation", () => {
@@ -340,5 +344,50 @@ test("Prompt Generator - Modular Flags", () => {
   assert.ok(
     featuresRules.includes("light(type="),
     "Should include lighting rules",
+  );
+});
+
+test("Project Prompts - Follow-up Refinements Patch Format Rules", () => {
+  const promptRules = generatePrompt("A rover", { basic: false });
+
+  for (const [projectType, expectedExample] of [
+    ["godot", "### my_project/main.gd"],
+    ["web", "### my_project/main.js"],
+    ["bevy", "### my_project/src/main.rs"],
+    ["wgpu", "### my_project/src/main.rs"],
+    ["ue", "### MyProject/Source/MyProject/MyProject.cpp"],
+  ]) {
+    const prompts = getProjectPrompts(projectType);
+    const systemPrompt = prompts.buildSystemPrompt(promptRules, {});
+
+    assert.ok(
+      systemPrompt.includes(
+        "4. Follow-up Refinements (Markdown Patch Format):",
+      ),
+      `${projectType} should include follow-up refinement section`,
+    );
+    assert.ok(
+      systemPrompt.includes(expectedExample),
+      `${projectType} should include profile-specific patch example`,
+    );
+    assert.ok(
+      systemPrompt.includes("<<<<<<< SEARCH") &&
+        systemPrompt.includes("=======") &&
+        systemPrompt.includes(">>>>>>> REPLACE"),
+      `${projectType} should include SEARCH/REPLACE hunk format`,
+    );
+    assert.ok(
+      systemPrompt.includes("(DELETE)"),
+      `${projectType} should document file deletion syntax`,
+    );
+  }
+
+  const scadPrompt = getProjectPrompts("scad").buildSystemPrompt(
+    promptRules,
+    {},
+  );
+  assert.ok(
+    !scadPrompt.includes("4. Follow-up Refinements (Markdown Patch Format):"),
+    "Raw SCAD profile should not include multi-file Markdown patch rules",
   );
 });

@@ -6,7 +6,12 @@ import readline from "node:readline";
 import { execSync, spawn } from "node:child_process";
 import zlib from "node:zlib";
 import { getGodotBin } from "./godot-utils.js";
-import { extractFilesFromMarkdown, extractModelNameFromScad } from "./utils.js";
+import {
+  extractFilesFromMarkdown,
+  extractModelNameFromScad,
+  analyzeMarkdownPatch,
+  applyMarkdownPatchPlan,
+} from "./utils.js";
 
 const __filename = fs.realpathSync(url.fileURLToPath(import.meta.url));
 const __dirname = path.dirname(__filename);
@@ -440,6 +445,7 @@ export async function runAutomatedAIFlow(
   let iterations = 0;
   const maxIterations = 30;
   let disableImageSupport = false;
+  let previousProjectMd = null;
 
   // Ensure the baseUrl points to the chat completions path
   const endpoint = baseUrl.replace(/\/+$/, "") + "/chat/completions";
@@ -669,6 +675,40 @@ export async function runAutomatedAIFlow(
             if (!safeName.endsWith(".scad")) safeName += ".scad";
             extractedFilename = safeName;
           }
+        } else if (previousProjectMd) {
+          const analysis = analyzeMarkdownPatch(previousProjectMd, finalCode);
+          const errorItems = analysis.items.filter(
+            (item) => item.action === "error",
+          );
+          if (errorItems.length > 0) {
+            const errorSummary = errorItems
+              .map((item) => `- ${item.targetPath}: ${item.error}`)
+              .join("\n");
+            console.log(
+              `   ⚠️  Patch application failed for ${errorItems.length} file(s); requesting fix from AI...`,
+            );
+            messages.push({
+              role: "user",
+              content: `Your Markdown patch failed to apply cleanly:\n${errorSummary}\n\nPlease fix the SEARCH/REPLACE blocks (ensure SEARCH matches the current file verbatim) or output the full updated file(s).`,
+            });
+            continue;
+          }
+
+          if (
+            !analysis.isLikelyFullProjectReplacement &&
+            analysis.items.length > 0
+          ) {
+            const { updatedMd, appliedItems } = applyMarkdownPatchPlan(
+              previousProjectMd,
+              analysis.items,
+            );
+            if (appliedItems.length > 0) {
+              console.log(
+                `   🩹 Applied Markdown patch to ${appliedItems.length} file(s).`,
+              );
+              finalCode = updatedMd;
+            }
+          }
         }
 
         const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "scad-preview-"));
@@ -698,6 +738,7 @@ export async function runAutomatedAIFlow(
                 "No files could be extracted from the AI's Markdown output. Ensure it uses the '### filepath' format.",
               );
             }
+            previousProjectMd = finalCode;
             writeExtractedFiles(files, tempDir);
 
             const detected = detectProjectInDir(tempDir, projectType);
@@ -806,7 +847,9 @@ export async function runAutomatedAIFlow(
             console.log("\n🔄 Sending your feedback back to the LLM...");
             messages.push({
               role: "user",
-              content: `I reviewed the current version. Here is my feedback to improve it:\n\n${feedback}\n\nPlease implement these fixes and output an updated ${isRawScad ? "OpenSCAD block" : "Markdown project file"}.`,
+              content: isRawScad
+                ? `I reviewed the current version. Here is my feedback to improve it:\n\n${feedback}\n\nPlease implement these fixes and output an updated OpenSCAD block.`
+                : `I reviewed the current version. Here is my feedback to improve it:\n\n${feedback}\n\nPlease implement these fixes using the Markdown Patch format (\`### filepath\` with \`SEARCH/REPLACE\` hunks or full updated files for modified, added, or deleted files only).`,
             });
           }
         } catch (err) {

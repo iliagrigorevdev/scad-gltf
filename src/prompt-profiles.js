@@ -101,14 +101,64 @@ function getScadAssetsInstructions(promptRules, projectType) {
     specificRules = `   - CRITICAL: The SCAD to glTF converter automatically converts OpenSCAD's Z-up coordinate system to the standard glTF Y-up coordinate system. Design your models naturally in OpenSCAD.`;
   }
 
+  const indentedPromptRules = String(promptRules ?? "")
+    .split("\n")
+    .map((line) => (line ? `   ${line}` : ""))
+    .join("\n");
+
   return `1. 3D Assets (.scad):
    - Generate procedural 3D models for the project using OpenSCAD.
 ${specificRules}
    - CRITICAL: You must use the custom OpenSCAD glTF extensions for PBR materials (e.g., \`roughness\`, \`metalness\`, \`emissive\`) and Hierarchical Node Animations (\`armature()\`, \`bone()\`). The rules and syntax for these features are provided below:
 
-=== OPENSCAD SYNTAX RULES ===
-${promptRules}
-=============================`;
+   === OPENSCAD SYNTAX RULES ===
+${indentedPromptRules}
+   =============================`;
+}
+
+function getRefinementPatchFormat(projectType) {
+  let exampleFilePath = "my_project/src/main.rs";
+  let exampleLang = "rust";
+  let exampleSearch = "let speed = 5.0;";
+  let exampleReplace = "let speed = 8.0;";
+
+  if (projectType === "web") {
+    exampleFilePath = "my_project/main.js";
+    exampleLang = "javascript";
+    exampleSearch = "const speed = 5.0;";
+    exampleReplace = "const speed = 8.0;";
+  } else if (projectType === "godot") {
+    exampleFilePath = "my_project/main.gd";
+    exampleLang = "gdscript";
+    exampleSearch = "var speed := 5.0";
+    exampleReplace = "var speed := 8.0";
+  } else if (projectType === "ue") {
+    exampleFilePath = "MyProject/Source/MyProject/MyProject.cpp";
+    exampleLang = "cpp";
+    exampleSearch = "float Speed = 500.0f;";
+    exampleReplace = "float Speed = 800.0f;";
+  }
+
+  return `4. Follow-up Refinements (Markdown Patch Format):
+   - On the INITIAL generation, output the complete project as specified in section 3.
+   - When the user asks for refinements, bug fixes, or incremental changes to an already-generated project, DO NOT re-output unchanged files (especially unchanged template, plugin, or addon files). Output ONLY modified, added, or deleted files so the response can be pasted directly into the editor's Patch tool:
+   - Modified Existing Files (preferred — \`SEARCH/REPLACE\` hunks):
+     * Start with \`### <exact_relative_filepath>\` (including the root project folder), followed immediately by a fenced code block containing one or more \`SEARCH/REPLACE\` hunks:
+       ### ${exampleFilePath}
+       \`\`\`${exampleLang}
+       <<<<<<< SEARCH
+       ${exampleSearch}
+       =======
+       ${exampleReplace}
+       >>>>>>> REPLACE
+       \`\`\`
+     * Each \`SEARCH\` block must match the current file content verbatim (exact indentation and lines, with enough surrounding lines to be unique). NEVER use ellipsis or placeholders like \`// ... existing code ...\` inside \`SEARCH\` or \`REPLACE\`.
+     * Do NOT mix plain replacement code outside \`<<<<<<< SEARCH ... >>>>>>> REPLACE\` markers inside the same file's code block. If most of a file changes, omit \`SEARCH/REPLACE\` markers and output the complete updated file inside its fenced code block instead.
+   - New Files:
+     * Output \`### <exact_relative_filepath>\` followed by a fenced code block containing the complete new file content.
+   - Deleted Files:
+     * Output \`### <exact_relative_filepath> (DELETE)\` with no code block (or \`<!-- DELETE -->\` inside a fenced code block).
+   - If a file's content itself contains triple backticks, wrap it in a longer backtick fence (e.g., four backticks).`;
 }
 
 function getDeliveryFormat(projectType, frameworkName, hasUserScadFiles) {
@@ -165,7 +215,9 @@ ${includes}${
     hasUserScadFiles
       ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
       : ""
-  }`;
+  }
+
+${getRefinementPatchFormat(projectType)}`;
 }
 
 function createRustProfile({
@@ -438,7 +490,9 @@ ${getScadAssetsInstructions(promptRules, "ue")}
        hasUserScadFiles
          ? "\n     - The provided user `.scad` files (modified if necessary), placed in the appropriate project folders."
          : ""
-     }`;
+     }
+
+${getRefinementPatchFormat("ue")}`;
 
       let output = `${systemPrompt}\n\n`;
       output += appendTemplateFiles(templateFiles);
