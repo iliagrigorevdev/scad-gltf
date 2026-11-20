@@ -13,12 +13,13 @@ body {
 #app-container {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   flex-direction: row;
 }
 
-/* Portrait Mode / Mobile */
-@media (max-width: 800px), (orientation: portrait) {
+/* Portrait Mode / Narrow Viewports */
+@media (max-width: 500px), (orientation: portrait) {
   #app-container {
     flex-direction: column;
   }
@@ -33,13 +34,14 @@ body {
   padding: 15px;
   gap: 15px;
   overflow-y: auto;
-  min-height: 50vh;
+  min-height: 0;
   min-width: 0;
 }
-@media (max-width: 800px), (orientation: portrait) {
+@media (max-width: 500px), (orientation: portrait) {
   #left-panel {
     border-right: none;
     border-bottom: 1px solid #444;
+    min-height: 50%;
   }
 }
 
@@ -47,8 +49,13 @@ body {
   flex: 1;
   position: relative;
   background: #111;
-  min-height: 50vh;
+  min-height: 0;
   min-width: 0;
+}
+@media (max-width: 500px), (orientation: portrait) {
+  #right-panel {
+    min-height: 50%;
+  }
 }
 
 .panel-section {
