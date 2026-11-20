@@ -23,7 +23,7 @@ The C++ source code for this custom OpenSCAD fork is included in the `openscad/`
 ## Features
 
 - **Direct SCAD to GLB conversion:** Compile geometry directly to web-ready binary glTF.
-- **Extended PBR Material Support:** Extensions to OpenSCAD's `color()` module supporting `metalness`, `roughness`, `transmission`, `thickness`, `ior`, `attenuationColor`, `attenuationDistance`, `clearcoat`, `sheen`, `emissive`, `specularColor`/`specularIntensity`, `iridescence`, `unlit`, `colormap`, and `$asa` auto-smooth shading.
+- **Extended PBR Material Support:** Extensions to OpenSCAD's `color()` module supporting `name` (glTF material name for engine shader/material lookup), `metalness`, `roughness`, `transmission`, `thickness`, `ior`, `attenuationColor`, `attenuationDistance`, `clearcoat`, `sheen`, `emissive`, `specularColor`/`specularIntensity`, `iridescence`, `unlit`, `colormap`, and `$asa` auto-smooth shading.
 - **Hierarchical Node Animation & Skeletal Skinning:**
   - **Rigid Parenting:** Define articulated hierarchies, animated cameras, and keyframe animations via `armature()` and `bone()`.
   - **Smooth Skinning / Soft-Body Deformation:** Bind meshes to multiple bones using `skin()` with procedural 3D vertex weight functions.
@@ -442,6 +442,7 @@ $asa = 30.0;
 
 color(
     "white",
+    name = "my_material",               // Optional glTF material name (e.g., Godot resource_name)
     roughness = 0.0,                    // 0.0 (glossy) to 1.0 (matte)
     metalness = 1.0,                    // 1.0 for metals, blocks light transmission
     transmission = 0.9,                 // 0.0 to 1.0 for glass/water (requires alpha=1.0)

@@ -4,7 +4,6 @@
 #include "geometry/PolySet.h"
 #include "geometry/PolySetUtils.h"
 #include "utils/printutils.h"
-#include "Feature.h"
 #include "glview/ColorMap.h"
 #include <ostream>
 #include <map>
@@ -520,7 +519,7 @@ int traverse_gltf(const std::shared_ptr<const Geometry>& geom, int parent_node_i
     else {
         auto ps = PolySetUtils::getGeometryAsPolySet(geom);
         if (ps && !ps->vertices.empty()) {
-            if (Feature::ExperimentalPredictibleOutput.is_enabled()) ps = createSortedPolySet(*ps);
+            ps = createSortedPolySet(*ps);
 
             std::shared_ptr<SimpleBVH> high_poly_bvh;
             BakeParameters bake_params = ps->bake_params;
@@ -1494,6 +1493,9 @@ void export_gltf(const std::shared_ptr<const Geometry>& geom, std::ostream& outp
                 mat_idx = it->second;
             } else {
                 tinygltf::Material mat;
+                if (!mkey.props.name.empty()) {
+                    mat.name = mkey.props.name;
+                }
                 mat.doubleSided = true;
 
                 mat.pbrMetallicRoughness.baseColorFactor = {(double)mkey.color.r(), (double)mkey.color.g(), (double)mkey.color.b(), (double)mkey.color.a()};

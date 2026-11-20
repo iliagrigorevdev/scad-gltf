@@ -14,6 +14,8 @@ test("Prompt Generator - Defaults", () => {
   const prompt = generatePrompt("A spaceship");
 
   // Default features
+  assert.ok(prompt.includes("'name'"));
+  assert.ok(prompt.includes("Material Name:"));
   assert.ok(prompt.includes("metalness"));
   assert.ok(prompt.includes("transmission"));
   assert.ok(prompt.includes("sheen"));
@@ -56,4 +58,10 @@ test("Prompt Generator - Geometry & Output Toggles", () => {
   assert.ok(prompt.includes("lazy-union"), "Should mention lazy-union");
   assert.ok(prompt.includes("Model Name:"), "Should include model naming rule");
   assert.ok(prompt.includes("light(type="), "Should include light syntax");
+
+  const noMatNamePrompt = generatePrompt("A gear", { materialName: false });
+  assert.ok(
+    !noMatNamePrompt.includes("Material Name:"),
+    "Should omit Material Name rule when materialName is false",
+  );
 });

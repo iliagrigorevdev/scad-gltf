@@ -180,6 +180,10 @@ test("Project Prompts - Godot Generation", () => {
     systemPrompt.includes("   === OPENSCAD SYNTAX RULES ==="),
     "Should indent OpenSCAD syntax rules inside item 1 to keep list numbering 1-4 intact",
   );
+  assert.ok(
+    systemPrompt.includes("mat.resource_name"),
+    "Should explain matching named SCAD materials via resource_name in Godot",
+  );
 });
 
 test("Project Prompts - Rust Bevy Generation", () => {

@@ -342,6 +342,7 @@ ${getScadAssetsInstructions(promptRules, "godot")}
      * Natural Model Alignment: Because OpenSCAD models face +Y (Forward), they automatically import facing Godot's Forward direction (-Z). Built-in Godot methods like \`look_at()\` orient the node's -Z axis toward the target, which perfectly aligns with the model's front. Do NOT apply compensation rotations (e.g., \`rotate_y(PI)\`) in GDScript to compensate for model orientation.
    - Generate a \`project.godot\` file. It must configure the project and automatically enable the \`scad_importer\` plugin.
    - Do NOT use \`preload("res://...scad")\` at the top of GDScript files, because Godot may parse scripts before the \`.scad\` importer finishes on the initial project scan. Instead, instance \`.scad\` files directly in \`.tscn\` scenes or load them dynamically with \`load("res://...scad")\` inside \`_ready()\`.
+   - Custom Shaders on SCAD Materials: To apply a Godot \`ShaderMaterial\` to a specific part of a \`.scad\` model, give that part's \`color()\` module a unique \`name\` (e.g., \`color("red", name="lava")\`). At runtime in GDScript, traverse \`MeshInstance3D\` children and check \`mat.resource_name == "lava"\` on \`mesh.surface_get_material(i)\` to replace it via \`mesh.surface_set_material(i, shader_mat)\` or \`set_surface_override_material(i, shader_mat)\`.
 
 ${getDeliveryFormat("godot", null, hasUserScadFiles)}`;
 

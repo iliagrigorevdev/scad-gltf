@@ -11,6 +11,7 @@
 #include "geometry/linalg.h"
 
 struct MaterialProperties {
+  std::string name;
   float roughness = 1.0f;
   float metalness = 0.0f;
   float clearcoat = 0.0f;
@@ -44,6 +45,7 @@ struct MaterialProperties {
 
     auto to_tuple() const {
     return std::make_tuple(
+        name,
         roughness, metalness, clearcoat, clearcoatRoughness,
         sheen, sheenColor.r(), sheenColor.g(), sheenColor.b(), sheenColor.a(), sheenRoughness,
         transmission, thickness, attenuationColor.r(), attenuationColor.g(), attenuationColor.b(), attenuationColor.a(), attenuationDistance,

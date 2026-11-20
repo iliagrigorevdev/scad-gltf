@@ -11,8 +11,10 @@ export function generatePrompt(description, options = {}) {
     throw new Error("A description is required to generate a prompt.");
   }
 
+  const basic = options.basic ?? true;
   const opts = {
-    basic: options.basic ?? true,
+    basic,
+    materialName: options.materialName ?? basic,
     transmission: options.transmission ?? true,
     clearcoat: options.clearcoat ?? true,
     sheen: options.sheen ?? true,
@@ -42,6 +44,7 @@ export function generatePrompt(description, options = {}) {
   }
 
   let attrs = [];
+  if (opts.materialName) attrs.push("'name'");
   if (opts.basic) attrs.push("'roughness'", "'metalness'");
   if (opts.clearcoat) attrs.push("'clearcoat'", "'clearcoatRoughness'");
   if (opts.sheen) attrs.push("'sheen'", "'sheenColor'", "'sheenRoughness'");
@@ -69,6 +72,9 @@ export function generatePrompt(description, options = {}) {
       prompt += `\n- Passing Functions: OpenSCAD separates function and variable namespaces. You CANNOT pass a function by its name directly (e.g., \`map=my_func\` will fail and evaluate to undef). If you define a custom function, you MUST wrap it in a function literal (lambda) when passing it. Example: \`map=function(x,y,z) my_func(x,y,z)\`.`;
     }
 
+    if (opts.materialName) {
+      prompt += `\n- Material Name: Optional string identifier (e.g., name="lava") exported as the glTF material's \`name\`. Distinct names prevent identically colored materials from being merged and allow game engines (like Godot via \`material.resource_name\`) to look up and replace specific materials with custom shaders. (Default: "")`;
+    }
     if (opts.basic) {
       prompt += `\n- Metalness: For solid metallic materials (e.g., gold, steel), use metalness near 1.0. High metalness blocks light transmission. (Default: 0.0)`;
       prompt += `\n- Roughness: Controls surface finish. 0.0 is perfectly smooth/glossy, while 1.0 is completely matte. (Default: 1.0)`;
@@ -108,6 +114,7 @@ export function generatePrompt(description, options = {}) {
     }
 
     let exampleParams = [];
+    if (opts.materialName) exampleParams.push('name="my_material"');
     if (opts.basic) exampleParams.push("metalness=1.0", "roughness=0.3");
     if (opts.transmission) exampleParams.push("transmission=0.8", "ior=1.5");
     if (opts.clearcoat) exampleParams.push("clearcoat=1.0");
