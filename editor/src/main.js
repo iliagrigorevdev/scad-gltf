@@ -213,6 +213,9 @@ let localAutoVersionTimer = null;
 let lastAutoVersionAt = 0;
 let isRestoringWorkspace = false;
 let lastPatchUndoState = null;
+let isLoadingInitialUrl = false;
+let isRetryingPendingUrl = false;
+let pendingUrlRetryParams = null;
 
 // Tab logic
 if (tabEditorBtn && tabPromptBtn && editorTabContent && promptPanel) {
@@ -305,7 +308,7 @@ function updateLocalSaveStatus(message, isSaved = true) {
 }
 
 function saveWorkspaceImmediate() {
-  if (isRestoringWorkspace) return;
+  if (isRestoringWorkspace || isLoadingInitialUrl) return;
   const ok = saveActiveWorkspaceSync({
     activeModelId: activeLocalModelId,
     name: modelNameInputEl.value,
@@ -487,6 +490,43 @@ async function persistCurrentActiveModel(snapshotLabel = "Before switch") {
   }
 }
 
+function withTimeout(promise, ms, label = "Operation") {
+  let timerId = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timerId = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timerId !== null) clearTimeout(timerId);
+  });
+}
+
+function applyOpenedModelToEditorDirect({
+  content = "",
+  name = null,
+  entryFile = null,
+} = {}) {
+  const normalizedContent = String(content ?? "");
+  lastPatchUndoState = null;
+  if (mdPatchToastEl) mdPatchToastEl.style.display = "none";
+  isRestoringWorkspace = true;
+  try {
+    activeLocalModelId = DRAFT_MODEL_ID;
+    autoDerivedModelName = null;
+    pendingForceNameOverride = false;
+    editorEl.value = normalizedContent;
+    if (name !== null && name !== undefined) {
+      modelNameInputEl.value = name;
+    }
+    currentEntryFile = entryFile || null;
+    currentEntryScadFile = null;
+  } finally {
+    isRestoringWorkspace = false;
+  }
+  syncMdFilesUi(editorEl.value);
+}
+
 async function openModelInLocalStore({
   content = "",
   name = null,
@@ -495,26 +535,57 @@ async function openModelInLocalStore({
   versionLabel = "Opened",
 } = {}) {
   const normalizedContent = String(content ?? "");
-  if (editorEl.value !== normalizedContent && editorEl.value.trim()) {
-    await persistCurrentActiveModel(`Before ${versionLabel}`);
-  } else if (activeLocalModelId === DRAFT_MODEL_ID) {
-    await saveLocalModel({
-      id: DRAFT_MODEL_ID,
-      name: modelNameInputEl.value,
-      content: editorEl.value,
-      entryFile: currentEntryFile,
-    });
-  } else {
-    await syncNamedLocalModelContent();
+  try {
+    await withTimeout(
+      (async () => {
+        if (editorEl.value !== normalizedContent && editorEl.value.trim()) {
+          await persistCurrentActiveModel(`Before ${versionLabel}`);
+        } else if (activeLocalModelId === DRAFT_MODEL_ID) {
+          await saveLocalModel({
+            id: DRAFT_MODEL_ID,
+            name: modelNameInputEl.value,
+            content: editorEl.value,
+            entryFile: currentEntryFile,
+          });
+        } else {
+          await syncNamedLocalModelContent();
+        }
+      })(),
+      3000,
+      "persistBeforeOpen",
+    );
+  } catch (err) {
+    console.warn("Failed to persist previous state before opening model:", err);
   }
 
-  const result = await upsertOpenedLocalModel({
-    content: normalizedContent,
-    name,
-    entryFile,
-    fallbackPrefix,
-    versionLabel,
-  });
+  let result = null;
+  try {
+    result = await withTimeout(
+      upsertOpenedLocalModel({
+        content: normalizedContent,
+        name,
+        entryFile,
+        fallbackPrefix,
+        versionLabel,
+      }),
+      4000,
+      "upsertOpenedLocalModel",
+    );
+  } catch (err) {
+    console.warn("Failed to save opened model to local store:", err);
+    applyOpenedModelToEditorDirect({
+      content: normalizedContent,
+      name,
+      entryFile,
+    });
+    isLoadingInitialUrl = false;
+    saveWorkspaceImmediate();
+    updateLocalSaveStatus(
+      `Loaded • ${formatVersionTimestamp(Date.now())}`,
+      true,
+    );
+    return null;
+  }
 
   lastPatchUndoState = null;
   if (mdPatchToastEl) mdPatchToastEl.style.display = "none";
@@ -531,19 +602,31 @@ async function openModelInLocalStore({
     isRestoringWorkspace = false;
   }
 
+  isLoadingInitialUrl = false;
   syncMdFilesUi(editorEl.value);
-  if (currentEntryFile !== (result.model.entryFile || null)) {
-    await saveLocalModel({
-      id: result.model.id,
-      name: result.model.name,
-      content: result.model.content,
-      entryFile: currentEntryFile,
-    });
+  saveWorkspaceImmediate();
+
+  try {
+    await withTimeout(
+      (async () => {
+        if (currentEntryFile !== (result.model.entryFile || null)) {
+          await saveLocalModel({
+            id: result.model.id,
+            name: result.model.name,
+            content: result.model.content,
+            entryFile: currentEntryFile,
+          });
+        }
+        await refreshLocalModelsUi();
+        await refreshVersionsUi(result.version?.id || null);
+      })(),
+      3000,
+      "refreshLocalStoreUi",
+    );
+  } catch (err) {
+    console.warn("Failed to refresh local store UI after open:", err);
   }
 
-  saveWorkspaceImmediate();
-  await refreshLocalModelsUi();
-  await refreshVersionsUi(result.version?.id || null);
   updateLocalSaveStatus(
     result.isNew
       ? `Saved to new local model • ${formatVersionTimestamp(Date.now())}`
@@ -662,6 +745,7 @@ if (localSaveModelBtn) {
 
 if (localNewModelBtn) {
   localNewModelBtn.addEventListener("click", async () => {
+    pendingUrlRetryParams = null;
     await maybeCreateAutoVersion("Before new draft", true);
     if (activeLocalModelId !== DRAFT_MODEL_ID) {
       await syncNamedLocalModelContent();
@@ -849,6 +933,8 @@ window.addEventListener("beforeunload", saveWorkspaceImmediate);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     saveWorkspaceImmediate();
+  } else if (document.visibilityState === "visible") {
+    retryPendingUrlLoad();
   }
 });
 
@@ -3235,50 +3321,186 @@ window.addEventListener("hashchange", async () => {
   }
 });
 
-(async function init() {
-  if (hasEmbedParam()) {
-    setEmbedMode(true);
-  }
-
-  if (isLocal) {
-    const url = backendUrlEl.value.trim();
-    await connectToServer(url, true);
-  }
-
-  await initLocalPersistence();
-
-  if (window.location.hash && window.location.hash.length > 1) {
+async function fetchModelFromUrlWithRetry(fileUrl, baseHref, maxAttempts = 3) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const hash = window.location.hash.substring(1);
-      const code = await decodeCode(hash);
+      const loaded = await fetchModelFromUrl(fileUrl, baseHref);
+      if (loaded && typeof loaded.content === "string") {
+        return loaded;
+      }
+      lastError = new Error("Empty or invalid response from URL");
+    } catch (err) {
+      lastError = err;
+    }
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, attempt * 350));
+    }
+  }
+  throw lastError || new Error("Failed to load model from URL");
+}
+
+async function loadModelFromCurrentUrl({ prefetchedPromise = null } = {}) {
+  let loadedFromUrl = false;
+  const rawHash =
+    window.location.hash && window.location.hash.length > 1
+      ? window.location.hash.substring(1)
+      : "";
+
+  if (rawHash) {
+    try {
+      const code = await decodeCode(rawHash);
       if (code) {
         await openModelInLocalStore({
           content: code,
           fallbackPrefix: "Shared Model",
           versionLabel: "Shared link",
         });
+        loadedFromUrl = true;
       }
     } catch (e) {
       console.error("Failed to decode hash", e);
     }
-  } else {
+  }
+
+  if (!loadedFromUrl) {
     const fileUrl = getFileParam(window.location.search);
     if (fileUrl) {
+      pendingUrlRetryParams = { fileUrl, href: window.location.href };
+      updateLocalSaveStatus("Loading URL model...", false);
+      if (renderTimeEl) {
+        renderTimeEl.style.display = "block";
+        renderTimeEl.innerText = "Loading model...";
+      }
       try {
-        const loaded = await fetchModelFromUrl(fileUrl, window.location.href);
-        if (loaded) {
+        const loaded = prefetchedPromise
+          ? await prefetchedPromise
+          : await fetchModelFromUrlWithRetry(fileUrl, window.location.href);
+        if (loaded && typeof loaded.content === "string") {
+          pendingUrlRetryParams = null;
           await openModelInLocalStore({
             content: loaded.content,
             name: loaded.name,
             fallbackPrefix: "URL Model",
             versionLabel: "URL model",
           });
+          loadedFromUrl = true;
         }
       } catch (e) {
         console.error("Failed to load model from URL", e);
         updateLocalSaveStatus("Failed to load URL model", false);
+        if (renderTimeEl) {
+          renderTimeEl.style.display = "block";
+          renderTimeEl.innerText = "Failed to load URL model";
+        }
       }
     }
+  }
+
+  return loadedFromUrl;
+}
+
+async function retryPendingUrlLoad() {
+  if (
+    isRetryingPendingUrl ||
+    isLoadingInitialUrl ||
+    !pendingUrlRetryParams ||
+    editorEl.value.trim() !== ""
+  ) {
+    return;
+  }
+  isRetryingPendingUrl = true;
+  isLoadingInitialUrl = true;
+  try {
+    const loaded = await loadModelFromCurrentUrl();
+    if (loaded) {
+      checkChanges();
+      syncMdFilesUi(editorEl.value);
+      if (isEmbedMode) {
+        const godotProject = parseGodotMarkdownProject(getEditorContent());
+        if (godotProject) {
+          launchGodotProject(godotProject);
+          return;
+        }
+      }
+      compileAndRender(getEditorContent());
+    }
+  } finally {
+    isLoadingInitialUrl = false;
+    isRetryingPendingUrl = false;
+  }
+}
+
+window.addEventListener("pageshow", async (event) => {
+  if (!event.persisted) return;
+  if (isLoadingInitialUrl || isRetryingPendingUrl) return;
+  const hasUrlTarget =
+    Boolean(getFileParam(window.location.search)) ||
+    Boolean(window.location.hash && window.location.hash.length > 1);
+  if (!hasUrlTarget || editorEl.value.trim() !== "") return;
+
+  isLoadingInitialUrl = true;
+  try {
+    const loaded = await loadModelFromCurrentUrl();
+    if (loaded) {
+      checkChanges();
+      syncMdFilesUi(editorEl.value);
+      if (isEmbedMode) {
+        const godotProject = parseGodotMarkdownProject(getEditorContent());
+        if (godotProject) {
+          launchGodotProject(godotProject);
+          return;
+        }
+      }
+      compileAndRender(getEditorContent());
+    }
+  } finally {
+    isLoadingInitialUrl = false;
+  }
+});
+
+window.addEventListener("online", retryPendingUrlLoad);
+window.addEventListener("focus", retryPendingUrlLoad);
+
+(async function init() {
+  if (hasEmbedParam()) {
+    setEmbedMode(true);
+  }
+
+  const initialFileUrl = getFileParam(window.location.search);
+  const hasInitialHash = Boolean(
+    window.location.hash && window.location.hash.length > 1,
+  );
+  isLoadingInitialUrl = hasInitialHash || Boolean(initialFileUrl);
+
+  const prefetchedFilePromise = initialFileUrl
+    ? fetchModelFromUrlWithRetry(initialFileUrl, window.location.href)
+    : null;
+  if (prefetchedFilePromise) {
+    prefetchedFilePromise.catch(() => {});
+  }
+
+  try {
+    if (isLocal) {
+      const url = backendUrlEl.value.trim();
+      await withTimeout(connectToServer(url, true), 3000, "connectToServer");
+    }
+  } catch (e) {
+    console.warn("Initial server connect failed or timed out:", e);
+  }
+
+  try {
+    await withTimeout(initLocalPersistence(), 3000, "initLocalPersistence");
+  } catch (e) {
+    console.warn("Initial local persistence restore failed or timed out:", e);
+  }
+
+  try {
+    await loadModelFromCurrentUrl({
+      prefetchedPromise: prefetchedFilePromise,
+    });
+  } finally {
+    isLoadingInitialUrl = false;
   }
 
   checkChanges();
