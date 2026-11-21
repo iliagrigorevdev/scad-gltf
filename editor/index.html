@@ -79,7 +79,20 @@
             style="flex-grow: 1; resize: none"
             placeholder="e.g. A shiny gold ring with an embedded red gem"
           ></textarea>
-          <button id="copy-prompt-btn">📋 Copy Prompt to Clipboard</button>
+          <div class="controls-row">
+            <button id="copy-prompt-btn" style="flex: 1">
+              📋 Copy Prompt to Clipboard
+            </button>
+            <button
+              id="copy-refinement-btn"
+              type="button"
+              class="primary"
+              style="display: none; flex: 1"
+              title="Copy full Markdown project content to clipboard and append AI refinement rules"
+            >
+              🩹 Copy Refinement Prompt
+            </button>
+          </div>
         </div>
 
         <div id="editor-tab-content">

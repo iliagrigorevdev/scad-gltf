@@ -6,6 +6,7 @@ import {
   PROMPT_UI_HTML,
   setupPromptToggles,
   buildPromptFromUI,
+  buildRefinementPromptFromUI,
 } from "./prompt-ui.js";
 import {
   extractFilesFromMarkdown,
@@ -79,6 +80,7 @@ const promptPanel = document.getElementById("prompt-panel");
 
 const promptDescEl = document.getElementById("prompt-desc");
 const copyPromptBtn = document.getElementById("copy-prompt-btn");
+const copyRefinementBtn = document.getElementById("copy-refinement-btn");
 const modelNameInputEl = document.getElementById("model-name-input");
 const entryFileSelect = document.getElementById("entry-file-select");
 const copyMdFileBtn = document.getElementById("copy-md-file-btn");
@@ -1146,6 +1148,9 @@ function syncMdFilesUi(code) {
   if (downloadMdBtn) {
     downloadMdBtn.style.display = hasMd ? "flex" : "none";
   }
+  if (copyRefinementBtn) {
+    copyRefinementBtn.style.display = hasMd ? "flex" : "none";
+  }
   if (downloadScadBtn) {
     downloadScadBtn.style.display = !hasMd || hasMdScad ? "flex" : "none";
     downloadScadBtn.title = hasMd
@@ -1556,6 +1561,40 @@ copyPromptBtn.onclick = async () => {
     alert("Failed to copy clipboard: " + err);
   }
 };
+
+let copyRefinementTimer = null;
+if (copyRefinementBtn) {
+  copyRefinementBtn.onclick = async () => {
+    const projectContent = getEditorContent();
+    const ctx = getMdFilesContext(projectContent);
+    if (!ctx.isMd || ctx.allFiles.length === 0) return;
+
+    const desc = promptDescEl ? promptDescEl.value.trim() : "";
+    const refinementPrompt = buildRefinementPromptFromUI(
+      promptUiContainer,
+      projectContent,
+      {
+        refinementRequest: desc,
+        filesMap: ctx.filesMap,
+      },
+    );
+
+    try {
+      await navigator.clipboard.writeText(refinementPrompt);
+      if (!copyRefinementBtn.dataset.originalText) {
+        copyRefinementBtn.dataset.originalText = copyRefinementBtn.innerText;
+      }
+      copyRefinementBtn.innerText = "✅ Copied!";
+      clearTimeout(copyRefinementTimer);
+      copyRefinementTimer = setTimeout(() => {
+        copyRefinementBtn.innerText =
+          copyRefinementBtn.dataset.originalText || "🩹 Copy Refinement Prompt";
+      }, 2000);
+    } catch (err) {
+      alert("Failed to copy clipboard: " + err);
+    }
+  };
+}
 
 // --- SCAD Compilation ---
 async function fetchDependenciesWrapper(code) {

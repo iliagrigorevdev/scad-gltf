@@ -2,6 +2,7 @@ import {
   getEditorPromptProfiles,
   getPromptProfile,
   buildProfilePrompt,
+  buildRefinementPrompt,
 } from "scad-gltf/prompt";
 
 const rawGodotAddonModules = import.meta.glob(
@@ -204,7 +205,7 @@ export function setupPromptToggles(
       if (isModified) {
         hasChanges = true;
       }
-      cb.closest("label")?.classList.toggle("is-modified", isModified);
+      cb.closest?.("label")?.classList.toggle("is-modified", isModified);
     }
     if (resetBtn) {
       resetBtn.style.display = hasChanges ? "" : "none";
@@ -339,5 +340,20 @@ export function buildPromptFromUI(
     promptOptions,
     templateFiles: resolvedTemplates,
     referenceFiles,
+  });
+}
+
+export function buildRefinementPromptFromUI(
+  containerElement,
+  projectContent,
+  { refinementRequest = "", filesMap = null, projectType = null } = {},
+) {
+  const fallbackProfileId = getSelectedPromptProfile(containerElement);
+  return buildRefinementPrompt({
+    projectContent,
+    projectType,
+    fallbackProfileId,
+    filesMap,
+    refinementRequest,
   });
 }

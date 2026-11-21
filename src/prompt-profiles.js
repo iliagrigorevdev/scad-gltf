@@ -116,33 +116,52 @@ ${indentedPromptRules}
    =============================`;
 }
 
-function getRefinementPatchFormat(projectType) {
-  let exampleFilePath = "my_project/src/main.rs";
-  let exampleLang = "rust";
-  let exampleSearch = "let speed = 5.0;";
-  let exampleReplace = "let speed = 8.0;";
-
+function getRefinementPatchExample(projectType) {
   if (projectType === "web") {
-    exampleFilePath = "my_project/main.js";
-    exampleLang = "javascript";
-    exampleSearch = "const speed = 5.0;";
-    exampleReplace = "const speed = 8.0;";
-  } else if (projectType === "godot") {
-    exampleFilePath = "my_project/main.gd";
-    exampleLang = "gdscript";
-    exampleSearch = "var speed := 5.0";
-    exampleReplace = "var speed := 8.0";
-  } else if (projectType === "ue") {
-    exampleFilePath = "MyProject/Source/MyProject/MyProject.cpp";
-    exampleLang = "cpp";
-    exampleSearch = "float Speed = 500.0f;";
-    exampleReplace = "float Speed = 800.0f;";
+    return {
+      exampleFilePath: "my_project/main.js",
+      exampleLang: "javascript",
+      exampleSearch: "const speed = 5.0;",
+      exampleReplace: "const speed = 8.0;",
+    };
   }
+  if (projectType === "godot") {
+    return {
+      exampleFilePath: "my_project/main.gd",
+      exampleLang: "gdscript",
+      exampleSearch: "var speed := 5.0",
+      exampleReplace: "var speed := 8.0",
+    };
+  }
+  if (projectType === "ue") {
+    return {
+      exampleFilePath: "MyProject/Source/MyProject/MyProject.cpp",
+      exampleLang: "cpp",
+      exampleSearch: "float Speed = 500.0f;",
+      exampleReplace: "float Speed = 800.0f;",
+    };
+  }
+  if (projectType === "scad") {
+    return {
+      exampleFilePath: "my_project/main.scad",
+      exampleLang: "openscad",
+      exampleSearch: "radius = 5.0;",
+      exampleReplace: "radius = 8.0;",
+    };
+  }
+  return {
+    exampleFilePath: "my_project/src/main.rs",
+    exampleLang: "rust",
+    exampleSearch: "let speed = 5.0;",
+    exampleReplace: "let speed = 8.0;",
+  };
+}
 
-  return `4. Follow-up Refinements (Markdown Patch Format):
-   - On the INITIAL generation, output the complete project as specified in section 3.
-   - When the user asks for refinements, bug fixes, or incremental changes to an already-generated project, DO NOT re-output unchanged files (especially unchanged template, plugin, or addon files). Output ONLY modified, added, or deleted files so the response can be pasted directly into the editor's Patch tool:
-   - Modified Existing Files (preferred — \`SEARCH/REPLACE\` hunks):
+function getRefinementPatchBody(projectType) {
+  const { exampleFilePath, exampleLang, exampleSearch, exampleReplace } =
+    getRefinementPatchExample(projectType);
+
+  return `   - Modified Existing Files (preferred — \`SEARCH/REPLACE\` hunks):
      * Start with \`### <exact_relative_filepath>\` (including the root project folder), followed immediately by a fenced code block containing one or more \`SEARCH/REPLACE\` hunks:
        ### ${exampleFilePath}
        \`\`\`${exampleLang}
@@ -159,6 +178,13 @@ function getRefinementPatchFormat(projectType) {
    - Deleted Files:
      * Output \`### <exact_relative_filepath> (DELETE)\` with no code block (or \`<!-- DELETE -->\` inside a fenced code block).
    - If a file's content itself contains triple backticks, wrap it in a longer backtick fence (e.g., four backticks).`;
+}
+
+function getRefinementPatchFormat(projectType) {
+  return `4. Follow-up Refinements (Markdown Patch Format):
+   - On the INITIAL generation, output the complete project as specified in section 3.
+   - When the user asks for refinements, bug fixes, or incremental changes to an already-generated project, DO NOT re-output unchanged files (especially unchanged template, plugin, or addon files). Output ONLY modified, added, or deleted files so the response can be pasted directly into the editor's Patch tool:
+${getRefinementPatchBody(projectType)}`;
 }
 
 function getDeliveryFormat(projectType, frameworkName, hasUserScadFiles) {
@@ -565,4 +591,92 @@ export function buildProfilePrompt(
   const userRequest = profile.buildInputRequest(effectiveTask, scadPromptRules);
 
   return `=== SYSTEM PROMPT ===\n${systemPrompt}\n\n=== USER REQUEST ===\n${userRequest}`;
+}
+
+export function detectProjectTypeFromFiles(
+  filesMap = {},
+  fallbackType = "scad",
+) {
+  const entries = Object.entries(filesMap || {});
+  const lowerPaths = entries.map(([p]) =>
+    String(p).replace(/\\/g, "/").replace(/^\/+/, "").toLowerCase(),
+  );
+
+  if (
+    lowerPaths.some(
+      (p) => p === "project.godot" || p.endsWith("/project.godot"),
+    )
+  ) {
+    return "godot";
+  }
+  if (lowerPaths.some((p) => p.endsWith(".uproject"))) {
+    return "ue";
+  }
+
+  const cargoEntry = entries.find(([p]) => {
+    const lower = String(p)
+      .replace(/\\/g, "/")
+      .replace(/^\/+/, "")
+      .toLowerCase();
+    return lower === "cargo.toml" || lower.endsWith("/cargo.toml");
+  });
+  if (cargoEntry) {
+    const cargoContent = String(cargoEntry[1] || "");
+    if (/\bwgpu\b/.test(cargoContent) && !/\bbevy\b/.test(cargoContent)) {
+      return "wgpu";
+    }
+    return "bevy";
+  }
+
+  if (
+    lowerPaths.some((p) => p === "package.json" || p.endsWith("/package.json"))
+  ) {
+    return "web";
+  }
+
+  return fallbackType || "scad";
+}
+
+export function getRefinementPatchRules(projectType = "scad") {
+  let namingRule = "";
+  if (
+    projectType === "godot" ||
+    projectType === "bevy" ||
+    projectType === "wgpu"
+  ) {
+    namingRule =
+      "- Naming Convention: Keep all new or renamed files, directories, models, and scripts in snake_case (no hyphens or spaces).\n";
+  } else if (projectType === "ue") {
+    namingRule =
+      "- Naming Convention: Follow standard Unreal Engine PascalCase naming conventions for files, C++ classes, and .scad assets (no hyphens or spaces).\n";
+  }
+
+  return `You are refining the existing Markdown project provided above.
+- Output ONLY modified, added, or deleted files so the response can be pasted directly into the editor's Patch tool.
+- DO NOT re-output unchanged files (especially unchanged template, plugin, or addon files).
+- Preserve the existing root project folder and exact relative file paths from the project above.
+${namingRule}Markdown Patch Format:
+${getRefinementPatchBody(projectType)}`;
+}
+
+export function buildRefinementPrompt({
+  projectContent = "",
+  projectType = null,
+  fallbackProfileId = "scad",
+  filesMap = null,
+  refinementRequest = "",
+} = {}) {
+  const normalizedContent = String(projectContent ?? "")
+    .replace(/\r\n/g, "\n")
+    .trimEnd();
+  const resolvedType =
+    projectType || detectProjectTypeFromFiles(filesMap, fallbackProfileId);
+  const rules = getRefinementPatchRules(resolvedType);
+  const trimmedRequest = String(refinementRequest ?? "").trim();
+
+  let output = `${normalizedContent}\n\n=== REFINEMENT RULES ===\n${rules}`;
+  if (trimmedRequest) {
+    output += `\n\n=== REFINEMENT REQUEST ===\n${trimmedRequest}`;
+  }
+  return output;
 }

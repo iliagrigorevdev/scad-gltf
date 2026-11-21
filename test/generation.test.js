@@ -7,7 +7,12 @@ import os from "node:os";
 import { writeExtractedFiles } from "../src/cli-utils.js";
 import { extractFilesFromMarkdown } from "../src/utils.js";
 import { getProjectPrompts } from "../src/project-prompts.js";
-import { generatePrompt } from "../src/prompt.js";
+import {
+  generatePrompt,
+  buildRefinementPrompt,
+  detectProjectTypeFromFiles,
+  getRefinementPatchRules,
+} from "../src/prompt.js";
 
 test("Markdown Extraction - Standard Project Files", () => {
   const mdContent = `
@@ -393,5 +398,75 @@ test("Project Prompts - Follow-up Refinements Patch Format Rules", () => {
   assert.ok(
     !scadPrompt.includes("4. Follow-up Refinements (Markdown Patch Format):"),
     "Raw SCAD profile should not include multi-file Markdown patch rules",
+  );
+});
+
+test("Project Prompts - Refinement Prompt Builder and Project Detection", () => {
+  assert.strictEqual(
+    detectProjectTypeFromFiles({ "game/project.godot": "config_version=5" }),
+    "godot",
+  );
+  assert.strictEqual(
+    detectProjectTypeFromFiles({ "MyProj/MyProj.uproject": "{}" }),
+    "ue",
+  );
+  assert.strictEqual(
+    detectProjectTypeFromFiles({
+      "app/Cargo.toml": '[dependencies]\nbevy = "0.14"',
+    }),
+    "bevy",
+  );
+  assert.strictEqual(
+    detectProjectTypeFromFiles({
+      "app/Cargo.toml": '[dependencies]\nwgpu = "22.0"',
+    }),
+    "wgpu",
+  );
+  assert.strictEqual(
+    detectProjectTypeFromFiles({ "web_app/package.json": "{}" }),
+    "web",
+  );
+  assert.strictEqual(
+    detectProjectTypeFromFiles({ "models/part.scad": "cube(1);" }, "scad"),
+    "scad",
+  );
+
+  const mdContent = [
+    "### game/project.godot",
+    "```ini",
+    "config_version=5",
+    "```",
+    "",
+    "### game/main.gd",
+    "```gdscript",
+    "extends Node3D",
+    "```",
+  ].join("\n");
+
+  const withoutRequest = buildRefinementPrompt({
+    projectContent: mdContent,
+    filesMap: {
+      "game/project.godot": "config_version=5",
+      "game/main.gd": "extends Node3D",
+    },
+  });
+
+  assert.ok(withoutRequest.startsWith(mdContent));
+  assert.ok(withoutRequest.includes("=== REFINEMENT RULES ==="));
+  assert.ok(withoutRequest.includes("### my_project/main.gd"));
+  assert.ok(withoutRequest.includes("<<<<<<< SEARCH"));
+  assert.ok(!withoutRequest.includes("=== REFINEMENT REQUEST ==="));
+
+  const withRequest = buildRefinementPrompt({
+    projectContent: mdContent,
+    filesMap: { "game/project.godot": "config_version=5" },
+    refinementRequest: "Add jump sound effect",
+  });
+  assert.ok(
+    withRequest.endsWith("=== REFINEMENT REQUEST ===\nAdd jump sound effect"),
+  );
+
+  assert.ok(
+    getRefinementPatchRules("scad").includes("### my_project/main.scad"),
   );
 });

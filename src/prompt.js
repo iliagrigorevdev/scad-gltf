@@ -305,4 +305,7 @@ export {
   getPromptProfile,
   getEditorPromptProfiles,
   buildProfilePrompt,
+  detectProjectTypeFromFiles,
+  getRefinementPatchRules,
+  buildRefinementPrompt,
 } from "./prompt-profiles.js";

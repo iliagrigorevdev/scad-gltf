@@ -59,6 +59,7 @@ class MiniElement {
     this.value = "";
     this.textContent = "";
     this.placeholder = "";
+    this.style = {};
     this.children = [];
     this.parentNode = null;
     this._listeners = new Map();
@@ -165,6 +166,14 @@ class MiniElement {
   querySelector(sel) {
     return this.querySelectorAll(sel)[0] || null;
   }
+  closest(sel) {
+    let cur = this;
+    while (cur) {
+      if (cur._matches(sel)) return cur;
+      cur = cur.parentNode;
+    }
+    return null;
+  }
 }
 
 function installStorage() {
@@ -191,6 +200,7 @@ const {
   setupPromptToggles,
   getPromptOptions,
   buildPromptFromUI,
+  buildRefinementPromptFromUI,
 } = await import("../editor/src/prompt-ui.js");
 
 test("prompt-ui - Maps template files for Godot, Rust, and UE", () => {
@@ -309,4 +319,36 @@ test("prompt-ui - buildPromptFromUI builds prompts with template and reference f
   assert.ok(bevyPrompt.includes("=== SYSTEM PROMPT ==="));
   assert.ok(bevyPrompt.includes("fn main() {}"));
   assert.ok(bevyPrompt.includes("A rover"));
+});
+
+test("prompt-ui - buildRefinementPromptFromUI copies project content with refinement rules", () => {
+  installStorage();
+  const container = new MiniElement("div");
+  container.innerHTML = PROMPT_UI_HTML;
+  setupPromptToggles(container, "test_refine_key");
+
+  const mdContent = [
+    "### demo/package.json",
+    "```json",
+    '{"name": "demo"}',
+    "```",
+    "",
+    "### demo/main.js",
+    "```javascript",
+    "console.log(1);",
+    "```",
+  ].join("\n");
+
+  const prompt = buildRefinementPromptFromUI(container, mdContent, {
+    refinementRequest: "Add orbit controls",
+    filesMap: {
+      "demo/package.json": '{"name": "demo"}',
+      "demo/main.js": "console.log(1);",
+    },
+  });
+
+  assert.ok(prompt.startsWith(mdContent));
+  assert.ok(prompt.includes("=== REFINEMENT RULES ==="));
+  assert.ok(prompt.includes("### my_project/main.js"));
+  assert.ok(prompt.includes("=== REFINEMENT REQUEST ===\nAdd orbit controls"));
 });
