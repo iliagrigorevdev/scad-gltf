@@ -1575,7 +1575,6 @@ if (copyRefinementBtn) {
       projectContent,
       {
         refinementRequest: desc,
-        filesMap: ctx.filesMap,
       },
     );
 

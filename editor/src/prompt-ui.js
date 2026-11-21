@@ -344,16 +344,12 @@ export function buildPromptFromUI(
 }
 
 export function buildRefinementPromptFromUI(
-  containerElement,
+  _containerElement,
   projectContent,
-  { refinementRequest = "", filesMap = null, projectType = null } = {},
+  { refinementRequest = "" } = {},
 ) {
-  const fallbackProfileId = getSelectedPromptProfile(containerElement);
   return buildRefinementPrompt({
     projectContent,
-    projectType,
-    fallbackProfileId,
-    filesMap,
     refinementRequest,
   });
 }

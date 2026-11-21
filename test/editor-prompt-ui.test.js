@@ -341,14 +341,11 @@ test("prompt-ui - buildRefinementPromptFromUI copies project content with refine
 
   const prompt = buildRefinementPromptFromUI(container, mdContent, {
     refinementRequest: "Add orbit controls",
-    filesMap: {
-      "demo/package.json": '{"name": "demo"}',
-      "demo/main.js": "console.log(1);",
-    },
   });
 
   assert.ok(prompt.startsWith(mdContent));
   assert.ok(prompt.includes("=== REFINEMENT RULES ==="));
-  assert.ok(prompt.includes("### my_project/main.js"));
+  assert.ok(prompt.includes("- Markdown Patch Format:"));
+  assert.ok(prompt.includes("### my_project/main.scad"));
   assert.ok(prompt.includes("=== REFINEMENT REQUEST ===\nAdd orbit controls"));
 });

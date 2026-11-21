@@ -10,7 +10,6 @@ import { getProjectPrompts } from "../src/project-prompts.js";
 import {
   generatePrompt,
   buildRefinementPrompt,
-  detectProjectTypeFromFiles,
   getRefinementPatchRules,
 } from "../src/prompt.js";
 
@@ -359,13 +358,7 @@ test("Prompt Generator - Modular Flags", () => {
 test("Project Prompts - Follow-up Refinements Patch Format Rules", () => {
   const promptRules = generatePrompt("A rover", { basic: false });
 
-  for (const [projectType, expectedExample] of [
-    ["godot", "### my_project/main.gd"],
-    ["web", "### my_project/main.js"],
-    ["bevy", "### my_project/src/main.rs"],
-    ["wgpu", "### my_project/src/main.rs"],
-    ["ue", "### MyProject/Source/MyProject/MyProject.cpp"],
-  ]) {
+  for (const projectType of ["godot", "web", "bevy", "wgpu", "ue"]) {
     const prompts = getProjectPrompts(projectType);
     const systemPrompt = prompts.buildSystemPrompt(promptRules, {});
 
@@ -376,8 +369,8 @@ test("Project Prompts - Follow-up Refinements Patch Format Rules", () => {
       `${projectType} should include follow-up refinement section`,
     );
     assert.ok(
-      systemPrompt.includes(expectedExample),
-      `${projectType} should include profile-specific patch example`,
+      systemPrompt.includes("### my_project/main.scad"),
+      `${projectType} should include scad patch example`,
     );
     assert.ok(
       systemPrompt.includes("<<<<<<< SEARCH") &&
@@ -401,36 +394,7 @@ test("Project Prompts - Follow-up Refinements Patch Format Rules", () => {
   );
 });
 
-test("Project Prompts - Refinement Prompt Builder and Project Detection", () => {
-  assert.strictEqual(
-    detectProjectTypeFromFiles({ "game/project.godot": "config_version=5" }),
-    "godot",
-  );
-  assert.strictEqual(
-    detectProjectTypeFromFiles({ "MyProj/MyProj.uproject": "{}" }),
-    "ue",
-  );
-  assert.strictEqual(
-    detectProjectTypeFromFiles({
-      "app/Cargo.toml": '[dependencies]\nbevy = "0.14"',
-    }),
-    "bevy",
-  );
-  assert.strictEqual(
-    detectProjectTypeFromFiles({
-      "app/Cargo.toml": '[dependencies]\nwgpu = "22.0"',
-    }),
-    "wgpu",
-  );
-  assert.strictEqual(
-    detectProjectTypeFromFiles({ "web_app/package.json": "{}" }),
-    "web",
-  );
-  assert.strictEqual(
-    detectProjectTypeFromFiles({ "models/part.scad": "cube(1);" }, "scad"),
-    "scad",
-  );
-
+test("Project Prompts - Refinement Prompt Builder", () => {
   const mdContent = [
     "### game/project.godot",
     "```ini",
@@ -445,28 +409,24 @@ test("Project Prompts - Refinement Prompt Builder and Project Detection", () => 
 
   const withoutRequest = buildRefinementPrompt({
     projectContent: mdContent,
-    filesMap: {
-      "game/project.godot": "config_version=5",
-      "game/main.gd": "extends Node3D",
-    },
   });
 
   assert.ok(withoutRequest.startsWith(mdContent));
   assert.ok(withoutRequest.includes("=== REFINEMENT RULES ==="));
-  assert.ok(withoutRequest.includes("### my_project/main.gd"));
+  assert.ok(withoutRequest.includes("- Markdown Patch Format:"));
+  assert.ok(withoutRequest.includes("### my_project/main.scad"));
   assert.ok(withoutRequest.includes("<<<<<<< SEARCH"));
   assert.ok(!withoutRequest.includes("=== REFINEMENT REQUEST ==="));
 
   const withRequest = buildRefinementPrompt({
     projectContent: mdContent,
-    filesMap: { "game/project.godot": "config_version=5" },
     refinementRequest: "Add jump sound effect",
   });
   assert.ok(
     withRequest.endsWith("=== REFINEMENT REQUEST ===\nAdd jump sound effect"),
   );
 
-  assert.ok(
-    getRefinementPatchRules("scad").includes("### my_project/main.scad"),
-  );
+  const rules = getRefinementPatchRules();
+  assert.ok(rules.includes("- Markdown Patch Format:"));
+  assert.ok(rules.includes("### my_project/main.scad"));
 });
