@@ -60,12 +60,12 @@ const OPTION_CONFIG = {
   autoSmoothAngle: { id: "opt-pbr-autosmooth", default: true },
   animation: { id: "opt-anim", default: true },
   lights: { id: "opt-lights", default: false },
-  transmission: { id: "opt-pbr-transmission", default: false },
-  clearcoat: { id: "opt-pbr-clearcoat", default: false },
-  sheen: { id: "opt-pbr-sheen", default: false },
+  transmission: { id: "opt-pbr-transmission", default: true },
+  clearcoat: { id: "opt-pbr-clearcoat", default: true },
+  sheen: { id: "opt-pbr-sheen", default: true },
   emissive: { id: "opt-pbr-emissive", default: true },
   specular: { id: "opt-pbr-specular", default: true },
-  iridescence: { id: "opt-pbr-iridescence", default: false },
+  iridescence: { id: "opt-pbr-iridescence", default: true },
   unlit: { id: "opt-pbr-unlit", default: true },
   bakeColors: { id: "opt-bake-colors", default: false },
   bakeNormals: { id: "opt-bake-normals", default: false },
@@ -98,15 +98,15 @@ export const PROMPT_UI_HTML = `
   <div class="scad-prompt-group">
     <div class="scad-prompt-group-header">
       <span>Extended PBR</span>
-      <label><input type="checkbox" id="opt-pbr-all" /> Enable All</label>
+      <label><input type="checkbox" id="opt-pbr-all" checked /> Enable All</label>
     </div>
     <div class="scad-prompt-toggles nested" id="pbr-children">
-      <label><input type="checkbox" class="pbr-child" id="opt-pbr-transmission" /> Transmission</label>
-      <label><input type="checkbox" class="pbr-child" id="opt-pbr-clearcoat" /> Clearcoat</label>
-      <label><input type="checkbox" class="pbr-child" id="opt-pbr-sheen" /> Sheen</label>
+      <label><input type="checkbox" class="pbr-child" id="opt-pbr-transmission" checked /> Transmission</label>
+      <label><input type="checkbox" class="pbr-child" id="opt-pbr-clearcoat" checked /> Clearcoat</label>
+      <label><input type="checkbox" class="pbr-child" id="opt-pbr-sheen" checked /> Sheen</label>
       <label><input type="checkbox" class="pbr-child" id="opt-pbr-emissive" checked /> Emissive</label>
       <label><input type="checkbox" class="pbr-child" id="opt-pbr-specular" checked /> Specular</label>
-      <label><input type="checkbox" class="pbr-child" id="opt-pbr-iridescence" /> Iridescence</label>
+      <label><input type="checkbox" class="pbr-child" id="opt-pbr-iridescence" checked /> Iridescence</label>
       <label><input type="checkbox" class="pbr-child" id="opt-pbr-unlit" checked /> Unlit</label>
     </div>
   </div>
