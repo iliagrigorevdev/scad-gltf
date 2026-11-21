@@ -50,13 +50,14 @@ The C++ source code for this custom OpenSCAD fork is included in the `openscad/`
 
 - **Real-Time 3D Viewport & GPU Path Tracing:** Live WebAssembly compilation with auto-render, auto-framing camera, wireframe, grid/axes, bloom, scene light toggle, glTF camera selector, expand mode (`⛶`), and hardware-accelerated path tracing with custom `.hdr` environment map drag-and-drop.
 - **Animation & Media Capture:** Multi-clip selector, play/pause, timeline scrubber, **📷 PNG snapshots**, and **🎥 MP4/WebM video recording** (renders deterministically frame-by-frame when Path Tracing is active).
-- **AI Prompt Generator Tab:** Choose a target profile (**OpenSCAD Model**, **Godot 4 Project**, **Vite Web 3D Project**, **Rust Bevy Project**, **Rust wgpu Project**, **Unreal Engine 5 Project**), toggle PBR/animation/baking rules, reset to profile defaults (**↺ Reset**), and copy complete prompts with bundled engine templates (`addons/scad_importer`, `build.rs`, `Plugins/ScadImporter`).
-- **Multi-File Markdown Editing & Interactive Patching:** Edit single-file `### filepath` Markdown bundles with block highlighting, a cursor-synced file dropdown grouped into **SCAD Models** and **Other Files**, per-file **📋 Copy**, **📥 Paste** (shown for empty or plain `.scad` editors to replace content from clipboard), **🩹 Patch** (shown for Markdown bundles to open an interactive patcher that auto-reads the clipboard, resolves missing/swapped root folder prefixes, supports `<<<<<<< SEARCH` / `>>>>>>> REPLACE` hunks, `(DELETE)`, per-file checkboxes, path remapping, and live diff previews, plus a post-patch banner with file jump pills, **↩ Undo**, and **🔍 Diff**), and separate **⬇ MD** / **⬇ SCAD** downloads.
+- **AI Prompt Generator Tab:** Choose a target profile (**OpenSCAD Model**, **Godot 4 Project**, **Vite Web 3D Project**, **Rust Bevy Project**, **Rust wgpu Project**, **Unreal Engine 5 Project**), toggle PBR/animation/baking rules, reset to profile defaults (**↺ Reset**), copy complete prompts with bundled engine templates (`addons/scad_importer`, `build.rs`, `Plugins/ScadImporter`), or click **🩹 Copy Refinement Prompt** (available when editing a multi-file Markdown bundle) to copy the full project alongside patch-formatting rules and an optional refinement request.
+- **Multi-File Markdown Editing & Interactive Patching:** Edit single-file `### filepath` Markdown bundles with block highlighting, a cursor-synced file dropdown featuring **📑 All (.md)** plus grouped **SCAD Models** and **Other Files** (automatically compiling `.scad` blocks as you select or move the cursor into them), per-file/full-document **📋 Copy**, **📥 Paste** (shown for empty or plain `.scad` editors to replace content from clipboard), **🩹 Patch** (shown for Markdown bundles to open an interactive patcher supporting **Patch Matching & Add New**, **Replace Single File**, and **Replace Entire Document** modes; auto-reads the clipboard, accepts dropped `.md`/`.patch` files, resolves missing/swapped root folder prefixes, supports `<<<<<<< SEARCH` / `>>>>>>> REPLACE` hunks, `(DELETE)` headings or `<!-- DELETE -->` / `// DELETE` / `# DELETE` markers, per-file checkboxes, path remapping, and live diff previews, plus a post-patch banner with file jump pills, **↩ Undo**, and **🔍 Diff**), and separate **⬇ MD** / **⬇ SCAD** downloads.
 - **Local Storage & Version Comparison:**
   - Automatically saves the active workspace draft in `localStorage` and stores named local models and up to 50 auto-snapshots per model in `IndexedDB`.
-  - Create manual snapshots with notes (**📌 Save Version**), restore earlier versions (**↩ Restore**), or click **🔍 Compare** to inspect **Side-by-Side / Unified Code Diffs** and **3D Visual Comparisons** (Side-by-Side Synced Camera or Red/Green Overlay).
-- **In-Browser Godot 4 Playback & Export:** Paste, drop, or open a `.md` Godot 4 project (`project.godot` + `.scad` + `.gd`/`.tscn`) to compile all `.scad` models to `.glb` in the browser, pack an in-memory `.pck`, and run it with **🎮 Play Godot** (includes console logs, screenshot capture, **⬇ Web ZIP** HTML5 export, and **⬇ Project ZIP** source export).
-- **URL Loading, Sharing & Embed Mode:** Load a self-contained `.scad` or `.md` file directly via URL parameter (`?file=<url>`), or click **🔗 Share** to compress the project into the URL hash (`#c...`). Enable **Embed Share** (`?embed=1`) to share a chromeless full-viewport link that hides editor UI and auto-starts Godot games.
+  - Toggle **Auto Save Versions**, start a fresh draft (**➕ New**, auto-snapshotting current work first), delete models (**Delete**) or individual snapshots (**🗑**), create manual snapshots with notes (**📌 Save Version**), restore earlier versions (**↩ Restore**), and automatically match/deduplicate models opened via **📁 Load**, drag-and-drop, `?file=`, `#...` links, or `scad-gltf serve`.
+  - Click **🔍 Compare** to diff across any saved local model or the active draft (**A (Base)** vs **B (Compare)**, including **Current Editor** and **Latest Saved**), swap sides (**⇄**), or restore directly (**↩ Restore A** / **↩ Restore B**). Inspect **Side-by-Side / Unified Code Diffs** (with **Full file** toggle and per-file `[=]`/`[~]`/`[+]`/`[-]` filtering for Markdown bundles) and **3D Visual Comparisons** (Side-by-Side Synced Camera or Red/Green Overlay with `.scad` file selector, **Wireframe**, and **🎯 Fit Camera**).
+- **In-Browser Godot 4 Playback & Export:** Paste, drop, or open a `.md` Godot 4 project (`project.godot` + `.scad` + `.gd`/`.tscn`) to compile all `.scad` models to `.glb` in the browser, generate `.godot/global_script_class_cache.cfg` for `class_name` GDScripts, configure WebGL2 (`gl_compatibility`), inject a runtime `.scad`/`.glb`/image loader (`res://__scad_glbs/`), pack an in-memory `.pck`, and run it with **🎮 Play Godot** (includes **🔄 Restart**, **⏹ Stop**, **📋 Logs** with **Copy**/**Clear**, **📷** PNG screenshot capture, **⛶** expand mode, **⬇ Web ZIP** standalone HTML5 export, and **⬇ Project ZIP** source export bundling `addons/scad_importer/` and precompiled `__scad_glbs/*.glb` assets).
+- **URL Loading, Sharing & Embed Mode:** Load a self-contained `.scad` or `.md` file directly via URL parameter (`?file=<url>`), live-load `#...` links on `hashchange`, or click **🔗 Share** to compress the project into the URL hash (`#c...`, using the native Web Share sheet when available or copying to clipboard). Enable **Embed Share** (`?embed=1`) to share a chromeless full-viewport link that hides editor UI and auto-starts Godot games.
 - **Optional Local Sync & PWA:** Connect the **SCAD Serve Backend** panel (`http://localhost:3000`) to `scad-gltf serve` to read, save, and delete files on your local disk with automatic `include`/`use` dependency resolution. Installable as a Progressive Web App (PWA).
 
 ### Workflow: Generating & Refining Godot 4 Projects (Scadify + AI Studio)
@@ -80,7 +81,7 @@ Scadify supports an end-to-end browser workflow for generating, running, patchin
    - Select any `.scad` file in the dropdown (or click inside its block) to preview its 3D model, or click **🎮 Play Godot** to compile all `.scad` assets to `.glb`, pack an in-memory `.pck`, and run the project directly in the browser.
 
 4. **Refine the Godot Project in AI Studio & Apply Changes in Scadify:**
-   - Prompt follow-up changes or bug fixes in Google AI Studio. _(Tip: While testing in Scadify, you can open **📋 Logs** and click **Copy** to share Godot runtime errors, click **📷** to capture a screenshot, or select a specific file in Scadify's file dropdown and click **📋 Copy** to share just that file.)_
+   - Prompt follow-up changes or bug fixes in Google AI Studio—or switch to Scadify's **AI Prompt Generator** tab, optionally type your change request, and click **🩹 Copy Refinement Prompt** to copy the full `.md` project alongside patch-formatting rules (ideal for starting a fresh chat or keeping the AI aligned with your latest edits). _(Tip: While testing in Scadify, you can also open **📋 Logs** and click **Copy** to share Godot runtime errors, click **📷** to capture a screenshot, or select a specific file in Scadify's file dropdown and click **📋 Copy** to share just that file.)_
    - Copy the AI's updated Markdown response to your clipboard, then apply it in Scadify based on what was generated:
      - **Full Project Regenerated:** If AI Studio returned the entire project again, select all text in the Scadify editor (`Ctrl+A` / `Cmd+A`) and paste (`Ctrl+V` / `Cmd+V`) to replace the whole `.md` document (or use **🩹 Patch** in **Replace Entire Document** mode).
      - **Changed / New Files Only (Patch):** If AI Studio returned only modified/added `### filepath` blocks, `<<<<<<< SEARCH` / `>>>>>>> REPLACE` hunks, or a single raw file's code, **do not overwrite the whole editor**. Instead, click **🩹 Patch**:
@@ -99,7 +100,7 @@ Scadify supports an end-to-end browser workflow for generating, running, patchin
 
 The Chrome/Chromium extension in [`editor/`](./editor) integrates directly into [Google AI Studio](https://aistudio.google.com/):
 
-- **Preview 3D Button:** Adds a **Preview 3D** button onto `openscad`/`scad` code blocks to render an interactive 3D preview right inside the chat.
+- **Preview 3D Button:** Adds a **Preview 3D** button onto `openscad`/`scad` code blocks to render an interactive 3D preview right inside the chat (complete with Grid, Wireframe, Bloom, custom Lights toggle, glTF Camera selector, Animation play/pause/clip/timeline controls, Fullscreen `⛶`, automatic `/* Model Name: ... */` filename detection, and `include`/`use` dependency resolution from `scad-gltf serve`).
 - **Visual Feedback Snapshot (`📷`):** Captures a PNG render of the preview and pastes it straight into the AI Studio chat input so the model can inspect and fix geometry.
 - **Floating Prompt Generator (`✨ SCAD`):** Opens the profile/feature prompt modal, optionally connects to `scad-gltf serve` to include an existing local `.scad` model as reference, and inserts + copies the generated prompt.
 - **Edit in Scadify & Local Save:** Click **Edit** to open the model in Scadify via compressed URL hash, or **Save** to write to `scad-gltf serve` (falls back to downloading `.scad` if no local server is running).
@@ -207,6 +208,12 @@ scad-gltf gen web "A 3D configurator app"
 # Inline JSON options + existing local .scad context files (or pipe description via STDIN)
 scad-gltf gen godot "A game using the provided player model" '{"scadFiles": ["./player.scad"], "openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'
 ```
+
+**Automated Loop Behavior:**
+
+- **Automatic Vision Fallback:** If the target API rejects image inputs, `scad-gltf gen` automatically strips images, sets `return_images: false` on MCP tool calls, and retries in text-only mode.
+- **Live Preview & Feedback:** Before prompting `Are you happy with this result?`, `scad` mode launches a background `scad-gltf serve` instance and prints `#c...` browser preview links, `godot` launches Godot, `web` runs `npm install && npm run dev`, and `bevy`/`wgpu` runs `cargo run`.
+- **Incremental Patching:** When providing follow-up feedback on multi-file projects, the AI outputs Markdown patches (`SEARCH/REPLACE` hunks and modified/added/deleted files), which are validated and applied to the previous project state automatically.
 
 ### Playing, Extracting & Packing Projects (`play`, `extract`, `pack`)
 
@@ -375,12 +382,14 @@ const glbData = await convertScadToGltf(scadCode, { wasmUrl });
 
 ### AI Prompt Generation (`scad-gltf/prompt`)
 
-Use `generatePrompt` for standalone OpenSCAD rules or `buildProfilePrompt` for complete target-engine prompts (`"scad"`, `"godot"`, `"web"`, `"bevy"`, `"wgpu"`, `"ue"`):
+Use `generatePrompt` for standalone OpenSCAD rules, `buildProfilePrompt` for complete target-engine prompts (`"scad"`, `"godot"`, `"web"`, `"bevy"`, `"wgpu"`, `"ue"`), or `buildRefinementPrompt` / `getRefinementPatchRules` for incremental patch follow-ups:
 
 ```javascript
 import {
   generatePrompt,
   buildProfilePrompt,
+  buildRefinementPrompt,
+  getRefinementPatchRules,
   PROMPT_PROFILES,
   getPromptProfile,
   getEditorPromptProfiles,
@@ -391,6 +400,7 @@ const description =
 
 const promptContext = generatePrompt(description, {
   basic: true, // Metalness and roughness
+  materialName: true, // color(..., name="...") material naming rules (defaults to `basic`)
   transmission: true, // Glass, transmission, ior, thickness
   clearcoat: true, // Clearcoat layers
   sheen: true, // Fabric sheen
@@ -414,17 +424,32 @@ const projectPrompt = buildProfilePrompt("godot", {
   task: "A third-person 3D robot platformer with animated collectibles",
   promptOptions: { animation: true, emissive: true },
 });
+
+const refinementPrompt = buildRefinementPrompt({
+  projectContent: existingMarkdownBundle,
+  refinementRequest: "Increase wheel radius and add headlights",
+});
 ```
 
 ### Markdown & SCAD Utilities (`scad-gltf/utils`)
 
-Environment-agnostic helpers (browser and Node.js) for working with `.scad` files and `### filepath` Markdown bundles:
+Environment-agnostic helpers (browser and Node.js) for working with `.scad` files, `### filepath` Markdown bundles, and incremental Markdown patches:
 
-- `extractFilesFromMarkdown(mdContent)` — Parses `### filepath` blocks (with fallback for single OpenSCAD code blocks).
-- `packFilesToMarkdown(files)` — Serializes a `{ [filepath]: content }` map into a single Markdown bundle.
-- `extractModelNameFromScad(scadCode)` — Extracts and sanitizes `/* Model Name: ... */`.
-- `extractScadDependencies(scadCode)` — Finds relative paths imported via `include` or `use`.
-- `getMarkdownLangFromPath(filepath)` — Maps file extensions to Markdown fence languages.
+- **Extraction & Serialization:**
+  - `extractFilesFromMarkdown(mdContent)` — Parses `### filepath` blocks (with fallback for single OpenSCAD code blocks).
+  - `packFilesToMarkdown(files)` — Serializes a `{ [filepath]: content }` map into a single Markdown bundle.
+  - `extractRootFolderFromMarkdownFiles(files)` — Returns the shared top-level folder name when all files in a bundle live under one root directory.
+  - `extractModelNameFromScad(scadCode)` — Extracts and sanitizes `/* Model Name: ... */`.
+  - `extractScadDependencies(scadCode)` — Finds relative paths imported via `include` or `use`.
+- **Path & Fence Helpers:**
+  - `normalizeRepoPath(filePath)`, `isScadFilePath(filePath)`, `getMarkdownLangFromPath(filepath)` — Path normalization, `.scad` checks, and Markdown fence language mapping.
+  - `normalizeMarkdownHeaderPath(rawPath)`, `parseMarkdownFileHeader(line)` — Header path parsing and formatting cleanup (`**...**`, `` `...` ``).
+  - `getSafeFenceForContent(content)`, `parseFenceOpen(line)`, `isFenceClose(line, fenceChar, fenceLen)` — Fence-safe backtick/tilde parsing and generation.
+- **Markdown Patching:**
+  - `replaceFileInMarkdown(mdContent, targetPath, newFileContent)` / `removeFileFromMarkdown(mdContent, targetPath)` — In-place replacement or removal of file blocks in a Markdown bundle.
+  - `parseSearchReplaceBlocks(content)` / `applySearchReplaceHunks(originalContent, hunks)` — Parses and applies `<<<<<<< SEARCH` / `=======` / `>>>>>>> REPLACE` hunks.
+  - `parseMarkdownPatchEntries(rawPatchText)`, `resolveMarkdownPatchTarget(existingPaths, incomingPath, rootFolder)`, `evaluatePatchEntryAgainstFiles(entry, targetPath, existingFilesMap, remappedFrom)` — Parses patch headings (including `(DELETE)` and `<!-- DELETE -->`) and resolves root-prefix remapping.
+  - `analyzeMarkdownPatch(existingMd, patchText, options)` / `applyMarkdownPatchPlan(existingMd, planItems)` — Computes a full patch plan with diff/error metadata and applies selected items cleanly.
 
 ---
 
