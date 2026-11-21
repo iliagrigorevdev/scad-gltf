@@ -212,6 +212,7 @@ let localVersionsList = [];
 let localAutoVersionTimer = null;
 let lastAutoVersionAt = 0;
 let isRestoringWorkspace = false;
+let suppressWorkspaceSave = false;
 let lastPatchUndoState = null;
 
 // Tab logic
@@ -305,7 +306,7 @@ function updateLocalSaveStatus(message, isSaved = true) {
 }
 
 function saveWorkspaceImmediate() {
-  if (isRestoringWorkspace) return;
+  if (isRestoringWorkspace || suppressWorkspaceSave) return;
   const ok = saveActiveWorkspaceSync({
     activeModelId: activeLocalModelId,
     name: modelNameInputEl.value,
@@ -439,8 +440,28 @@ function scheduleAutoVersion() {
   }, 10000);
 }
 
-async function initLocalPersistence() {
-  if (autoVersionCb) {
+function restoreSavedWorkspaceToEditor(saved) {
+  if (!saved) return;
+  isRestoringWorkspace = true;
+  try {
+    activeLocalModelId = saved.activeModelId || DRAFT_MODEL_ID;
+    if (saved.name) modelNameInputEl.value = saved.name;
+    if (saved.content) editorEl.value = saved.content;
+    if (saved.entryFile) currentEntryFile = saved.entryFile;
+  } finally {
+    isRestoringWorkspace = false;
+  }
+  if (saved.content || saved.name) {
+    updateLocalSaveStatus(
+      `Restored • ${formatVersionTimestamp(saved.updatedAt)}`,
+      true,
+    );
+  }
+}
+
+async function initLocalPersistence({ restoreIntoEditor = true } = {}) {
+  if (autoVersionCb && !autoVersionCb.dataset.bound) {
+    autoVersionCb.dataset.bound = "1";
     autoVersionCb.checked = loadAutoVersionPref();
     autoVersionCb.addEventListener("change", () => {
       saveAutoVersionPref(autoVersionCb.checked);
@@ -449,25 +470,42 @@ async function initLocalPersistence() {
 
   const saved = loadActiveWorkspaceSync();
   if (saved) {
-    isRestoringWorkspace = true;
-    try {
-      activeLocalModelId = saved.activeModelId || DRAFT_MODEL_ID;
-      if (saved.name) modelNameInputEl.value = saved.name;
-      if (saved.content) editorEl.value = saved.content;
-      if (saved.entryFile) currentEntryFile = saved.entryFile;
-    } finally {
-      isRestoringWorkspace = false;
-    }
-    if (saved.content || saved.name) {
-      updateLocalSaveStatus(
-        `Restored • ${formatVersionTimestamp(saved.updatedAt)}`,
-        true,
-      );
+    if (restoreIntoEditor) {
+      restoreSavedWorkspaceToEditor(saved);
+    } else if ((saved.content || "").trim()) {
+      try {
+        const targetId = saved.activeModelId || DRAFT_MODEL_ID;
+        await createVersionSnapshot({
+          modelId: targetId,
+          content: saved.content,
+          name: saved.name || "",
+          entryFile: saved.entryFile || null,
+          kind: "auto",
+          label: "Before URL load",
+        });
+        if (targetId === DRAFT_MODEL_ID || (await getLocalModel(targetId))) {
+          await saveLocalModel({
+            id: targetId,
+            name: saved.name || "",
+            content: saved.content,
+            entryFile: saved.entryFile || null,
+          });
+        }
+      } catch (err) {
+        console.warn(
+          "Failed to persist previous workspace before URL load:",
+          err,
+        );
+      }
     }
   }
 
-  await refreshLocalModelsUi();
-  await refreshVersionsUi();
+  try {
+    await refreshLocalModelsUi();
+    await refreshVersionsUi();
+  } catch (err) {
+    console.warn("Failed to refresh local models UI:", err);
+  }
 }
 
 async function persistCurrentActiveModel(snapshotLabel = "Before switch") {
@@ -495,61 +533,85 @@ async function openModelInLocalStore({
   versionLabel = "Opened",
 } = {}) {
   const normalizedContent = String(content ?? "");
-  if (editorEl.value !== normalizedContent && editorEl.value.trim()) {
-    await persistCurrentActiveModel(`Before ${versionLabel}`);
-  } else if (activeLocalModelId === DRAFT_MODEL_ID) {
-    await saveLocalModel({
-      id: DRAFT_MODEL_ID,
-      name: modelNameInputEl.value,
-      content: editorEl.value,
-      entryFile: currentEntryFile,
+  let result = null;
+
+  try {
+    if (editorEl.value !== normalizedContent && editorEl.value.trim()) {
+      await persistCurrentActiveModel(`Before ${versionLabel}`);
+    } else if (activeLocalModelId === DRAFT_MODEL_ID && editorEl.value.trim()) {
+      await saveLocalModel({
+        id: DRAFT_MODEL_ID,
+        name: modelNameInputEl.value,
+        content: editorEl.value,
+        entryFile: currentEntryFile,
+      });
+    } else if (activeLocalModelId !== DRAFT_MODEL_ID) {
+      await syncNamedLocalModelContent();
+    }
+
+    result = await upsertOpenedLocalModel({
+      content: normalizedContent,
+      name,
+      entryFile,
+      fallbackPrefix,
+      versionLabel,
     });
-  } else {
-    await syncNamedLocalModelContent();
+  } catch (err) {
+    console.warn("Failed to persist opened model in local store:", err);
   }
 
-  const result = await upsertOpenedLocalModel({
-    content: normalizedContent,
-    name,
-    entryFile,
-    fallbackPrefix,
-    versionLabel,
-  });
-
+  suppressWorkspaceSave = false;
   lastPatchUndoState = null;
   if (mdPatchToastEl) mdPatchToastEl.style.display = "none";
   isRestoringWorkspace = true;
   try {
-    activeLocalModelId = result.model.id;
+    activeLocalModelId = result?.model?.id || DRAFT_MODEL_ID;
     autoDerivedModelName = null;
     pendingForceNameOverride = false;
-    editorEl.value = result.model.content;
-    modelNameInputEl.value = result.model.name;
-    currentEntryFile = result.model.entryFile || null;
+    editorEl.value = result?.model?.content ?? normalizedContent;
+    modelNameInputEl.value =
+      result?.model?.name ?? (name !== null ? String(name) : "");
+    currentEntryFile = result?.model?.entryFile || entryFile || null;
     currentEntryScadFile = null;
   } finally {
     isRestoringWorkspace = false;
   }
 
   syncMdFilesUi(editorEl.value);
-  if (currentEntryFile !== (result.model.entryFile || null)) {
-    await saveLocalModel({
-      id: result.model.id,
-      name: result.model.name,
-      content: result.model.content,
-      entryFile: currentEntryFile,
-    });
+  if (result?.model && currentEntryFile !== (result.model.entryFile || null)) {
+    try {
+      await saveLocalModel({
+        id: result.model.id,
+        name: result.model.name,
+        content: result.model.content,
+        entryFile: currentEntryFile,
+      });
+    } catch (err) {
+      console.warn("Failed to update entryFile in local store:", err);
+    }
   }
 
   saveWorkspaceImmediate();
-  await refreshLocalModelsUi();
-  await refreshVersionsUi(result.version?.id || null);
-  updateLocalSaveStatus(
-    result.isNew
-      ? `Saved to new local model • ${formatVersionTimestamp(Date.now())}`
-      : `Loaded local model • ${formatVersionTimestamp(Date.now())}`,
-    true,
-  );
+  try {
+    await refreshLocalModelsUi();
+    await refreshVersionsUi(result?.version?.id || null);
+  } catch (err) {
+    console.warn("Failed to refresh local models UI:", err);
+  }
+
+  if (result) {
+    updateLocalSaveStatus(
+      result.isNew
+        ? `Saved to new local model • ${formatVersionTimestamp(Date.now())}`
+        : `Loaded local model • ${formatVersionTimestamp(Date.now())}`,
+      true,
+    );
+  } else {
+    updateLocalSaveStatus(
+      `Loaded • ${formatVersionTimestamp(Date.now())}`,
+      true,
+    );
+  }
   return result;
 }
 
@@ -877,6 +939,7 @@ function applyDerivedModelName(derivedName, forceOverride = false) {
 }
 
 modelNameInputEl.addEventListener("input", () => {
+  suppressWorkspaceSave = false;
   if (!modelNameInputEl.value.trim()) {
     autoDerivedModelName = null;
   }
@@ -1774,6 +1837,7 @@ renderBtn.onclick = () => compileAndRender(getEditorContent());
 
 let renderTimeout;
 editorEl.addEventListener("input", () => {
+  suppressWorkspaceSave = false;
   syncMdFilesUi(editorEl.value);
   checkChanges();
   saveWorkspaceImmediate();
@@ -3240,14 +3304,45 @@ window.addEventListener("hashchange", async () => {
     setEmbedMode(true);
   }
 
-  if (isLocal) {
-    const url = backendUrlEl.value.trim();
-    await connectToServer(url, true);
+  const hasHash = Boolean(
+    window.location.hash && window.location.hash.length > 1,
+  );
+  const fileUrl = getFileParam(window.location.search);
+  const hasUrlTarget = hasHash || Boolean(fileUrl);
+
+  if (hasUrlTarget) {
+    suppressWorkspaceSave = true;
+    isRestoringWorkspace = true;
+    try {
+      activeLocalModelId = DRAFT_MODEL_ID;
+      modelNameInputEl.value = "";
+      editorEl.value = "";
+      currentEntryFile = null;
+      currentEntryScadFile = null;
+    } finally {
+      isRestoringWorkspace = false;
+    }
+    if (fileUrl) {
+      editorEl.placeholder = "Loading model from URL...";
+      updateLocalSaveStatus("Loading model from URL...", false);
+    }
   }
 
-  await initLocalPersistence();
+  const backendPromise = isLocal
+    ? connectToServer(backendUrlEl.value.trim(), true)
+    : Promise.resolve(false);
 
-  if (window.location.hash && window.location.hash.length > 1) {
+  const fileFetchPromise = fileUrl
+    ? fetchModelFromUrl(fileUrl, window.location.href)
+        .then((loaded) => ({ ok: true, loaded }))
+        .catch((error) => ({ ok: false, error }))
+    : Promise.resolve(null);
+
+  await initLocalPersistence({ restoreIntoEditor: !hasUrlTarget });
+
+  let loadedFromExternal = false;
+
+  if (hasHash) {
     try {
       const hash = window.location.hash.substring(1);
       const code = await decodeCode(hash);
@@ -3257,30 +3352,45 @@ window.addEventListener("hashchange", async () => {
           fallbackPrefix: "Shared Model",
           versionLabel: "Shared link",
         });
+        loadedFromExternal = true;
       }
     } catch (e) {
       console.error("Failed to decode hash", e);
     }
-  } else {
-    const fileUrl = getFileParam(window.location.search);
-    if (fileUrl) {
-      try {
-        const loaded = await fetchModelFromUrl(fileUrl, window.location.href);
-        if (loaded) {
-          await openModelInLocalStore({
-            content: loaded.content,
-            name: loaded.name,
-            fallbackPrefix: "URL Model",
-            versionLabel: "URL model",
-          });
-        }
-      } catch (e) {
-        console.error("Failed to load model from URL", e);
-        updateLocalSaveStatus("Failed to load URL model", false);
+  }
+
+  if (!loadedFromExternal && fileUrl) {
+    const res = await fileFetchPromise;
+    if (res && res.ok && res.loaded) {
+      await openModelInLocalStore({
+        content: res.loaded.content,
+        name: res.loaded.name,
+        fallbackPrefix: "URL Model",
+        versionLabel: "URL model",
+      });
+      loadedFromExternal = true;
+    } else {
+      if (res && !res.ok) {
+        console.error("Failed to load model from URL", res.error);
+      } else {
+        console.error("Failed to load model from URL: empty response");
+      }
+      updateLocalSaveStatus("Failed to load URL model", false);
+      if (renderTimeEl) {
+        renderTimeEl.style.display = "block";
+        renderTimeEl.innerText = "Failed to load model from URL";
       }
     }
   }
 
+  if (hasHash && !loadedFromExternal && !fileUrl) {
+    suppressWorkspaceSave = false;
+    restoreSavedWorkspaceToEditor(loadActiveWorkspaceSync());
+  }
+
+  await backendPromise;
+
+  editorEl.placeholder = "Enter OpenSCAD code here...";
   checkChanges();
   syncMdFilesUi(editorEl.value);
 
@@ -3293,5 +3403,7 @@ window.addEventListener("hashchange", async () => {
   }
 
   startScadViewerLoop();
-  setTimeout(() => compileAndRender(getEditorContent()), 500);
+  if (!(fileUrl && !loadedFromExternal)) {
+    setTimeout(() => compileAndRender(getEditorContent()), 500);
+  }
 })();
