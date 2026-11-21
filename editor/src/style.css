@@ -448,7 +448,7 @@ button.danger:hover {
 .scad-prompt-toggles {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 12px;
+  gap: 6px 8px;
   font-size: 13px;
   user-select: none;
   margin-bottom: 8px;
@@ -458,6 +458,21 @@ button.danger:hover {
   display: flex;
   align-items: center;
   gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.scad-prompt-toggles label.is-modified {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.6);
+  color: #fde68a;
+}
+.scad-prompt-toggles label.is-modified input[type="checkbox"] {
+  accent-color: #f59e0b;
 }
 .scad-prompt-group {
   background: #2a2a2a;

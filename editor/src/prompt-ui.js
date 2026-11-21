@@ -83,6 +83,7 @@ export const PROMPT_UI_HTML = `
       id="opt-prompt-reset"
       class="scad-prompt-reset-btn"
       title="Reset toggles to profile defaults"
+      style="display: none"
     >
       ↺ Reset
     </button>
@@ -193,19 +194,22 @@ export function setupPromptToggles(
   };
 
   const updateResetButtonState = () => {
-    if (!resetBtn) return;
     const profileId = getSelectedPromptProfile(containerElement);
     const profile = getPromptProfile(profileId);
     let hasChanges = false;
     for (const [optKey, cfg] of Object.entries(OPTION_CONFIG)) {
       const cb = containerElement.querySelector(`#${cfg.id}`);
       if (!cb) continue;
-      if (cb.checked !== getDefaultChecked(profile, optKey, cb)) {
+      const isModified = cb.checked !== getDefaultChecked(profile, optKey, cb);
+      if (isModified) {
         hasChanges = true;
-        break;
       }
+      cb.closest("label")?.classList.toggle("is-modified", isModified);
     }
-    resetBtn.classList?.toggle("has-changes", hasChanges);
+    if (resetBtn) {
+      resetBtn.style.display = hasChanges ? "" : "none";
+      resetBtn.classList?.toggle("has-changes", hasChanges);
+    }
   };
 
   const setupGroup = (allBtnId, childSelector) => {
