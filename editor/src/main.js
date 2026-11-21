@@ -846,9 +846,23 @@ if (localDeleteVersionBtn) {
 }
 
 window.addEventListener("beforeunload", saveWorkspaceImmediate);
+window.addEventListener("pagehide", () => {
+  saveWorkspaceImmediate();
+  shouldReloadUrlOnShow = true;
+});
+window.addEventListener("pageshow", (e) => {
+  if (e.persisted || shouldReloadUrlOnShow) {
+    shouldReloadUrlOnShow = false;
+    void restoreUrlModelIfEmpty();
+  }
+});
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     saveWorkspaceImmediate();
+    shouldReloadUrlOnShow = true;
+  } else if (document.visibilityState === "visible" && shouldReloadUrlOnShow) {
+    shouldReloadUrlOnShow = false;
+    void restoreUrlModelIfEmpty();
   }
 });
 
@@ -3235,6 +3249,84 @@ window.addEventListener("hashchange", async () => {
   }
 });
 
+let hasCompletedInit = false;
+let shouldReloadUrlOnShow = false;
+let isRestoringFromUrl = false;
+
+async function loadModelFromUrlParams() {
+  if (window.location.hash && window.location.hash.length > 1) {
+    try {
+      const hash = window.location.hash.substring(1);
+      const code = await decodeCode(hash);
+      if (code) {
+        await openModelInLocalStore({
+          content: code,
+          fallbackPrefix: "Shared Model",
+          versionLabel: "Shared link",
+        });
+        return true;
+      }
+    } catch (e) {
+      console.error("Failed to decode hash", e);
+    }
+    return false;
+  }
+
+  const fileUrl = getFileParam(window.location.search);
+  if (fileUrl) {
+    try {
+      const loaded = await fetchModelFromUrl(fileUrl, window.location.href);
+      if (loaded) {
+        await openModelInLocalStore({
+          content: loaded.content,
+          name: loaded.name,
+          fallbackPrefix: "URL Model",
+          versionLabel: "URL model",
+        });
+        return true;
+      }
+    } catch (e) {
+      console.error("Failed to load model from URL", e);
+      updateLocalSaveStatus("Failed to load URL model", false);
+    }
+  }
+
+  return false;
+}
+
+async function restoreUrlModelIfEmpty() {
+  if (!hasCompletedInit || isRestoringFromUrl) return;
+  if (editorEl.value.trim() !== "") return;
+
+  const hasUrlModel =
+    (window.location.hash && window.location.hash.length > 1) ||
+    Boolean(getFileParam(window.location.search));
+  if (!hasUrlModel) return;
+
+  isRestoringFromUrl = true;
+  try {
+    const loaded = await loadModelFromUrlParams();
+    if (!loaded) return;
+
+    checkChanges();
+    syncMdFilesUi(editorEl.value);
+
+    if (isEmbedMode) {
+      const godotProject = parseGodotMarkdownProject(getEditorContent());
+      if (godotProject) {
+        launchGodotProject(godotProject);
+        return;
+      }
+    }
+
+    if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+    startScadViewerLoop();
+    compileAndRender(getEditorContent());
+  } finally {
+    isRestoringFromUrl = false;
+  }
+}
+
 (async function init() {
   if (hasEmbedParam()) {
     setEmbedMode(true);
@@ -3247,39 +3339,8 @@ window.addEventListener("hashchange", async () => {
 
   await initLocalPersistence();
 
-  if (window.location.hash && window.location.hash.length > 1) {
-    try {
-      const hash = window.location.hash.substring(1);
-      const code = await decodeCode(hash);
-      if (code) {
-        await openModelInLocalStore({
-          content: code,
-          fallbackPrefix: "Shared Model",
-          versionLabel: "Shared link",
-        });
-      }
-    } catch (e) {
-      console.error("Failed to decode hash", e);
-    }
-  } else {
-    const fileUrl = getFileParam(window.location.search);
-    if (fileUrl) {
-      try {
-        const loaded = await fetchModelFromUrl(fileUrl, window.location.href);
-        if (loaded) {
-          await openModelInLocalStore({
-            content: loaded.content,
-            name: loaded.name,
-            fallbackPrefix: "URL Model",
-            versionLabel: "URL model",
-          });
-        }
-      } catch (e) {
-        console.error("Failed to load model from URL", e);
-        updateLocalSaveStatus("Failed to load URL model", false);
-      }
-    }
-  }
+  await loadModelFromUrlParams();
+  hasCompletedInit = true;
 
   checkChanges();
   syncMdFilesUi(editorEl.value);
