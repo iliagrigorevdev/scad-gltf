@@ -171,6 +171,15 @@ const godotLogsDrawer = document.getElementById("godot-logs-drawer");
 const godotLogsOutput = document.getElementById("godot-logs-output");
 const godotLogsCopyBtn = document.getElementById("godot-logs-copy-btn");
 const godotLogsClearBtn = document.getElementById("godot-logs-clear-btn");
+const runUeBtn = document.getElementById("run-ue-btn");
+const uePanel = document.getElementById("ue-panel");
+const ueStatusBadge = document.getElementById("ue-status-badge");
+const ueRestartBtn = document.getElementById("ue-restart-btn");
+const ueStopBtn = document.getElementById("ue-stop-btn");
+const ueCloseBtn = document.getElementById("ue-close-btn");
+const ueLogsOutput = document.getElementById("ue-logs-output");
+const ueLogsCopyBtn = document.getElementById("ue-logs-copy-btn");
+const ueLogsClearBtn = document.getElementById("ue-logs-clear-btn");
 const viewerControlsEl = document.getElementById("viewer-controls");
 
 let currentSelectedModelIdx = "";
@@ -205,6 +214,11 @@ let isGodotPlaying = false;
 let godotIframe = null;
 let godotRunToken = 0;
 const godotScadCache = new Map();
+
+let isUeProject = false;
+let isUeRunning = false;
+let uePollTimer = null;
+let ueLogOffset = 0;
 
 let activeLocalModelId = DRAFT_MODEL_ID;
 let localModelsList = [];
@@ -1158,11 +1172,15 @@ function syncMdFilesUi(code) {
       : "Download .scad file";
   }
   const parsedProject = parseMarkdownProject(code);
+  isUeProject = parsedProject?.projectType === "ue";
   if (playGodotBtn) {
     playGodotBtn.style.display = ctx.isGodot ? "flex" : "none";
   }
   if (downloadGodotZipBtn) {
     downloadGodotZipBtn.style.display = ctx.isGodot ? "flex" : "none";
+  }
+  if (runUeBtn) {
+    runUeBtn.style.display = isUeProject ? "flex" : "none";
   }
   if (downloadProjectZipBtn) {
     downloadProjectZipBtn.style.display = parsedProject ? "flex" : "none";
@@ -2419,6 +2437,184 @@ if (godotScreenshotBtn) {
     }
   };
 }
+
+function appendUePanelLog(text) {
+  if (!ueLogsOutput || !text) return;
+  ueLogsOutput.textContent += text;
+  ueLogsOutput.scrollTop = ueLogsOutput.scrollHeight;
+}
+
+function updateUeStatusUi(data) {
+  if (!data) return;
+  isUeRunning = Boolean(data.running);
+
+  if (runUeBtn) {
+    runUeBtn.innerText = isUeRunning ? "⏹ Stop UE" : "🎮 Run UE";
+  }
+  if (ueStopBtn) {
+    ueStopBtn.disabled = !isUeRunning;
+  }
+  if (ueStatusBadge) {
+    ueStatusBadge.className = "ue-status-badge";
+    const st = data.status || "idle";
+    if (st === "building") {
+      ueStatusBadge.textContent = "Building C++...";
+      ueStatusBadge.classList.add("is-building");
+    } else if (st === "running") {
+      ueStatusBadge.textContent = "Running UE";
+      ueStatusBadge.classList.add("is-running");
+    } else if (st === "error") {
+      ueStatusBadge.textContent = "Error";
+      ueStatusBadge.classList.add("is-error");
+    } else if (st === "stopped") {
+      ueStatusBadge.textContent = "Stopped";
+      ueStatusBadge.classList.add("is-stopped");
+    } else {
+      ueStatusBadge.textContent = "Idle";
+    }
+  }
+}
+
+async function refreshUeBackendStatus() {
+  if (!isServerConnected || !currentBackendUrl) return null;
+  try {
+    const res = await fetch(
+      `${currentBackendUrl}/api/ue/status?since=${ueLogOffset}`,
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.logs) {
+      appendUePanelLog(data.logs);
+    }
+    if (typeof data.nextOffset === "number") {
+      ueLogOffset = data.nextOffset;
+    }
+    updateUeStatusUi(data);
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function startUeStatusPolling() {
+  clearTimeout(uePollTimer);
+  const tick = async () => {
+    const data = await refreshUeBackendStatus();
+    if (data && data.running) {
+      uePollTimer = setTimeout(tick, 500);
+    }
+  };
+  uePollTimer = setTimeout(tick, 300);
+}
+
+async function runUeProject() {
+  const project = parseMarkdownProject(getEditorContent());
+  if (!project || project.projectType !== "ue") return;
+
+  if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
+  if (uePanel) uePanel.style.display = "flex";
+  if (ueLogsOutput) ueLogsOutput.textContent = "";
+  ueLogOffset = 0;
+
+  if (!isServerConnected && backendUrlEl) {
+    await connectToServer(backendUrlEl.value.trim(), true);
+  }
+
+  if (!isServerConnected) {
+    updateUeStatusUi({ status: "error", running: false });
+    if (ueStatusBadge) ueStatusBadge.textContent = "Backend Offline";
+    appendUePanelLog(
+      "Cannot launch Unreal Editor directly from the browser.\n" +
+        "Start the local backend (`scad-gltf serve --ue-root <path>`) and click Connect under 'SCAD Serve Backend', then click Run UE again.\n",
+    );
+    return;
+  }
+
+  updateUeStatusUi({ status: "building", running: true });
+  if (ueStatusBadge) ueStatusBadge.textContent = "Starting...";
+
+  try {
+    const res = await fetch(`${currentBackendUrl}/api/ue/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        markdown: getEditorContent(),
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      updateUeStatusUi({ status: "error", running: false });
+      appendUePanelLog(
+        `❌ ${data.error || "Failed to start Unreal Engine."}\n`,
+      );
+      return;
+    }
+
+    startUeStatusPolling();
+  } catch (err) {
+    updateUeStatusUi({ status: "error", running: false });
+    appendUePanelLog(`❌ Request failed: ${err?.message || err}\n`);
+  }
+}
+
+async function stopUeProject() {
+  clearTimeout(uePollTimer);
+  if (!isServerConnected || !currentBackendUrl) {
+    updateUeStatusUi({ status: "stopped", running: false });
+    return;
+  }
+  try {
+    await fetch(`${currentBackendUrl}/api/ue/stop`, { method: "POST" });
+  } catch {}
+  await refreshUeBackendStatus();
+}
+
+if (runUeBtn) {
+  runUeBtn.onclick = () => {
+    if (isUeRunning) {
+      stopUeProject();
+    } else {
+      runUeProject();
+    }
+  };
+}
+if (ueRestartBtn) {
+  ueRestartBtn.onclick = () => runUeProject();
+}
+if (ueStopBtn) {
+  ueStopBtn.onclick = () => stopUeProject();
+}
+if (ueCloseBtn && uePanel) {
+  ueCloseBtn.onclick = () => {
+    uePanel.style.display = "none";
+  };
+}
+if (ueLogsCopyBtn && ueLogsOutput) {
+  let copyUeLogsTimer = null;
+  ueLogsCopyBtn.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(ueLogsOutput.textContent || "");
+      if (!ueLogsCopyBtn.dataset.originalText) {
+        ueLogsCopyBtn.dataset.originalText = ueLogsCopyBtn.innerText;
+      }
+      ueLogsCopyBtn.innerText = "✅ Copied!";
+      clearTimeout(copyUeLogsTimer);
+      copyUeLogsTimer = setTimeout(() => {
+        ueLogsCopyBtn.innerText =
+          ueLogsCopyBtn.dataset.originalText || "Copy Logs";
+      }, 1500);
+    } catch (err) {
+      alert("Failed to copy logs to clipboard: " + err);
+    }
+  };
+}
+if (ueLogsClearBtn && ueLogsOutput) {
+  ueLogsClearBtn.onclick = () => {
+    ueLogsOutput.textContent = "";
+  };
+}
+
 let isExpandedMode = false;
 let isEmbedMode = false;
 
@@ -2615,6 +2811,11 @@ async function connectToServer(url, isAutoConnect = false) {
 
     backendConnectBtn.innerText = "Connected";
     backendUiEl.classList.add("active");
+    refreshUeBackendStatus().then((data) => {
+      if (data && data.running) {
+        startUeStatusPolling();
+      }
+    });
 
     editorEl.placeholder = "Enter OpenSCAD code here...";
 

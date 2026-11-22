@@ -1828,3 +1828,143 @@ button.godot-btn:hover {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* --- Unreal Engine 5 Runner --- */
+button.ue-btn {
+  background: #4f46e5;
+  border-color: #4338ca;
+}
+button.ue-btn:hover {
+  background: #6366f1;
+}
+
+#ue-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #141418;
+  z-index: 16;
+}
+
+#ue-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #1e1e26;
+  border-bottom: 1px solid #383844;
+  flex-wrap: wrap;
+}
+
+#ue-panel-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#ue-panel-title {
+  font-size: 13px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #fff;
+}
+
+.ue-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #2e323d;
+  color: #cbd5e1;
+  border: 1px solid #475569;
+}
+
+.ue-status-badge.is-building {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.6);
+  color: #fde68a;
+}
+
+.ue-status-badge.is-running {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.55);
+  color: #86efac;
+}
+
+.ue-status-badge.is-error {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #fca5a5;
+}
+
+.ue-status-badge.is-stopped {
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #cbd5e1;
+}
+
+#ue-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#ue-controls button {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+#ue-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+#ue-logs-output {
+  flex: 1;
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #d4d4d8;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #101014;
+}
+
+#ue-logs-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 14px;
+  background: #1e1e26;
+  border-top: 1px solid #383844;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+#ue-logs-footer code {
+  color: #a5b4fc;
+}
+
+#ue-logs-actions {
+  display: flex;
+  gap: 6px;
+}
+
+#ue-logs-actions button {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+html.embed-mode #ue-panel,
+#app-container.embed-mode #ue-panel {
+  display: none !important;
+}

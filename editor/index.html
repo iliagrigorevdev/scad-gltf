@@ -193,6 +193,14 @@
                 ⬇ Web ZIP
               </button>
               <button
+                id="run-ue-btn"
+                class="primary ue-btn"
+                style="display: none"
+                title="Compile & launch Unreal Editor via local SCAD Serve backend"
+              >
+                🎮 Run UE
+              </button>
+              <button
                 id="download-project-zip-btn"
                 style="display: none"
                 title="Download project files (.zip) with cached .glb models"
@@ -435,6 +443,52 @@
               </div>
             </div>
             <pre id="godot-logs-output"></pre>
+          </div>
+        </div>
+
+        <!-- Unreal Engine Runner Panel -->
+        <div id="ue-panel" style="display: none">
+          <div id="ue-panel-header">
+            <div id="ue-panel-title-wrap">
+              <span id="ue-panel-title">Unreal Engine 5</span>
+              <span id="ue-status-badge" class="ue-status-badge">Idle</span>
+            </div>
+            <div id="ue-controls">
+              <button
+                id="ue-restart-btn"
+                title="Rebuild & Restart Unreal Editor"
+              >
+                🔄 Restart
+              </button>
+              <button
+                id="ue-stop-btn"
+                class="danger"
+                title="Stop Build / Unreal Editor"
+              >
+                ⏹ Stop
+              </button>
+              <button
+                id="ue-close-btn"
+                title="Close UE Runner Panel & Return to 3D Preview"
+              >
+                ✕ Close
+              </button>
+            </div>
+          </div>
+          <pre id="ue-logs-output"></pre>
+          <div id="ue-logs-footer">
+            <span id="ue-logs-hint"
+              >Uses local <code>scad-gltf serve</code> backend (<code
+                >UE_ROOT</code
+              >
+              / <code>--ue-root</code>).</span
+            >
+            <div id="ue-logs-actions">
+              <button id="ue-logs-copy-btn" title="Copy UE build & editor logs">
+                Copy Logs
+              </button>
+              <button id="ue-logs-clear-btn">Clear</button>
+            </div>
           </div>
         </div>
       </div>

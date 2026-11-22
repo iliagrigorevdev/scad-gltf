@@ -57,6 +57,7 @@ The C++ source code for this custom OpenSCAD fork is included in the `openscad/`
   - Toggle **Auto Save Versions**, start a fresh draft (**➕ New**, auto-snapshotting current work first), delete models (**Delete**) or individual snapshots (**🗑**), create manual snapshots with notes (**📌 Save Version**), restore earlier versions (**↩ Restore**), and automatically match/deduplicate models opened via **📁 Load**, drag-and-drop, `?file=`, `#...` links, or `scad-gltf serve`.
   - Click **🔍 Compare** to diff across any saved local model or the active draft (**A (Base)** vs **B (Compare)**, including **Current Editor** and **Latest Saved**), swap sides (**⇄**), or restore directly (**↩ Restore A** / **↩ Restore B**). Inspect **Side-by-Side / Unified Code Diffs** (with **Full file** toggle and per-file `[=]`/`[~]`/`[+]`/`[-]` filtering for Markdown bundles) and **3D Visual Comparisons** (Side-by-Side Synced Camera or Red/Green Overlay with `.scad` file selector, **Wireframe**, and **🎯 Fit Camera**).
 - **In-Browser Godot 4 Playback & Export:** Paste, drop, or open a `.md` Godot 4 project (`project.godot` + `.scad` + `.gd`/`.tscn`) to compile all `.scad` models to `.glb` in the browser, generate `.godot/global_script_class_cache.cfg` for `class_name` GDScripts, configure WebGL2 (`gl_compatibility`), inject a runtime `.scad`/`.glb`/image loader (`res://__scad_glbs/`), pack an in-memory `.pck`, and run it with **🎮 Play Godot** (includes **🔄 Restart**, **⏹ Stop**, **📋 Logs** with **Copy**/**Clear**, **📷** PNG screenshot capture, **⛶** expand mode, **⬇ Web ZIP** standalone HTML5 export, and **⬇ Project ZIP** source export bundling `addons/scad_importer/` and precompiled `__scad_glbs/*.glb` assets).
+- **Unreal Engine 5 Build & Launch (via Local Backend):** Open or paste a UE5 `.md` project (containing a `.uproject`) to enable **🎮 Run UE** in the toolbar. Clicking it connects to `scad-gltf serve` (configured with `UE_ROOT` or `--ue-root`), precompiles `.scad` assets to `__scad_glbs/*.glb` (injecting `Plugins/ScadImporter` fallback templates if needed), builds `<ProjectName>Editor` (`Development`), and launches Unreal Editor with a live log panel (**🔄 Restart**, **⏹ Stop**, **Copy Logs**, and **Clear**).
 - **Multi-Engine Project ZIP Export & Offline CLI Fallback:** Click **⬇ Project ZIP** on any `### filepath` Markdown project (Godot 4, Unreal Engine 5, Rust Bevy/wgpu, Vite Web, or generic multi-file `.scad` bundles) to export a `.zip` archive containing precompiled `__scad_glbs/*.glb` models. When the `scad-gltf` CLI is not installed locally, the bundled Godot addon (`addons/scad_importer/scad_importer.gd`), Unreal Engine plugin (`Plugins/ScadImporter/Source/ScadImporter/Private/ScadImportFactory.cpp`), and Rust `build.rs` script automatically fall back to the cached `.glb` models (and **⬇ Project ZIP** automatically injects missing or upgrades legacy UE/Rust fallback templates).
 - **URL Loading, Sharing & Embed Mode:** Load a self-contained `.scad` or `.md` file directly via URL parameter (`?file=<url>`), live-load `#...` links on `hashchange`, or click **🔗 Share** to compress the project into the URL hash (`#c...`, using the native Web Share sheet when available or copying to clipboard). Enable **Embed Share** (`?embed=1`) to share a chromeless full-viewport link that hides editor UI and auto-starts Godot games.
 - **Optional Local Sync & PWA:** Connect the **SCAD Serve Backend** panel (`http://localhost:3000`) to `scad-gltf serve` to read, save, and delete files on your local disk with automatic `include`/`use` dependency resolution. Installable as a Progressive Web App (PWA).
@@ -129,15 +130,15 @@ npm install -g scad-gltf
 
 ### Command Overview
 
-| Command                                            | Purpose                                                                                            |
-| :------------------------------------------------- | :------------------------------------------------------------------------------------------------- |
-| `scad-gltf convert <in> <out> [options] [--cache]` | Convert a `.scad` file or directory to `.glb`, `.gltf`, `.3mf`, `.stl`, `.obj`, `.svg`, etc.       |
-| `scad-gltf serve [--port <port>]`                  | Start the local REST API and serve the Scadify Web Editor for the current working directory.       |
-| `scad-gltf gen <type> "<desc>" [options]`          | Generate prompts (clipboard) or run an automated AI + MCP visual iteration loop.                   |
-| `scad-gltf play <project.md>`                      | Unpack, build, and launch a Markdown project (`godot`, `web`, `bevy`, `wgpu`, `ue`) in a temp dir. |
-| `scad-gltf extract <project.md> [dir]`             | Unpack a single-file Markdown project to disk.                                                     |
-| `scad-gltf pack <dir> [output.md]`                 | Pack an existing local project directory into a single `### filepath` Markdown file.               |
-| `scad-gltf mcp`                                    | Start the stdio Model Context Protocol (MCP) server for AI assistants.                             |
+| Command                                              | Purpose                                                                                                                 |
+| :--------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| `scad-gltf convert <in> <out> [options] [--cache]`   | Convert a `.scad` file or directory to `.glb`, `.gltf`, `.3mf`, `.stl`, `.obj`, `.svg`, etc.                            |
+| `scad-gltf serve [--port <port>] [--ue-root <path>]` | Start the local REST API, serve the Scadify Web Editor for the current working directory, and optionally set `UE_ROOT`. |
+| `scad-gltf gen <type> "<desc>" [options]`            | Generate prompts (clipboard) or run an automated AI + MCP visual iteration loop.                                        |
+| `scad-gltf play <project.md>`                        | Unpack, build, and launch a Markdown project (`godot`, `web`, `bevy`, `wgpu`, `ue`) in a temp dir.                      |
+| `scad-gltf extract <project.md> [dir]`               | Unpack a single-file Markdown project to disk.                                                                          |
+| `scad-gltf pack <dir> [output.md]`                   | Pack an existing local project directory into a single `### filepath` Markdown file.                                    |
+| `scad-gltf mcp`                                      | Start the stdio Model Context Protocol (MCP) server for AI assistants.                                                  |
 
 ### Converting Files (`scad-gltf convert`)
 
@@ -167,10 +168,10 @@ scad-gltf convert model.scad model.glb '{"variables": {"size": 20}}'
 
 ### Local Workspace Server & Editor (`scad-gltf serve`)
 
-Starts a local HTTP server (default port `3000`) serving the Scadify Web Editor and exposing REST endpoints scoped strictly to the current working directory:
+Starts a local HTTP server (default port `3000`) serving the Scadify Web Editor and exposing REST endpoints scoped strictly to the current working directory. Pass `--ue-root <path>` (or set `UE_ROOT`) to enable compiling and launching UE5 Markdown projects from the editor:
 
 ```bash
-scad-gltf serve [--port <port>]
+scad-gltf serve [--port <port>] [--ue-root <path>]
 ```
 
 **Endpoints:**
@@ -180,6 +181,9 @@ scad-gltf serve [--port <port>]
 - `POST /api/scads` — Create or update a file (`{ "filename": "model.scad", "content": "cube(10);" }`; defaults to `.scad` if no `.scad`/`.md` extension is given).
 - `DELETE /api/scads/:filename` — Delete a `.scad` or `.md` file.
 - `POST /api/convert` — In-memory SCAD-to-GLB compilation (`{ "content": "sphere(r=10);", "options": { "variables": { "r": 10 }, "additionalFiles": { "lib.scad": "..." } } }`), returning `model/gltf-binary`.
+- `POST /api/ue/run` — Extracts a UE5 Markdown project (`{ "markdown": "..." }`) to a temporary directory, injects `Plugins/ScadImporter` fallback templates if needed, precompiles `.scad` files to `__scad_glbs/*.glb`, builds `<ProjectName>Editor` (`Development`) via Unreal Build Tool, and launches Unreal Editor (`-log`).
+- `GET /api/ue/status` — Returns the active UE build/editor status (`idle`, `building`, `running`, `stopped`, `error`) and incremental log output (`?since=<offset>`).
+- `POST /api/ue/stop` — Terminates any active UE build or Unreal Editor process tree and cleans up its temporary directory.
 
 ### Automated AI Generation (`scad-gltf gen`)
 
@@ -266,13 +270,13 @@ Configure any [Model Context Protocol](https://modelcontextprotocol.io/) client 
 
 ### Environment Variables
 
-| Variable          | Description                                                                                                              |
-| :---------------- | :----------------------------------------------------------------------------------------------------------------------- |
-| `OPENAI_BASE_URL` | Base URL of an OpenAI-compatible `/chat/completions` endpoint for `scad-gltf gen`.                                       |
-| `OPENAI_API_KEY`  | Optional Bearer API key for `scad-gltf gen`.                                                                             |
-| `OPENAI_MODEL`    | Model name sent in `scad-gltf gen` requests.                                                                             |
-| `VERBOSE`         | When set (or pass `--verbose` / `-v`), prints full AI reasoning logs during `scad-gltf gen`.                             |
-| `UE_ROOT`         | Path to your Unreal Engine installation folder (required for `compile_ue_project` and `scad-gltf play` on UE5 projects). |
+| Variable          | Description                                                                                                                                                                                    |
+| :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENAI_BASE_URL` | Base URL of an OpenAI-compatible `/chat/completions` endpoint for `scad-gltf gen`.                                                                                                             |
+| `OPENAI_API_KEY`  | Optional Bearer API key for `scad-gltf gen`.                                                                                                                                                   |
+| `OPENAI_MODEL`    | Model name sent in `scad-gltf gen` requests.                                                                                                                                                   |
+| `VERBOSE`         | When set (or pass `--verbose` / `-v`), prints full AI reasoning logs during `scad-gltf gen`.                                                                                                   |
+| `UE_ROOT`         | Path to your Unreal Engine installation folder (required for `compile_ue_project`, `scad-gltf play` on UE5 projects, and UE5 builds in `scad-gltf serve`; can also be passed via `--ue-root`). |
 
 ---
 
