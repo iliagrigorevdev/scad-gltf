@@ -1,3 +1,4 @@
+// Version: 0.2
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
