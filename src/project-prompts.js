@@ -36,7 +36,7 @@ function loadUserScadFiles(options = {}) {
 function loadTemplateFiles(projectType) {
   const templates = [];
 
-  if (projectType === "bevy" || projectType === "wgpu") {
+  if (projectType === "bevy") {
     const buildRsPath = path.join(DIR, "rust", "build.rs");
     const content = readFile(buildRsPath);
     if (content !== null) {

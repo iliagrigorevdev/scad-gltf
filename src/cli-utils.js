@@ -192,12 +192,7 @@ export function detectProjectInDir(baseDir, expectedType = null) {
     let matchedType = null;
     if (expectedType) {
       if (expectedType === "godot" && isGodot) matchedType = "godot";
-      else if (
-        (expectedType === "bevy" ||
-          expectedType === "wgpu" ||
-          expectedType === "rust") &&
-        isRust
-      ) {
+      else if ((expectedType === "bevy" || expectedType === "rust") && isRust) {
         matchedType = expectedType;
       } else if (expectedType === "ue" && isUe) {
         matchedType = "ue";
@@ -244,9 +239,7 @@ export function extractMarkdownProjectToTemp(
       const markerHint =
         expectedType === "godot"
           ? "'project.godot'"
-          : expectedType === "bevy" ||
-              expectedType === "wgpu" ||
-              expectedType === "rust"
+          : expectedType === "bevy" || expectedType === "rust"
             ? "'Cargo.toml'"
             : expectedType === "ue"
               ? "a '.uproject'"
@@ -747,7 +740,7 @@ export async function runAutomatedAIFlow(
               const expectedFile =
                 projectType === "godot"
                   ? "project.godot"
-                  : projectType === "bevy" || projectType === "wgpu"
+                  : projectType === "bevy"
                     ? "Cargo.toml"
                     : ".uproject";
               messages.push({
@@ -769,8 +762,8 @@ export async function runAutomatedAIFlow(
                 detached: true,
               });
               runProc.unref();
-            } else if (projectType === "bevy" || projectType === "wgpu") {
-              const fwName = projectType === "bevy" ? "Bevy" : "wgpu";
+            } else if (projectType === "bevy") {
+              const fwName = "Bevy";
               console.log(
                 `\n🦀 Building and running ${fwName} project: ${path.basename(projectDir)}...`,
               );

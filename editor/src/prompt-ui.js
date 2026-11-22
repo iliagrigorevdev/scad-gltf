@@ -320,7 +320,7 @@ export function getPromptOptions(containerElement) {
 
 function getTemplateFilesForProfile(profileId) {
   if (profileId === "godot") return GODOT_ADDON_FILES;
-  if (profileId === "bevy" || profileId === "wgpu") return RUST_TEMPLATE_FILES;
+  if (profileId === "bevy") return RUST_TEMPLATE_FILES;
   if (profileId === "ue") return UE_PLUGIN_FILES;
   return [];
 }

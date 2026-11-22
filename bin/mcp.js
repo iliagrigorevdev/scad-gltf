@@ -73,7 +73,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           properties: {
             project_type: {
               type: "string",
-              enum: ["scad", "bevy", "wgpu", "godot", "ue"],
+              enum: ["scad", "bevy", "godot", "ue"],
               description:
                 "The target framework or output type for the project.",
             },
@@ -334,7 +334,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         ...(args.options || {}),
       };
 
-      if (!["scad", "bevy", "wgpu", "godot", "ue"].includes(pType)) {
+      if (!["scad", "bevy", "godot", "ue"].includes(pType)) {
         throw new Error(`Invalid project type: ${pType}`);
       }
 

@@ -243,22 +243,6 @@ test("Project Prompts - User SCAD Files Appending", () => {
   }
 });
 
-test("Project Prompts - WGPU Generation Specifics", () => {
-  const prompts = getProjectPrompts("wgpu");
-  const promptRules = generatePrompt("A low poly tree", { basic: false });
-  const systemPrompt = prompts.buildSystemPrompt(promptRules, {});
-
-  assert.ok(
-    systemPrompt.includes("Rust wgpu developer"),
-    "Should declare the exact wgpu persona",
-  );
-  assert.ok(systemPrompt.includes("Cargo.toml"), "Should require Cargo.toml");
-  assert.ok(
-    systemPrompt.includes("include `wgpu` as a dependency"),
-    "Should specifically instruct adding wgpu as a dependency",
-  );
-});
-
 test("Project Prompts - Raw SCAD Generation Specifics", () => {
   const prompts = getProjectPrompts("scad");
   const promptRules = generatePrompt("A modular bracket", { basic: false });
@@ -293,6 +277,11 @@ test("Project Prompts - Error on Unknown Project Type", () => {
     () => getProjectPrompts("web"),
     /Unknown project type \/ prompt profile: web/,
     "Should reject removed web prompt profile",
+  );
+  assert.throws(
+    () => getProjectPrompts("wgpu"),
+    /Unknown project type \/ prompt profile: wgpu/,
+    "Should reject removed wgpu prompt profile",
   );
 });
 
@@ -344,7 +333,7 @@ test("Prompt Generator - Modular Flags", () => {
 test("Project Prompts - Follow-up Refinements Patch Format Rules", () => {
   const promptRules = generatePrompt("A rover", { basic: false });
 
-  for (const projectType of ["godot", "bevy", "wgpu", "ue"]) {
+  for (const projectType of ["godot", "bevy", "ue"]) {
     const prompts = getProjectPrompts(projectType);
     const systemPrompt = prompts.buildSystemPrompt(promptRules, {});
 

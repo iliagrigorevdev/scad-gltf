@@ -159,7 +159,7 @@ function getDeliveryFormat(projectType, frameworkName, hasUserScadFiles) {
   let exampleCode = "";
   let includes = "";
 
-  if (projectType === "bevy" || projectType === "wgpu") {
+  if (projectType === "bevy") {
     exampleCode = `     ### my_project/Cargo.toml
      \`\`\`toml
      [package]
@@ -217,7 +217,7 @@ function createRustProfile({
     showInEditor: true,
     isRawScad: false,
     scadTaskFallback: "the 3D assets for the project",
-    helpText: `Describe the Rust ${frameworkName} 3D project you want to generate. The prompt includes Cargo/build.rs setup, ${frameworkName} ${id === "bevy" ? "systems" : "rendering structure"}, and SCAD asset rules.`,
+    helpText: `Describe the Rust ${frameworkName} 3D project you want to generate. The prompt includes Cargo/build.rs setup, ${frameworkName} systems, and SCAD asset rules.`,
     descriptionPlaceholder,
     defaultDescription,
     defaultPromptOptions: { ...BASE_PROJECT_PROMPT_OPTIONS },
@@ -362,16 +362,6 @@ ${getDeliveryFormat("godot", null, hasUserScadFiles)}`;
     defaultDescription: "a simple 3D Bevy scene",
     extraMainInstructions:
       " Provide standard Bevy systems (camera, lights, movement, etc.).",
-  }),
-
-  wgpu: createRustProfile({
-    id: "wgpu",
-    label: "Rust wgpu Project",
-    frameworkName: "wgpu",
-    crateName: "wgpu",
-    descriptionPlaceholder:
-      "e.g. A real-time 3D glTF model viewer with orbit camera controls",
-    defaultDescription: "a simple 3D wgpu viewer",
   }),
 
   ue: {

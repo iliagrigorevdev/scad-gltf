@@ -2,7 +2,7 @@
 
 A WebAssembly (WASM) build of a custom OpenSCAD fork that compiles OpenSCAD (`.scad`) scripts directly to **glTF/GLB** in the browser and Node.js.
 
-Unlike standard OpenSCAD, this engine supports **Physically Based Rendering (PBR)** materials, **Hierarchical Node Animations**, **Skeletal Skinning & Mesh Deformation**, **Texture Baking**, and **Scene Lights**, making it a bridge between procedural CAD and modern 3D engines (Three.js, Babylon.js, Godot 4, Bevy, wgpu, and Unreal Engine 5).
+Unlike standard OpenSCAD, this engine supports **Physically Based Rendering (PBR)** materials, **Hierarchical Node Animations**, **Skeletal Skinning & Mesh Deformation**, **Texture Baking**, and **Scene Lights**, making it a bridge between procedural CAD and modern 3D engines (Three.js, Babylon.js, Godot 4, Bevy, and Unreal Engine 5).
 
 The C++ source code for this custom OpenSCAD fork is included in the `openscad/` subfolder.
 
@@ -50,7 +50,7 @@ The C++ source code for this custom OpenSCAD fork is included in the `openscad/`
 
 - **Real-Time 3D Viewport & GPU Path Tracing:** Live WebAssembly compilation with auto-render, auto-framing camera, wireframe, grid/axes, bloom, scene light toggle, glTF camera selector, expand mode (`⛶`), and hardware-accelerated path tracing with custom `.hdr` environment map drag-and-drop.
 - **Animation & Media Capture:** Multi-clip selector, play/pause, timeline scrubber, **📷 PNG snapshots**, and **🎥 MP4/WebM video recording** (renders deterministically frame-by-frame when Path Tracing is active).
-- **AI Prompt Generator Tab:** Choose a target profile (**OpenSCAD Model**, **Godot 4 Project**, **Rust Bevy Project**, **Rust wgpu Project**, **Unreal Engine 5 Project**), toggle PBR/animation/baking rules, reset to profile defaults (**↺ Reset**), copy complete prompts with bundled engine templates (`addons/scad_importer`, `build.rs`, `Plugins/ScadImporter`), or click **🩹 Copy Refinement Prompt** (available when editing a multi-file Markdown bundle) to copy the full project alongside patch-formatting rules and an optional refinement request.
+- **AI Prompt Generator Tab:** Choose a target profile (**OpenSCAD Model**, **Godot 4 Project**, **Rust Bevy Project**, **Unreal Engine 5 Project**), toggle PBR/animation/baking rules, reset to profile defaults (**↺ Reset**), copy complete prompts with bundled engine templates (`addons/scad_importer`, `build.rs`, `Plugins/ScadImporter`), or click **🩹 Copy Refinement Prompt** (available when editing a multi-file Markdown bundle) to copy the full project alongside patch-formatting rules and an optional refinement request.
 - **Multi-File Markdown Editing & Interactive Patching:** Edit single-file `### filepath` Markdown bundles with block highlighting, a cursor-synced file dropdown featuring **📑 All (.md)** plus grouped **SCAD Models** and **Other Files** (automatically compiling `.scad` blocks as you select or move the cursor into them), per-file/full-document **📋 Copy**, **📥 Paste** (shown for empty or plain `.scad` editors to replace content from clipboard), **🩹 Patch** (shown for Markdown bundles to open an interactive patcher supporting **Patch Matching & Add New**, **Replace Single File**, and **Replace Entire Document** modes; auto-reads the clipboard, accepts dropped `.md`/`.patch` files, resolves missing/swapped root folder prefixes, supports `<<<<<<< SEARCH` / `>>>>>>> REPLACE` hunks, `(DELETE)` headings or `<!-- DELETE -->` / `// DELETE` / `# DELETE` markers, per-file checkboxes, path remapping, and live diff previews, plus a post-patch banner with file jump pills, **↩ Undo**, and **🔍 Diff**), and **⬇ MD** / **⬇ SCAD** / **⬇ Project ZIP** downloads.
 - **Local Storage & Version Comparison:**
   - Automatically saves the active workspace draft in `localStorage` and stores named local models and up to 50 auto-snapshots per model in `IndexedDB`.
@@ -58,7 +58,7 @@ The C++ source code for this custom OpenSCAD fork is included in the `openscad/`
   - Click **🔍 Compare** to diff across any saved local model or the active draft (**A (Base)** vs **B (Compare)**, including **Current Editor** and **Latest Saved**), swap sides (**⇄**), or restore directly (**↩ Restore A** / **↩ Restore B**). Inspect **Side-by-Side / Unified Code Diffs** (with **Full file** toggle and per-file `[=]`/`[~]`/`[+]`/`[-]` filtering for Markdown bundles) and **3D Visual Comparisons** (Side-by-Side Synced Camera or Red/Green Overlay with `.scad` file selector, **Wireframe**, and **🎯 Fit Camera**).
 - **In-Browser Godot 4 Playback & Export:** Paste, drop, or open a `.md` Godot 4 project (`project.godot` + `.scad` + `.gd`/`.tscn`) to compile all `.scad` models to `.glb` in the browser, generate `.godot/global_script_class_cache.cfg` for `class_name` GDScripts, configure WebGL2 (`gl_compatibility`), inject a runtime `.scad`/`.glb`/image loader (`res://__scad_glbs/`), pack an in-memory `.pck`, and run it with **🎮 Play Godot** (includes **🔄 Restart**, **⏹ Stop**, **📋 Logs** with **Copy**/**Clear**, **📷** PNG screenshot capture, **⛶** expand mode, **⬇ Web ZIP** standalone HTML5 export, and **⬇ Project ZIP** source export bundling `addons/scad_importer/` and precompiled `__scad_glbs/*.glb` assets).
 - **Native Project Build & Launch (UE5, Rust, Godot 4 via Local Backend):** Open or paste a Markdown project to enable **🎮 Run UE** (`.uproject`), **🦀 Run Rust** (`Cargo.toml`), or **🖥 Run Godot** (`project.godot`, alongside the in-browser **🎮 Play Godot** WebAssembly player). Clicking a Run button connects to `scad-gltf serve`, injects any missing fallback templates/addons (`Plugins/ScadImporter`, `build.rs`, `addons/scad_importer`), precompiles `.scad` assets to `__scad_glbs/*.glb`, runs the native build/import step (`Build` / `cargo build` / `godot --headless --editor --quit`), and launches the application/editor with a live log panel (**🔄 Restart**, **⏹ Stop**, **Copy Logs**, and **Clear**).
-- **Multi-Engine Project ZIP Export & Offline CLI Fallback:** Click **⬇ Project ZIP** on any `### filepath` Markdown project (Godot 4, Unreal Engine 5, Rust Bevy/wgpu, Vite Web, or generic multi-file `.scad` bundles) to export a `.zip` archive containing precompiled `__scad_glbs/*.glb` models. When the `scad-gltf` CLI is not installed locally, the bundled Godot addon (`addons/scad_importer/scad_importer.gd`), Unreal Engine plugin (`Plugins/ScadImporter/Source/ScadImporter/Private/ScadImportFactory.cpp`), and Rust `build.rs` script automatically fall back to the cached `.glb` models (and **⬇ Project ZIP** automatically injects missing or upgrades legacy UE/Rust fallback templates).
+- **Multi-Engine Project ZIP Export & Offline CLI Fallback:** Click **⬇ Project ZIP** on any `### filepath` Markdown project (Godot 4, Unreal Engine 5, Rust Bevy, or generic multi-file `.scad` bundles) to export a `.zip` archive containing precompiled `__scad_glbs/*.glb` models. When the `scad-gltf` CLI is not installed locally, the bundled Godot addon (`addons/scad_importer/scad_importer.gd`), Unreal Engine plugin (`Plugins/ScadImporter/Source/ScadImporter/Private/ScadImportFactory.cpp`), and Rust `build.rs` script automatically fall back to the cached `.glb` models (and **⬇ Project ZIP** automatically injects missing or upgrades legacy UE/Rust fallback templates).
 - **URL Loading, Sharing & Embed Mode:** Load a self-contained `.scad` or `.md` file directly via URL parameter (`?file=<url>`), live-load `#...` links on `hashchange`, or click **🔗 Share** to compress the project into the URL hash (`#c...`, using the native Web Share sheet when available or copying to clipboard). Enable **Embed Share** (`?embed=1`) to share a chromeless full-viewport link that hides editor UI and auto-starts Godot games.
 - **Optional Local Sync & PWA:** Connect the **SCAD Serve Backend** panel (`http://localhost:3000`) to `scad-gltf serve` to read, save, and delete files on your local disk with automatic `include`/`use` dependency resolution. Installable as a Progressive Web App (PWA).
 
@@ -135,7 +135,7 @@ npm install -g scad-gltf
 | `scad-gltf convert <in> <out> [options] [--cache]`   | Convert a `.scad` file or directory to `.glb`, `.gltf`, `.3mf`, `.stl`, `.obj`, `.svg`, etc.                            |
 | `scad-gltf serve [--port <port>] [--ue-root <path>]` | Start the local REST API, serve the Scadify Web Editor for the current working directory, and optionally set `UE_ROOT`. |
 | `scad-gltf gen <type> "<desc>" [options]`            | Generate prompts (clipboard) or run an automated AI + MCP visual iteration loop.                                        |
-| `scad-gltf play <project.md>`                        | Unpack, build, and launch a Markdown project (`godot`, `bevy`, `wgpu`, `ue`) in a temp dir.                             |
+| `scad-gltf play <project.md>`                        | Unpack, build, and launch a Markdown project (`godot`, `bevy`, `ue`) in a temp dir.                                     |
 | `scad-gltf extract <project.md> [dir]`               | Unpack a single-file Markdown project to disk.                                                                          |
 | `scad-gltf pack <dir> [output.md]`                   | Pack an existing local project directory into a single `### filepath` Markdown file.                                    |
 | `scad-gltf mcp`                                      | Start the stdio Model Context Protocol (MCP) server for AI assistants.                                                  |
@@ -187,7 +187,7 @@ scad-gltf serve [--port <port>] [--ue-root <path>] [--godot-bin <path>]
 
 ### Automated AI Generation (`scad-gltf gen`)
 
-Generates a tailored prompt (`scad`, `godot`, `bevy`, `wgpu`, or `ue`) and copies it to your clipboard—or, when `OPENAI_BASE_URL` / `OPENAI_API_KEY` (or JSON equivalents) are provided, runs an automated loop using `scad-gltf mcp` for multi-angle visual inspection and human-in-the-loop feedback before saving the final file (`<model_name>.scad` / `generated_model.scad`, or `generate_<type>_project.md`).
+Generates a tailored prompt (`scad`, `godot`, `bevy`, or `ue`) and copies it to your clipboard—or, when `OPENAI_BASE_URL` / `OPENAI_API_KEY` (or JSON equivalents) are provided, runs an automated loop using `scad-gltf mcp` for multi-angle visual inspection and human-in-the-loop feedback before saving the final file (`<model_name>.scad` / `generated_model.scad`, or `generate_<type>_project.md`).
 
 ```bash
 # Clipboard mode (copies system prompt + request to paste into any LLM)
@@ -217,7 +217,7 @@ scad-gltf gen godot "A game using the provided player model" '{"scadFiles": ["./
 **Automated Loop Behavior:**
 
 - **Automatic Vision Fallback:** If the target API rejects image inputs, `scad-gltf gen` automatically strips images, sets `return_images: false` on MCP tool calls, and retries in text-only mode.
-- **Live Preview & Feedback:** Before prompting `Are you happy with this result?`, `scad` mode launches a background `scad-gltf serve` instance and prints `#c...` browser preview links, `godot` launches Godot, and `bevy`/`wgpu` runs `cargo run`.
+- **Live Preview & Feedback:** Before prompting `Are you happy with this result?`, `scad` mode launches a background `scad-gltf serve` instance and prints `#c...` browser preview links, `godot` launches Godot, and `bevy` runs `cargo run`.
 - **Incremental Patching:** When providing follow-up feedback on multi-file projects, the AI outputs Markdown patches (`SEARCH/REPLACE` hunks and modified/added/deleted files), which are validated and applied to the previous project state automatically.
 
 ### Playing, Extracting & Packing Projects (`play`, `extract`, `pack`)
@@ -256,11 +256,11 @@ Configure any [Model Context Protocol](https://modelcontextprotocol.io/) client 
 
 **Exposed MCP Tools:**
 
-- `get_project_prompt`: Returns syntax rules and project guidelines for `scad`, `bevy`, `wgpu`, `godot`, or `ue`, with optional `options` feature toggles and `scadFiles` paths.
+- `get_project_prompt`: Returns syntax rules and project guidelines for `scad`, `bevy`, `godot`, or `ue`, with optional `options` feature toggles and `scadFiles` paths.
 - `render_scad_model`: Compiles `.scad` code to GLB and returns base64 PNG renders from requested angles (`front`, `back`, `left`, `right`, `top`, `bottom`, `isometric`; defaults to `["front", "top", "isometric"]`) at `animation_time` / `animation_index`, supporting `dependencies` (`{ [relativePath]: scadCode }`) and `return_images: false`.
 - `generate_scad_preview_link`: Creates a compressed Scadify URL (`https://iliagrigorevdev.github.io/scad-gltf/#c...`) for interactive browser inspection.
 - `test_godot_project`: Extracts a Markdown Godot 4 project, imports assets headlessly, runs for `run_time` seconds (default `5.0`), and returns logs + screenshot (uses `xvfb-run` on Linux).
-- `compile_rust_project`: Extracts a Markdown Rust (`bevy` or `wgpu`) project and runs `cargo check` (2-minute timeout).
+- `compile_rust_project`: Extracts a Markdown Rust (`bevy`) project and runs `cargo check` (2-minute timeout).
 - `compile_ue_project`: Extracts a Markdown UE5 project and builds it with Unreal Build Tool (4-minute timeout; requires `UE_ROOT`).
 
 **Typical AI Agent Workflow:**
@@ -388,7 +388,7 @@ const glbData = await convertScadToGltf(scadCode, { wasmUrl });
 
 ### AI Prompt Generation (`scad-gltf/prompt`)
 
-Use `generatePrompt` for standalone OpenSCAD rules, `buildProfilePrompt` for complete target-engine prompts (`"scad"`, `"godot"`, `"bevy"`, `"wgpu"`, `"ue"`), or `buildRefinementPrompt` / `getRefinementPatchRules` for incremental patch follow-ups:
+Use `generatePrompt` for standalone OpenSCAD rules, `buildProfilePrompt` for complete target-engine prompts (`"scad"`, `"godot"`, `"bevy"`, `"ue"`), or `buildRefinementPrompt` / `getRefinementPatchRules` for incremental patch follow-ups:
 
 ```javascript
 import {
