@@ -8,6 +8,7 @@ import { execSync, spawn } from "child_process";
 import { convertScadToGltf } from "../src/convert.js";
 import { installWasmFetchPolyfill } from "../src/process-utils.js";
 import { getUePaths } from "../src/ue-utils.js";
+import { getGodotBin } from "../src/godot-utils.js";
 import {
   extractFilesFromMarkdown,
   extractScadDependencies,
@@ -28,6 +29,7 @@ installWasmFetchPolyfill();
 const args = process.argv.slice(2);
 let port = 3000;
 let ueRootArg = "";
+let godotBinArg = "";
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--port") {
@@ -36,7 +38,21 @@ for (let i = 0; i < args.length; i++) {
   } else if (args[i] === "--ue-root") {
     ueRootArg = args[i + 1] || "";
     i++;
+  } else if (args[i] === "--godot-bin") {
+    godotBinArg = args[i + 1] || "";
+    i++;
   }
+}
+
+if (godotBinArg) {
+  const resolvedGodot = path.resolve(
+    godotBinArg.trim().replace(/^["']|["']$/g, ""),
+  );
+  if (!fs.existsSync(resolvedGodot)) {
+    console.error(`❌ Invalid GODOT_BIN: file not found at ${resolvedGodot}`);
+    process.exit(1);
+  }
+  process.env.GODOT_BIN = resolvedGodot;
 }
 
 if (ueRootArg) {
@@ -217,29 +233,39 @@ app.post("/api/convert", async (req, res) => {
 });
 
 // ========================
-// Unreal Engine Project Runner API
+// Native Project Runner API (UE, Rust, Godot)
 // ========================
-const ueRunState = {
-  runId: 0,
-  status: "idle", // "idle" | "building" | "running" | "stopped" | "error"
-  projectName: null,
-  projectDir: null,
-  exitCode: null,
-  error: null,
-  logs: "",
-  logBaseOffset: 0,
-  process: null,
-  tempDir: null,
+const RUNNER_TYPES = ["ue", "rust", "godot"];
+
+function createRunState() {
+  return {
+    runId: 0,
+    status: "idle", // "idle" | "building" | "running" | "stopped" | "error"
+    projectName: null,
+    projectDir: null,
+    exitCode: null,
+    error: null,
+    logs: "",
+    logBaseOffset: 0,
+    process: null,
+    tempDir: null,
+  };
+}
+
+const runnerStates = {
+  ue: createRunState(),
+  rust: createRunState(),
+  godot: createRunState(),
 };
 
-function appendUeLog(text) {
+function appendRunnerLog(state, text) {
   if (!text) return;
-  ueRunState.logs += text;
+  state.logs += text;
   const maxChars = 500000;
-  if (ueRunState.logs.length > maxChars) {
-    const drop = ueRunState.logs.length - maxChars;
-    ueRunState.logs = ueRunState.logs.slice(drop);
-    ueRunState.logBaseOffset += drop;
+  if (state.logs.length > maxChars) {
+    const drop = state.logs.length - maxChars;
+    state.logs = state.logs.slice(drop);
+    state.logBaseOffset += drop;
   }
 }
 
@@ -265,12 +291,14 @@ function cleanupDirSafe(dirPath) {
   } catch {}
 }
 
-function stopActiveUeRun(markStopped = true) {
-  ueRunState.runId += 1;
-  const proc = ueRunState.process;
-  const tempDir = ueRunState.tempDir;
-  ueRunState.process = null;
-  ueRunState.tempDir = null;
+function stopActiveRun(runnerType, markStopped = true) {
+  const state = runnerStates[runnerType];
+  if (!state) return;
+  state.runId += 1;
+  const proc = state.process;
+  const tempDir = state.tempDir;
+  state.process = null;
+  state.tempDir = null;
 
   if (proc) {
     killChildProcessTree(proc);
@@ -280,14 +308,42 @@ function stopActiveUeRun(markStopped = true) {
   }
   if (
     markStopped &&
-    (ueRunState.status === "building" || ueRunState.status === "running")
+    (state.status === "building" || state.status === "running")
   ) {
-    ueRunState.status = "stopped";
-    appendUeLog("\n⏹ Stopped by user.\n");
+    state.status = "stopped";
+    appendRunnerLog(state, "\n⏹ Stopped by user.\n");
   }
 }
 
-function findUeProjectInTempDir(tempDir) {
+function stopAllActiveRuns() {
+  for (const rType of RUNNER_TYPES) {
+    stopActiveRun(rType, false);
+  }
+}
+
+function extractCargoPackageName(cargoTomlPath) {
+  try {
+    const content = fs.readFileSync(cargoTomlPath, "utf8");
+    const pkgSection = content.match(/\[package\][\s\S]*?(?=\n\[|$)/);
+    const scope = pkgSection ? pkgSection[0] : content;
+    const match = scope.match(/^\s*name\s*=\s*"([^"]+)"/m);
+    return match ? match[1].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractGodotProjectName(projectGodotPath) {
+  try {
+    const content = fs.readFileSync(projectGodotPath, "utf8");
+    const match = content.match(/^\s*config\/name\s*=\s*"([^"]+)"/m);
+    return match ? match[1].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function findProjectInTempDir(tempDir, runnerType) {
   const candidates = [tempDir];
   for (const entry of fs.readdirSync(tempDir, { withFileTypes: true })) {
     if (entry.isDirectory()) {
@@ -295,18 +351,64 @@ function findUeProjectInTempDir(tempDir) {
     }
   }
   for (const dir of candidates) {
-    const uproject = fs
-      .readdirSync(dir)
-      .find((f) => f.toLowerCase().endsWith(".uproject"));
-    if (uproject) {
-      return {
-        projectDir: dir,
-        uprojectFile: uproject,
-        projectName: path.basename(uproject, ".uproject"),
-      };
+    const entries = fs.readdirSync(dir);
+    if (runnerType === "ue") {
+      const uproject = entries.find((f) =>
+        f.toLowerCase().endsWith(".uproject"),
+      );
+      if (uproject) {
+        return {
+          projectDir: dir,
+          markerFile: uproject,
+          projectName: path.basename(uproject, ".uproject"),
+        };
+      }
+    } else if (runnerType === "rust") {
+      const cargo = entries.find((f) => f === "Cargo.toml");
+      if (cargo) {
+        const cargoPath = path.join(dir, cargo);
+        const dirName = dir !== tempDir ? path.basename(dir) : "";
+        return {
+          projectDir: dir,
+          markerFile: cargo,
+          projectName:
+            dirName || extractCargoPackageName(cargoPath) || "rust_project",
+        };
+      }
+    } else if (runnerType === "godot") {
+      const godotFile = entries.find((f) => f === "project.godot");
+      if (godotFile) {
+        const godotPath = path.join(dir, godotFile);
+        const dirName = dir !== tempDir ? path.basename(dir) : "";
+        return {
+          projectDir: dir,
+          markerFile: godotFile,
+          projectName:
+            dirName || extractGodotProjectName(godotPath) || "godot_project",
+        };
+      }
     }
   }
   return null;
+}
+
+function hasProjectScadFiles(projectDir, ignoreDirs = []) {
+  const ignoreSet = new Set(["__scad_glbs", ".git", ...ignoreDirs]);
+  let found = false;
+  function walk(dir) {
+    if (found || !fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (ignoreSet.has(entry.name)) continue;
+        walk(path.join(dir, entry.name));
+      } else if (isScadFilePath(entry.name)) {
+        found = true;
+        return;
+      }
+    }
+  }
+  walk(projectDir);
+  return found;
 }
 
 function injectUeScadPluginFallback(projectDir, uprojectPath) {
@@ -316,31 +418,12 @@ function injectUeScadPluginFallback(projectDir, uprojectPath) {
 
   const uprojectContent = fs.readFileSync(uprojectPath, "utf8");
   const hasScadPluginRef = /ScadImporter/.test(uprojectContent);
-  let hasScadFiles = false;
-
-  function scanScad(dir) {
-    if (hasScadFiles || !fs.existsSync(dir)) return;
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        if (
-          [
-            "Plugins",
-            "Binaries",
-            "Intermediate",
-            "Saved",
-            "__scad_glbs",
-          ].includes(entry.name)
-        ) {
-          continue;
-        }
-        scanScad(path.join(dir, entry.name));
-      } else if (isScadFilePath(entry.name)) {
-        hasScadFiles = true;
-        return;
-      }
-    }
-  }
-  scanScad(projectDir);
+  const hasScadFiles = hasProjectScadFiles(projectDir, [
+    "Plugins",
+    "Binaries",
+    "Intermediate",
+    "Saved",
+  ]);
 
   if (!hasScadFiles && !hasScadPluginRef) return;
 
@@ -369,23 +452,68 @@ function injectUeScadPluginFallback(projectDir, uprojectPath) {
   copyTemplates(pluginTemplateDir);
 }
 
-async function precompileUeScadFiles(projectDir) {
+function injectRustBuildFallback(projectDir) {
+  const rustDir = path.resolve(__dirname, "../rust");
+  const buildRsSrc = path.join(rustDir, "build.rs");
+  if (!fs.existsSync(buildRsSrc)) return;
+
+  const hasCargoToml = fs.existsSync(path.join(projectDir, "Cargo.toml"));
+  const hasScadFiles = hasProjectScadFiles(projectDir, ["target"]);
+  if (!hasScadFiles && !hasCargoToml) return;
+
+  const destPath = path.join(projectDir, "build.rs");
+  const tplContent = fs.readFileSync(buildRsSrc, "utf8");
+
+  if (!fs.existsSync(destPath)) {
+    fs.writeFileSync(destPath, tplContent, "utf8");
+  } else {
+    const existing = fs.readFileSync(destPath, "utf8");
+    if (
+      !existing.includes("__scad_glbs") &&
+      existing.includes("scad-gltf") &&
+      existing.includes("./assets/models")
+    ) {
+      fs.writeFileSync(destPath, tplContent, "utf8");
+    }
+  }
+}
+
+function injectGodotAddonFallback(projectDir, projectGodotPath) {
+  const godotDir = path.resolve(__dirname, "../godot");
+  const addonDir = path.join(godotDir, "addons", "scad_importer");
+  if (!fs.existsSync(addonDir)) return;
+
+  const projectGodotContent = fs.readFileSync(projectGodotPath, "utf8");
+  const hasScadPluginRef = /scad_importer/.test(projectGodotContent);
+  const hasScadFiles = hasProjectScadFiles(projectDir, [
+    "addons",
+    ".godot",
+    ".import",
+  ]);
+  if (!hasScadFiles && !hasScadPluginRef) return;
+
+  const destAddonDir = path.join(projectDir, "addons", "scad_importer");
+  for (const entry of fs.readdirSync(addonDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !/\.(gd|cfg)$/i.test(entry.name)) continue;
+    const srcPath = path.join(addonDir, entry.name);
+    const destPath = path.join(destAddonDir, entry.name);
+    if (!fs.existsSync(destPath)) {
+      fs.mkdirSync(destAddonDir, { recursive: true });
+      fs.writeFileSync(destPath, fs.readFileSync(srcPath, "utf8"), "utf8");
+    }
+  }
+}
+
+async function precompileProjectScadFiles(projectDir, state, options = {}) {
+  const { ignoreDirs = [], writeGdIgnore = false } = options;
+  const ignoreSet = new Set(["__scad_glbs", ".git", ...ignoreDirs]);
   const scadPaths = [];
+
   function walk(dir) {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (
-          [
-            "Plugins",
-            "Binaries",
-            "Intermediate",
-            "Saved",
-            "__scad_glbs",
-          ].includes(entry.name)
-        ) {
-          continue;
-        }
+        if (ignoreSet.has(entry.name)) continue;
         walk(fullPath);
       } else if (isScadFilePath(entry.name)) {
         scadPaths.push(fullPath);
@@ -435,63 +563,81 @@ async function precompileUeScadFiles(projectDir) {
     } catch (err) {
       const msg = err?.message || String(err);
       if (/empty/i.test(msg)) {
-        appendUeLog(
+        appendRunnerLog(
+          state,
           `[SCAD] Skipped helper library ${relPosix} (no top-level geometry).\n`,
         );
       } else {
-        appendUeLog(
+        appendRunnerLog(
+          state,
           `[SCAD] Warning: failed precompiling ${relPosix}: ${msg}\n`,
         );
       }
     }
   }
+
+  if (writeGdIgnore && compiledCount > 0) {
+    const gdIgnorePath = path.join(projectDir, "__scad_glbs", ".gdignore");
+    fs.mkdirSync(path.dirname(gdIgnorePath), { recursive: true });
+    fs.writeFileSync(gdIgnorePath, "");
+  }
+
   return compiledCount;
 }
 
-function spawnUeCommand(command, args, cwd) {
+function spawnRunnerCommand(command, args, cwd, extraEnv = null) {
+  const env = extraEnv ? { ...process.env, ...extraEnv } : process.env;
   const isWinBat =
     process.platform === "win32" && /\.(?:bat|cmd)$/i.test(command);
   if (isWinBat) {
     const quotedCmd = [`"${command}"`, ...args.map((a) => `"${a}"`)].join(" ");
     return spawn("cmd.exe", ["/d", "/s", "/c", quotedCmd], {
       cwd,
+      env,
       stdio: ["ignore", "pipe", "pipe"],
       windowsVerbatimArguments: true,
     });
   }
   return spawn(command, args, {
     cwd,
+    env,
     stdio: ["ignore", "pipe", "pipe"],
     detached: process.platform !== "win32",
   });
 }
 
-app.get("/api/ue/status", (req, res) => {
+function handleRunnerStatus(runnerType, req, res) {
+  const state = runnerStates[runnerType];
   const since = Math.max(0, parseInt(req.query.since, 10) || 0);
-  const totalOffset = ueRunState.logBaseOffset + ueRunState.logs.length;
-  const startIdx = Math.max(0, since - ueRunState.logBaseOffset);
-  const chunk = ueRunState.logs.slice(startIdx);
+  const totalOffset = state.logBaseOffset + state.logs.length;
+  const startIdx = Math.max(0, since - state.logBaseOffset);
+  const chunk = state.logs.slice(startIdx);
 
   res.json({
-    runId: ueRunState.runId,
-    status: ueRunState.status,
-    running:
-      ueRunState.status === "building" || ueRunState.status === "running",
-    projectName: ueRunState.projectName,
+    projectType: runnerType,
+    runId: state.runId,
+    status: state.status,
+    running: state.status === "building" || state.status === "running",
+    projectName: state.projectName,
     ueConfigured: Boolean(process.env.UE_ROOT),
-    exitCode: ueRunState.exitCode,
-    error: ueRunState.error,
+    exitCode: state.exitCode,
+    error: state.error,
     logs: chunk,
     nextOffset: totalOffset,
   });
-});
+}
 
-app.post("/api/ue/stop", (_req, res) => {
-  stopActiveUeRun(true);
-  res.json({ ok: true, status: ueRunState.status });
-});
+function handleRunnerStop(runnerType, _req, res) {
+  stopActiveRun(runnerType, true);
+  res.json({
+    ok: true,
+    projectType: runnerType,
+    status: runnerStates[runnerType].status,
+  });
+}
 
-app.post("/api/ue/run", async (req, res) => {
+async function handleRunnerRun(runnerType, req, res) {
+  const state = runnerStates[runnerType];
   const { markdown } = req.body || {};
   if (!markdown || typeof markdown !== "string") {
     return res
@@ -499,11 +645,13 @@ app.post("/api/ue/run", async (req, res) => {
       .json({ error: "Missing 'markdown' project content." });
   }
 
-  let paths;
-  try {
-    paths = getUePaths();
-  } catch (err) {
-    return res.status(400).json({ error: err.message });
+  let uePaths = null;
+  if (runnerType === "ue") {
+    try {
+      uePaths = getUePaths();
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
   }
 
   const files = extractFilesFromMarkdown(markdown);
@@ -514,159 +662,346 @@ app.post("/api/ue/run", async (req, res) => {
     });
   }
 
-  stopActiveUeRun(false);
-  const thisRunId = ++ueRunState.runId;
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "scad-ue-run-"));
+  stopActiveRun(runnerType, false);
+  const thisRunId = ++state.runId;
+  const tempDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), `scad-${runnerType}-run-`),
+  );
 
   try {
     writeExtractedFiles(files, tempDir);
-    const detected = findUeProjectInTempDir(tempDir);
+    const detected = findProjectInTempDir(tempDir, runnerType);
     if (!detected) {
       cleanupDirSafe(tempDir);
+      const expectedHint =
+        runnerType === "ue"
+          ? ".uproject file"
+          : runnerType === "rust"
+            ? "Cargo.toml"
+            : "project.godot";
       return res.status(400).json({
-        error: "No .uproject file found in extracted Markdown project.",
+        error: `No ${expectedHint} found in extracted Markdown project.`,
       });
     }
 
-    const { projectDir, uprojectFile, projectName } = detected;
-    const uprojectPath = path.join(projectDir, uprojectFile);
+    const { projectDir, markerFile, projectName } = detected;
+    const markerPath = path.join(projectDir, markerFile);
 
-    ueRunState.status = "building";
-    ueRunState.projectName = projectName;
-    ueRunState.projectDir = projectDir;
-    ueRunState.exitCode = null;
-    ueRunState.error = null;
-    ueRunState.logs = "";
-    ueRunState.logBaseOffset = 0;
-    ueRunState.tempDir = tempDir;
+    state.status = "building";
+    state.projectName = projectName;
+    state.projectDir = projectDir;
+    state.exitCode = null;
+    state.error = null;
+    state.logs = "";
+    state.logBaseOffset = 0;
+    state.tempDir = tempDir;
 
-    appendUeLog(`📦 Extracted UE project '${projectName}' to: ${projectDir}\n`);
-    appendUeLog(`🔧 UE_ROOT: ${process.env.UE_ROOT}\n`);
+    const label =
+      runnerType === "ue" ? "UE" : runnerType === "rust" ? "Rust" : "Godot";
+    appendRunnerLog(
+      state,
+      `📦 Extracted ${label} project '${projectName}' to: ${projectDir}\n`,
+    );
 
-    injectUeScadPluginFallback(projectDir, uprojectPath);
-    const compiledCount = await precompileUeScadFiles(projectDir);
+    if (runnerType === "ue") {
+      appendRunnerLog(state, `🔧 UE_ROOT: ${process.env.UE_ROOT}\n`);
+      injectUeScadPluginFallback(projectDir, markerPath);
+    } else if (runnerType === "rust") {
+      injectRustBuildFallback(projectDir);
+    } else if (runnerType === "godot") {
+      injectGodotAddonFallback(projectDir, markerPath);
+    }
+
+    const ignoreDirsByType = {
+      ue: ["Plugins", "Binaries", "Intermediate", "Saved"],
+      rust: ["target"],
+      godot: ["addons", ".godot", ".import"],
+    };
+
+    const compiledCount = await precompileProjectScadFiles(projectDir, state, {
+      ignoreDirs: ignoreDirsByType[runnerType] || [],
+      writeGdIgnore: runnerType === "godot",
+    });
+
     if (compiledCount > 0) {
-      appendUeLog(
+      appendRunnerLog(
+        state,
         `🧊 Pre-compiled ${compiledCount} .scad asset(s) to __scad_glbs/\n`,
       );
     }
 
-    if (ueRunState.runId !== thisRunId) {
+    if (state.runId !== thisRunId) {
       cleanupDirSafe(tempDir);
       return res
         .status(409)
         .json({ error: "Run superseded by a newer request." });
     }
 
-    const buildArgs = [
-      `${projectName}Editor`,
-      paths.platformName,
-      "Development",
-      uprojectPath,
-    ];
-    appendUeLog(
-      `\n⚙️  Building ${projectName}Editor (${paths.platformName} Development)...\n`,
-    );
+    const attachOutputStreams = (proc) => {
+      proc.stdout?.on("data", (d) => {
+        if (state.runId === thisRunId) appendRunnerLog(state, d.toString());
+      });
+      proc.stderr?.on("data", (d) => {
+        if (state.runId === thisRunId) appendRunnerLog(state, d.toString());
+      });
+    };
 
-    const buildProc = spawnUeCommand(paths.buildScript, buildArgs, projectDir);
-    ueRunState.process = buildProc;
-
-    buildProc.stdout?.on("data", (d) => {
-      if (ueRunState.runId === thisRunId) appendUeLog(d.toString());
-    });
-    buildProc.stderr?.on("data", (d) => {
-      if (ueRunState.runId === thisRunId) appendUeLog(d.toString());
-    });
-
-    buildProc.on("error", (err) => {
-      if (ueRunState.runId !== thisRunId) return;
-      ueRunState.process = null;
-      ueRunState.status = "error";
-      ueRunState.exitCode = -1;
-      ueRunState.error = `Failed to launch build script: ${err.message}`;
-      appendUeLog(`\n❌ ${ueRunState.error}\n`);
+    const handleLaunchError = (phaseLabel, err) => {
+      if (state.runId !== thisRunId) return;
+      state.process = null;
+      state.status = "error";
+      state.exitCode = -1;
+      state.error = `Failed to launch ${phaseLabel}: ${err.message}`;
+      appendRunnerLog(state, `\n❌ ${state.error}\n`);
       cleanupDirSafe(tempDir);
-      ueRunState.tempDir = null;
-    });
+      state.tempDir = null;
+    };
 
-    buildProc.on("close", (code) => {
-      if (ueRunState.runId !== thisRunId) return;
-      ueRunState.process = null;
+    if (runnerType === "ue") {
+      const buildArgs = [
+        `${projectName}Editor`,
+        uePaths.platformName,
+        "Development",
+        markerPath,
+      ];
+      appendRunnerLog(
+        state,
+        `\n⚙️  Building ${projectName}Editor (${uePaths.platformName} Development)...\n`,
+      );
 
-      if (code !== 0) {
-        ueRunState.status = "error";
-        ueRunState.exitCode = code;
-        ueRunState.error = `UBT compilation failed with exit code ${code}.`;
-        appendUeLog(`\n❌ ${ueRunState.error}\n`);
-        cleanupDirSafe(tempDir);
-        ueRunState.tempDir = null;
-        return;
-      }
-
-      ueRunState.status = "running";
-      appendUeLog("\n✅ Build succeeded! Launching Unreal Editor...\n");
-
-      const editorProc = spawnUeCommand(
-        paths.editor,
-        [uprojectPath, "-log"],
+      const buildProc = spawnRunnerCommand(
+        uePaths.buildScript,
+        buildArgs,
         projectDir,
       );
-      ueRunState.process = editorProc;
+      state.process = buildProc;
+      attachOutputStreams(buildProc);
+      buildProc.on("error", (err) => handleLaunchError("build script", err));
 
-      editorProc.stdout?.on("data", (d) => {
-        if (ueRunState.runId === thisRunId) appendUeLog(d.toString());
-      });
-      editorProc.stderr?.on("data", (d) => {
-        if (ueRunState.runId === thisRunId) appendUeLog(d.toString());
-      });
+      buildProc.on("close", (code) => {
+        if (state.runId !== thisRunId) return;
+        state.process = null;
 
-      editorProc.on("error", (err) => {
-        if (ueRunState.runId !== thisRunId) return;
-        ueRunState.process = null;
-        ueRunState.status = "error";
-        ueRunState.exitCode = -1;
-        ueRunState.error = `Failed to launch Unreal Editor: ${err.message}`;
-        appendUeLog(`\n❌ ${ueRunState.error}\n`);
-        cleanupDirSafe(tempDir);
-        ueRunState.tempDir = null;
-      });
-
-      editorProc.on("close", (edCode) => {
-        if (ueRunState.runId !== thisRunId) return;
-        ueRunState.process = null;
-        ueRunState.exitCode = edCode;
-        ueRunState.status =
-          edCode === 0 || edCode === null ? "stopped" : "error";
-        if (ueRunState.status === "error") {
-          ueRunState.error = `Unreal Editor exited with code ${edCode}.`;
+        if (code !== 0) {
+          state.status = "error";
+          state.exitCode = code;
+          state.error = `UBT compilation failed with exit code ${code}.`;
+          appendRunnerLog(state, `\n❌ ${state.error}\n`);
+          cleanupDirSafe(tempDir);
+          state.tempDir = null;
+          return;
         }
-        appendUeLog(`\n🏁 Unreal Editor exited with code ${edCode}.\n`);
-        cleanupDirSafe(tempDir);
-        ueRunState.tempDir = null;
+
+        state.status = "running";
+        appendRunnerLog(
+          state,
+          "\n✅ Build succeeded! Launching Unreal Editor...\n",
+        );
+
+        const editorProc = spawnRunnerCommand(
+          uePaths.editor,
+          [markerPath, "-log"],
+          projectDir,
+        );
+        state.process = editorProc;
+        attachOutputStreams(editorProc);
+        editorProc.on("error", (err) =>
+          handleLaunchError("Unreal Editor", err),
+        );
+
+        editorProc.on("close", (edCode) => {
+          if (state.runId !== thisRunId) return;
+          state.process = null;
+          state.exitCode = edCode;
+          state.status = edCode === 0 || edCode === null ? "stopped" : "error";
+          if (state.status === "error") {
+            state.error = `Unreal Editor exited with code ${edCode}.`;
+          }
+          appendRunnerLog(
+            state,
+            `\n🏁 Unreal Editor exited with code ${edCode}.\n`,
+          );
+          cleanupDirSafe(tempDir);
+          state.tempDir = null;
+        });
       });
-    });
+    } else if (runnerType === "rust") {
+      const cargoCmd = process.platform === "win32" ? "cargo.exe" : "cargo";
+      const cargoTargetDir =
+        process.env.CARGO_TARGET_DIR ||
+        path.join(os.tmpdir(), "scad-rust-target");
+      const cargoEnv = {
+        CARGO_TERM_COLOR: "never",
+        CARGO_TARGET_DIR: cargoTargetDir,
+      };
+
+      appendRunnerLog(state, "\n🦀 Building Rust project (cargo build)...\n");
+
+      const buildProc = spawnRunnerCommand(
+        cargoCmd,
+        ["build"],
+        projectDir,
+        cargoEnv,
+      );
+      state.process = buildProc;
+      attachOutputStreams(buildProc);
+      buildProc.on("error", (err) => handleLaunchError("cargo", err));
+
+      buildProc.on("close", (code) => {
+        if (state.runId !== thisRunId) return;
+        state.process = null;
+
+        if (code !== 0) {
+          state.status = "error";
+          state.exitCode = code;
+          state.error = `Cargo build failed with exit code ${code}.`;
+          appendRunnerLog(state, `\n❌ ${state.error}\n`);
+          cleanupDirSafe(tempDir);
+          state.tempDir = null;
+          return;
+        }
+
+        state.status = "running";
+        appendRunnerLog(
+          state,
+          "\n✅ Build succeeded! Launching Rust application (cargo run)...\n",
+        );
+
+        const runProc = spawnRunnerCommand(
+          cargoCmd,
+          ["run"],
+          projectDir,
+          cargoEnv,
+        );
+        state.process = runProc;
+        attachOutputStreams(runProc);
+        runProc.on("error", (err) =>
+          handleLaunchError("Rust application", err),
+        );
+
+        runProc.on("close", (runCode) => {
+          if (state.runId !== thisRunId) return;
+          state.process = null;
+          state.exitCode = runCode;
+          state.status =
+            runCode === 0 || runCode === null ? "stopped" : "error";
+          if (state.status === "error") {
+            state.error = `Rust application exited with code ${runCode}.`;
+          }
+          appendRunnerLog(
+            state,
+            `\n🏁 Rust application exited with code ${runCode}.\n`,
+          );
+          cleanupDirSafe(tempDir);
+          state.tempDir = null;
+        });
+      });
+    } else if (runnerType === "godot") {
+      res.json({
+        ok: true,
+        runId: thisRunId,
+        projectName,
+        status: state.status,
+      });
+
+      setImmediate(() => {
+        if (state.runId !== thisRunId) return;
+        let godotBin;
+        try {
+          appendRunnerLog(state, "🔍 Locating Godot binary...\n");
+          godotBin = getGodotBin();
+          appendRunnerLog(state, `🕹️  Godot binary: ${godotBin}\n`);
+        } catch (err) {
+          handleLaunchError("Godot binary", err);
+          return;
+        }
+        if (state.runId !== thisRunId) return;
+
+        appendRunnerLog(state, "\n⚙️  Importing Godot project assets...\n");
+        const importProc = spawnRunnerCommand(
+          godotBin,
+          ["--headless", "--editor", "--quit", "--path", projectDir],
+          projectDir,
+        );
+        state.process = importProc;
+        attachOutputStreams(importProc);
+        importProc.on("error", (err) => handleLaunchError("Godot import", err));
+
+        importProc.on("close", (importCode) => {
+          if (state.runId !== thisRunId) return;
+          state.process = null;
+
+          if (importCode !== 0) {
+            appendRunnerLog(
+              state,
+              `\n⚠️ Asset import finished with exit code ${importCode} (continuing launch)...\n`,
+            );
+          }
+
+          state.status = "running";
+          appendRunnerLog(state, "\n🎮 Launching Godot Engine...\n");
+
+          const playProc = spawnRunnerCommand(
+            godotBin,
+            ["--path", projectDir],
+            projectDir,
+          );
+          state.process = playProc;
+          attachOutputStreams(playProc);
+          playProc.on("error", (err) => handleLaunchError("Godot Engine", err));
+
+          playProc.on("close", (playCode) => {
+            if (state.runId !== thisRunId) return;
+            state.process = null;
+            state.exitCode = playCode;
+            state.status =
+              playCode === 0 || playCode === null ? "stopped" : "error";
+            if (state.status === "error") {
+              state.error = `Godot Engine exited with code ${playCode}.`;
+            }
+            appendRunnerLog(
+              state,
+              `\n🏁 Godot Engine exited with code ${playCode}.\n`,
+            );
+            cleanupDirSafe(tempDir);
+            state.tempDir = null;
+          });
+        });
+      });
+      return;
+    }
 
     res.json({
       ok: true,
       runId: thisRunId,
       projectName,
-      status: ueRunState.status,
+      status: state.status,
     });
   } catch (err) {
     cleanupDirSafe(tempDir);
-    ueRunState.tempDir = null;
-    ueRunState.status = "error";
-    ueRunState.error = err.message;
+    state.tempDir = null;
+    state.status = "error";
+    state.error = err.message;
     res.status(500).json({ error: err.message });
   }
-});
+}
+
+for (const rType of RUNNER_TYPES) {
+  app.get(`/api/${rType}/status`, (req, res) =>
+    handleRunnerStatus(rType, req, res),
+  );
+  app.post(`/api/${rType}/stop`, (req, res) =>
+    handleRunnerStop(rType, req, res),
+  );
+  app.post(`/api/${rType}/run`, (req, res) => handleRunnerRun(rType, req, res));
+}
 
 process.on("SIGINT", () => {
-  stopActiveUeRun(false);
+  stopAllActiveRuns();
   process.exit(0);
 });
 process.on("SIGTERM", () => {
-  stopActiveUeRun(false);
+  stopAllActiveRuns();
   process.exit(0);
 });
 
@@ -691,5 +1026,8 @@ app.listen(port, () => {
   console.log(`📁 Managing .scad and .md files in directory: ${workDir}`);
   if (process.env.UE_ROOT) {
     console.log(`🎮 UE_ROOT: ${process.env.UE_ROOT}`);
+  }
+  if (process.env.GODOT_BIN) {
+    console.log(`🕹️  GODOT_BIN: ${process.env.GODOT_BIN}`);
   }
 });

@@ -1829,7 +1829,7 @@ button.godot-btn:hover {
   cursor: not-allowed;
 }
 
-/* --- Unreal Engine 5 Runner --- */
+/* --- Native Project Runners (UE5 / Rust / Godot) --- */
 button.ue-btn {
   background: #4f46e5;
   border-color: #4338ca;
@@ -1838,7 +1838,15 @@ button.ue-btn:hover {
   background: #6366f1;
 }
 
-#ue-panel {
+button.rust-btn {
+  background: #c2410c;
+  border-color: #9a3412;
+}
+button.rust-btn:hover {
+  background: #ea580c;
+}
+
+#runner-panel {
   position: absolute;
   inset: 0;
   display: flex;
@@ -1847,7 +1855,7 @@ button.ue-btn:hover {
   z-index: 16;
 }
 
-#ue-panel-header {
+#runner-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1858,13 +1866,13 @@ button.ue-btn:hover {
   flex-wrap: wrap;
 }
 
-#ue-panel-title-wrap {
+#runner-panel-title-wrap {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-#ue-panel-title {
+#runner-panel-title {
   font-size: 13px;
   font-weight: bold;
   text-transform: uppercase;
@@ -1872,7 +1880,7 @@ button.ue-btn:hover {
   color: #fff;
 }
 
-.ue-status-badge {
+.runner-status-badge {
   font-size: 11px;
   font-weight: 600;
   padding: 2px 8px;
@@ -1882,48 +1890,48 @@ button.ue-btn:hover {
   border: 1px solid #475569;
 }
 
-.ue-status-badge.is-building {
+.runner-status-badge.is-building {
   background: rgba(245, 158, 11, 0.2);
   border-color: rgba(245, 158, 11, 0.6);
   color: #fde68a;
 }
 
-.ue-status-badge.is-running {
+.runner-status-badge.is-running {
   background: rgba(34, 197, 94, 0.2);
   border-color: rgba(34, 197, 94, 0.55);
   color: #86efac;
 }
 
-.ue-status-badge.is-error {
+.runner-status-badge.is-error {
   background: rgba(239, 68, 68, 0.22);
   border-color: rgba(239, 68, 68, 0.6);
   color: #fca5a5;
 }
 
-.ue-status-badge.is-stopped {
+.runner-status-badge.is-stopped {
   background: rgba(148, 163, 184, 0.16);
   border-color: rgba(148, 163, 184, 0.4);
   color: #cbd5e1;
 }
 
-#ue-controls {
+#runner-controls {
   display: flex;
   gap: 8px;
   align-items: center;
 }
 
-#ue-controls button {
+#runner-controls button {
   height: 28px;
   padding: 0 10px;
   font-size: 12px;
 }
 
-#ue-controls button:disabled {
+#runner-controls button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-#ue-logs-output {
+#runner-logs-output {
   flex: 1;
   margin: 0;
   padding: 12px 14px;
@@ -1937,7 +1945,7 @@ button.ue-btn:hover {
   background: #101014;
 }
 
-#ue-logs-footer {
+#runner-logs-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1949,22 +1957,22 @@ button.ue-btn:hover {
   color: #9ca3af;
 }
 
-#ue-logs-footer code {
+#runner-logs-footer code {
   color: #a5b4fc;
 }
 
-#ue-logs-actions {
+#runner-logs-actions {
   display: flex;
   gap: 6px;
 }
 
-#ue-logs-actions button {
+#runner-logs-actions button {
   height: 24px;
   padding: 0 8px;
   font-size: 11px;
 }
 
-html.embed-mode #ue-panel,
-#app-container.embed-mode #ue-panel {
+html.embed-mode #runner-panel,
+#app-container.embed-mode #runner-panel {
   display: none !important;
 }

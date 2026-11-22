@@ -70,6 +70,10 @@ export function ensureExportTemplates() {
 }
 
 export function getGodotBin(withTemplates = false) {
+  if (process.env.GODOT_BIN && fs.existsSync(process.env.GODOT_BIN)) {
+    if (withTemplates) ensureExportTemplates();
+    return process.env.GODOT_BIN;
+  }
   try {
     cp.execSync("godot --version", { stdio: "ignore" });
     if (withTemplates) ensureExportTemplates();

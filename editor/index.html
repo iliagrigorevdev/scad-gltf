@@ -185,12 +185,28 @@
                 🎮 Play Godot
               </button>
               <button
+                id="run-godot-btn"
+                class="primary godot-btn"
+                style="display: none"
+                title="Import & launch native Godot Engine via local SCAD Serve backend"
+              >
+                🖥 Run Godot
+              </button>
+              <button
                 id="download-godot-zip-btn"
                 class="godot-btn"
                 style="display: none"
                 title="Download ready-to-deploy Godot Web export (.zip)"
               >
                 ⬇ Web ZIP
+              </button>
+              <button
+                id="run-rust-btn"
+                class="primary rust-btn"
+                style="display: none"
+                title="Compile & run Rust project via local SCAD Serve backend"
+              >
+                🦀 Run Rust
               </button>
               <button
                 id="run-ue-btn"
@@ -446,48 +462,47 @@
           </div>
         </div>
 
-        <!-- Unreal Engine Runner Panel -->
-        <div id="ue-panel" style="display: none">
-          <div id="ue-panel-header">
-            <div id="ue-panel-title-wrap">
-              <span id="ue-panel-title">Unreal Engine 5</span>
-              <span id="ue-status-badge" class="ue-status-badge">Idle</span>
-            </div>
-            <div id="ue-controls">
-              <button
-                id="ue-restart-btn"
-                title="Rebuild & Restart Unreal Editor"
+        <!-- Native Project Runner Panel (UE / Rust / Godot) -->
+        <div id="runner-panel" style="display: none">
+          <div id="runner-panel-header">
+            <div id="runner-panel-title-wrap">
+              <span id="runner-panel-title">Project Runner</span>
+              <span id="runner-status-badge" class="runner-status-badge"
+                >Idle</span
               >
+            </div>
+            <div id="runner-controls">
+              <button id="runner-restart-btn" title="Rebuild & Restart Project">
                 🔄 Restart
               </button>
               <button
-                id="ue-stop-btn"
+                id="runner-stop-btn"
                 class="danger"
-                title="Stop Build / Unreal Editor"
+                title="Stop Build / Application"
               >
                 ⏹ Stop
               </button>
               <button
-                id="ue-close-btn"
-                title="Close UE Runner Panel & Return to 3D Preview"
+                id="runner-close-btn"
+                title="Close Runner Panel & Return to 3D Preview"
               >
                 ✕ Close
               </button>
             </div>
           </div>
-          <pre id="ue-logs-output"></pre>
-          <div id="ue-logs-footer">
-            <span id="ue-logs-hint"
-              >Uses local <code>scad-gltf serve</code> backend (<code
-                >UE_ROOT</code
-              >
-              / <code>--ue-root</code>).</span
+          <pre id="runner-logs-output"></pre>
+          <div id="runner-logs-footer">
+            <span id="runner-logs-hint"
+              >Uses local <code>scad-gltf serve</code> backend.</span
             >
-            <div id="ue-logs-actions">
-              <button id="ue-logs-copy-btn" title="Copy UE build & editor logs">
+            <div id="runner-logs-actions">
+              <button
+                id="runner-logs-copy-btn"
+                title="Copy build & runtime logs"
+              >
                 Copy Logs
               </button>
-              <button id="ue-logs-clear-btn">Clear</button>
+              <button id="runner-logs-clear-btn">Clear</button>
             </div>
           </div>
         </div>

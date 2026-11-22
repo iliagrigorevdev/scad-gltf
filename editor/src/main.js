@@ -171,15 +171,19 @@ const godotLogsDrawer = document.getElementById("godot-logs-drawer");
 const godotLogsOutput = document.getElementById("godot-logs-output");
 const godotLogsCopyBtn = document.getElementById("godot-logs-copy-btn");
 const godotLogsClearBtn = document.getElementById("godot-logs-clear-btn");
+const runGodotBtn = document.getElementById("run-godot-btn");
+const runRustBtn = document.getElementById("run-rust-btn");
 const runUeBtn = document.getElementById("run-ue-btn");
-const uePanel = document.getElementById("ue-panel");
-const ueStatusBadge = document.getElementById("ue-status-badge");
-const ueRestartBtn = document.getElementById("ue-restart-btn");
-const ueStopBtn = document.getElementById("ue-stop-btn");
-const ueCloseBtn = document.getElementById("ue-close-btn");
-const ueLogsOutput = document.getElementById("ue-logs-output");
-const ueLogsCopyBtn = document.getElementById("ue-logs-copy-btn");
-const ueLogsClearBtn = document.getElementById("ue-logs-clear-btn");
+const runnerPanel = document.getElementById("runner-panel");
+const runnerPanelTitle = document.getElementById("runner-panel-title");
+const runnerStatusBadge = document.getElementById("runner-status-badge");
+const runnerRestartBtn = document.getElementById("runner-restart-btn");
+const runnerStopBtn = document.getElementById("runner-stop-btn");
+const runnerCloseBtn = document.getElementById("runner-close-btn");
+const runnerLogsOutput = document.getElementById("runner-logs-output");
+const runnerLogsHint = document.getElementById("runner-logs-hint");
+const runnerLogsCopyBtn = document.getElementById("runner-logs-copy-btn");
+const runnerLogsClearBtn = document.getElementById("runner-logs-clear-btn");
 const viewerControlsEl = document.getElementById("viewer-controls");
 
 let currentSelectedModelIdx = "";
@@ -216,9 +220,31 @@ let godotRunToken = 0;
 const godotScadCache = new Map();
 
 let isUeProject = false;
-let isUeRunning = false;
-let uePollTimer = null;
-let ueLogOffset = 0;
+let isRustProject = false;
+let activeRunnerType = "ue";
+const runnerStates = {
+  ue: {
+    running: false,
+    status: "idle",
+    logs: "",
+    logOffset: 0,
+    pollTimer: null,
+  },
+  rust: {
+    running: false,
+    status: "idle",
+    logs: "",
+    logOffset: 0,
+    pollTimer: null,
+  },
+  godot: {
+    running: false,
+    status: "idle",
+    logs: "",
+    logOffset: 0,
+    pollTimer: null,
+  },
+};
 
 let activeLocalModelId = DRAFT_MODEL_ID;
 let localModelsList = [];
@@ -1173,11 +1199,18 @@ function syncMdFilesUi(code) {
   }
   const parsedProject = parseMarkdownProject(code);
   isUeProject = parsedProject?.projectType === "ue";
+  isRustProject = parsedProject?.projectType === "rust";
   if (playGodotBtn) {
     playGodotBtn.style.display = ctx.isGodot ? "flex" : "none";
   }
+  if (runGodotBtn) {
+    runGodotBtn.style.display = ctx.isGodot ? "flex" : "none";
+  }
   if (downloadGodotZipBtn) {
     downloadGodotZipBtn.style.display = ctx.isGodot ? "flex" : "none";
+  }
+  if (runRustBtn) {
+    runRustBtn.style.display = isRustProject ? "flex" : "none";
   }
   if (runUeBtn) {
     runUeBtn.style.display = isUeProject ? "flex" : "none";
@@ -2192,6 +2225,7 @@ async function launchGodotProject(project) {
   suspendScadViewer();
   setScadViewerUiVisible(false);
   if (playGodotBtn) playGodotBtn.innerText = "⏹ Stop Godot";
+  if (runnerPanel) runnerPanel.style.display = "none";
   if (godotPanel) godotPanel.style.display = "flex";
   if (godotLogsOutput) godotLogsOutput.textContent = "";
   if (godotStatusOverlay) {
@@ -2438,103 +2472,175 @@ if (godotScreenshotBtn) {
   };
 }
 
-function appendUePanelLog(text) {
-  if (!ueLogsOutput || !text) return;
-  ueLogsOutput.textContent += text;
-  ueLogsOutput.scrollTop = ueLogsOutput.scrollHeight;
+const RUNNER_CONFIG = {
+  ue: {
+    title: "Unreal Engine 5",
+    runBtn: runUeBtn,
+    runLabel: "🎮 Run UE",
+    stopLabel: "⏹ Stop UE",
+    buildingLabel: "Building C++...",
+    runningLabel: "Running UE",
+    hintHtml:
+      "Uses local <code>scad-gltf serve</code> backend (<code>UE_ROOT</code> / <code>--ue-root</code>).",
+    offlineMsg:
+      "Cannot launch Unreal Editor directly from the browser.\n" +
+      "Start the local backend (`scad-gltf serve --ue-root <path>`) and click Connect under 'SCAD Serve Backend', then click Run UE again.\n",
+  },
+  rust: {
+    title: "Rust (Cargo)",
+    runBtn: runRustBtn,
+    runLabel: "🦀 Run Rust",
+    stopLabel: "⏹ Stop Rust",
+    buildingLabel: "Building Rust...",
+    runningLabel: "Running Rust",
+    hintHtml:
+      "Uses local <code>scad-gltf serve</code> backend (<code>cargo build</code> + <code>cargo run</code>).",
+    offlineMsg:
+      "Cannot compile and run Rust projects directly from the browser.\n" +
+      "Start the local backend (`scad-gltf serve`) and click Connect under 'SCAD Serve Backend', then click Run Rust again.\n",
+  },
+  godot: {
+    title: "Godot Engine (Native)",
+    runBtn: runGodotBtn,
+    runLabel: "🖥 Run Godot",
+    stopLabel: "⏹ Stop Godot",
+    buildingLabel: "Importing Assets...",
+    runningLabel: "Running Godot",
+    hintHtml:
+      "Uses local <code>scad-gltf serve</code> backend (<code>godot</code> / <code>--godot-bin</code> / auto-download).",
+    offlineMsg:
+      "Cannot launch native Godot Engine directly from the browser.\n" +
+      "Start the local backend (`scad-gltf serve`) and click Connect under 'SCAD Serve Backend', then click Run Godot again (or use '🎮 Play Godot' for WebAssembly).\n",
+  },
+};
+
+function appendRunnerPanelLog(runnerType, text) {
+  const st = runnerStates[runnerType];
+  if (!st || !text) return;
+  st.logs += text;
+  if (runnerLogsOutput && activeRunnerType === runnerType) {
+    runnerLogsOutput.textContent = st.logs;
+    runnerLogsOutput.scrollTop = runnerLogsOutput.scrollHeight;
+  }
 }
 
-function updateUeStatusUi(data) {
-  if (!data) return;
-  isUeRunning = Boolean(data.running);
+function updateRunnerStatusUi(runnerType, data) {
+  const st = runnerStates[runnerType];
+  const cfg = RUNNER_CONFIG[runnerType];
+  if (!st || !cfg || !data) return;
 
-  if (runUeBtn) {
-    runUeBtn.innerText = isUeRunning ? "⏹ Stop UE" : "🎮 Run UE";
+  st.running = Boolean(data.running);
+  st.status = data.status || "idle";
+
+  if (cfg.runBtn) {
+    cfg.runBtn.innerText = st.running ? cfg.stopLabel : cfg.runLabel;
   }
-  if (ueStopBtn) {
-    ueStopBtn.disabled = !isUeRunning;
+
+  if (activeRunnerType !== runnerType) return;
+
+  if (runnerStopBtn) {
+    runnerStopBtn.disabled = !st.running;
   }
-  if (ueStatusBadge) {
-    ueStatusBadge.className = "ue-status-badge";
-    const st = data.status || "idle";
-    if (st === "building") {
-      ueStatusBadge.textContent = "Building C++...";
-      ueStatusBadge.classList.add("is-building");
-    } else if (st === "running") {
-      ueStatusBadge.textContent = "Running UE";
-      ueStatusBadge.classList.add("is-running");
-    } else if (st === "error") {
-      ueStatusBadge.textContent = "Error";
-      ueStatusBadge.classList.add("is-error");
-    } else if (st === "stopped") {
-      ueStatusBadge.textContent = "Stopped";
-      ueStatusBadge.classList.add("is-stopped");
+  if (runnerStatusBadge) {
+    runnerStatusBadge.className = "runner-status-badge";
+    if (st.status === "building") {
+      runnerStatusBadge.textContent = cfg.buildingLabel;
+      runnerStatusBadge.classList.add("is-building");
+    } else if (st.status === "running") {
+      runnerStatusBadge.textContent = cfg.runningLabel;
+      runnerStatusBadge.classList.add("is-running");
+    } else if (st.status === "error") {
+      runnerStatusBadge.textContent = "Error";
+      runnerStatusBadge.classList.add("is-error");
+    } else if (st.status === "stopped") {
+      runnerStatusBadge.textContent = "Stopped";
+      runnerStatusBadge.classList.add("is-stopped");
     } else {
-      ueStatusBadge.textContent = "Idle";
+      runnerStatusBadge.textContent = "Idle";
     }
   }
 }
 
-async function refreshUeBackendStatus() {
-  if (!isServerConnected || !currentBackendUrl) return null;
+function openRunnerPanel(runnerType) {
+  const cfg = RUNNER_CONFIG[runnerType];
+  const st = runnerStates[runnerType];
+  if (!cfg || !st) return;
+
+  activeRunnerType = runnerType;
+  if (runnerPanelTitle) runnerPanelTitle.textContent = cfg.title;
+  if (runnerLogsHint) runnerLogsHint.innerHTML = cfg.hintHtml;
+  if (runnerLogsOutput) {
+    runnerLogsOutput.textContent = st.logs;
+    runnerLogsOutput.scrollTop = runnerLogsOutput.scrollHeight;
+  }
+  if (runnerPanel) runnerPanel.style.display = "flex";
+  updateRunnerStatusUi(runnerType, st);
+}
+
+async function refreshRunnerBackendStatus(runnerType) {
+  const st = runnerStates[runnerType];
+  if (!st || !isServerConnected || !currentBackendUrl) return null;
   try {
     const res = await fetch(
-      `${currentBackendUrl}/api/ue/status?since=${ueLogOffset}`,
+      `${currentBackendUrl}/api/${runnerType}/status?since=${st.logOffset}`,
     );
     if (!res.ok) return null;
     const data = await res.json();
     if (data.logs) {
-      appendUePanelLog(data.logs);
+      appendRunnerPanelLog(runnerType, data.logs);
     }
     if (typeof data.nextOffset === "number") {
-      ueLogOffset = data.nextOffset;
+      st.logOffset = data.nextOffset;
     }
-    updateUeStatusUi(data);
+    updateRunnerStatusUi(runnerType, data);
     return data;
   } catch {
     return null;
   }
 }
 
-function startUeStatusPolling() {
-  clearTimeout(uePollTimer);
+function startRunnerStatusPolling(runnerType) {
+  const st = runnerStates[runnerType];
+  if (!st) return;
+  clearTimeout(st.pollTimer);
   const tick = async () => {
-    const data = await refreshUeBackendStatus();
+    const data = await refreshRunnerBackendStatus(runnerType);
     if (data && data.running) {
-      uePollTimer = setTimeout(tick, 500);
+      st.pollTimer = setTimeout(tick, 500);
     }
   };
-  uePollTimer = setTimeout(tick, 300);
+  st.pollTimer = setTimeout(tick, 300);
 }
 
-async function runUeProject() {
+async function runBackendProject(runnerType) {
   const project = parseMarkdownProject(getEditorContent());
-  if (!project || project.projectType !== "ue") return;
+  if (!project || project.projectType !== runnerType) return;
+
+  const cfg = RUNNER_CONFIG[runnerType];
+  const st = runnerStates[runnerType];
+  if (!cfg || !st) return;
 
   if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
-  if (uePanel) uePanel.style.display = "flex";
-  if (ueLogsOutput) ueLogsOutput.textContent = "";
-  ueLogOffset = 0;
+  st.logs = "";
+  st.logOffset = 0;
+  openRunnerPanel(runnerType);
 
   if (!isServerConnected && backendUrlEl) {
     await connectToServer(backendUrlEl.value.trim(), true);
   }
 
   if (!isServerConnected) {
-    updateUeStatusUi({ status: "error", running: false });
-    if (ueStatusBadge) ueStatusBadge.textContent = "Backend Offline";
-    appendUePanelLog(
-      "Cannot launch Unreal Editor directly from the browser.\n" +
-        "Start the local backend (`scad-gltf serve --ue-root <path>`) and click Connect under 'SCAD Serve Backend', then click Run UE again.\n",
-    );
+    updateRunnerStatusUi(runnerType, { status: "error", running: false });
+    if (runnerStatusBadge) runnerStatusBadge.textContent = "Backend Offline";
+    appendRunnerPanelLog(runnerType, cfg.offlineMsg);
     return;
   }
 
-  updateUeStatusUi({ status: "building", running: true });
-  if (ueStatusBadge) ueStatusBadge.textContent = "Starting...";
+  updateRunnerStatusUi(runnerType, { status: "building", running: true });
+  if (runnerStatusBadge) runnerStatusBadge.textContent = "Starting...";
 
   try {
-    const res = await fetch(`${currentBackendUrl}/api/ue/run`, {
+    const res = await fetch(`${currentBackendUrl}/api/${runnerType}/run`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2544,74 +2650,103 @@ async function runUeProject() {
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      updateUeStatusUi({ status: "error", running: false });
-      appendUePanelLog(
-        `❌ ${data.error || "Failed to start Unreal Engine."}\n`,
+      updateRunnerStatusUi(runnerType, { status: "error", running: false });
+      appendRunnerPanelLog(
+        runnerType,
+        `❌ ${data.error || `Failed to start ${cfg.title}.`}\n`,
       );
       return;
     }
 
-    startUeStatusPolling();
+    startRunnerStatusPolling(runnerType);
   } catch (err) {
-    updateUeStatusUi({ status: "error", running: false });
-    appendUePanelLog(`❌ Request failed: ${err?.message || err}\n`);
+    updateRunnerStatusUi(runnerType, { status: "error", running: false });
+    appendRunnerPanelLog(
+      runnerType,
+      `❌ Request failed: ${err?.message || err}\n`,
+    );
   }
 }
 
-async function stopUeProject() {
-  clearTimeout(uePollTimer);
+async function stopBackendProject(runnerType) {
+  const st = runnerStates[runnerType];
+  if (!st) return;
+  clearTimeout(st.pollTimer);
   if (!isServerConnected || !currentBackendUrl) {
-    updateUeStatusUi({ status: "stopped", running: false });
+    updateRunnerStatusUi(runnerType, { status: "stopped", running: false });
     return;
   }
   try {
-    await fetch(`${currentBackendUrl}/api/ue/stop`, { method: "POST" });
+    await fetch(`${currentBackendUrl}/api/${runnerType}/stop`, {
+      method: "POST",
+    });
   } catch {}
-  await refreshUeBackendStatus();
+  await refreshRunnerBackendStatus(runnerType);
 }
 
 if (runUeBtn) {
   runUeBtn.onclick = () => {
-    if (isUeRunning) {
-      stopUeProject();
+    if (runnerStates.ue.running) {
+      stopBackendProject("ue");
     } else {
-      runUeProject();
+      runBackendProject("ue");
     }
   };
 }
-if (ueRestartBtn) {
-  ueRestartBtn.onclick = () => runUeProject();
-}
-if (ueStopBtn) {
-  ueStopBtn.onclick = () => stopUeProject();
-}
-if (ueCloseBtn && uePanel) {
-  ueCloseBtn.onclick = () => {
-    uePanel.style.display = "none";
+if (runRustBtn) {
+  runRustBtn.onclick = () => {
+    if (runnerStates.rust.running) {
+      stopBackendProject("rust");
+    } else {
+      runBackendProject("rust");
+    }
   };
 }
-if (ueLogsCopyBtn && ueLogsOutput) {
-  let copyUeLogsTimer = null;
-  ueLogsCopyBtn.onclick = async () => {
+if (runGodotBtn) {
+  runGodotBtn.onclick = () => {
+    if (runnerStates.godot.running) {
+      stopBackendProject("godot");
+    } else {
+      runBackendProject("godot");
+    }
+  };
+}
+if (runnerRestartBtn) {
+  runnerRestartBtn.onclick = () => runBackendProject(activeRunnerType);
+}
+if (runnerStopBtn) {
+  runnerStopBtn.onclick = () => stopBackendProject(activeRunnerType);
+}
+if (runnerCloseBtn && runnerPanel) {
+  runnerCloseBtn.onclick = () => {
+    runnerPanel.style.display = "none";
+  };
+}
+if (runnerLogsCopyBtn && runnerLogsOutput) {
+  let copyRunnerLogsTimer = null;
+  runnerLogsCopyBtn.onclick = async () => {
     try {
-      await navigator.clipboard.writeText(ueLogsOutput.textContent || "");
-      if (!ueLogsCopyBtn.dataset.originalText) {
-        ueLogsCopyBtn.dataset.originalText = ueLogsCopyBtn.innerText;
+      await navigator.clipboard.writeText(runnerLogsOutput.textContent || "");
+      if (!runnerLogsCopyBtn.dataset.originalText) {
+        runnerLogsCopyBtn.dataset.originalText = runnerLogsCopyBtn.innerText;
       }
-      ueLogsCopyBtn.innerText = "✅ Copied!";
-      clearTimeout(copyUeLogsTimer);
-      copyUeLogsTimer = setTimeout(() => {
-        ueLogsCopyBtn.innerText =
-          ueLogsCopyBtn.dataset.originalText || "Copy Logs";
+      runnerLogsCopyBtn.innerText = "✅ Copied!";
+      clearTimeout(copyRunnerLogsTimer);
+      copyRunnerLogsTimer = setTimeout(() => {
+        runnerLogsCopyBtn.innerText =
+          runnerLogsCopyBtn.dataset.originalText || "Copy Logs";
       }, 1500);
     } catch (err) {
       alert("Failed to copy logs to clipboard: " + err);
     }
   };
 }
-if (ueLogsClearBtn && ueLogsOutput) {
-  ueLogsClearBtn.onclick = () => {
-    ueLogsOutput.textContent = "";
+if (runnerLogsClearBtn && runnerLogsOutput) {
+  runnerLogsClearBtn.onclick = () => {
+    if (runnerStates[activeRunnerType]) {
+      runnerStates[activeRunnerType].logs = "";
+    }
+    runnerLogsOutput.textContent = "";
   };
 }
 
@@ -2811,11 +2946,14 @@ async function connectToServer(url, isAutoConnect = false) {
 
     backendConnectBtn.innerText = "Connected";
     backendUiEl.classList.add("active");
-    refreshUeBackendStatus().then((data) => {
-      if (data && data.running) {
-        startUeStatusPolling();
-      }
-    });
+    Promise.all(
+      ["ue", "rust", "godot"].map(async (rType) => {
+        const data = await refreshRunnerBackendStatus(rType);
+        if (data && data.running) {
+          startRunnerStatusPolling(rType);
+        }
+      }),
+    );
 
     editorEl.placeholder = "Enter OpenSCAD code here...";
 
