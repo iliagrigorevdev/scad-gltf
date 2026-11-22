@@ -51,8 +51,8 @@ import {
   parseGodotMarkdownProject,
   compileGodotProjectToPck,
   exportGodotProjectWebZip,
-  exportGodotProjectZip,
 } from "./godot-project.js";
+import { parseMarkdownProject, exportProjectZip } from "./project-zip.js";
 import {
   loadActiveWorkspaceSync,
   saveActiveWorkspaceSync,
@@ -156,8 +156,8 @@ const cameraSelect = document.getElementById("camera-select");
 
 const playGodotBtn = document.getElementById("play-godot-btn");
 const downloadGodotZipBtn = document.getElementById("download-godot-zip-btn");
-const downloadGodotProjectZipBtn = document.getElementById(
-  "download-godot-project-zip-btn",
+const downloadProjectZipBtn = document.getElementById(
+  "download-project-zip-btn",
 );
 const godotPanel = document.getElementById("godot-panel");
 const godotViewport = document.getElementById("godot-viewport");
@@ -1157,14 +1157,16 @@ function syncMdFilesUi(code) {
       ? "Download active .scad file"
       : "Download .scad file";
   }
+  const parsedProject = parseMarkdownProject(code);
   if (playGodotBtn) {
     playGodotBtn.style.display = ctx.isGodot ? "flex" : "none";
   }
   if (downloadGodotZipBtn) {
     downloadGodotZipBtn.style.display = ctx.isGodot ? "flex" : "none";
   }
-  if (downloadGodotProjectZipBtn) {
-    downloadGodotProjectZipBtn.style.display = ctx.isGodot ? "flex" : "none";
+  if (downloadProjectZipBtn) {
+    downloadProjectZipBtn.style.display = parsedProject ? "flex" : "none";
+    downloadProjectZipBtn.classList.toggle("godot-btn", ctx.isGodot);
   }
   updateEditorHighlights();
   return ctx;
@@ -1617,9 +1619,6 @@ async function compileAndRender(scadCode) {
     if (downloadGodotZipBtn) {
       downloadGodotZipBtn.style.display = "flex";
     }
-    if (downloadGodotProjectZipBtn) {
-      downloadGodotProjectZipBtn.style.display = "flex";
-    }
 
     applyDerivedModelName(
       `${godotProject.projectName}.md`,
@@ -1639,8 +1638,6 @@ async function compileAndRender(scadCode) {
     isGodotProject = false;
     if (playGodotBtn) playGodotBtn.style.display = "none";
     if (downloadGodotZipBtn) downloadGodotZipBtn.style.display = "none";
-    if (downloadGodotProjectZipBtn)
-      downloadGodotProjectZipBtn.style.display = "none";
     if (isGodotPlaying) stopGodotPlayer({ skipCompile: true });
   }
 
@@ -2332,31 +2329,31 @@ if (downloadGodotZipBtn) {
     }
   };
 }
-if (downloadGodotProjectZipBtn) {
-  downloadGodotProjectZipBtn.onclick = async () => {
-    const project = parseGodotMarkdownProject(getEditorContent());
+if (downloadProjectZipBtn) {
+  downloadProjectZipBtn.onclick = async () => {
+    const project = parseMarkdownProject(getEditorContent());
     if (!project) return;
 
-    const originalText = downloadGodotProjectZipBtn.innerText;
-    downloadGodotProjectZipBtn.disabled = true;
-    downloadGodotProjectZipBtn.innerText = "⏳ Zipping...";
+    const originalText = downloadProjectZipBtn.innerText;
+    downloadProjectZipBtn.disabled = true;
+    downloadProjectZipBtn.innerText = "⏳ Zipping...";
 
     try {
       let dlName = getDownloadName().replace(/\.(md|scad)$/i, "");
       if (!dlName || dlName === "model") {
-        dlName = project.projectName || "godot_project";
+        dlName = project.projectName || "project";
       }
 
-      const { zipBlob, rootFolderName } = await exportGodotProjectZip(project, {
+      const { zipBlob, rootFolderName } = await exportProjectZip(project, {
         wasmUrl,
         folderName: dlName,
         scadCache: godotScadCache,
         onProgress: (msg) => {
           if (/SCAD/i.test(msg)) {
-            downloadGodotProjectZipBtn.innerText = "⏳ Compiling...";
+            downloadProjectZipBtn.innerText = "⏳ Compiling...";
           } else {
             const pct = msg.match(/(\d+%)/);
-            downloadGodotProjectZipBtn.innerText = pct
+            downloadProjectZipBtn.innerText = pct
               ? `⏳ Zip ${pct[1]}`
               : "⏳ Zipping...";
           }
@@ -2366,10 +2363,10 @@ if (downloadGodotProjectZipBtn) {
       downloadBlob(zipBlob, `${rootFolderName}.zip`);
     } catch (err) {
       console.error(err);
-      alert("Failed to export Godot project ZIP: " + (err?.message || err));
+      alert("Failed to export project ZIP: " + (err?.message || err));
     } finally {
-      downloadGodotProjectZipBtn.innerText = originalText;
-      downloadGodotProjectZipBtn.disabled = false;
+      downloadProjectZipBtn.innerText = originalText;
+      downloadProjectZipBtn.disabled = false;
     }
   };
 }
