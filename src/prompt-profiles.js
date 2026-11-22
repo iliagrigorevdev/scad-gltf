@@ -117,8 +117,11 @@ ${indentedPromptRules}
 }
 
 function getRefinementPatchBody() {
-  return `   - Modified Existing Files (preferred — \`SEARCH/REPLACE\` hunks):
-     * Start with \`### <exact_relative_filepath>\` (including the root project folder), followed immediately by a fenced code block containing one or more \`SEARCH/REPLACE\` hunks:
+  return `   - Header & Code Block Pairing:
+     * Each \`### <exact_relative_filepath>\` header MUST contain ONLY the relative filepath (including the root project folder, with NO extra words or spaces) and applies to **ONE single fenced code block** immediately below it.
+     * NEVER place multiple fenced code blocks under a single \`### <filepath>\` header (any code block after the first will be ignored by the patch parser). If a file needs multiple edits, put ALL of its \`SEARCH/REPLACE\` hunks inside that **ONE** fenced code block.
+   - Modified Existing Files (preferred — \`SEARCH/REPLACE\` hunks):
+     * Start with \`### <exact_relative_filepath>\`, followed immediately by ONE fenced code block containing one or more \`SEARCH/REPLACE\` hunks in top-to-bottom order:
        ### my_project/main.scad
        \`\`\`openscad
        <<<<<<< SEARCH
@@ -126,11 +129,20 @@ function getRefinementPatchBody() {
        =======
        radius = 8.0;
        >>>>>>> REPLACE
+       <<<<<<< SEARCH
+       height = 10.0;
+       =======
+       height = 14.0;
+       >>>>>>> REPLACE
        \`\`\`
-     * Each \`SEARCH\` block must match the current file content verbatim (exact indentation and lines, with enough surrounding lines to be unique). NEVER use ellipsis or placeholders like \`// ... existing code ...\` inside \`SEARCH\` or \`REPLACE\`.
-     * Do NOT mix plain replacement code outside \`<<<<<<< SEARCH ... >>>>>>> REPLACE\` markers inside the same file's code block. If most of a file changes, omit \`SEARCH/REPLACE\` markers and output the complete updated file inside its fenced code block instead.
+     * Use the exact 7-character markers \`<<<<<<< SEARCH\`, \`=======\`, and \`>>>>>>> REPLACE\` alone on their own lines (no trailing text or comments on marker lines).
+     * Each \`SEARCH\` block must be non-empty and match the current file content verbatim (exact whitespace, indentation, and lines, with enough surrounding context to uniquely match the intended occurrence). NEVER use ellipsis or placeholders like \`// ... existing code ...\` inside \`SEARCH\` or \`REPLACE\`.
+     * Hunks are applied sequentially from top to bottom; ensure hunks do not overlap or invalidate a later hunk's \`SEARCH\` text.
+     * To delete lines inside a file, keep the lines in \`SEARCH\` and leave the \`REPLACE\` section empty (\`=======\` followed immediately by \`>>>>>>> REPLACE\`).
+     * NEVER output unified diff syntax (\`---\` / \`+++\` / \`@@\` / \`+\` / \`-\` or \`diff\` blocks), and NEVER mix plain replacement code outside \`<<<<<<< SEARCH ... >>>>>>> REPLACE\` markers inside the same fenced block.
+     * If most of a file changes, omit \`SEARCH/REPLACE\` markers altogether and output the complete updated file inside its single fenced code block.
    - New Files:
-     * Output \`### <exact_relative_filepath>\` followed by a fenced code block containing the complete new file content.
+     * Output \`### <exact_relative_filepath>\` followed by ONE fenced code block containing the complete new file content (no \`SEARCH/REPLACE\` markers).
    - Deleted Files:
      * Output \`### <exact_relative_filepath> (DELETE)\` with no code block (or \`<!-- DELETE -->\` inside a fenced code block).
    - If a file's content itself contains triple backticks, wrap it in a longer backtick fence (e.g., four backticks).`;
