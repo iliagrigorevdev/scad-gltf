@@ -3,7 +3,7 @@ import path from "node:path";
 import url from "node:url";
 import os from "node:os";
 import readline from "node:readline";
-import { execSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import zlib from "node:zlib";
 import { getGodotBin } from "./godot-utils.js";
 import {
@@ -186,14 +186,12 @@ export function detectProjectInDir(baseDir, expectedType = null) {
     if (!fs.statSync(itemPath).isDirectory()) continue;
 
     const isGodot = fs.existsSync(path.join(itemPath, "project.godot"));
-    const isWeb = fs.existsSync(path.join(itemPath, "package.json"));
     const isRust = fs.existsSync(path.join(itemPath, "Cargo.toml"));
     const isUe = fs.readdirSync(itemPath).some((f) => f.endsWith(".uproject"));
 
     let matchedType = null;
     if (expectedType) {
       if (expectedType === "godot" && isGodot) matchedType = "godot";
-      else if (expectedType === "web" && isWeb) matchedType = "web";
       else if (
         (expectedType === "bevy" ||
           expectedType === "wgpu" ||
@@ -204,8 +202,8 @@ export function detectProjectInDir(baseDir, expectedType = null) {
       } else if (expectedType === "ue" && isUe) {
         matchedType = "ue";
       }
-    } else if (isGodot || isWeb || isRust || isUe) {
-      matchedType = isGodot ? "godot" : isRust ? "rust" : isUe ? "ue" : "web";
+    } else if (isGodot || isRust || isUe) {
+      matchedType = isGodot ? "godot" : isRust ? "rust" : "ue";
     }
 
     if (matchedType) {
@@ -252,7 +250,7 @@ export function extractMarkdownProjectToTemp(
             ? "'Cargo.toml'"
             : expectedType === "ue"
               ? "a '.uproject'"
-              : "'project.godot', 'package.json', 'Cargo.toml', or '.uproject'";
+              : "'project.godot', 'Cargo.toml', or '.uproject'";
       throw new Error(
         `The extracted Markdown output did not contain a valid project. Requires ${markerHint} inside a root directory block.`,
       );
@@ -751,9 +749,7 @@ export async function runAutomatedAIFlow(
                   ? "project.godot"
                   : projectType === "bevy" || projectType === "wgpu"
                     ? "Cargo.toml"
-                    : projectType === "ue"
-                      ? ".uproject"
-                      : "package.json";
+                    : ".uproject";
               messages.push({
                 role: "user",
                 content: `Your generated output successfully parsed, but no valid project directory was found. Make sure you place the required files (like ${expectedFile}) inside a root project folder block.`,
@@ -773,27 +769,6 @@ export async function runAutomatedAIFlow(
                 detached: true,
               });
               runProc.unref();
-            } else if (projectType === "web") {
-              console.log(
-                `\n🌐 Installing dependencies for: ${path.basename(projectDir)}...`,
-              );
-              try {
-                execSync("npm install", { cwd: projectDir, stdio: "inherit" });
-              } catch (e) {
-                console.log(
-                  "⚠️ npm install failed, trying to continue anyway...",
-                );
-              }
-
-              console.log(`\n🌐 Starting dev server...`);
-              const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-              runProc = spawn(npmCmd, ["run", "dev"], {
-                cwd: projectDir,
-                stdio: "inherit",
-                detached: false,
-              });
-
-              await new Promise((resolve) => setTimeout(resolve, 2000));
             } else if (projectType === "bevy" || projectType === "wgpu") {
               const fwName = projectType === "bevy" ? "Bevy" : "wgpu";
               console.log(

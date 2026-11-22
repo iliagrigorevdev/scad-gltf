@@ -172,18 +172,6 @@ function getDeliveryFormat(projectType, frameworkName, hasUserScadFiles) {
      \`\`\``;
     includes = `     - Your generated Rust ${frameworkName} project files (\`Cargo.toml\`, \`src/main.rs\`).
      - The exact source code of the provided \`build.rs\` file, placed in the project root.`;
-  } else if (projectType === "web") {
-    exampleCode = `     ### my_project/package.json
-     \`\`\`json
-     {
-       "name": "my_project"
-     }
-     \`\`\`
-     ### my_project/main.js
-     \`\`\`javascript
-     console.log("Started");
-     \`\`\``;
-    includes = `     - Your generated Vite web project files.`;
   } else if (projectType === "godot") {
     exampleCode = `     ### my_project/project.godot
      \`\`\`ini
@@ -362,49 +350,6 @@ ${getDeliveryFormat("godot", null, hasUserScadFiles)}`;
     },
     buildInputRequest: (task) =>
       `Design and implement a Godot 4 project for the following concept: "${task}"`,
-  },
-
-  web: {
-    id: "web",
-    label: "Vite Web 3D Project",
-    showInEditor: true,
-    isRawScad: false,
-    scadTaskFallback: "the 3D assets for the project",
-    helpText:
-      "Describe the Vite Web 3D project you want to generate. The prompt includes Vite setup, npm build scripts, and SCAD asset rules.",
-    descriptionPlaceholder:
-      "e.g. An interactive 3D product viewer with animated parts",
-    defaultDescription: "an interactive 3D web scene",
-    defaultPromptOptions: { ...BASE_PROJECT_PROMPT_OPTIONS },
-    forcedPromptOptions: { modelName: false },
-    allowedTools: ["render_scad_model"],
-    buildSystemPrompt: (promptRules, { referenceFiles = [] } = {}) => {
-      const hasUserScadFiles =
-        Array.isArray(referenceFiles) && referenceFiles.length > 0;
-
-      return (
-        `You are an expert Web 3D developer and procedural 3D technical artist.
-
-What to generate:
-${getScadAssetsInstructions(promptRules, "web")}
-
-2. Vite Web Project Files (npm based):
-   - Create the necessary files for a modern web application (e.g., \`package.json\`, \`index.html\`, \`main.js\`).
-   - You can use ANY web 3D library with glTF support (e.g., Three.js, Babylon.js, @google/model-viewer, PlayCanvas, A-Frame, etc.) that fits the project's requirements.
-   - In \`package.json\`, you MUST include the scad to gltf converter tool as a dev dependency:
-     \`"scad-gltf": "^0.3.0"\`
-   - In \`package.json\`, add npm scripts to automatically compile the \`.scad\` files into \`.glb\` format inside the \`public/\` folder before Vite runs its dev or build steps.
-     For example:
-     \`"predev": "scad-gltf convert ./scad ./public/models --cache"\`
-     \`"prebuild": "scad-gltf convert ./scad ./public/models --cache"\`
-   - Write the core application logic to load and display the converted \`.glb\` files interactively.
-
-${getDeliveryFormat("web", null, hasUserScadFiles)}` +
-        appendReferenceScadFiles(referenceFiles, false)
-      );
-    },
-    buildInputRequest: (task) =>
-      `Design and implement a web-based 3D glTF project using Vite for the following concept: "${task}"`,
   },
 
   bevy: createRustProfile({

@@ -206,25 +206,6 @@ test("Project Prompts - Rust Bevy Generation", () => {
   );
 });
 
-test("Project Prompts - Web Generation", () => {
-  const prompts = getProjectPrompts("web");
-  const promptRules = generatePrompt("A rotating cube", { basic: false });
-  const systemPrompt = prompts.buildSystemPrompt(promptRules, {});
-
-  assert.ok(
-    systemPrompt.includes("Web 3D developer"),
-    "Should declare Web persona",
-  );
-  assert.ok(
-    systemPrompt.includes("package.json"),
-    "Should require package.json",
-  );
-  assert.ok(
-    systemPrompt.includes('"scad-gltf"'),
-    "Should require scad-gltf dependency",
-  );
-});
-
 test("Project Prompts - User SCAD Files Appending", () => {
   // Create a temporary SCAD file to test embedding
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "scad-embed-"));
@@ -308,6 +289,11 @@ test("Project Prompts - Error on Unknown Project Type", () => {
     /Unknown project type \/ prompt profile: unreal_engine/,
     "Should throw a clear error when an unsupported project type is requested",
   );
+  assert.throws(
+    () => getProjectPrompts("web"),
+    /Unknown project type \/ prompt profile: web/,
+    "Should reject removed web prompt profile",
+  );
 });
 
 test("Prompt Generator - Modular Flags", () => {
@@ -358,7 +344,7 @@ test("Prompt Generator - Modular Flags", () => {
 test("Project Prompts - Follow-up Refinements Patch Format Rules", () => {
   const promptRules = generatePrompt("A rover", { basic: false });
 
-  for (const projectType of ["godot", "web", "bevy", "wgpu", "ue"]) {
+  for (const projectType of ["godot", "bevy", "wgpu", "ue"]) {
     const prompts = getProjectPrompts(projectType);
     const systemPrompt = prompts.buildSystemPrompt(promptRules, {});
 

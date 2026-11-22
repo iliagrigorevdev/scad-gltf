@@ -95,7 +95,7 @@ function main() {
     if (!detected) {
       console.error("\n❌ Error: Could not find a valid generated project.");
       console.error(
-        "The project did not contain a root folder holding 'project.godot', 'package.json', 'Cargo.toml', or a '.uproject' file.",
+        "The project did not contain a root folder holding 'project.godot', 'Cargo.toml', or a '.uproject' file.",
       );
       cleanup();
       process.exit(1);
@@ -126,25 +126,6 @@ function main() {
 
       console.log(`\n🎮 Launching Godot Engine...`);
       appProcess = spawn(godotBin, ["--path", projectDir], {
-        stdio: "inherit",
-      });
-    } else if (projectType === "web") {
-      console.log(
-        `\n🌐 Installing NPM dependencies (this may take a moment)...`,
-      );
-      try {
-        execSync("npm install", { cwd: projectDir, stdio: "inherit" });
-      } catch (e) {
-        console.log(
-          "⚠️ npm install failed or showed errors, attempting to continue anyway...",
-        );
-      }
-
-      console.log(`\n🌐 Starting Vite dev server...`);
-      const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-
-      appProcess = spawn(npmCmd, ["run", "dev"], {
-        cwd: projectDir,
         stdio: "inherit",
       });
     } else if (projectType === "rust") {

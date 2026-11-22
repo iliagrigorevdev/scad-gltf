@@ -50,7 +50,7 @@ The C++ source code for this custom OpenSCAD fork is included in the `openscad/`
 
 - **Real-Time 3D Viewport & GPU Path Tracing:** Live WebAssembly compilation with auto-render, auto-framing camera, wireframe, grid/axes, bloom, scene light toggle, glTF camera selector, expand mode (`⛶`), and hardware-accelerated path tracing with custom `.hdr` environment map drag-and-drop.
 - **Animation & Media Capture:** Multi-clip selector, play/pause, timeline scrubber, **📷 PNG snapshots**, and **🎥 MP4/WebM video recording** (renders deterministically frame-by-frame when Path Tracing is active).
-- **AI Prompt Generator Tab:** Choose a target profile (**OpenSCAD Model**, **Godot 4 Project**, **Vite Web 3D Project**, **Rust Bevy Project**, **Rust wgpu Project**, **Unreal Engine 5 Project**), toggle PBR/animation/baking rules, reset to profile defaults (**↺ Reset**), copy complete prompts with bundled engine templates (`addons/scad_importer`, `build.rs`, `Plugins/ScadImporter`), or click **🩹 Copy Refinement Prompt** (available when editing a multi-file Markdown bundle) to copy the full project alongside patch-formatting rules and an optional refinement request.
+- **AI Prompt Generator Tab:** Choose a target profile (**OpenSCAD Model**, **Godot 4 Project**, **Rust Bevy Project**, **Rust wgpu Project**, **Unreal Engine 5 Project**), toggle PBR/animation/baking rules, reset to profile defaults (**↺ Reset**), copy complete prompts with bundled engine templates (`addons/scad_importer`, `build.rs`, `Plugins/ScadImporter`), or click **🩹 Copy Refinement Prompt** (available when editing a multi-file Markdown bundle) to copy the full project alongside patch-formatting rules and an optional refinement request.
 - **Multi-File Markdown Editing & Interactive Patching:** Edit single-file `### filepath` Markdown bundles with block highlighting, a cursor-synced file dropdown featuring **📑 All (.md)** plus grouped **SCAD Models** and **Other Files** (automatically compiling `.scad` blocks as you select or move the cursor into them), per-file/full-document **📋 Copy**, **📥 Paste** (shown for empty or plain `.scad` editors to replace content from clipboard), **🩹 Patch** (shown for Markdown bundles to open an interactive patcher supporting **Patch Matching & Add New**, **Replace Single File**, and **Replace Entire Document** modes; auto-reads the clipboard, accepts dropped `.md`/`.patch` files, resolves missing/swapped root folder prefixes, supports `<<<<<<< SEARCH` / `>>>>>>> REPLACE` hunks, `(DELETE)` headings or `<!-- DELETE -->` / `// DELETE` / `# DELETE` markers, per-file checkboxes, path remapping, and live diff previews, plus a post-patch banner with file jump pills, **↩ Undo**, and **🔍 Diff**), and **⬇ MD** / **⬇ SCAD** / **⬇ Project ZIP** downloads.
 - **Local Storage & Version Comparison:**
   - Automatically saves the active workspace draft in `localStorage` and stores named local models and up to 50 auto-snapshots per model in `IndexedDB`.
@@ -135,7 +135,7 @@ npm install -g scad-gltf
 | `scad-gltf convert <in> <out> [options] [--cache]`   | Convert a `.scad` file or directory to `.glb`, `.gltf`, `.3mf`, `.stl`, `.obj`, `.svg`, etc.                            |
 | `scad-gltf serve [--port <port>] [--ue-root <path>]` | Start the local REST API, serve the Scadify Web Editor for the current working directory, and optionally set `UE_ROOT`. |
 | `scad-gltf gen <type> "<desc>" [options]`            | Generate prompts (clipboard) or run an automated AI + MCP visual iteration loop.                                        |
-| `scad-gltf play <project.md>`                        | Unpack, build, and launch a Markdown project (`godot`, `web`, `bevy`, `wgpu`, `ue`) in a temp dir.                      |
+| `scad-gltf play <project.md>`                        | Unpack, build, and launch a Markdown project (`godot`, `bevy`, `wgpu`, `ue`) in a temp dir.                             |
 | `scad-gltf extract <project.md> [dir]`               | Unpack a single-file Markdown project to disk.                                                                          |
 | `scad-gltf pack <dir> [output.md]`                   | Pack an existing local project directory into a single `### filepath` Markdown file.                                    |
 | `scad-gltf mcp`                                      | Start the stdio Model Context Protocol (MCP) server for AI assistants.                                                  |
@@ -187,7 +187,7 @@ scad-gltf serve [--port <port>] [--ue-root <path>] [--godot-bin <path>]
 
 ### Automated AI Generation (`scad-gltf gen`)
 
-Generates a tailored prompt (`scad`, `godot`, `web`, `bevy`, `wgpu`, or `ue`) and copies it to your clipboard—or, when `OPENAI_BASE_URL` / `OPENAI_API_KEY` (or JSON equivalents) are provided, runs an automated loop using `scad-gltf mcp` for multi-angle visual inspection and human-in-the-loop feedback before saving the final file (`<model_name>.scad` / `generated_model.scad`, or `generate_<type>_project.md`).
+Generates a tailored prompt (`scad`, `godot`, `bevy`, `wgpu`, or `ue`) and copies it to your clipboard—or, when `OPENAI_BASE_URL` / `OPENAI_API_KEY` (or JSON equivalents) are provided, runs an automated loop using `scad-gltf mcp` for multi-angle visual inspection and human-in-the-loop feedback before saving the final file (`<model_name>.scad` / `generated_model.scad`, or `generate_<type>_project.md`).
 
 ```bash
 # Clipboard mode (copies system prompt + request to paste into any LLM)
@@ -208,7 +208,7 @@ scad-gltf gen godot "A fast-paced 3D hovercraft racing game"
 # Automated mode with a local OpenAI-compatible server (e.g. llama.cpp)
 export OPENAI_BASE_URL="http://127.0.0.1:8080/v1"
 export OPENAI_MODEL="llama-3"
-scad-gltf gen web "A 3D configurator app"
+scad-gltf gen bevy "A 3D configurator app"
 
 # Inline JSON options + existing local .scad context files (or pipe description via STDIN)
 scad-gltf gen godot "A game using the provided player model" '{"scadFiles": ["./player.scad"], "openaiBaseUrl": "http://127.0.0.1:8080/v1", "openaiModel": "llama-3"}'
@@ -217,7 +217,7 @@ scad-gltf gen godot "A game using the provided player model" '{"scadFiles": ["./
 **Automated Loop Behavior:**
 
 - **Automatic Vision Fallback:** If the target API rejects image inputs, `scad-gltf gen` automatically strips images, sets `return_images: false` on MCP tool calls, and retries in text-only mode.
-- **Live Preview & Feedback:** Before prompting `Are you happy with this result?`, `scad` mode launches a background `scad-gltf serve` instance and prints `#c...` browser preview links, `godot` launches Godot, `web` runs `npm install && npm run dev`, and `bevy`/`wgpu` runs `cargo run`.
+- **Live Preview & Feedback:** Before prompting `Are you happy with this result?`, `scad` mode launches a background `scad-gltf serve` instance and prints `#c...` browser preview links, `godot` launches Godot, and `bevy`/`wgpu` runs `cargo run`.
 - **Incremental Patching:** When providing follow-up feedback on multi-file projects, the AI outputs Markdown patches (`SEARCH/REPLACE` hunks and modified/added/deleted files), which are validated and applied to the previous project state automatically.
 
 ### Playing, Extracting & Packing Projects (`play`, `extract`, `pack`)
@@ -256,7 +256,7 @@ Configure any [Model Context Protocol](https://modelcontextprotocol.io/) client 
 
 **Exposed MCP Tools:**
 
-- `get_project_prompt`: Returns syntax rules and project guidelines for `scad`, `bevy`, `wgpu`, `web`, `godot`, or `ue`, with optional `options` feature toggles and `scadFiles` paths.
+- `get_project_prompt`: Returns syntax rules and project guidelines for `scad`, `bevy`, `wgpu`, `godot`, or `ue`, with optional `options` feature toggles and `scadFiles` paths.
 - `render_scad_model`: Compiles `.scad` code to GLB and returns base64 PNG renders from requested angles (`front`, `back`, `left`, `right`, `top`, `bottom`, `isometric`; defaults to `["front", "top", "isometric"]`) at `animation_time` / `animation_index`, supporting `dependencies` (`{ [relativePath]: scadCode }`) and `return_images: false`.
 - `generate_scad_preview_link`: Creates a compressed Scadify URL (`https://iliagrigorevdev.github.io/scad-gltf/#c...`) for interactive browser inspection.
 - `test_godot_project`: Extracts a Markdown Godot 4 project, imports assets headlessly, runs for `run_time` seconds (default `5.0`), and returns logs + screenshot (uses `xvfb-run` on Linux).
@@ -388,7 +388,7 @@ const glbData = await convertScadToGltf(scadCode, { wasmUrl });
 
 ### AI Prompt Generation (`scad-gltf/prompt`)
 
-Use `generatePrompt` for standalone OpenSCAD rules, `buildProfilePrompt` for complete target-engine prompts (`"scad"`, `"godot"`, `"web"`, `"bevy"`, `"wgpu"`, `"ue"`), or `buildRefinementPrompt` / `getRefinementPatchRules` for incremental patch follow-ups:
+Use `generatePrompt` for standalone OpenSCAD rules, `buildProfilePrompt` for complete target-engine prompts (`"scad"`, `"godot"`, `"bevy"`, `"wgpu"`, `"ue"`), or `buildRefinementPrompt` / `getRefinementPatchRules` for incremental patch follow-ups:
 
 ```javascript
 import {

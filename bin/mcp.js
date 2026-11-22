@@ -67,13 +67,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "get_project_prompt",
         description:
-          "Generates the specialized system prompt and user input request for creating full procedural 3D projects (Godot, Web, Rust, or pure SCAD). This provides the syntax rules and structure required to generate the project.",
+          "Generates the specialized system prompt and user input request for creating full procedural 3D projects (Godot, Rust, Unreal Engine, or pure SCAD). This provides the syntax rules and structure required to generate the project.",
         inputSchema: {
           type: "object",
           properties: {
             project_type: {
               type: "string",
-              enum: ["scad", "bevy", "wgpu", "web", "godot", "ue"],
+              enum: ["scad", "bevy", "wgpu", "godot", "ue"],
               description:
                 "The target framework or output type for the project.",
             },
@@ -334,7 +334,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         ...(args.options || {}),
       };
 
-      if (!["scad", "bevy", "wgpu", "web", "godot", "ue"].includes(pType)) {
+      if (!["scad", "bevy", "wgpu", "godot", "ue"].includes(pType)) {
         throw new Error(`Invalid project type: ${pType}`);
       }
 
