@@ -45,6 +45,8 @@
     "./prompt.js": "./src/prompt.js",
     "./utils": "./src/utils.js",
     "./utils.js": "./src/utils.js",
+    "./godot-utils": "./src/godot-utils.js",
+    "./godot-utils.js": "./src/godot-utils.js",
     "./openscad.wasm": "./ext/openscad.wasm"
   },
   "scripts": {

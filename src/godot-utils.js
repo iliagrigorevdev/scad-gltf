@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 
 const GODOT_VERSION = "4.7.2-stable";
 const GODOT_SHORT_VERSION = "4.7.2.stable";
-const BIN_DIR = path.resolve(__dirname, "../.godot-bin");
+const DEFAULT_BIN_DIR = path.resolve(__dirname, "../.godot-bin");
 
 function extractArchive(archivePath, destDir) {
   if (os.platform() === "win32") {
@@ -40,20 +40,20 @@ function getTemplatesDir() {
   return path.join(baseDir, "godot", "export_templates", GODOT_SHORT_VERSION);
 }
 
-export function ensureExportTemplates() {
+export function ensureExportTemplates(binDir = DEFAULT_BIN_DIR) {
   const templateDir = getTemplatesDir();
   if (!fs.existsSync(templateDir)) {
     console.log(`⬇️  Downloading Godot Web export templates...`);
     fs.mkdirSync(templateDir, { recursive: true });
-    fs.mkdirSync(BIN_DIR, { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
 
-    const tpzPath = path.join(BIN_DIR, "templates.tpz");
+    const tpzPath = path.join(binDir, "templates.tpz");
     cp.execSync(
       `curl -fL "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_export_templates.tpz" -o "${tpzPath}"`,
       { stdio: "inherit" },
     );
 
-    const extractTemp = path.join(BIN_DIR, "templates_temp");
+    const extractTemp = path.join(binDir, "templates_temp");
     fs.mkdirSync(extractTemp, { recursive: true });
     extractArchive(tpzPath, extractTemp);
 
@@ -69,26 +69,26 @@ export function ensureExportTemplates() {
   }
 }
 
-export function getGodotBin(withTemplates = false) {
+export function getGodotBin(withTemplates = false, binDir = DEFAULT_BIN_DIR) {
   if (process.env.GODOT_BIN && fs.existsSync(process.env.GODOT_BIN)) {
-    if (withTemplates) ensureExportTemplates();
+    if (withTemplates) ensureExportTemplates(binDir);
     return process.env.GODOT_BIN;
   }
   try {
     cp.execSync("godot --version", { stdio: "ignore" });
-    if (withTemplates) ensureExportTemplates();
+    if (withTemplates) ensureExportTemplates(binDir);
     return "godot";
   } catch {
     const isWin = os.platform() === "win32";
     const isMac = os.platform() === "darwin";
     const localGodot = path.join(
-      BIN_DIR,
+      binDir,
       isWin ? "godot.exe" : isMac ? "Godot.app/Contents/MacOS/Godot" : "godot",
     );
 
     if (!fs.existsSync(localGodot)) {
       console.log(`\n⬇️  Downloading Godot ${GODOT_VERSION} headless...`);
-      fs.mkdirSync(BIN_DIR, { recursive: true });
+      fs.mkdirSync(binDir, { recursive: true });
       let zipUrl = "";
 
       if (isWin) {
@@ -101,20 +101,20 @@ export function getGodotBin(withTemplates = false) {
         zipUrl = `https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.${linuxArch}.zip`;
       }
 
-      const zipPath = path.join(BIN_DIR, "godot.zip");
+      const zipPath = path.join(binDir, "godot.zip");
       cp.execSync(`curl -fL "${zipUrl}" -o "${zipPath}"`, { stdio: "ignore" });
-      extractArchive(zipPath, BIN_DIR);
+      extractArchive(zipPath, binDir);
 
       if (!isMac) {
-        const files = fs.readdirSync(BIN_DIR);
+        const files = fs.readdirSync(binDir);
         const extracted = files.find(
           (f) =>
             f.startsWith("Godot_v") &&
             !f.endsWith(".zip") &&
-            fs.statSync(path.join(BIN_DIR, f)).isFile(),
+            fs.statSync(path.join(binDir, f)).isFile(),
         );
         if (extracted) {
-          fs.renameSync(path.join(BIN_DIR, extracted), localGodot);
+          fs.renameSync(path.join(binDir, extracted), localGodot);
         }
       }
 
@@ -124,13 +124,13 @@ export function getGodotBin(withTemplates = false) {
       } catch (e) {}
     }
 
-    if (withTemplates) ensureExportTemplates();
+    if (withTemplates) ensureExportTemplates(binDir);
     return localGodot;
   }
 }
 
-export function runGodotAsync(args, cwd, timeoutMs) {
-  const godotBin = getGodotBin();
+export function runGodotAsync(args, cwd, timeoutMs, options = {}) {
+  const godotBin = getGodotBin(false, options.binDir || DEFAULT_BIN_DIR);
   const env = { ...process.env };
   let spawnBin = godotBin;
   let spawnArgs = args;
@@ -154,8 +154,8 @@ export function runGodotAsync(args, cwd, timeoutMs) {
   });
 }
 
-export function ensureWebLibraries(destDir) {
-  ensureExportTemplates();
+export function ensureWebLibraries(destDir, binDir = DEFAULT_BIN_DIR) {
+  ensureExportTemplates(binDir);
   const templateDir = getTemplatesDir();
   const candidates = [
     "web_nothreads_release.zip",

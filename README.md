@@ -457,6 +457,26 @@ Environment-agnostic helpers (browser and Node.js) for working with `.scad` file
   - `parseMarkdownPatchEntries(rawPatchText)`, `resolveMarkdownPatchTarget(existingPaths, incomingPath, rootFolder)`, `evaluatePatchEntryAgainstFiles(entry, targetPath, existingFilesMap, remappedFrom)` — Parses patch headings (including `(DELETE)` and `<!-- DELETE -->`) and resolves root-prefix remapping.
   - `analyzeMarkdownPatch(existingMd, patchText, options)` / `applyMarkdownPatchPlan(existingMd, planItems)` — Computes a full patch plan with diff/error metadata and applies selected items cleanly.
 
+### Godot Utilities (`scad-gltf/godot-utils`)
+
+Node.js helpers for locating or downloading Godot 4 binaries and export templates and running headless Godot processes:
+
+```javascript
+import {
+  getGodotBin,
+  ensureExportTemplates,
+  ensureWebLibraries,
+  runGodotAsync,
+} from "scad-gltf/godot-utils";
+
+const godotBin = getGodotBin(true, ".godot-bin");
+```
+
+- `getGodotBin(withTemplates = false, binDir?)` — Resolves `GODOT_BIN`, `godot` on `PATH`, or downloads Godot into `binDir` (defaults to `scad-gltf/.godot-bin`), optionally installing export templates.
+- `ensureExportTemplates(binDir?)` — Downloads and installs Godot export templates if missing.
+- `ensureWebLibraries(destDir, binDir?)` — Extracts Godot Web runtime libraries into `destDir`.
+- `runGodotAsync(args, cwd, timeoutMs, options?)` — Runs Godot with a timeout (wrapping with `xvfb-run` on Linux).
+
 ---
 
 ## 4. Extended OpenSCAD Syntax
