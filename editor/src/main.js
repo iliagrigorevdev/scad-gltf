@@ -556,8 +556,7 @@ async function openModelInLocalStore({
     versionLabel,
   });
 
-  lastPatchUndoState = null;
-  if (mdPatchToastEl) mdPatchToastEl.style.display = "none";
+  clearLastPatchToast();
   isRestoringWorkspace = true;
   try {
     activeLocalModelId = result.model.id;
@@ -611,8 +610,7 @@ if (localModelSelectEl) {
     }
 
     const target = await getLocalModel(nextId);
-    lastPatchUndoState = null;
-    if (mdPatchToastEl) mdPatchToastEl.style.display = "none";
+    clearLastPatchToast();
     isRestoringWorkspace = true;
     try {
       activeLocalModelId = nextId;
@@ -707,6 +705,7 @@ if (localNewModelBtn) {
       await syncNamedLocalModelContent();
     }
 
+    clearLastPatchToast();
     isRestoringWorkspace = true;
     try {
       activeLocalModelId = DRAFT_MODEL_ID;
@@ -752,6 +751,7 @@ if (localDeleteModelBtn) {
     await deleteLocalModel(activeLocalModelId);
     const draft = await getLocalModel(DRAFT_MODEL_ID);
 
+    clearLastPatchToast();
     isRestoringWorkspace = true;
     try {
       activeLocalModelId = DRAFT_MODEL_ID;
@@ -812,6 +812,7 @@ if (localRestoreVersionBtn) {
       await maybeCreateAutoVersion("Before restore", true);
     }
 
+    clearLastPatchToast();
     isRestoringWorkspace = true;
     try {
       editorEl.value = target.content;
@@ -852,6 +853,7 @@ if (localCompareVersionsBtn) {
           await maybeCreateAutoVersion("Before restore", true);
         }
 
+        clearLastPatchToast();
         isRestoringWorkspace = true;
         try {
           editorEl.value = snapshot.content;
@@ -1314,6 +1316,13 @@ if (copyMdFileBtn) {
 
 function hideMdPatchToast() {
   if (mdPatchToastEl) mdPatchToastEl.style.display = "none";
+}
+
+function clearLastPatchToast() {
+  lastPatchUndoState = null;
+  hideMdPatchToast();
+  if (mdPatchToastSummaryEl) mdPatchToastSummaryEl.textContent = "";
+  if (mdPatchToastFilesEl) mdPatchToastFilesEl.replaceChildren();
 }
 
 function showMdPatchToast(
@@ -3014,6 +3023,7 @@ backendSelectEl.addEventListener("change", async () => {
 
   if (idx === "") {
     await persistCurrentActiveModel("Before new model");
+    clearLastPatchToast();
     isRestoringWorkspace = true;
     try {
       activeLocalModelId = DRAFT_MODEL_ID;
@@ -3173,6 +3183,7 @@ backendDeleteBtn.onclick = async () => {
     currentSelectedModelIdx = "";
     renderBackendSelect();
 
+    clearLastPatchToast();
     autoDerivedModelName = null;
     pendingForceNameOverride = false;
     modelNameInputEl.value = "";
@@ -3545,6 +3556,7 @@ window.addEventListener("hashchange", async () => {
   } else {
     if (editorEl.value !== "") {
       await persistCurrentActiveModel("Before clear");
+      clearLastPatchToast();
       isRestoringWorkspace = true;
       try {
         activeLocalModelId = DRAFT_MODEL_ID;
