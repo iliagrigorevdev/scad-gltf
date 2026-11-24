@@ -88,42 +88,58 @@ export const PROMPT_UI_HTML = `
     >
       ↺ Reset
     </button>
+    <button
+      type="button"
+      id="opt-prompt-toggle-btn"
+      class="scad-prompt-toggle-btn"
+      title="Show or hide prompt toggles"
+      aria-expanded="false"
+      aria-controls="opt-prompt-toggles-panel"
+    >
+      ▸ Options
+    </button>
   </div>
 
-  <div class="scad-prompt-toggles">
-    <label><input type="checkbox" id="opt-pbr-basic" checked /> Basic PBR</label>
-    <label><input type="checkbox" id="opt-pbr-autosmooth" checked /> Auto Smooth</label>
-    <label><input type="checkbox" id="opt-anim" checked /> Animations</label>
-    <label><input type="checkbox" id="opt-lights" /> Lights</label>
-  </div>
+  <div
+    id="opt-prompt-toggles-panel"
+    class="scad-prompt-toggles-panel"
+    style="display: none"
+  >
+    <div class="scad-prompt-toggles">
+      <label><input type="checkbox" id="opt-pbr-basic" checked /> Basic PBR</label>
+      <label><input type="checkbox" id="opt-pbr-autosmooth" checked /> Auto Smooth</label>
+      <label><input type="checkbox" id="opt-anim" checked /> Animations</label>
+      <label><input type="checkbox" id="opt-lights" /> Lights</label>
+    </div>
 
-  <div class="scad-prompt-group">
-    <div class="scad-prompt-group-header">
-      <span>Extended PBR</span>
-      <label><input type="checkbox" id="opt-pbr-all" checked /> Enable All</label>
+    <div class="scad-prompt-group">
+      <div class="scad-prompt-group-header">
+        <span>Extended PBR</span>
+        <label><input type="checkbox" id="opt-pbr-all" checked /> Enable All</label>
+      </div>
+      <div class="scad-prompt-toggles nested" id="pbr-children">
+        <label><input type="checkbox" class="pbr-child" id="opt-pbr-transmission" checked /> Transmission</label>
+        <label><input type="checkbox" class="pbr-child" id="opt-pbr-clearcoat" checked /> Clearcoat</label>
+        <label><input type="checkbox" class="pbr-child" id="opt-pbr-sheen" checked /> Sheen</label>
+        <label><input type="checkbox" class="pbr-child" id="opt-pbr-emissive" checked /> Emissive</label>
+        <label><input type="checkbox" class="pbr-child" id="opt-pbr-specular" checked /> Specular</label>
+        <label><input type="checkbox" class="pbr-child" id="opt-pbr-iridescence" checked /> Iridescence</label>
+        <label><input type="checkbox" class="pbr-child" id="opt-pbr-unlit" checked /> Unlit</label>
+      </div>
     </div>
-    <div class="scad-prompt-toggles nested" id="pbr-children">
-      <label><input type="checkbox" class="pbr-child" id="opt-pbr-transmission" checked /> Transmission</label>
-      <label><input type="checkbox" class="pbr-child" id="opt-pbr-clearcoat" checked /> Clearcoat</label>
-      <label><input type="checkbox" class="pbr-child" id="opt-pbr-sheen" checked /> Sheen</label>
-      <label><input type="checkbox" class="pbr-child" id="opt-pbr-emissive" checked /> Emissive</label>
-      <label><input type="checkbox" class="pbr-child" id="opt-pbr-specular" checked /> Specular</label>
-      <label><input type="checkbox" class="pbr-child" id="opt-pbr-iridescence" checked /> Iridescence</label>
-      <label><input type="checkbox" class="pbr-child" id="opt-pbr-unlit" checked /> Unlit</label>
-    </div>
-  </div>
 
-  <div class="scad-prompt-group">
-    <div class="scad-prompt-group-header">
-      <span>Baking</span>
-      <label><input type="checkbox" id="opt-bake-all" /> Enable All</label>
-    </div>
-    <div class="scad-prompt-toggles nested" id="bake-children">
-      <label><input type="checkbox" class="bake-child" id="opt-bake-colors" /> Bake Colors</label>
-      <label><input type="checkbox" class="bake-child" id="opt-bake-normals" /> Bake Normals</label>
-      <label><input type="checkbox" class="bake-child" id="opt-bake-orm" /> Bake ORM</label>
-      <label><input type="checkbox" class="bake-child" id="opt-bake-uvs" /> Bake UVs/Tangents</label>
-      <label><input type="checkbox" class="bake-child" id="opt-pbr-colormap" /> Colormap</label>
+    <div class="scad-prompt-group">
+      <div class="scad-prompt-group-header">
+        <span>Baking</span>
+        <label><input type="checkbox" id="opt-bake-all" /> Enable All</label>
+      </div>
+      <div class="scad-prompt-toggles nested" id="bake-children">
+        <label><input type="checkbox" class="bake-child" id="opt-bake-colors" /> Bake Colors</label>
+        <label><input type="checkbox" class="bake-child" id="opt-bake-normals" /> Bake Normals</label>
+        <label><input type="checkbox" class="bake-child" id="opt-bake-orm" /> Bake ORM</label>
+        <label><input type="checkbox" class="bake-child" id="opt-bake-uvs" /> Bake UVs/Tangents</label>
+        <label><input type="checkbox" class="bake-child" id="opt-pbr-colormap" /> Colormap</label>
+      </div>
     </div>
   </div>
 `;
@@ -186,6 +202,24 @@ export function setupPromptToggles(
   };
 
   const resetBtn = containerElement.querySelector("#opt-prompt-reset");
+  const togglesPanel = containerElement.querySelector(
+    "#opt-prompt-toggles-panel",
+  );
+  const togglesBtn = containerElement.querySelector("#opt-prompt-toggle-btn");
+
+  if (togglesPanel && togglesBtn) {
+    const setTogglesVisible = (visible) => {
+      togglesPanel.style.display = visible ? "flex" : "none";
+      togglesBtn.setAttribute("aria-expanded", String(visible));
+      togglesBtn.classList.toggle("is-open", visible);
+      togglesBtn.textContent = visible ? "▾ Options" : "▸ Options";
+    };
+    setTogglesVisible(false);
+    togglesBtn.addEventListener("click", () => {
+      const isVisible = togglesPanel.style.display !== "none";
+      setTogglesVisible(!isVisible);
+    });
+  }
 
   const getDefaultChecked = (profile, optKey, cb) => {
     if (profile.defaultPromptOptions?.[optKey] !== undefined) {

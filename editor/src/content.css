@@ -327,8 +327,40 @@
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid #444;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   font-size: 13px;
+}
+
+.scad-prompt-toggles-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.scad-prompt-toggle-btn {
+  background: #444;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+
+.scad-prompt-toggle-btn:hover {
+  background: #555;
+}
+
+.scad-prompt-toggle-btn.is-open {
+  background: #555;
+  border-color: #8a2be2;
 }
 
 .scad-prompt-profile-row label {

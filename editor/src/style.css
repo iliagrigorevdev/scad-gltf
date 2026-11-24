@@ -913,7 +913,7 @@ button.godot-btn:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
   font-size: 13px;
 }
 
@@ -940,6 +940,28 @@ button.godot-btn:hover {
 
 .scad-prompt-reset-btn.has-changes:hover {
   background: #d97706;
+}
+
+.scad-prompt-toggles-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.scad-prompt-toggles-panel .scad-prompt-toggles,
+.scad-prompt-toggles-panel .scad-prompt-group {
+  margin-bottom: 0;
+}
+
+.scad-prompt-toggle-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.scad-prompt-toggle-btn.is-open {
+  background: #0066cc;
+  border-color: #0055aa;
 }
 #copy-md-file-btn,
 #paste-md-file-btn {
