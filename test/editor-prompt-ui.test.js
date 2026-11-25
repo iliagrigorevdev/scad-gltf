@@ -59,6 +59,7 @@ class MiniElement {
     this.value = "";
     this.textContent = "";
     this.placeholder = "";
+    this.attrs = new Map();
     this.style = {};
     this.children = [];
     this.parentNode = null;
@@ -86,6 +87,15 @@ class MiniElement {
         return shouldAdd;
       },
     };
+  }
+  setAttribute(k, v) {
+    this.attrs.set(k, String(v));
+    if (k === "id") this.id = String(v);
+    if (k === "class") this.className = String(v);
+    if (k === "type") this.type = String(v);
+  }
+  getAttribute(k) {
+    return this.attrs.get(k) ?? null;
   }
   appendChild(child) {
     child.parentNode = this;
@@ -245,6 +255,14 @@ test("prompt-ui - setupPromptToggles migrates legacy settings, syncs groups, swi
   const descEl = new MiniElement("textarea");
 
   setupPromptToggles(container, "test_prompt_key", { helpTextEl, descEl });
+
+  const togglesBtn = container.querySelector("#opt-prompt-toggle-btn");
+  const togglesPanel = container.querySelector("#opt-prompt-toggles-panel");
+  assert.strictEqual(togglesBtn.getAttribute("aria-expanded"), "false");
+  assert.strictEqual(togglesPanel.style.display, "none");
+  togglesBtn.dispatchEvent({ type: "click" });
+  assert.strictEqual(togglesBtn.getAttribute("aria-expanded"), "true");
+  assert.strictEqual(togglesPanel.style.display, "flex");
 
   assert.strictEqual(getSelectedPromptProfile(container), "scad");
   const opts = getPromptOptions(container);
